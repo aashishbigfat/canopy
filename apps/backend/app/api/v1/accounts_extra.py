@@ -1,0 +1,182 @@
+"""
+Additional Account API endpoints - create, edit, import, export
+"""
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
+from fastapi.responses import StreamingResponse
+from io import BytesIO
+from bson import ObjectId
+
+from app.models.user import User
+from app.models.account import Account
+from app.schemas.account import AccountResponse
+from app.api.deps import get_current_user, check_permission
+
+router = APIRouter()
+
+@router.get("/create")
+async def get_create_form_data(
+    current_user: User = Depends(get_current_user)
+):
+    """Get form data for creating an account"""
+    from app.models.picklists import AccountType, Industry, Rating, AccountSource
+    from app.models.custom_fields import AdditionalFieldAccount
+    
+    # Get account types
+    account_types = await AccountType.find(
+        AccountType.tenant_id == current_user.tenant_id,
+        AccountType.is_active == True
+    ).sort("+sorting").to_list()
+    
+    # Get industries
+    industries = await Industry.find(
+        Industry.tenant_id == current_user.tenant_id,
+        Industry.is_active == True
+    ).sort("+sorting").to_list()
+    
+    # Get ratings
+    ratings = await Rating.find(
+        Rating.is_active == True
+    ).sort("+sorting").to_list()
+    
+    # Get account sources
+    sources = await AccountSource.find(
+        AccountSource.tenant_id == current_user.tenant_id,
+        AccountSource.is_active == True
+    ).sort("+sorting").to_list()
+    
+    # Get users for owner selection
+    users = await User.find(
+        User.tenant_id == current_user.tenant_id,
+        User.is_active == True
+    ).sort("+name").to_list()
+    
+    # Get custom fields
+    custom_fields = await AdditionalFieldAccount.find(
+        AdditionalFieldAccount.tenant_id == current_user.tenant_id,
+        AdditionalFieldAccount.is_active == True
+    ).sort("+sorting").to_list()
+    
+    return {
+        "error": False,
+        "account_types": [{"id": str(at.id), "name": at.name} for at in account_types],
+        "industries": [{"id": str(i.id), "name": i.name} for i in industries],
+        "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
+        "sources": [{"id": str(s.id), "name": s.name} for s in sources],
+        "users": [{"id": str(u.id), "name": u.name, "email": u.email} for u in users],
+        "custom_fields": [
+            {
+                "id": str(cf.id),
+                "name": cf.name,
+                "field_type": cf.field_type,
+                "is_mandatory": cf.is_mandatory,
+                "options": cf.options
+            } for cf in custom_fields
+        ]
+    }
+
+
+@router.get("/{account_id}/edit")
+async def get_edit_form_data(
+    account_id: str,
+    current_user: User = Depends(get_current_user)
+):
+    """Get account data and form data for editing"""
+    from app.models.picklists import AccountType, Industry, Rating, AccountSource
+    from app.models.custom_fields import AdditionalFieldAccount, AccountCustomField
+    
+    # Get account
+    account = await Account.get(ObjectId(account_id))
+    if not account or account.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Account not found")
+    
+    # Get form data
+    account_types = await AccountType.find(
+        AccountType.tenant_id == current_user.tenant_id,
+        AccountType.is_active == True
+    ).sort("+sorting").to_list()
+    
+    industries = await Industry.find(
+        Industry.tenant_id == current_user.tenant_id,
+        Industry.is_active == True
+    ).sort("+sorting").to_list()
+    
+    ratings = await Rating.find(
+        Rating.is_active == True
+    ).sort("+sorting").to_list()
+    
+    users = await User.find(
+        User.tenant_id == current_user.tenant_id,
+        User.is_active == True
+    ).sort("+name").to_list()
+    
+    # Get custom field values for this account
+    custom_field_values = await AccountCustomField.find(
+        AccountCustomField.account_id == account.id
+    ).to_list()
+    
+    return {
+        "error": False,
+        "account": AccountResponse.from_orm(account),
+        "account_types": [{"id": str(at.id), "name": at.name} for at in account_types],
+        "industries": [{"id": str(i.id), "name": i.name} for i in industries],
+        "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
+        "users": [{"id": str(u.id), "name": u.name, "email": u.email} for u in users],
+        "custom_field_values": [
+            {
+                "field_id": str(cf.account_additional_field_id),
+                "value": cf.field_value
+            } for cf in custom_field_values
+        ]
+    }
+
+
+@router.post("/import")
+async def import_accounts(
+    file: UploadFile = File(...),
+    current_user: User = Depends(check_permission("create_account"))
+):
+    """Import accounts from CSV or Excel file"""
+    from app.services.import_export_service import ImportExportService
+    
+    service = ImportExportService()
+    result = await service.import_accounts_from_file(
+        file,
+        current_user.tenant_id,
+        current_user.id
+    )
+    
+    return {
+        "error": False,
+        **result
+    }
+
+
+@router.get("/export/{format}")
+async def export_accounts(
+    format: str,
+    current_user: User = Depends(check_permission("view_account"))
+):
+    """Export accounts to CSV or Excel"""
+    from app.services.import_export_service import ImportExportService
+    
+    # Get all accounts for export
+    accounts = await Account.find(
+        Account.tenant_id == current_user.tenant_id,
+        Account.deleted_at == None
+    ).to_list()
+    
+    service = ImportExportService()
+    file_content = await service.export_accounts_to_excel(accounts, format)
+    
+    # Set filename and media type
+    filename = f"accounts.{format}"
+    if format == "xlsx":
+        media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    else:
+        media_type = "text/csv"
+    
+    return StreamingResponse(
+        BytesIO(file_content),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"}
+    )
