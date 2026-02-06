@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import {
     LineChart,
     Line,
@@ -31,34 +32,46 @@ export function SalesChart({
     return (
         <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-                <div className="flex items-center gap-4">
-                    <span className="text-sm font-medium text-muted-foreground">
-                        Closed {formatCurrency(closedAmount)}
-                    </span>
-                    <span className="text-sm font-medium text-muted-foreground">
-                        Open {formatCurrency(openAmount)}
-                    </span>
-                    <span className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <span className="inline-block h-3 w-3 rounded border border-muted-foreground/50" />
-                        Target
-                    </span>
+                <div className="flex items-center gap-8">
+                    <div className="flex items-center gap-2.5">
+                        <span className="h-2 w-2 rounded-full bg-indigo-600 shadow-[0_0_8px_rgba(79,70,229,0.4)]" />
+                        <span className="text-sm font-bold text-slate-600">
+                            Closed {formatCurrency(closedAmount)}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                        <span className="h-2 w-2 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
+                        <span className="text-sm font-bold text-slate-600">
+                            Open {formatCurrency(openAmount)}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-2.5">
+                        <span className="h-2 w-2 rounded-full bg-slate-300" />
+                        <span className="text-sm font-bold text-slate-400">Target</span>
+                    </div>
                 </div>
-                <div className="flex rounded-md border bg-muted/50 p-0.5">
+                <div className="flex rounded-full border bg-slate-100/50 p-1">
                     <button
                         type="button"
                         onClick={() => setActiveTab("my")}
-                        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                            activeTab === "my" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={cn(
+                            "rounded-full px-6 py-1.5 text-sm font-bold transition-all duration-300",
+                            activeTab === "my"
+                                ? "bg-white text-indigo-700 shadow-md ring-1 ring-black/5"
+                                : "text-slate-500 hover:text-slate-800"
+                        )}
                     >
                         My Sales
                     </button>
                     <button
                         type="button"
                         onClick={() => setActiveTab("team")}
-                        className={`rounded px-3 py-1 text-sm font-medium transition-colors ${
-                            activeTab === "team" ? "bg-background text-foreground shadow" : "text-muted-foreground hover:text-foreground"
-                        }`}
+                        className={cn(
+                            "rounded-full px-6 py-1.5 text-sm font-bold transition-all duration-300",
+                            activeTab === "team"
+                                ? "bg-white text-indigo-700 shadow-md ring-1 ring-black/5"
+                                : "text-slate-500 hover:text-slate-800"
+                        )}
                     >
                         Team Sales
                     </button>
@@ -75,13 +88,18 @@ export function SalesChart({
                             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                             <XAxis
                                 dataKey="day"
-                                tick={{ fontSize: 11 }}
+                                tick={{ fontSize: 12, fontWeight: 600, fill: "hsl(var(--muted-foreground))" }}
                                 tickFormatter={(d) => `${d}`}
+                                axisLine={false}
+                                tickLine={false}
+                                dy={10}
                             />
                             <YAxis
-                                tick={{ fontSize: 11 }}
+                                tick={{ fontSize: 12, fontWeight: 600, fill: "hsl(var(--muted-foreground))" }}
                                 tickFormatter={(v) => `${(v / 1_000_000).toFixed(0)}`}
                                 domain={[0, 100000000]}
+                                axisLine={false}
+                                tickLine={false}
                             />
                             <Tooltip
                                 formatter={(value: number | undefined) => [formatCurrency(Number(value || 0)), "Value"]}

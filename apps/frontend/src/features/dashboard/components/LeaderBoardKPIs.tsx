@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import type { LeaderBoardKPIs as LeaderBoardKPIsType } from "@/features/dashboard/services/dashboardService";
 
 const KPI_CARDS: { key: keyof LeaderBoardKPIsType; label: string; color: string; format?: "currency" }[] = [
@@ -16,7 +17,7 @@ const KPI_CARDS: { key: keyof LeaderBoardKPIsType; label: string; color: string;
 export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
     return (
         <div className="space-y-4">
-            <h2 className="text-xl font-semibold tracking-tight">Dashboard Leader Board Incentive</h2>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900">Dashboard Leader Board Incentive</h2>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8">
                 {KPI_CARDS.map(({ key, label, color, format }) => {
                     const value = kpis[key] ?? 0;
@@ -27,10 +28,17 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
                     return (
                         <div
                             key={key}
-                            className={`rounded-lg px-4 py-3 text-center shadow-sm ${color}`}
+                            className="bg-white rounded-2xl p-5 shadow-sm border border-slate-100 transition-all hover:shadow-md hover:-translate-y-1 relative overflow-hidden group"
                         >
-                            <div className="text-xl font-bold">{display}</div>
-                            <div className="text-xs font-medium opacity-95">{label}</div>
+                            {/* Top accent bar */}
+                            <div className={cn("absolute top-0 left-0 right-0 h-1.5", color.replace("text-white", ""))} />
+
+                            <div className="text-[12px] font-bold uppercase tracking-widest text-slate-400 mb-1 group-hover:text-slate-600 transition-colors">
+                                {label}
+                            </div>
+                            <div className="text-2xl font-black tracking-tight text-indigo-600 md:text-3xl">
+                                {display}
+                            </div>
                         </div>
                     );
                 })}

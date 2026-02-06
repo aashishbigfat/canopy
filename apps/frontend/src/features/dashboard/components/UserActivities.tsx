@@ -36,13 +36,13 @@ export function UserActivities({ activities }: { activities: UserActivity[] }) {
 
     return (
         <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-            <div className="mb-4 flex items-center justify-between">
-                <h3 className="font-semibold">User Activities</h3>
+            <div className="flex items-center justify-between font-bold text-slate-800 pb-2 border-b border-slate-100">
+                <span className="text-lg tracking-tight">Recent Activity Stream</span>
                 <button
                     type="button"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="rounded p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                    className="text-slate-400 hover:text-cyan-500 transition-colors"
                     aria-label="Refresh activities"
                 >
                     <svg
