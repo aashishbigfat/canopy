@@ -3,12 +3,17 @@ import {
     Users,
     Contact,
     Target,
-    Briefcase,
+    HardDrive,
     FileText,
     Settings,
     Plane,
     Building2,
-    Receipt
+    Truck,
+    CheckSquare,
+    FileBarChart,
+    LogOut,
+    Menu,
+    Map
 } from "lucide-react";
 
 export interface NavItem {
@@ -40,33 +45,39 @@ export const navItems: NavItem[] = [
         icon: Users,
     },
     {
+        title: "Suppliers",
+        href: "/suppliers",
+        icon: Truck,
+    },
+    {
         title: "Opportunities",
         href: "/opportunities",
         icon: Target,
     },
     {
-        title: "Operations",
-        href: "/operations", // Parent, maybe non-clickable
-        icon: Plane,
-        submenu: [
-            { title: "Itineraries", href: "/itineraries" },
-            { title: "Suppliers", href: "/suppliers" },
-            { title: "Departures", href: "/departures" },
-        ],
+        title: "Tasks",
+        href: "/tasks",
+        icon: CheckSquare,
     },
     {
-        title: "Finance",
-        href: "/finance",
-        icon: Receipt,
-        submenu: [
-            { title: "Quotes", href: "/quotes" },
-            { title: "Invoices", href: "/invoices" },
-        ],
-    },
-    {
-        title: "Documents",
+        title: "Drive",
         href: "/files",
-        icon: FileText,
+        icon: HardDrive,
+    },
+    {
+        title: "Itineraries",
+        href: "/itineraries",
+        icon: Map, // Will need to import Map or stick to Plane
+    },
+    {
+        title: "Reports",
+        href: "/reports",
+        icon: FileBarChart,
+    },
+    {
+        title: "Departure",
+        href: "/departure",
+        icon: LogOut,
     },
     {
         title: "Admin",

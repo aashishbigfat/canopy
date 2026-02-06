@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
     Bell,
-    Building2,
     ChevronDown,
     Mail,
     Menu,
@@ -13,6 +12,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Sidebar } from "@/components/layout/Sidebar";
+import { useState } from "react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -24,19 +25,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const MAIN_NAV: { label: string; href: string }[] = [
-    { label: "Dashboard", href: "/dashboard" },
-    { label: "Accounts", href: "/accounts" },
-    { label: "Contacts", href: "/contacts" },
-    { label: "Leads", href: "/leads" },
-    { label: "Suppliers", href: "/suppliers" },
-    { label: "Opportunities", href: "/opportunities" },
-    { label: "Tasks", href: "/tasks" },
-    { label: "Drive", href: "/files" },
-    { label: "Itineraries", href: "/itineraries" },
-    { label: "Reports", href: "/reports" },
-    { label: "Departure", href: "/departure" },
-];
 
 export default function DashboardLayout({
     children,
@@ -46,6 +34,7 @@ export default function DashboardLayout({
     const pathname = usePathname();
     const router = useRouter();
     const { data: session } = useSession();
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
     const handleLogout = async () => {
         await signOut({ redirect: false });
@@ -56,7 +45,15 @@ export default function DashboardLayout({
     return (
         <div className="flex min-h-screen flex-col bg-muted/40 text-foreground">
             {/* Blue header bar (Tutterfly reference) */}
-            <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-blue-800/30 bg-blue-600 px-4 text-white shadow-sm">
+            <header className="sticky top-0 z-50 flex h-14 items-center gap-4 border-b border-blue-800/30 bg-blue-600 px-4 text-white shadow-sm">
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white hover:bg-blue-500 hover:text-white"
+                    onClick={() => setIsSidebarOpen(!isSidebarOpen)}
+                >
+                    <Menu className="h-5 w-5" />
+                </Button>
                 <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-semibold">
                     <span className="text-lg">Tutterfly</span>
                 </Link>
@@ -129,40 +126,31 @@ export default function DashboardLayout({
                     <Button variant="ghost" size="icon" className="text-amber-300 hover:bg-blue-500 hover:text-amber-200">
                         <Mail className="h-5 w-5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="lg:hidden text-white hover:bg-blue-500 hover:text-white">
-                        <Menu className="h-5 w-5" />
-                    </Button>
                 </div>
             </header>
 
-            {/* Horizontal nav (Dashboard, Accounts, ...) */}
-            <nav className="sticky top-14 z-30 flex border-b bg-background px-4 shadow-sm">
-                <div className="flex gap-1 overflow-x-auto py-2">
-                    {MAIN_NAV.map(({ label, href }) => {
-                        const active =
-                            href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
-                        return (
-                            <Link
-                                key={href + label}
-                                href={href}
-                                className={cn(
-                                    "whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium transition-colors",
-                                    active
-                                        ? "bg-muted text-foreground"
-                                        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-                                )}
-                            >
-                                {label}
-                            </Link>
-                        );
-                    })}
-                </div>
-            </nav>
+            <div className="flex flex-1 overflow-hidden relative">
+                {/* Sidebar Overlay */}
+                {isSidebarOpen && (
+                    <div
+                        className="fixed inset-0 z-40 bg-black/40"
+                        onClick={() => setIsSidebarOpen(false)}
+                    />
+                )}
 
-            {/* Main content */}
-            <main className="flex-1 overflow-y-auto">
-                <div className="p-6">{children}</div>
-            </main>
+                {/* Sidebar */}
+                <aside className={cn(
+                    "fixed inset-y-0 left-0 z-50 w-[260px] transform transition-transform duration-300 ease-in-out bg-background shadow-2xl",
+                    isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+                )}>
+                    <Sidebar />
+                </aside>
+
+                {/* Main content */}
+                <main className="flex-1 overflow-y-auto bg-muted/20">
+                    <div className="p-6">{children}</div>
+                </main>
+            </div>
         </div>
     );
 }
