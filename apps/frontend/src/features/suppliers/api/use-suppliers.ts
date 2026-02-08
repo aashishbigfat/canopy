@@ -6,7 +6,7 @@ export const useSuppliers = (filters: SupplierFilters = { page: 1, per_page: 10 
     return useQuery({
         queryKey: ["suppliers", filters],
         queryFn: () => suppliersService.getSuppliers(filters),
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0,
     });
 };
 

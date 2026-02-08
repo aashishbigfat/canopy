@@ -6,7 +6,7 @@ export const useOpportunities = (filters: OpportunityFilters = { page: 1, per_pa
     return useQuery({
         queryKey: ["opportunities", filters],
         queryFn: () => opportunitiesService.getOpportunities(filters),
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0,
     });
 };
 

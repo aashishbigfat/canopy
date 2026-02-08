@@ -8,7 +8,7 @@ export const useTasks = (filters: TaskFilters = { page: 1, per_page: 10 }) => {
     return useQuery({
         queryKey: ["tasks", filters],
         queryFn: () => tasksService.getTasks(filters),
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0,
     });
 };
 
@@ -48,7 +48,7 @@ export const useEvents = (filters: EventFilters = { page: 1, per_page: 10 }) => 
     return useQuery({
         queryKey: ["events", filters],
         queryFn: () => eventsService.getEvents(filters),
-        staleTime: 5 * 60 * 1000,
+        staleTime: 0,
     });
 };
 

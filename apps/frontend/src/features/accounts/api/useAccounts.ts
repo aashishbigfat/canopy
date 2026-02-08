@@ -6,7 +6,7 @@ export const useAccounts = (filters: AccountFilters = { page: 1, per_page: 10 })
     return useQuery({
         queryKey: ["accounts", filters],
         queryFn: () => accountsService.getAccounts(filters),
-        staleTime: 5 * 60 * 1000, // 5 minutes
+        staleTime: 0, // 5 minutes
     });
 };
 
