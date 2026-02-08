@@ -57,6 +57,18 @@ export interface UserActivity {
     created_at: string;
 }
 
+export interface ActivityLog {
+    id: string;
+    user_id: string;
+    user_name: string;
+    action: string;
+    entity_type: string;
+    entity_id?: string;
+    entity_name?: string;
+    description: string;
+    created_at: string;
+}
+
 const BASE_URL = "/dashboards";
 
 const emptyDashboardData: DashboardData = {
@@ -105,10 +117,8 @@ export function getSalesChartData(data: DashboardData): SalesChartPoint[] {
     return [];
 }
 
-/** User activities from API. No static placeholders. */
 export function getUserActivities(data: DashboardData): UserActivity[] {
-    // TODO: once backend exposes a real activities endpoint, map it here.
-    // For now, return an empty list so the UI shows a neutral "No recent activities" state.
+    // This is now handled by getActivityLogs, but keeping for compatibility if needed
     return [];
 }
 
@@ -169,5 +179,17 @@ export const dashboardService = {
 
     deleteDashboard: async (id: string) => {
         await apiClient.delete(`${BASE_URL}/${id}`);
+    },
+
+    getActivityLogs: async (limit: number = 50): Promise<ActivityLog[]> => {
+        try {
+            const { data } = await apiClient.get<{ logs: ActivityLog[]; total: number }>("/logs/activity", {
+                params: { limit }
+            });
+            return data.logs;
+        } catch (err) {
+            console.error("Failed to fetch activity logs:", err);
+            return [];
+        }
     },
 };

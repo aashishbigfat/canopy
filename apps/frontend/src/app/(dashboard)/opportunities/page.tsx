@@ -38,7 +38,7 @@ export default async function OpportunitiesPage() {
                 </Button>
             </div>
 
-            <OpportunityTable data={opportunities} />
+            <OpportunityTable data={opportunities.opportunities || []} />
         </div>
     );
 }

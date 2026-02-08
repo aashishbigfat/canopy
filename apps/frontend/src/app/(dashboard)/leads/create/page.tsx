@@ -11,7 +11,10 @@ export default async function CreateLeadPage() {
         redirect("/login");
     }
 
-    const response = await leadsService.getLeads({ per_page: 1 });
+    const response = await leadsService.getLeads(
+        { per_page: 1 },
+        { headers: { Authorization: `Bearer ${session.accessToken}` } }
+    );
 
     return (
         <div className="space-y-6 max-w-2xl">
@@ -24,6 +27,8 @@ export default async function CreateLeadPage() {
             <LeadForm
                 statuses={response.lead_statuses}
                 sources={response.sources}
+                industries={response.industries}
+                ratings={response.ratings}
             />
         </div>
     );

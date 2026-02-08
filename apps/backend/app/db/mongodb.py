@@ -38,6 +38,7 @@ from app.models.incentive import Incentive, IncentiveTarget, IncentiveAchievemen
 from app.models.billing import SubscriptionPlan, TenantSubscription, BillingInvoice
 from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
 from app.models.opportunity_picklists import SalesStage, OpportunityType, Experience, OpportunityTag, OpportunityHistory, OpportunityLock
+from app.models.lead_picklists import LeadStatus, Source, SourceMedium
 
 # Missing models causing 500 errors
 from app.models.user_account_view import UserAccountView
@@ -143,6 +144,10 @@ async def init_db():
             OpportunityTag,
             OpportunityHistory,
             OpportunityLock,
+            # Lead picklists
+            LeadStatus,
+            Source,
+            SourceMedium,
             # Missing models
             UserAccountView,
             UserContactView,

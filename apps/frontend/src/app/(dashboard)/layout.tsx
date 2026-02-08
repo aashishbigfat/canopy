@@ -13,7 +13,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sidebar } from "@/components/layout/Sidebar";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -35,12 +35,21 @@ export default function DashboardLayout({
     const router = useRouter();
     const { data: session } = useSession();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const handleLogout = async () => {
         await signOut({ redirect: false });
         router.push("/login");
         router.refresh();
     };
+
+    if (!mounted) {
+        return null; // Or a simple skeleton to prevent hydration mismatch
+    }
 
     return (
         <div className="flex min-h-screen flex-col bg-muted/40 text-foreground">

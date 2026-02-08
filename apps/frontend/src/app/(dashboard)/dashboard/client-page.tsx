@@ -15,14 +15,19 @@ import { UserActivities } from "@/features/dashboard/components/UserActivities";
 
 export default function DashboardClientPage() {
     const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+    const [activities, setActivities] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const data = await dashboardService.getDashboardData();
+                const [data, activityLogs] = await Promise.all([
+                    dashboardService.getDashboardData(),
+                    dashboardService.getActivityLogs()
+                ]);
                 setDashboardData(data);
+                setActivities(activityLogs);
             } catch (err) {
                 console.error("Failed to fetch dashboard data:", err);
                 setError("Failed to load dashboard data");
@@ -83,7 +88,6 @@ export default function DashboardClientPage() {
     const chartData = getSalesChartData(dashboardData);
     const closedAmount = dashboardData.stats?.total_revenue ?? 0;
     const openAmount = (dashboardData.stats?.active_opportunities ?? 0) * 10000; // placeholder
-    const activities = getUserActivities(dashboardData);
 
     return (
         <div className="space-y-6">

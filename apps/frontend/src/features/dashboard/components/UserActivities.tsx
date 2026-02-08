@@ -3,30 +3,31 @@
 import { useState } from "react";
 import { ClipboardList, Building2, Lightbulb, UserPlus, Users, Briefcase } from "lucide-react";
 import { format } from "date-fns";
-import type { UserActivity } from "@/features/dashboard/services/dashboardService";
+import type { ActivityLog } from "@/features/dashboard/services/dashboardService";
 
-const typeIcons: Record<UserActivity["type"], React.ReactNode> = {
+const typeIcons: Record<string, React.ReactNode> = {
     task: <ClipboardList className="h-4 w-4 text-blue-500" />,
     personal_account: <Building2 className="h-4 w-4 text-zinc-500" />,
     opportunity: <Lightbulb className="h-4 w-4 text-violet-500" />,
     lead: <UserPlus className="h-4 w-4 text-amber-500" />,
     contact: <Users className="h-4 w-4 text-sky-500" />,
     account: <Briefcase className="h-4 w-4 text-emerald-500" />,
+    event: <ClipboardList className="h-4 w-4 text-rose-500" />,
 };
 
-function formatActivityTitle(type: UserActivity["type"]): string {
-    const titles: Record<UserActivity["type"], string> = {
-        task: "Created Task",
-        personal_account: "Created Personalaccount",
-        opportunity: "Created Opportunity",
-        lead: "Updated Lead",
-        contact: "Created Contact",
-        account: "Created Account",
-    };
-    return titles[type];
+function formatActivityTitle(action: string, entityType: string): string {
+    const actionLabel = action.charAt(0).toUpperCase() + action.slice(1);
+    const entityLabel = entityType.charAt(0).toUpperCase() + entityType.slice(1).replace("_", " ");
+
+    // Custom labels for common actions
+    if (action === "create") return `Created ${entityLabel}`;
+    if (action === "update") return `Updated ${entityLabel}`;
+    if (action === "delete") return `Deleted ${entityLabel}`;
+
+    return `${actionLabel} ${entityLabel}`;
 }
 
-export function UserActivities({ activities }: { activities: UserActivity[] }) {
+export function UserActivities({ activities }: { activities: ActivityLog[] }) {
     const [refreshing, setRefreshing] = useState(false);
 
     const handleRefresh = () => {
@@ -78,13 +79,13 @@ export function UserActivities({ activities }: { activities: UserActivity[] }) {
                             return (
                                 <li key={activity.id} className="relative pl-8 pb-4">
                                     <div className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full border bg-background">
-                                        {typeIcons[activity.type]}
+                                        {typeIcons[activity.entity_type] || <ClipboardList className="h-4 w-4 text-slate-400" />}
                                     </div>
                                     <p className="text-sm font-medium">
-                                        {formatActivityTitle(activity.type)}
+                                        {formatActivityTitle(activity.action, activity.entity_type)}
                                     </p>
                                     <p className="text-sm text-muted-foreground">
-                                        {activity.user_name} – {activity.description}
+                                        {activity.user_name} – {activity.entity_name ? `[${activity.entity_name}] ` : ""}{activity.description}
                                     </p>
                                     <p className="mt-0.5 text-xs text-muted-foreground">{dateStr}</p>
                                 </li>

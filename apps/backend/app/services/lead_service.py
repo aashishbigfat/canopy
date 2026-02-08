@@ -3,13 +3,17 @@ Lead service layer - Business logic for Lead operations
 """
 from typing import List, Optional, Dict, Tuple
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timedelta
 from app.models.lead import Lead
 from app.models.destination import DestinationLead
 from app.schemas.lead import LeadCreate, LeadUpdate, LeadConvert
 from app.services.activity_log_service import ActivityLogService
 from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
+from app.models.user import User
+from app.models.lead_picklists import LeadStatus, Source
+from app.models.picklists import Industry, Rating
+from app.models.lead_custom_fields import UserLeadView
 
 
 class LeadService(ActivityMixin):
@@ -270,42 +274,73 @@ class LeadService(ActivityMixin):
         user_id: ObjectId,
         tenant_id: ObjectId
     ) -> Dict:
-        """Convert lead to opportunity (and optionally account/contact)"""
+        """Convert lead to opportunity (and optionally account/contact) with enterprise logic"""
         from app.models.opportunity import Opportunity
         from app.models.account import Account
         from app.models.contact import Contact
+        from app.models.opportunity_picklists import SalesStage
         
         lead = await self.get_lead(lead_id, tenant_id)
         if not lead:
             raise ValueError("Lead not found")
         
         if lead.is_converted:
-            raise ValueError("Lead already converted")
+            raise ValueError(f"Lead already converted to opportunity {lead.opportunity_id}")
         
         account_id = None
         contact_id = None
         
-        # Create account if needed
-        if conversion_data.account_name:
+        # 1. Handle Account (Existing or New)
+        if conversion_data.account_id:
+            account_id = ObjectId(conversion_data.account_id)
+            # Verify account exists and belongs to tenant
+            existing_account = await Account.get(account_id)
+            if not existing_account or existing_account.tenant_id != tenant_id:
+                raise ValueError("Specified account not found")
+        elif conversion_data.account_name:
             account = Account(
                 name=conversion_data.account_name,
                 phone=lead.phone,
                 email=lead.email,
+                website=lead.website,
                 billing_street=lead.street,
                 billing_city=lead.city,
                 billing_state=lead.state,
                 billing_zip=lead.zip,
                 billing_country=lead.country,
-                website=lead.website,
+                industry_id=lead.industry_id,
+                rating_id=lead.rating_id,
+                account_source_id=lead.source_id,
                 tenant_id=tenant_id,
                 owner_id=user_id,
                 created_by=user_id
             )
             await account.insert()
             account_id = account.id
+            
+            # Log Account creation
+            await self.log_entity_created(
+                entity=account,
+                entity_type="account",
+                additional_data={"converted_from_lead_id": str(lead.id)}
+            )
         
-        # Create contact if needed
-        if conversion_data.contact_create:
+        # 2. Handle Contact (Existing or New)
+        if conversion_data.contact_id:
+            contact_id = ObjectId(conversion_data.contact_id)
+            # Verify contact exists and belongs to tenant
+            existing_contact = await Contact.get(contact_id)
+            if not existing_contact or existing_contact.tenant_id != tenant_id:
+                raise ValueError("Specified contact not found")
+            
+            # Optionally link contact to account if not already linked
+            if account_id and existing_contact.account_id != account_id:
+                # We could update the primary account or just add a pivot
+                # For simplicity during conversion, we update the primary if it's null
+                if not existing_contact.account_id:
+                    existing_contact.account_id = account_id
+                    await existing_contact.save()
+        elif conversion_data.contact_create:
             contact = Contact(
                 salutation=lead.salutation,
                 first_name=lead.first_name,
@@ -327,69 +362,167 @@ class LeadService(ActivityMixin):
             )
             await contact.insert()
             contact_id = contact.id
+            
+            # Log Contact creation
+            await self.log_entity_created(
+                entity=contact,
+                entity_type="contact",
+                additional_data={"converted_from_lead_id": str(lead.id)}
+            )
+            
+            # If account exists, create pivot entry
+            if account_id:
+                from app.models.account_contact import AccountContact
+                pivot = AccountContact(
+                    account_id=account_id,
+                    contact_id=contact_id,
+                    tenant_id=tenant_id
+                )
+                await pivot.insert()
         
-        # Create opportunity
-        # Get default sales stage
-        from app.models.opportunity_picklists import SalesStage
-        default_stage = await SalesStage.find_one({"is_default": True})
-        
-        if not default_stage:
-            # If no default stage, get first one
-            default_stage = await SalesStage.find_one({})
-        
-        if not default_stage:
-            raise ValueError("No sales stages found in the system. Please create sales stages first.")
-        
-        # Handle date conversion properly
-        from datetime import datetime, time
-        close_date = None
-        if conversion_data.opportunity_close_date:
-            if isinstance(conversion_data.opportunity_close_date, str):
-                close_date = datetime.strptime(conversion_data.opportunity_close_date, "%Y-%m-%d")
-            elif hasattr(conversion_data.opportunity_close_date, 'date'):
-                # Handle datetime objects - extract date part
-                close_date = datetime.combine(conversion_data.opportunity_close_date.date(), time.min)
-            else:
-                # Already a date object, convert to datetime
-                close_date = datetime.combine(conversion_data.opportunity_close_date, time.min)
-        
-        print(f"DEBUG: Processed close_date: {close_date}, type: {type(close_date)}")
-        
-        # Create opportunity with datetime object
-        try:
+        # 3. Handle Opportunity (Optional)
+        opportunity_id = None
+        if conversion_data.create_opportunity:
+            # Get default sales stage
+            default_stage = await SalesStage.find_one({"is_default": True}) or await SalesStage.find_one({})
+            if not default_stage:
+                raise ValueError("No sales stages found. Please configure sales stages first.")
+            
+            # Handle close date
+            from datetime import datetime, time
+            close_date = None
+            if conversion_data.opportunity_close_date:
+                if isinstance(conversion_data.opportunity_close_date, str):
+                    close_date = datetime.strptime(conversion_data.opportunity_close_date, "%Y-%m-%d")
+                elif hasattr(conversion_data.opportunity_close_date, 'date'):
+                    close_date = datetime.combine(conversion_data.opportunity_close_date.date(), time.min)
+                else:
+                    close_date = datetime.combine(conversion_data.opportunity_close_date, time.min)
+            
             opportunity = Opportunity(
-                name=conversion_data.opportunity_name,
+                name=conversion_data.opportunity_name or f"{lead.company or lead.full_name} - Opportunity",
                 amount=conversion_data.opportunity_amount,
-                close_date=close_date,  # Now as datetime object
+                close_date=close_date,
                 sales_stage_id=default_stage.id,
+                probability=default_stage.probability,
                 account_id=account_id,
                 contact_id=contact_id,
                 lead_id=lead.id,
+                source_id=lead.source_id,
+                source_medium_id=lead.source_medium_id,
                 tenant_id=tenant_id,
                 owner_id=user_id,
                 created_by=user_id
             )
-            print("DEBUG: Opportunity object created successfully")
-            
             await opportunity.insert()
-            print("DEBUG: Opportunity inserted successfully")
+            opportunity_id = opportunity.id
             
-        except Exception as e:
-            print(f"DEBUG: Opportunity creation error: {e}")
-            print(f"DEBUG: Error type: {type(e)}")
-            import traceback
-            traceback.print_exc()
-            raise
+            # Log Opportunity creation
+            await self.log_entity_created(
+                entity=opportunity,
+                entity_type="opportunity",
+                additional_data={"converted_from_lead_id": str(lead.id)}
+            )
         
-        # Mark lead as converted
-        await lead.convert_to_opportunity(opportunity.id)
+        # 4. Finalize Lead Conversion
+        await lead.convert_to_opportunity(opportunity_id)
+        
+        # Log Lead conversion
+        conversion_summary = {
+            "account_id": str(account_id) if account_id else None,
+            "contact_id": str(contact_id) if contact_id else None,
+            "opportunity_id": str(opportunity_id) if opportunity_id else None
+        }
+        await self.activity_service.log_activity(
+            user_id=user_id,
+            user_name=lead.full_name or "Unknown",  # Or fetch from current_user if available
+            tenant_id=tenant_id,
+            action="converted",
+            entity_type="lead",
+            entity_id=lead.id,
+            description=f"Lead converted to {', '.join([k.split('_')[0] for k, v in conversion_summary.items() if v])}",
+            changes=conversion_summary
+        )
         
         return {
             "lead_id": str(lead.id),
-            "opportunity_id": str(opportunity.id),
+            "opportunity_id": str(opportunity_id) if opportunity_id else None,
             "account_id": str(account_id) if account_id else None,
             "contact_id": str(contact_id) if contact_id else None
         }
+
+    async def get_conversion_suggestions(self, lead_id: str, tenant_id: ObjectId) -> Dict:
+        """Find potential existing accounts and contacts for a lead"""
+        from app.models.account import Account
+        from app.models.contact import Contact
+        
+        lead = await self.get_lead(lead_id, tenant_id)
+        if not lead:
+            raise ValueError("Lead not found")
+        
+        suggestions = {
+            "accounts": [],
+            "contacts": []
+        }
+        
+        # 1. Search for accounts (by company name or email domain)
+        if lead.company:
+            # Exact match first
+            accounts = await Account.find(
+                Account.tenant_id == tenant_id,
+                Account.name == lead.company,
+                Account.deleted_at == None
+            ).to_list()
+            
+            if not accounts:
+                # Fuzzy match
+                accounts = await Account.find(
+                    Account.tenant_id == tenant_id,
+                    Account.name.regex(f"(?i){lead.company}"),
+                    Account.deleted_at == None
+                ).limit(5).to_list()
+                
+            suggestions["accounts"] = [
+                {"id": str(a.id), "name": a.name, "email": a.email, "match_type": "company_name"}
+                for a in accounts
+            ]
+            
+        # 2. Search for contacts (by email or full name)
+        if lead.email:
+            contacts = await Contact.find(
+                Contact.tenant_id == tenant_id,
+                Contact.email == lead.email,
+                Contact.deleted_at == None
+            ).to_list()
+            
+            for c in contacts:
+                suggestions["contacts"].append({
+                    "id": str(c.id),
+                    "name": f"{c.first_name} {c.last_name}",
+                    "email": c.email,
+                    "match_type": "email"
+                })
+        
+        # Search by name if lead email didn't yield enough results
+        if len(suggestions["contacts"]) < 3:
+            contacts_by_name = await Contact.find(
+                Contact.tenant_id == tenant_id,
+                Contact.first_name == lead.first_name,
+                Contact.last_name == lead.last_name,
+                Contact.deleted_at == None
+            ).limit(5).to_list()
+            
+            existing_ids = [c["id"] for c in suggestions["contacts"]]
+            for c in contacts_by_name:
+                if str(c.id) not in existing_ids:
+                    suggestions["contacts"].append({
+                        "id": str(c.id),
+                        "name": f"{c.first_name} {c.last_name}",
+                        "email": c.email,
+                        "match_type": "name"
+                    })
+                    
+        return suggestions
     
     async def change_owner(
         self,
@@ -426,3 +559,118 @@ class LeadService(ActivityMixin):
         return lead
     
     
+    async def get_leads_with_metadata(
+        self,
+        tenant_id: ObjectId,
+        page: int = 1,
+        per_page: int = 10,
+        owner_id: Optional[str] = None,
+        is_converted: Optional[bool] = None,
+        view: Optional[str] = None,
+        current_user_id: Optional[ObjectId] = None
+    ) -> Dict:
+        """Get leads with metadata (statuses, sources, users, etc.)"""
+        
+        # 1. Build base query / special view queries
+        filters = [
+            Lead.tenant_id == tenant_id,
+            Lead.deleted_at == None,  # noqa: E711
+        ]
+
+        if owner_id:
+            filters.append(Lead.owner_id == ObjectId(owner_id))
+
+        if is_converted is not None:
+            filters.append(Lead.is_converted == is_converted)
+
+        all_leads: List[Lead] = []
+        
+        # Date-based views
+        now = datetime.utcnow()
+        today_start = datetime(now.year, now.month, now.day)
+        tomorrow_start = today_start + timedelta(days=1)
+        yesterday_start = today_start - timedelta(days=1)
+        last_week_start = today_start - timedelta(days=7)
+
+        if view in ("today", "todays_lead", "todays"):
+            filters.append(Lead.created_at >= today_start)
+            filters.append(Lead.created_at < tomorrow_start)
+        elif view == "yesterday":
+            filters.append(Lead.created_at >= yesterday_start)
+            filters.append(Lead.created_at < today_start)
+        elif view == "last_week":
+            filters.append(Lead.created_at >= last_week_start)
+            filters.append(Lead.created_at < tomorrow_start)
+
+        # Recently viewed: use UserLeadView ordering
+        if view in ("recent", "recently_viewed") and current_user_id:
+            recent_views = await UserLeadView.find(
+                UserLeadView.user_id == current_user_id,
+                UserLeadView.tenant_id == tenant_id,
+            ).sort("-updated_at").limit(200).to_list()
+            
+            lead_ids = [rv.lead_id for rv in recent_views]
+            if lead_ids:
+                leads_query = Lead.find(
+                    Lead.id.in_(lead_ids),
+                    Lead.tenant_id == tenant_id,
+                    Lead.deleted_at == None,  # noqa: E711
+                )
+                leads = await leads_query.to_list()
+                lead_map = {l.id: l for l in leads}
+                all_leads = [lead_map[lid] for lid in lead_ids if lid in lead_map]
+            else:
+                all_leads = []
+        else:
+            # Sort by created_at desc for all other views
+            all_leads = await Lead.find(*filters).sort("-created_at").to_list()
+
+        # Paginate
+        total = len(all_leads)
+        skip = (page - 1) * per_page
+        leads = all_leads[skip : skip + per_page]
+        pages = (total + per_page - 1) // per_page if per_page > 0 else 0
+
+        # 2. Fetch Metadata in parallel
+        import asyncio
+        metadata_tasks = [
+            LeadStatus.find(LeadStatus.is_active == True).sort("+sorting").to_list(),
+            Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
+            User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
+            Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
+            Rating.find(Rating.is_active == True).sort("+sorting").to_list()
+        ]
+        
+        metadata_results = await asyncio.gather(*metadata_tasks)
+        
+        lead_statuses, sources, users, industries, ratings = metadata_results
+
+        return {
+            "leads": leads,
+            "pagination": {
+                "current_page": page,
+                "total": total,
+                "per_page": per_page,
+                "pages": pages,
+            },
+            "lead_statuses": [
+                {"id": str(ls.id), "name": ls.name, "color": ls.color}
+                for ls in lead_statuses
+            ],
+            "sources": [
+                {"id": str(s.id), "name": s.name}
+                for s in sources
+            ],
+            "users": [
+                {"id": str(u.id), "name": u.name, "email": u.email}
+                for u in users
+            ],
+            "industries": [
+                {"id": str(i.id), "name": i.name}
+                for i in industries
+            ],
+            "ratings": [
+                {"id": str(r.id), "name": r.name}
+                for r in ratings
+            ],
+        }

@@ -1,8 +1,8 @@
 """
 Pydantic schemas for Lead API
 """
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, Dict, List, Any, Union
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator
+from typing import Optional, Dict, List, Any, Union, Annotated
 from datetime import datetime, date
 
 class LeadBase(BaseModel):
@@ -27,11 +27,11 @@ class LeadBase(BaseModel):
     zip: Optional[str] = None
     country: Optional[str] = None
     
-    lead_status_id: Optional[str] = None
-    rating_id: Optional[str] = None
-    industry_id: Optional[str] = None
-    source_id: Optional[str] = None
-    source_medium_id: Optional[str] = None
+    lead_status_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    rating_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
 
 
 class LeadCreate(LeadBase):
@@ -69,14 +69,14 @@ class LeadUpdate(BaseModel):
 
 class LeadResponse(LeadBase):
     """Schema for lead response"""
-    id: str
-    tenant_id: str
-    owner_id: str
-    created_by: str
+    id: Annotated[str, BeforeValidator(str)]
+    tenant_id: Annotated[str, BeforeValidator(str)]
+    owner_id: Annotated[str, BeforeValidator(str)]
+    created_by: Annotated[str, BeforeValidator(str)]
     
     full_name: str
     is_converted: bool = False
-    opportunity_id: Optional[str] = None
+    opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
     
     created_at: datetime
@@ -87,18 +87,23 @@ class LeadResponse(LeadBase):
 
 
 class LeadConvert(BaseModel):
-    """Schema for converting lead to opportunity"""
+    """Schema for converting lead to account/contact/opportunity"""
+    account_id: Optional[str] = None
     account_name: Optional[str] = None
+    contact_id: Optional[str] = None
     contact_create: bool = True
-    opportunity_name: str
+    create_opportunity: bool = True
+    opportunity_name: Optional[str] = None
     opportunity_amount: Optional[float] = None
     opportunity_close_date: Optional[Union[datetime, date]] = None
 
 
 class LeadListResponse(BaseModel):
-    """Schema for list of leads"""
+    """Schema for list of leads with metadata"""
     leads: List[LeadResponse]
-    total: int
-    page: int = 1
-    per_page: int = 10
-    pages: int
+    pagination: Dict[str, Any]
+    lead_statuses: List[Dict[str, Any]] = Field(default_factory=list)
+    sources: List[Dict[str, Any]] = Field(default_factory=list)
+    users: List[Dict[str, Any]] = Field(default_factory=list)
+    industries: List[Dict[str, Any]] = Field(default_factory=list)
+    ratings: List[Dict[str, Any]] = Field(default_factory=list)

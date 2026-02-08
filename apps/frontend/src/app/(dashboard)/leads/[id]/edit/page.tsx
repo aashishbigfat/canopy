@@ -18,8 +18,11 @@ export default async function EditLeadPage({
     const leadId = params.id;
     // Parallel fetch for efficiency
     const [lead, metadataResponse] = await Promise.all([
-        leadsService.getLead(leadId),
-        leadsService.getLeads({ per_page: 1 })
+        leadsService.getLead(leadId, { headers: { Authorization: `Bearer ${session.accessToken}` } }),
+        leadsService.getLeads(
+            { per_page: 1 },
+            { headers: { Authorization: `Bearer ${session.accessToken}` } }
+        )
     ]);
 
     return (
@@ -35,6 +38,8 @@ export default async function EditLeadPage({
                 leadId={leadId}
                 statuses={metadataResponse.lead_statuses}
                 sources={metadataResponse.sources}
+                industries={metadataResponse.industries}
+                ratings={metadataResponse.ratings}
             />
         </div>
     );

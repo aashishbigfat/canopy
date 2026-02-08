@@ -24,13 +24,15 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { leadsService } from "@/lib/api/services/leads.service";
-import { Lead, LeadCreateData, LeadStatus, Source } from "../types";
+import { Lead, LeadCreateData, LeadStatus, Source, Industry, Rating } from "../types";
 import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
 import { logger } from "@/lib/logger";
 import { LoadingButton } from "@/components/ui/loading";
 
 const leadFormSchema = z.object({
+    salutation: z.string().optional(),
     first_name: z.string().min(2, { message: "First name is required." }),
+    middle_name: z.string().optional(),
     last_name: z.string().min(2, { message: "Last name is required." }),
     company: z.string().optional(),
     email: z.string().email().optional().or(z.literal("")),
@@ -40,6 +42,8 @@ const leadFormSchema = z.object({
     title: z.string().optional(),
     lead_status_id: z.string().optional(),
     source_id: z.string().optional(),
+    industry_id: z.string().optional(),
+    rating_id: z.string().optional(),
     street: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),
@@ -54,16 +58,27 @@ interface LeadFormProps {
     leadId?: string;
     statuses?: LeadStatus[];
     sources?: Source[];
+    industries?: Industry[];
+    ratings?: Rating[];
 }
 
-export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: LeadFormProps) {
+export function LeadForm({
+    initialData,
+    leadId,
+    statuses = [],
+    sources = [],
+    industries = [],
+    ratings = []
+}: LeadFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<LeadFormValues>({
         resolver: zodResolver(leadFormSchema),
         defaultValues: {
+            salutation: initialData?.salutation || "",
             first_name: initialData?.first_name || "",
+            middle_name: initialData?.middle_name || "",
             last_name: initialData?.last_name || "",
             company: initialData?.company || "",
             email: initialData?.email || "",
@@ -73,6 +88,8 @@ export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: L
             title: initialData?.title || "",
             lead_status_id: initialData?.lead_status_id || "",
             source_id: initialData?.source_id || "",
+            industry_id: initialData?.industry_id || "",
+            rating_id: initialData?.rating_id || "",
             street: initialData?.street || "",
             city: initialData?.city || "",
             state: initialData?.state || "",
@@ -85,7 +102,9 @@ export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: L
         setIsLoading(true);
         try {
             const payload: LeadCreateData = {
+                salutation: data.salutation,
                 first_name: data.first_name,
+                middle_name: data.middle_name,
                 last_name: data.last_name,
                 company: data.company,
                 email: data.email || undefined,
@@ -95,7 +114,9 @@ export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: L
                 title: data.title,
                 lead_status_id: data.lead_status_id || undefined,
                 source_id: data.source_id || undefined,
-                street: data.street,
+                industry_id: data.industry_id || undefined,
+                rating_id: data.rating_id || undefined,
+                street: data.street || undefined,
                 city: data.city,
                 state: data.state,
                 zip: data.zip,
@@ -127,12 +148,51 @@ export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: L
                 <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                         control={form.control}
+                        name="salutation"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Salutation</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Mr./Mrs./Ms." />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Mr.">Mr.</SelectItem>
+                                        <SelectItem value="Mrs.">Mrs.</SelectItem>
+                                        <SelectItem value="Ms.">Ms.</SelectItem>
+                                        <SelectItem value="Dr.">Dr.</SelectItem>
+                                        <SelectItem value="Prof.">Prof.</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <div className="hidden md:block" /> { /* Spacer */}
+
+                    <FormField
+                        control={form.control}
                         name="first_name"
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>First Name *</FormLabel>
                                 <FormControl>
                                     <Input placeholder="Sarah" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="middle_name"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Middle Name</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="John" {...field} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -279,6 +339,56 @@ export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: L
                             </FormItem>
                         )}
                     />
+
+                    <FormField
+                        control={form.control}
+                        name="industry_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Industry</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select an industry" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {industries.map((industry) => (
+                                            <SelectItem key={industry.id} value={industry.id}>
+                                                {industry.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="rating_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Rating</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a rating" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {ratings.map((rating) => (
+                                            <SelectItem key={rating.id} value={rating.id}>
+                                                {rating.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </div>
 
                 <div className="space-y-4">
@@ -352,8 +462,8 @@ export function LeadForm({ initialData, leadId, statuses = [], sources = [] }: L
                     </div>
                 </div>
 
-                <LoadingButton 
-                    type="submit" 
+                <LoadingButton
+                    type="submit"
                     isLoading={isLoading}
                     loadingText={leadId ? "Updating..." : "Creating..."}
                 >

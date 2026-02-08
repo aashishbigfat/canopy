@@ -1,36 +1,36 @@
 """
 Pydantic schemas for Opportunity API
 """
-from pydantic import BaseModel, Field
-from typing import Optional, Dict, List, Any
+from pydantic import BaseModel, Field, BeforeValidator
+from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
 
 class OpportunityBase(BaseModel):
     """Base schema for Opportunity"""
     name: str = Field(..., min_length=1, max_length=255)
-    amount: Optional[float] = Field(None, ge=0)
+    amount: Optional[float] = Field(None)
     description: Optional[str] = Field(None, max_length=1000)
     
     # Travel-specific fields
-    no_of_pax: Optional[int] = Field(None, ge=1)
-    no_of_nights: Optional[int] = Field(None, ge=1)
-    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_pax: Optional[int] = Field(None)
+    no_of_nights: Optional[int] = Field(None)
+    no_of_adults: Optional[int] = Field(None)
     travel_date: Optional[datetime] = None
     close_date: Optional[datetime] = None
     
     # Sales information
-    sales_stage_id: str = Field(..., min_length=1)
-    probability: Optional[int] = Field(0, ge=0, le=100)
+    sales_stage_id: Annotated[str, BeforeValidator(str)]
+    probability: Optional[int] = Field(0)
     
     # Relationships
-    account_id: Optional[str] = None
-    contact_id: Optional[str] = None
-    opportunity_type_id: Optional[str] = None
-    experience_id: Optional[str] = None
+    account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    contact_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    opportunity_type_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
     # Source tracking
-    source_id: Optional[str] = None
-    source_medium_id: Optional[str] = None
+    source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_url: Optional[str] = Field(None, max_length=500)
     
     # Additional fields
@@ -49,13 +49,13 @@ class OpportunityCreate(OpportunityBase):
 class OpportunityUpdate(BaseModel):
     """Schema for updating an opportunity"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
-    amount: Optional[float] = Field(None, ge=0)
+    amount: Optional[float] = Field(None)
     description: Optional[str] = Field(None, max_length=1000)
     sales_stage_id: Optional[str] = Field(None, min_length=1)
-    probability: Optional[int] = Field(None, ge=0, le=100)
+    probability: Optional[int] = Field(None)
     close_date: Optional[datetime] = None
     travel_date: Optional[datetime] = None
-    no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_pax: Optional[int] = Field(None)
     account_id: Optional[str] = None
     contact_id: Optional[str] = None
     custom_fields: Optional[Dict[str, Any]] = None
@@ -63,13 +63,13 @@ class OpportunityUpdate(BaseModel):
 
 class OpportunityResponse(OpportunityBase):
     """Schema for opportunity response"""
-    id: str
-    tenant_id: str
-    owner_id: str
-    created_by: str
+    id: Annotated[str, BeforeValidator(str)]
+    tenant_id: Annotated[str, BeforeValidator(str)]
+    owner_id: Annotated[str, BeforeValidator(str)]
+    created_by: Annotated[str, BeforeValidator(str)]
     
     is_locked: bool = False
-    locked_by: Optional[str] = None
+    locked_by: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
     
     created_at: datetime

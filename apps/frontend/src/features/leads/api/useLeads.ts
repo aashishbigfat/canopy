@@ -59,3 +59,11 @@ export const useConvertLead = () => {
         onError: ErrorHandler.getMutationErrorHandler("Failed to convert lead"),
     });
 };
+
+export const useConversionSuggestions = (id: string) => {
+    return useQuery({
+        queryKey: ["leads", id, "suggestions"],
+        queryFn: () => leadsService.getConversionSuggestions(id),
+        enabled: !!id,
+    });
+};

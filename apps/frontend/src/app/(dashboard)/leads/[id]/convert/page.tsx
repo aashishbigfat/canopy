@@ -19,10 +19,15 @@ export default async function ConvertLeadPage({
 
     try {
         // Get lead data for pre-filling the form
-        const lead = await leadsService.getLead(leadId);
+        const lead = await leadsService.getLead(leadId, {
+            headers: { Authorization: `Bearer ${session.accessToken}` }
+        });
 
         // Get statuses and sources for dropdowns
-        const response = await leadsService.getLeads({ per_page: 1 });
+        const response = await leadsService.getLeads(
+            { per_page: 1 },
+            { headers: { Authorization: `Bearer ${session.accessToken}` } }
+        );
 
         return (
             <div className="space-y-6 max-w-2xl">

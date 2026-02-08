@@ -196,17 +196,31 @@ export const getColumns = (
             id: "convert",
             header: "Convert Lead",
             enableHiding: false,
-            cell: ({ row }) => {
+            cell: ({ row, table }) => {
                 const lead = row.original;
+
+                if (lead.is_converted) {
+                    return (
+                        <div className="flex items-center gap-1 text-green-600 font-medium">
+                            <CheckCircle2 className="h-4 w-4" />
+                            <span className="text-sm">Converted</span>
+                        </div>
+                    );
+                }
 
                 return (
                     <Button
-                        asChild
                         size="sm"
                         variant="outline"
                         className="border-gray-400 text-gray-800 hover:bg-gray-100"
+                        onClick={() => {
+                            const tableMeta = table.options.meta as any;
+                            if (tableMeta?.onConvert) {
+                                tableMeta.onConvert(lead);
+                            }
+                        }}
                     >
-                        <Link href={`/leads/${lead.id}/convert`}>Convert</Link>
+                        Convert
                     </Button>
                 );
             },
@@ -227,6 +241,9 @@ interface LeadTableProps {
     isLoading?: boolean;
 }
 
+import { ConvertLeadDialog } from "./ConvertLeadDialog";
+import { CheckCircle2 } from "lucide-react";
+
 export function LeadTable({
     data,
     pagination,
@@ -239,6 +256,9 @@ export function LeadTable({
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [rowSelection, setRowSelection] = React.useState({});
+
+    const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
+    const [isConvertOpen, setIsConvertOpen] = React.useState(false);
 
     const columns = React.useMemo(() => getColumns(lead_statuses, sources, users), [lead_statuses, sources, users]);
 
@@ -261,6 +281,12 @@ export function LeadTable({
             columnVisibility,
             rowSelection,
         },
+        meta: {
+            onConvert: (lead: Lead) => {
+                setSelectedLead(lead);
+                setIsConvertOpen(true);
+            }
+        }
     });
 
     const searchParams = useSearchParams();
@@ -288,177 +314,184 @@ export function LeadTable({
     return (
         <LoadingState isLoading={isLoading} fallback={<LoadingTable rows={10} columns={12} />}>
             <div className="w-full">
-            <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-sm">
-                <div className="flex items-center justify-between border-b px-4 py-3">
-                    <div className="flex flex-col gap-1">
-                        <div className="text-sm font-semibold">
-                            Leads ({total})
+                <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-sm">
+                    <div className="flex items-center justify-between border-b px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                            <div className="text-sm font-semibold">
+                                Leads ({total})
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            className="gap-1"
+                                        >
+                                            {currentViewLabel}
+                                            <ChevronDown className="h-4 w-4" />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="start">
+                                        {leadViews.map((view) => (
+                                            <DropdownMenuItem
+                                                key={view.value}
+                                                onClick={() => {
+                                                    const params = new URLSearchParams(
+                                                        searchParams.toString()
+                                                    );
+                                                    params.set("view", view.value);
+                                                    params.set("page", "1");
+                                                    router.push(
+                                                        `${pathname}?${params.toString()}`
+                                                    );
+                                                }}
+                                            >
+                                                {view.label}
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </div>
                         </div>
                         <div className="flex items-center gap-2">
+                            <Button asChild size="sm" className="gap-1">
+                                <Link href="/leads/create">
+                                    <span className="text-lg leading-none">+</span>
+                                    New Lead
+                                </Link>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                className="border-gray-300 text-gray-700"
+                                aria-label="Filter leads"
+                            >
+                                <Filter className="h-4 w-4" />
+                            </Button>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
                                     <Button
-                                        type="button"
                                         variant="outline"
                                         size="sm"
-                                        className="gap-1"
+                                        className="gap-1 border-gray-300 text-gray-700"
                                     >
-                                        {currentViewLabel}
+                                        Settings
                                         <ChevronDown className="h-4 w-4" />
                                     </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start">
-                                    {leadViews.map((view) => (
-                                        <DropdownMenuItem
-                                            key={view.value}
-                                            onClick={() => {
-                                                const params = new URLSearchParams(
-                                                    searchParams.toString()
-                                                );
-                                                params.set("view", view.value);
-                                                params.set("page", "1");
-                                                router.push(
-                                                    `${pathname}?${params.toString()}`
-                                                );
-                                            }}
-                                        >
-                                            {view.label}
-                                        </DropdownMenuItem>
-                                    ))}
+                                <DropdownMenuContent align="end">
+                                    <DropdownMenuLabel>Settings</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem>Manage columns</DropdownMenuItem>
+                                    <DropdownMenuItem>Save view</DropdownMenuItem>
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <Button asChild size="sm" className="gap-1">
-                            <Link href="/leads/create">
-                                <span className="text-lg leading-none">+</span>
-                                New Lead
-                            </Link>
+                    <div className="px-4 py-3">
+                        <div className="mb-3 flex items-center">
+                            <Input
+                                placeholder="Search leads..."
+                                value={(table.getColumn("first_name")?.getFilterValue() as string) ?? ""}
+                                onChange={(event) =>
+                                    table.getColumn("first_name")?.setFilterValue(event.target.value)
+                                }
+                                className="max-w-sm"
+                            />
+                        </div>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <TableHead key={header.id}>
+                                                    {header.isPlaceholder
+                                                        ? null
+                                                        : flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext()
+                                                        )}
+                                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    ))}
+                                </TableHeader>
+                                <TableBody>
+                                    {table.getRowModel().rows?.length ? (
+                                        table.getRowModel().rows.map((row) => (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && "selected"}
+                                            >
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
+                                                        )}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
+                                            >
+                                                No results.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex items-center justify-end space-x-2 py-2">
+                    <div className="flex-1 text-sm text-muted-foreground">
+                        {table.getFilteredSelectedRowModel().rows.length} of{" "}
+                        {table.getFilteredRowModel().rows.length} row(s) selected.
+                    </div>
+                    <div className="space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set("page", (pagination.current_page - 1).toString());
+                                router.push(`${pathname}?${params.toString()}`);
+                            }}
+                            disabled={pagination.current_page <= 1}
+                        >
+                            Previous
                         </Button>
                         <Button
                             variant="outline"
-                            size="icon"
-                            className="border-gray-300 text-gray-700"
-                            aria-label="Filter leads"
+                            size="sm"
+                            onClick={() => {
+                                const params = new URLSearchParams(searchParams.toString());
+                                params.set("page", (pagination.current_page + 1).toString());
+                                router.push(`${pathname}?${params.toString()}`);
+                            }}
+                            disabled={pagination.current_page >= pagination.pages}
                         >
-                            <Filter className="h-4 w-4" />
+                            Next
                         </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="gap-1 border-gray-300 text-gray-700"
-                                >
-                                    Settings
-                                    <ChevronDown className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem>Manage columns</DropdownMenuItem>
-                                <DropdownMenuItem>Save view</DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    </div>
-                </div>
-                <div className="px-4 py-3">
-                    <div className="mb-3 flex items-center">
-                        <Input
-                            placeholder="Search leads..."
-                            value={(table.getColumn("first_name")?.getFilterValue() as string) ?? ""}
-                            onChange={(event) =>
-                                table.getColumn("first_name")?.setFilterValue(event.target.value)
-                            }
-                            className="max-w-sm"
-                        />
-                    </div>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                {table.getHeaderGroups().map((headerGroup) => (
-                                    <TableRow key={headerGroup.id}>
-                                        {headerGroup.headers.map((header) => (
-                                            <TableHead key={header.id}>
-                                                {header.isPlaceholder
-                                                    ? null
-                                                    : flexRender(
-                                                        header.column.columnDef.header,
-                                                        header.getContext()
-                                                    )}
-                                            </TableHead>
-                                        ))}
-                                    </TableRow>
-                                ))}
-                            </TableHeader>
-                            <TableBody>
-                                {table.getRowModel().rows?.length ? (
-                                    table.getRowModel().rows.map((row) => (
-                                        <TableRow
-                                            key={row.id}
-                                            data-state={row.getIsSelected() && "selected"}
-                                        >
-                                            {row.getVisibleCells().map((cell) => (
-                                                <TableCell key={cell.id}>
-                                                    {flexRender(
-                                                        cell.column.columnDef.cell,
-                                                        cell.getContext()
-                                                    )}
-                                                </TableCell>
-                                            ))}
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={columns.length}
-                                            className="h-24 text-center"
-                                        >
-                                            No results.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
                     </div>
                 </div>
             </div>
-
-            <div className="flex items-center justify-end space-x-2 py-2">
-                <div className="flex-1 text-sm text-muted-foreground">
-                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                    {table.getFilteredRowModel().rows.length} row(s) selected.
-                </div>
-                <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.set("page", (pagination.current_page - 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
-                        }}
-                        disabled={pagination.current_page <= 1}
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.set("page", (pagination.current_page + 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
-                        }}
-                        disabled={pagination.current_page >= pagination.pages}
-                    >
-                        Next
-                    </Button>
-                </div>
-            </div>
-            </div>
+            {selectedLead && (
+                <ConvertLeadDialog
+                    lead={selectedLead}
+                    open={isConvertOpen}
+                    onOpenChange={setIsConvertOpen}
+                />
+            )}
         </LoadingState>
     );
 }

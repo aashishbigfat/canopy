@@ -78,11 +78,26 @@ export interface LeadCreateData {
 
 export interface LeadConvertData {
     lead_id: string;
+    account_id?: string;
     account_name?: string;
+    contact_id?: string;
     contact_create?: boolean;
-    opportunity_name: string;
+    create_opportunity?: boolean;
+    opportunity_name?: string;
     opportunity_amount?: number;
     opportunity_close_date?: string;
+}
+
+export interface ConversionSuggestion {
+    id: string;
+    name: string;
+    email?: string;
+    match_type: string;
+}
+
+export interface ConversionSuggestions {
+    accounts: ConversionSuggestion[];
+    contacts: ConversionSuggestion[];
 }
 
 
@@ -93,6 +108,16 @@ export interface LeadStatus {
 }
 
 export interface Source {
+    id: string;
+    name: string;
+}
+
+export interface Industry {
+    id: string;
+    name: string;
+}
+
+export interface Rating {
     id: string;
     name: string;
 }
@@ -149,4 +174,6 @@ export interface LeadResponse {
     lead_statuses: LeadStatus[];
     sources: Source[];
     users: User[];
+    industries: Industry[];
+    ratings: Rating[];
 }
