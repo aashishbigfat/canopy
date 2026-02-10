@@ -32,6 +32,16 @@ class LeadBase(BaseModel):
     industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    
+    # New Fields
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    travel_date: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    no_of_pax: Optional[int] = None
+    ip_address: Optional[str] = None
+    is_fixed: Optional[bool] = False
+    destinations: Optional[List[str]] = Field(default_factory=list)
 
 
 class LeadCreate(LeadBase):
@@ -63,6 +73,17 @@ class LeadUpdate(BaseModel):
     industry_id: Optional[str] = None
     source_id: Optional[str] = None
     source_medium_id: Optional[str] = None
+    
+    # New Fields
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    travel_date: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    no_of_pax: Optional[int] = None
+    ip_address: Optional[str] = None
+    is_fixed: Optional[bool] = None
+    destinations: Optional[List[str]] = None
+    
     destination_ids: Optional[List[str]] = None
     custom_fields: Optional[Dict[str, Any]] = None
 
@@ -90,12 +111,26 @@ class LeadConvert(BaseModel):
     """Schema for converting lead to account/contact/opportunity"""
     account_id: Optional[str] = None
     account_name: Optional[str] = None
+    account_type: Optional[str] = "Account"  # "Account" or "Person Account"
     contact_id: Optional[str] = None
     contact_create: bool = True
     create_opportunity: bool = True
     opportunity_name: Optional[str] = None
     opportunity_amount: Optional[float] = None
     opportunity_close_date: Optional[Union[datetime, date]] = None
+    
+    # New Opportunity Fields
+    travel_date: Optional[Union[datetime, date]] = None
+    destination_ids: Optional[List[str]] = Field(default_factory=list)
+    experience_id: Optional[str] = None
+    no_of_adults: Optional[int] = None
+    no_of_childs: Optional[int] = None
+    no_of_infants: Optional[int] = None
+    no_of_pax: Optional[int] = None
+    sales_stage_id: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    description: Optional[str] = None
+    opportunity_owner_id: Optional[str] = None
 
 
 class LeadListResponse(BaseModel):

@@ -48,6 +48,15 @@ export const useUpdateOpportunityStage = () => {
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            queryClient.invalidateQueries({ queryKey: ["sales-stages"] });
         }
+    });
+};
+
+export const useSalesStages = () => {
+    return useQuery({
+        queryKey: ["sales-stages"],
+        queryFn: () => opportunitiesService.getSalesStages(),
+        staleTime: 5 * 60 * 1000, // 5 minutes
     });
 };

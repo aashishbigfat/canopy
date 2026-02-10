@@ -20,7 +20,7 @@ class TaskBase(BaseModel):
     contact_id: Optional[str] = None
     account_id: Optional[str] = None
     
-    assigned_user_id: str
+    assigned_user_id: Optional[str] = None
     
     @validator('due_date', pre=True)
     def parse_due_date(cls, v):
@@ -58,7 +58,7 @@ class TaskResponse(TaskBase):
     """Schema for task response"""
     id: str
     tenant_id: str
-    owner_id: str
+    owner_id: Optional[str] = None
     created_by: str
     
     completed_at: Optional[datetime] = None

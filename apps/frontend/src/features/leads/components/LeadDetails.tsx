@@ -32,9 +32,20 @@ interface LeadDetailsProps {
     users: User[];
     industries: Industry[];
     ratings: Rating[];
+    experiences?: { id: string; name: string }[];
+    sales_stages?: { id: string; name: string }[];
 }
 
-export function LeadDetails({ lead, statuses, sources, users, industries, ratings }: LeadDetailsProps) {
+export function LeadDetails({
+    lead,
+    statuses,
+    sources,
+    users,
+    industries,
+    ratings,
+    experiences = [],
+    sales_stages = []
+}: LeadDetailsProps) {
     const router = useRouter();
     const [isConvertOpen, setIsConvertOpen] = useState(false);
 
@@ -64,7 +75,9 @@ export function LeadDetails({ lead, statuses, sources, users, industries, rating
                                 </Badge>
                             )}
                         </div>
-                        <p className="text-muted-foreground">{lead.title} at {lead.company || "No Company"}</p>
+                        <p className="text-muted-foreground">
+                            {lead.title ? `${lead.title} at ` : ""}{lead.company || "No Company"}
+                        </p>
                     </div>
                 </div>
 
@@ -77,7 +90,7 @@ export function LeadDetails({ lead, statuses, sources, users, industries, rating
                     </Button>
                     {!lead.is_converted ? (
                         <Button
-                            className="bg-green-600 hover:bg-green-700"
+                            className="bg-green-600 hover:bg-green-700 font-medium"
                             size="sm"
                             onClick={() => setIsConvertOpen(true)}
                         >
@@ -98,109 +111,181 @@ export function LeadDetails({ lead, statuses, sources, users, industries, rating
             <Separator />
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Info Column */}
+                {/* Main Content Area */}
                 <div className="lg:col-span-2 space-y-6">
+                    {/* Client Information */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-3">
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <UserIcon className="h-5 w-5 text-blue-500" />
-                                Contact Information
+                                Client Information
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-6">
+                        <CardContent className="grid md:grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Email</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Salutation</p>
+                                <p className="text-sm">{lead.salutation || "-"}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Email</p>
                                 <div className="flex items-center gap-2">
-                                    <Mail className="h-4 w-4 text-slate-400" />
-                                    <span>{lead.email || "N/A"}</span>
+                                    <Mail className="h-3 w-3 text-slate-400" />
+                                    <span className="text-sm">{lead.email || "N/A"}</span>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Phone</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Phone</p>
                                 <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4 text-slate-400" />
-                                    <span>{lead.phone || "N/A"}</span>
+                                    <Phone className="h-3 w-3 text-slate-400" />
+                                    <span className="text-sm">{lead.phone || "N/A"}</span>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Mobile</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Mobile</p>
                                 <div className="flex items-center gap-2">
-                                    <Phone className="h-4 w-4 text-slate-400" />
-                                    <span>{lead.mobile || "N/A"}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Website</p>
-                                <div className="flex items-center gap-2">
-                                    <Globe className="h-4 w-4 text-slate-400" />
-                                    <span className="text-blue-600 truncate">{lead.website || "N/A"}</span>
+                                    <Phone className="h-3 w-3 text-slate-400" />
+                                    <span className="text-sm">{lead.mobile || "N/A"}</span>
                                 </div>
                             </div>
                         </CardContent>
                     </Card>
 
+                    {/* Company & Source */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-3">
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <Building2 className="h-5 w-5 text-indigo-500" />
-                                Address Information
+                                Company & Source
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-6">
-                            <div className="space-y-1 md:col-span-2">
-                                <p className="text-sm font-medium text-muted-foreground">Street</p>
-                                <div className="flex items-start gap-2">
-                                    <MapPin className="h-4 w-4 text-slate-400 mt-1" />
-                                    <span>{lead.street || "N/A"}</span>
+                        <CardContent className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Company Name</p>
+                                <p className="text-sm">{lead.company || "-"}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">No of Employees</p>
+                                <p className="text-sm">{lead.no_employees || "-"}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Website</p>
+                                <div className="flex items-center gap-2">
+                                    <Globe className="h-3 w-3 text-slate-400" />
+                                    <a href={lead.website?.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
+                                        {lead.website || "N/A"}
+                                    </a>
                                 </div>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">City</p>
-                                <span>{lead.city || "N/A"}</span>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Source</p>
+                                <p className="text-sm">{source?.name || "Direct"}</p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">State/Province</p>
-                                <span>{lead.state || "N/A"}</span>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Source Medium</p>
+                                <p className="text-sm">{lead.source_medium || "-"}</p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Zip/Postal Code</p>
-                                <span>{lead.zip || "N/A"}</span>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Campaign Name</p>
+                                <p className="text-sm">{lead.campaign_name || "-"}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Location */}
+                    <Card>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <MapPin className="h-5 w-5 text-red-500" />
+                                Location
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid md:grid-cols-2 gap-4">
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Country</p>
+                                <p className="text-sm">{lead.country || "-"}</p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Country</p>
-                                <span>{lead.country || "N/A"}</span>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">State</p>
+                                <p className="text-sm">{lead.state || "-"}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">City</p>
+                                <p className="text-sm">{lead.city || "-"}</p>
+                            </div>
+                            <div className="space-y-1 md:col-span-2">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Street Address</p>
+                                <p className="text-sm">{lead.street || "-"}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Travel Requirements */}
+                    <Card className="border-blue-100 bg-blue-50/30">
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Calendar className="h-5 w-5 text-blue-600" />
+                                Travel Requirements
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Travel Date</p>
+                                <p className="text-sm font-semibold">{lead.travel_date || "-"}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">No of Nights</p>
+                                <p className="text-sm">{lead.no_of_nights || "-"}</p>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">No of Pax</p>
+                                <p className="text-sm font-semibold">{lead.no_of_pax || "-"}</p>
+                            </div>
+                            <div className="space-y-1 col-span-2 lg:col-span-3">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Destinations</p>
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                    {lead.destinations && lead.destinations.length > 0 ? (
+                                        lead.destinations.map((dest, i) => (
+                                            <Badge key={i} variant="outline" className="bg-white">
+                                                {dest}
+                                            </Badge>
+                                        ))
+                                    ) : (
+                                        <p className="text-sm">-</p>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Is Fixed Package?</p>
+                                <p className="text-sm">{lead.is_fixed ? "Yes" : "No"}</p>
                             </div>
                         </CardContent>
                     </Card>
                 </div>
 
-                {/* Sidebar Info Column */}
+                {/* Sidebar Column */}
                 <div className="space-y-6">
+                    {/* Classification */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-3">
                             <CardTitle className="text-lg">Classification</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Status</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Status</p>
                                 <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">
                                     {status?.name || "New"}
                                 </Badge>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Lead Source</p>
-                                <span className="text-sm">{source?.name || "Direct"}</span>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Industry</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Industry</p>
                                 <span className="text-sm">{industry?.name || "N/A"}</span>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Rating</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Rating</p>
                                 <span className="text-sm">{rating?.name || "N/A"}</span>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-sm font-medium text-muted-foreground">Lead Owner</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Lead Owner</p>
                                 <div className="flex items-center gap-2">
                                     <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] uppercase font-bold text-slate-600">
                                         {owner?.name?.substring(0, 2) || "OW"}
@@ -211,22 +296,36 @@ export function LeadDetails({ lead, statuses, sources, users, industries, rating
                         </CardContent>
                     </Card>
 
+                    {/* Technical Info */}
                     <Card>
-                        <CardHeader>
+                        <CardHeader className="pb-3">
+                            <CardTitle className="text-lg">Technical Information</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">IP Address</p>
+                                <p className="text-sm font-mono">{lead.ip_address || "N/A"}</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* System Information */}
+                    <Card>
+                        <CardHeader className="pb-3">
                             <CardTitle className="text-lg">System Information</CardTitle>
                         </CardHeader>
-                        <CardContent className="space-y-4 text-sm">
+                        <CardContent className="space-y-3 text-sm">
                             <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Created At</span>
-                                <span>{format(new Date(lead.created_at), "MMM d, yyyy")}</span>
+                                <span className="text-muted-foreground text-xs uppercase">Created At</span>
+                                <span className="text-xs font-medium">{format(new Date(lead.created_at), "MMM d, yyyy HH:mm")}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">Last Modified</span>
-                                <span>{format(new Date(lead.updated_at), "MMM d, yyyy")}</span>
+                                <span className="text-muted-foreground text-xs uppercase">Last Modified</span>
+                                <span className="text-xs font-medium">{format(new Date(lead.updated_at), "MMM d, yyyy HH:mm")}</span>
                             </div>
                             <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground">View Count</span>
-                                <Badge variant="secondary" className="font-mono">{lead.view_count}</Badge>
+                                <span className="text-muted-foreground text-xs uppercase">View Count</span>
+                                <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5">{lead.view_count}</Badge>
                             </div>
                         </CardContent>
                     </Card>
@@ -237,6 +336,9 @@ export function LeadDetails({ lead, statuses, sources, users, industries, rating
                 lead={lead}
                 open={isConvertOpen}
                 onOpenChange={setIsConvertOpen}
+                users={users}
+                experiences={experiences}
+                sales_stages={sales_stages}
                 onSuccess={() => {
                     router.refresh();
                 }}
@@ -244,3 +346,4 @@ export function LeadDetails({ lead, statuses, sources, users, industries, rating
         </div>
     );
 }
+

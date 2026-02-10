@@ -29,7 +29,21 @@ export interface Lead {
     rating_id?: string;
     industry_id?: string;
     source_id?: string;
-    source_medium_id?: string;
+    source_medium?: string; // Changed from source_medium_id as per requirement (seems to be a string field "Facebook", "Google" etc)
+    source_medium_id?: string; // Keep for backward compatibility if needed, or remove if not used. User said "sourceMedium: (optional) Facebook, Google"
+
+    // Campaign
+    campaign_name?: string;
+
+    // Travel Details
+    travel_date?: string;
+    no_of_nights?: number;
+    no_of_pax?: number;
+    destinations?: string[]; // User said "destinations: (required)"
+    is_fixed?: boolean;
+
+    // System
+    ip_address?: string;
 
     // Conversion Status
     is_converted: boolean;
@@ -71,6 +85,15 @@ export interface LeadCreateData {
     rating_id?: string;
     industry_id?: string;
     source_id?: string;
+    source_medium?: string;
+    campaign_name?: string;
+    travel_date?: string;
+    no_of_nights?: number;
+    no_of_pax?: number;
+    destinations?: string[];
+    is_fixed?: boolean;
+    ip_address?: string;
+
     source_medium_id?: string;
     destination_ids?: string[];
     custom_fields?: Record<string, unknown>;
@@ -80,12 +103,29 @@ export interface LeadConvertData {
     lead_id: string;
     account_id?: string;
     account_name?: string;
+    account_type?: string;
     contact_id?: string;
     contact_create?: boolean;
+    contact_salutation?: string;
+    contact_first_name?: string;
+    contact_last_name?: string;
     create_opportunity?: boolean;
     opportunity_name?: string;
     opportunity_amount?: number;
     opportunity_close_date?: string;
+
+    // New Opportunity Fields
+    travel_date?: string;
+    destination_ids?: string[];
+    experience_id?: string;
+    no_of_adults?: number;
+    no_of_childs?: number;
+    no_of_infants?: number;
+    no_of_pax?: number;
+    sales_stage_id?: string;
+    no_of_nights?: number;
+    description?: string;
+    opportunity_owner_id?: string;
 }
 
 export interface ConversionSuggestion {
@@ -176,4 +216,6 @@ export interface LeadResponse {
     users: User[];
     industries: Industry[];
     ratings: Rating[];
+    experiences: { id: string; name: string }[];
+    sales_stages: { id: string; name: string }[];
 }

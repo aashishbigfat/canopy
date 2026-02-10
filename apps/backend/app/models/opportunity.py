@@ -20,6 +20,8 @@ class Opportunity(BaseDocument):
     no_of_pax: Optional[int] = None  # Number of passengers
     no_of_nights: Optional[int] = None
     no_of_adults: Optional[int] = None
+    no_of_childs: Optional[int] = None
+    no_of_infants: Optional[int] = None
     travel_date: Optional[datetime] = None
     close_date: Optional[datetime] = None
     

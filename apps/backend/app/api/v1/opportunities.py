@@ -7,6 +7,7 @@ from bson import ObjectId
 
 from app.models.user import User
 from app.models.opportunity import Opportunity
+from app.models.opportunity_picklists import SalesStage
 from app.schemas.opportunity import (
     OpportunityCreate, OpportunityUpdate, OpportunityResponse,
     OpportunityListResponse, OpportunityStageChange
@@ -16,6 +17,30 @@ from app.api.deps import get_current_user, check_permission
 
 router = APIRouter()
 
+
+@router.get("/sales-stages")
+async def get_sales_stages(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all sales stages for the pipeline/kanban view
+    """
+    stages = await SalesStage.find(
+        SalesStage.is_active == True
+    ).sort("+sorting").to_list()
+    
+    return [
+        {
+            "id": str(stage.id),
+            "name": stage.name,
+            "color": stage.color,
+            "probability": stage.probability,
+            "is_won": stage.is_won,
+            "is_lost": stage.is_lost,
+            "sorting": stage.sorting,
+        }
+        for stage in stages
+    ]
 
 @router.post("/", response_model=OpportunityResponse, status_code=201)
 async def create_opportunity(
@@ -57,6 +82,7 @@ async def get_opportunities(
     per_page: int = Query(10, ge=1, le=100, description="Items per page"),
     owner_id: Optional[str] = Query(None, description="Filter by owner ID"),
     sales_stage_id: Optional[str] = Query(None, description="Filter by sales stage ID"),
+    view: Optional[str] = Query(None, description="View filter (today, recent, etc.)"),
     current_user: User = Depends(get_current_user)
 ):
     """
@@ -78,20 +104,43 @@ async def get_opportunities(
         service = OpportunityService()
         
         # Build filters
-        filters = {"tenant_id": current_user.tenant_id}
-        if owner_id:
-            filters["owner_id"] = ObjectId(owner_id)
-        if sales_stage_id:
-            filters["sales_stage_id"] = ObjectId(sales_stage_id)
+        filters = {}
         
+        # Apply view filters
+        from datetime import datetime, timedelta
+        now = datetime.utcnow()
+        today_start = datetime(now.year, now.month, now.day)
+        
+        if view == "today":
+            # Created today
+            filters["created_at"] = {"$gte": today_start}
+        elif view == "recent":
+            # Last 7 days
+            week_ago = now - timedelta(days=7)
+            filters["created_at"] = {"$gte": week_ago}
+        elif view == "closing_soon":
+             # Closing in next 7 days
+             filters["close_date"] = {
+                 "$gte": now.isoformat(),
+                 "$lte": (now + timedelta(days=7)).isoformat()
+             }
+        elif view == "closed":
+             # Handled by frontend or specific status filter usually
+             pass
+
         # Get opportunities
         opportunities, total = await service.get_opportunities_by_tenant(
             tenant_id=current_user.tenant_id,
             skip=(page - 1) * per_page,
             limit=per_page,
             owner_id=ObjectId(owner_id) if owner_id else None,
-            sales_stage_id=ObjectId(sales_stage_id) if sales_stage_id else None
+            sales_stage_id=ObjectId(sales_stage_id) if sales_stage_id else None,
+            **filters
         )
+        # Get related data names
+        from app.models.user import User as UserDoc
+        from app.models.account import Account as AccountDoc
+        from app.models.destination import Destination as DestinationDoc
         
         # Convert to response format
         opportunity_responses = []
@@ -105,12 +154,47 @@ async def get_opportunities(
             if opp.opportunity_type_id:
                 opportunity_type = await OpportunityType.get(opp.opportunity_type_id)
             
+            # Fetch Owner Name
+            owner_name = "Unknown"
+            if opp.owner_id:
+                owner = await UserDoc.get(opp.owner_id)
+                if owner:
+                    owner_name = f"{owner.first_name} {owner.last_name}"
+            
+            # Fetch Account Name
+            account_name = "-"
+            if opp.account_id:
+                account = await AccountDoc.get(opp.account_id)
+                if account:
+                    account_name = account.name
+            
+            # Fetch Destination Names
+            dest_names = []
+            if opp.destination_ids:
+                for dest_id in opp.destination_ids:
+                    dest = await DestinationDoc.get(dest_id)
+                    if dest:
+                        dest_names.append(dest.name)
+
+            # Segment - derived or custom? 
+            # Default to "B2C" as per screenshot if not set
+            segment = opp.custom_fields.get("segment", "B2C")
+            creation_type = "Manual"
+            if opp.lead_id:
+                creation_type = "Auto"
+            
             # Build response
             opp_response = OpportunityResponse.from_orm(opp)
             if sales_stage:
                 opp_response.sales_stage_name = sales_stage.name
             if opportunity_type:
                 opp_response.opportunity_type_name = opportunity_type.name
+            
+            opp_response.owner_name = owner_name
+            opp_response.account_name = account_name
+            opp_response.destination_names = dest_names
+            opp_response.segment = segment
+            opp_response.creation_type = creation_type
                 
             opportunity_responses.append(opp_response)
         

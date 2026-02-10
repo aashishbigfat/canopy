@@ -35,6 +35,12 @@ export interface Opportunity {
 
     // Metadata
     owner_id: string;
+    owner_name?: string;
+    account_name?: string;
+    destination_names?: string[];
+    segment?: string;
+    creation_type?: string;
+    type?: string;
     tenant_id: string;
     created_by: string;
     view_count: number;
@@ -63,4 +69,10 @@ export interface OpportunityFilters {
     sort_order?: 'asc' | 'desc';
 }
 
-export type OpportunityResponse = PaginatedResponse<Opportunity>;
+export interface OpportunityResponse {
+    opportunities: Opportunity[];
+    total: number;
+    page: number;
+    per_page: number;
+    pages: number;
+}

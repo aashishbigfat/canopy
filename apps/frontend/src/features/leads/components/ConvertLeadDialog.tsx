@@ -1,17 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
     Building2,
-    User,
+    User as LucideUser,
     Briefcase,
     CheckCircle2,
     AlertCircle,
     Loader2,
-    Calendar as CalendarIcon
+    Calendar as CalendarIcon,
+    RadioTower,
+    PlusCircle,
+    UserCircle2
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -58,16 +61,37 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { User } from "../types";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { LeadConvertData } from "../types";
 
 const convertSchema = z.object({
+    account_type: z.enum(["Account", "Person Account"]),
+    account_mode: z.enum(["new", "existing_only", "existing"]),
     account_id: z.string().optional(),
     account_name: z.string().optional(),
     contact_id: z.string().optional(),
     contact_create: z.boolean(),
+    contact_salutation: z.string().optional(),
+    contact_first_name: z.string().optional(),
+    contact_last_name: z.string().min(1, "Last name is required"),
     create_opportunity: z.boolean(),
     opportunity_name: z.string().optional(),
     opportunity_amount: z.coerce.number().optional(),
     opportunity_close_date: z.date().optional(),
+    travel_date: z.date().optional(),
+    destination_ids: z.array(z.string()).optional(),
+    experience_id: z.string().optional(),
+    no_of_adults: z.coerce.number().optional(),
+    no_of_childs: z.coerce.number().optional(),
+    no_of_infants: z.coerce.number().optional(),
+    no_of_pax: z.coerce.number().optional(),
+    sales_stage_id: z.string().optional(),
+    no_of_nights: z.coerce.number().optional(),
+    description: z.string().optional(),
+    opportunity_owner_id: z.string().optional(),
 });
 
 type ConvertFormValues = z.infer<typeof convertSchema>;
@@ -77,363 +101,630 @@ interface ConvertLeadDialogProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onSuccess?: () => void;
+    users?: User[];
+    experiences?: { id: string; name: string }[];
+    sales_stages?: { id: string; name: string }[];
 }
 
 export function ConvertLeadDialog({
     lead,
     open,
     onOpenChange,
-    onSuccess
+    onSuccess,
+    users = [],
+    experiences = [],
+    sales_stages = []
 }: ConvertLeadDialogProps) {
-    const { data: suggestions, isLoading: isLoadingSuggestions } = useConversionSuggestions(lead.id);
     const convertLead = useConvertLead();
+    const { data: suggestions, isLoading: suggestionsLoading } = useConversionSuggestions(lead.id);
 
-    const [accountMode, setAccountMode] = useState<"new" | "existing">("new");
-    const [contactMode, setContactMode] = useState<"new" | "existing">("new");
+    // Person Account detection logic
+    const isPersonAccount = React.useMemo(() => {
+        if (!lead.email) return false;
+        const emailLower = lead.email.toLowerCase();
+        const personalDomains = ["gmail", "yahoo", "hotmail", "rediffmail", "outlook"];
+        return personalDomains.some(domain => emailLower.includes(`@${domain}.`) || emailLower.endsWith(`@${domain}.com`));
+    }, [lead.email]);
 
     const form = useForm<ConvertFormValues>({
-        resolver: zodResolver(convertSchema),
+        resolver: zodResolver(convertSchema) as any,
         defaultValues: {
-            account_id: "",
-            account_name: lead.company || "",
-            contact_id: "",
+            account_type: isPersonAccount ? "Person Account" : "Account",
+            account_mode: isPersonAccount ? "new" : "existing",
+            account_name: lead.company || lead.full_name,
             contact_create: true,
+            contact_salutation: lead.salutation || "",
+            contact_first_name: lead.first_name || "",
+            contact_last_name: lead.last_name || "",
             create_opportunity: true,
-            opportunity_name: lead.company ? `${lead.company} - Opportunity` : `${lead.full_name} - Opportunity`,
+            opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
             opportunity_amount: 0,
+            no_of_adults: 1,
+            no_of_childs: 0,
+            no_of_infants: 0,
+            no_of_pax: 1,
+            no_of_nights: lead.no_of_nights || 0,
+            description: "",
+            destination_ids: lead.destination_ids || [],
             opportunity_close_date: new Date(new Date().setMonth(new Date().getMonth() + 1)),
         },
     });
 
-    // Auto-select "existing" if suggestions are found
+    const accountType = form.watch("account_type");
+    const accountMode = form.watch("account_mode");
+    const createOpportunity = form.watch("create_opportunity");
+    const adults = form.watch("no_of_adults") || 0;
+    const childs = form.watch("no_of_childs") || 0;
+    const infants = form.watch("no_of_infants") || 0;
+
+    // Update Pax automatically
     useEffect(() => {
-        if (suggestions?.accounts?.length && accountMode === "new") {
-            setAccountMode("existing");
-            form.setValue("account_id", suggestions.accounts[0].id);
-        }
-        if (suggestions?.contacts?.length && contactMode === "new") {
-            setContactMode("existing");
-            form.setValue("contact_id", suggestions.contacts[0].id);
-        }
-    }, [suggestions, form, accountMode, contactMode]);
+        const totalPax = Number(adults) + Number(childs) + Number(infants);
+        form.setValue("no_of_pax", totalPax);
+    }, [adults, childs, infants, form]);
 
-    async function onSubmit(data: ConvertFormValues) {
-        await convertLead.mutateAsync({
-            lead_id: lead.id,
-            account_id: accountMode === "existing" ? data.account_id : undefined,
-            account_name: accountMode === "new" ? data.account_name : undefined,
-            contact_id: contactMode === "existing" ? data.contact_id : undefined,
-            contact_create: contactMode === "new" ? data.contact_create : false,
-            create_opportunity: data.create_opportunity,
-            opportunity_name: data.opportunity_name,
-            opportunity_amount: isNaN(data.opportunity_amount || 0) ? 0 : data.opportunity_amount,
-            opportunity_close_date: data.opportunity_close_date?.toISOString(),
-        });
+    async function onSubmit(values: ConvertFormValues) {
+        try {
+            const convertData: LeadConvertData = {
+                lead_id: lead.id,
+                account_type: values.account_type,
+                account_id: values.account_mode !== "new" ? values.account_id : undefined,
+                account_name: values.account_mode === "new" ? values.account_name : undefined,
+                contact_id: values.contact_id,
+                contact_create: values.contact_create,
+                contact_salutation: values.contact_salutation,
+                contact_first_name: values.contact_first_name,
+                contact_last_name: values.contact_last_name,
+                create_opportunity: values.create_opportunity,
+                opportunity_name: values.opportunity_name,
+                opportunity_amount: values.opportunity_amount,
+                opportunity_close_date: values.opportunity_close_date?.toISOString(),
+                travel_date: values.travel_date?.toISOString(),
+                destination_ids: values.destination_ids,
+                experience_id: values.experience_id,
+                no_of_adults: values.no_of_adults,
+                no_of_childs: values.no_of_childs,
+                no_of_infants: values.no_of_infants,
+                no_of_pax: values.no_of_pax,
+                sales_stage_id: values.sales_stage_id,
+                no_of_nights: values.no_of_nights,
+                description: values.description,
+                opportunity_owner_id: values.opportunity_owner_id,
+            };
 
-        onOpenChange(false);
-        onSuccess?.();
+            await convertLead.mutateAsync(convertData);
+            onOpenChange(false);
+            onSuccess?.();
+        } catch (error) {
+            // Error is handled by useConvertLead
+        }
     }
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                    <div className="flex items-center gap-2">
-                        <CheckCircle2 className="h-6 w-6 text-green-500" />
-                        <DialogTitle className="text-2xl">Convert Lead</DialogTitle>
-                    </div>
+            <DialogContent className="sm:max-w-[900px] w-[95vw] max-h-[95vh] overflow-y-auto p-0 border-none">
+                <DialogHeader className="border-b p-6 pb-4 mb-0">
+                    <DialogTitle className="flex items-center gap-2 text-2xl text-blue-700">
+                        <CheckCircle2 className="h-7 w-7" />
+                        Convert Lead: {lead.full_name}
+                    </DialogTitle>
                     <DialogDescription>
-                        Convert <strong>{lead.full_name}</strong> into an Account, Contact, and Opportunity.
+                        This process will create an Account, Contact, and optionally an Opportunity.
                     </DialogDescription>
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
-
-                        {/* Account Section */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 font-semibold text-lg text-slate-900 border-b pb-1">
-                                <Building2 className="h-5 w-5 text-blue-600" />
-                                <h3>Account</h3>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Card
-                                    className={cn(
-                                        "cursor-pointer hover:border-blue-300 transition-colors",
-                                        accountMode === "new" && "border-blue-600 ring-1 ring-blue-600"
-                                    )}
-                                    onClick={() => setAccountMode("new")}
-                                >
-                                    <CardContent className="p-3 flex items-center justify-between">
-                                        <div className="text-sm font-medium">Create New</div>
-                                        {accountMode === "new" && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
-                                    </CardContent>
-                                </Card>
-                                <Card
-                                    className={cn(
-                                        "cursor-pointer hover:border-blue-300 transition-colors",
-                                        accountMode === "existing" && "border-blue-600 ring-1 ring-blue-600",
-                                        !suggestions?.accounts?.length && "opacity-50 cursor-not-allowed"
-                                    )}
-                                    onClick={() => suggestions?.accounts?.length && setAccountMode("existing")}
-                                >
-                                    <CardContent className="p-3 flex items-center justify-between">
-                                        <div className="text-sm font-medium">Choose Existing</div>
-                                        {accountMode === "existing" && <CheckCircle2 className="h-4 w-4 text-blue-600" />}
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {accountMode === "new" ? (
-                                <FormField
-                                    control={form.control}
-                                    name="account_name"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Account Name</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Company Name" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            ) : (
-                                <FormField
-                                    control={form.control}
-                                    name="account_id"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Select Account</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select an account" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {suggestions?.accounts.map((acc) => (
-                                                        <SelectItem key={acc.id} value={acc.id}>
-                                                            <div className="flex flex-col">
-                                                                <span>{acc.name}</span>
-                                                                <span className="text-xs text-muted-foreground">{acc.email || "No email"}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormDescription className="flex items-center gap-1">
-                                                <AlertCircle className="h-3 w-3" />
-                                                Suggestions based on company name
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            )}
-                        </div>
-
-                        {/* Contact Section */}
-                        <div className="space-y-4">
-                            <div className="flex items-center gap-2 font-semibold text-lg text-slate-900 border-b pb-1">
-                                <User className="h-5 w-5 text-indigo-600" />
-                                <h3>Contact</h3>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <Card
-                                    className={cn(
-                                        "cursor-pointer hover:border-indigo-300 transition-colors",
-                                        contactMode === "new" && "border-indigo-600 ring-1 ring-indigo-600"
-                                    )}
-                                    onClick={() => setContactMode("new")}
-                                >
-                                    <CardContent className="p-3 flex items-center justify-between">
-                                        <div className="text-sm font-medium">Create New</div>
-                                        {contactMode === "new" && <CheckCircle2 className="h-4 w-4 text-indigo-600" />}
-                                    </CardContent>
-                                </Card>
-                                <Card
-                                    className={cn(
-                                        "cursor-pointer hover:border-indigo-300 transition-colors",
-                                        contactMode === "existing" && "border-indigo-600 ring-1 ring-indigo-600",
-                                        !suggestions?.contacts?.length && "opacity-50 cursor-not-allowed"
-                                    )}
-                                    onClick={() => suggestions?.contacts?.length && setContactMode("existing")}
-                                >
-                                    <CardContent className="p-3 flex items-center justify-between">
-                                        <div className="text-sm font-medium">Choose Existing</div>
-                                        {contactMode === "existing" && <CheckCircle2 className="h-4 w-4 text-indigo-600" />}
-                                    </CardContent>
-                                </Card>
-                            </div>
-
-                            {contactMode === "existing" && (
-                                <FormField
-                                    control={form.control}
-                                    name="contact_id"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Select Contact</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select a contact" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {suggestions?.contacts.map((con) => (
-                                                        <SelectItem key={con.id} value={con.id}>
-                                                            <div className="flex flex-col">
-                                                                <span>{con.name}</span>
-                                                                <span className="text-xs text-muted-foreground">{con.email}</span>
-                                                            </div>
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormDescription className="flex items-center gap-1">
-                                                <AlertCircle className="h-3 w-3" />
-                                                Duplicates found by email or name
-                                            </FormDescription>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            )}
-
-                            {contactMode === "new" && (
-                                <div className="p-3 rounded-md bg-slate-50 border border-slate-200">
-                                    <p className="text-sm text-slate-600 flex items-center gap-2">
-                                        <User className="h-4 w-4" />
-                                        A new contact will be created for <strong>{lead.full_name}</strong>
-                                    </p>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* Opportunity Section */}
-                        <div className="space-y-4">
-                            <div className="flex items-center justify-between border-b pb-1">
-                                <div className="flex items-center gap-2 font-semibold text-lg text-slate-900">
-                                    <Briefcase className="h-5 w-5 text-amber-600" />
-                                    <h3>Opportunity</h3>
-                                </div>
-                                <FormField
-                                    control={form.control}
-                                    name="create_opportunity"
-                                    render={({ field }) => (
-                                        <div className="flex items-center space-x-2">
-                                            <Checkbox
-                                                id="create_opp"
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                            <label
-                                                htmlFor="create_opp"
-                                                className="text-sm font-medium leading-none cursor-pointer"
-                                            >
-                                                Create Opportunity
-                                            </label>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+                            {/* Left Column: Account & Contact */}
+                            <div className="space-y-8">
+                                {/* 1. Account Selection */}
+                                <Card className="border-blue-100 bg-blue-50/30">
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="flex items-center gap-2 font-semibold text-blue-800 border-b border-blue-100 pb-2">
+                                            <Building2 className="h-5 w-5" />
+                                            <h3>Account Selection</h3>
                                         </div>
-                                    )}
-                                />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="account_type"
+                                            render={({ field }) => (
+                                                <FormItem className="space-y-3">
+                                                    <FormLabel>Account Type</FormLabel>
+                                                    <FormControl>
+                                                        <RadioGroup
+                                                            onValueChange={field.onChange}
+                                                            defaultValue={field.value}
+                                                            className="flex gap-6"
+                                                        >
+                                                            <div className="flex items-center space-x-2">
+                                                                <RadioGroupItem value="Account" id="type-acc" />
+                                                                <Label htmlFor="type-acc" className="font-normal cursor-pointer">Account</Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                                <RadioGroupItem value="Person Account" id="type-person" />
+                                                                <Label htmlFor="type-person" className="font-normal cursor-pointer">Person Account</Label>
+                                                            </div>
+                                                        </RadioGroup>
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        <FormField
+                                            control={form.control}
+                                            name="account_mode"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Selection Mode</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            <SelectItem value="new">Create New</SelectItem>
+                                                            <SelectItem value="existing">Choose Existing</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+
+                                        {accountMode === "new" ? (
+                                            <FormField
+                                                control={form.control}
+                                                name="account_name"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Account Name</FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} placeholder="Account Name" className="bg-white" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ) : (
+                                            <FormField
+                                                control={form.control}
+                                                name="account_id"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Select Existing Account</FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="bg-white">
+                                                                    <SelectValue placeholder="Select an account..." />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                {suggestions?.accounts?.map((acc) => (
+                                                                    <SelectItem key={acc.id} value={acc.id}>
+                                                                        {acc.name} ({acc.match_type})
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        )}
+                                    </CardContent>
+                                </Card>
+
+                                {/* 2. Contact Section */}
+                                <Card className="border-indigo-100 bg-indigo-50/30">
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="flex items-center gap-2 font-semibold text-indigo-800 border-b border-indigo-100 pb-2">
+                                            <UserCircle2 className="h-5 w-5" />
+                                            <h3>Contact Details</h3>
+                                        </div>
+
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="contact_salutation"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Salutation</FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} placeholder="Mr." className="bg-white" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="contact_first_name"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>First Name</FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} placeholder="First Name" className="bg-white" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name="contact_last_name"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Last Name</FormLabel>
+                                                        <FormControl>
+                                                            <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+
+                                        {suggestions?.contacts && suggestions.contacts.length > 0 && (
+                                            <FormField
+                                                control={form.control}
+                                                name="contact_id"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Link to Existing Contact? (Optional)</FormLabel>
+                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="bg-white">
+                                                                    <SelectValue placeholder="Select existing contact..." />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="">-- Create New --</SelectItem>
+                                                                {suggestions?.contacts?.map((con) => (
+                                                                    <SelectItem key={con.id} value={con.id}>
+                                                                        {con.name} ({con.match_type})
+                                                                    </SelectItem>
+                                                                ))}
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        )}
+                                    </CardContent>
+                                </Card>
                             </div>
 
-                            {form.watch("create_opportunity") && (
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="opportunity_name"
-                                        render={({ field }) => (
-                                            <FormItem className="md:col-span-2">
-                                                <FormLabel>Opportunity Name</FormLabel>
-                                                <FormControl>
-                                                    <Input {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="opportunity_amount"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Amount</FormLabel>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        placeholder="0.00"
-                                                        {...field}
-                                                        value={field.value === undefined || field.value === null ? "" : field.value}
-                                                        onChange={(e) => {
-                                                            const val = e.target.value;
-                                                            field.onChange(val === "" ? undefined : parseFloat(val));
-                                                        }}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="opportunity_close_date"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-col">
-                                                <FormLabel>Close Date</FormLabel>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
+                            {/* Right Column: Opportunity */}
+                            <div className="space-y-8">
+                                <Card className="border-orange-100 bg-orange-50/30">
+                                    <CardContent className="pt-6 space-y-4">
+                                        <div className="flex items-center justify-between border-b border-orange-100 pb-2">
+                                            <div className="flex items-center gap-2 font-semibold text-orange-800">
+                                                <Briefcase className="h-5 w-5" />
+                                                <h3>Opportunity Details</h3>
+                                            </div>
+                                            <FormField
+                                                control={form.control}
+                                                name="create_opportunity"
+                                                render={({ field }) => (
+                                                    <FormItem className="flex items-center space-x-2 space-y-0">
                                                         <FormControl>
-                                                            <Button
-                                                                variant={"outline"}
-                                                                className={cn(
-                                                                    "w-full pl-3 text-left font-normal",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
-                                                            >
-                                                                {field.value ? (
-                                                                    format(field.value, "PPP")
-                                                                ) : (
-                                                                    <span>Pick a date</span>
-                                                                )}
-                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                            </Button>
+                                                            <Checkbox
+                                                                checked={field.value}
+                                                                onCheckedChange={field.onChange}
+                                                            />
                                                         </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar
-                                                            mode="single"
-                                                            selected={field.value}
-                                                            onSelect={field.onChange}
-                                                            disabled={(date) =>
-                                                                date < new Date(new Date().setHours(0, 0, 0, 0))
-                                                            }
-                                                            initialFocus
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
-                                                <FormMessage />
-                                            </FormItem>
+                                                        <FormLabel className="text-sm font-medium cursor-pointer">
+                                                            Create
+                                                        </FormLabel>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+
+                                        {createOpportunity && (
+                                            <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="opportunity_name"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Opportunity Name</FormLabel>
+                                                            <FormControl>
+                                                                <Input {...field} className="bg-white" />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="travel_date"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex flex-col">
+                                                                <FormLabel>Date of Travel</FormLabel>
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <FormControl>
+                                                                            <Button
+                                                                                variant={"outline"}
+                                                                                className={cn(
+                                                                                    "w-full pl-3 text-left font-normal bg-white",
+                                                                                    !field.value && "text-muted-foreground"
+                                                                                )}
+                                                                            >
+                                                                                {field.value ? (
+                                                                                    format(field.value, "PPP")
+                                                                                ) : (
+                                                                                    <span>Pick a date</span>
+                                                                                )}
+                                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                                            </Button>
+                                                                        </FormControl>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                                        <Calendar
+                                                                            mode="single"
+                                                                            selected={field.value}
+                                                                            onSelect={field.onChange}
+                                                                            initialFocus
+                                                                        />
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="opportunity_close_date"
+                                                        render={({ field }) => (
+                                                            <FormItem className="flex flex-col">
+                                                                <FormLabel>Expected Close Date</FormLabel>
+                                                                <Popover>
+                                                                    <PopoverTrigger asChild>
+                                                                        <FormControl>
+                                                                            <Button
+                                                                                variant={"outline"}
+                                                                                className={cn(
+                                                                                    "w-full pl-3 text-left font-normal bg-white",
+                                                                                    !field.value && "text-muted-foreground"
+                                                                                )}
+                                                                            >
+                                                                                {field.value ? (
+                                                                                    format(field.value, "PPP")
+                                                                                ) : (
+                                                                                    <span>Pick a date</span>
+                                                                                )}
+                                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                                            </Button>
+                                                                        </FormControl>
+                                                                    </PopoverTrigger>
+                                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                                        <Calendar
+                                                                            mode="single"
+                                                                            selected={field.value}
+                                                                            onSelect={field.onChange}
+                                                                            initialFocus
+                                                                        />
+                                                                    </PopoverContent>
+                                                                </Popover>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="experience_id"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Experience</FormLabel>
+                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                    <FormControl>
+                                                                        <SelectTrigger className="bg-white">
+                                                                            <SelectValue placeholder="Select experience..." />
+                                                                        </SelectTrigger>
+                                                                    </FormControl>
+                                                                    <SelectContent>
+                                                                        {experiences?.map(exp => (
+                                                                            <SelectItem key={exp.id} value={exp.id}>{exp.name}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="sales_stage_id"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Stage</FormLabel>
+                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                    <FormControl>
+                                                                        <SelectTrigger className="bg-white">
+                                                                            <SelectValue placeholder="Select stage..." />
+                                                                        </SelectTrigger>
+                                                                    </FormControl>
+                                                                    <SelectContent>
+                                                                        {sales_stages?.map(stage => (
+                                                                            <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
+                                                                        ))}
+                                                                    </SelectContent>
+                                                                </Select>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-3 border p-4 rounded-lg bg-white shadow-sm">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="no_of_adults"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Adults</FormLabel>
+                                                                <FormControl>
+                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="no_of_childs"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Childs</FormLabel>
+                                                                <FormControl>
+                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="no_of_infants"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Infants</FormLabel>
+                                                                <FormControl>
+                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="no_of_pax"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
+                                                                <FormControl>
+                                                                    <Input type="number" {...field} readOnly className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
+                                                                </FormControl>
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="opportunity_amount"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Lead Amount</FormLabel>
+                                                                <FormControl>
+                                                                    <div className="relative">
+                                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">$</span>
+                                                                        <Input type="number" {...field} className="pl-7 bg-white" />
+                                                                    </div>
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="no_of_nights"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>No of Nights</FormLabel>
+                                                                <FormControl>
+                                                                    <Input type="number" {...field} className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name="opportunity_owner_id"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Opportunity Owner</FormLabel>
+                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger className="bg-white">
+                                                                        <SelectValue placeholder="Assign owner..." />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {users?.map(user => (
+                                                                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name="description"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Notes / Description</FormLabel>
+                                                            <FormControl>
+                                                                <Textarea
+                                                                    {...field}
+                                                                    placeholder="Add any specific requirements or notes..."
+                                                                    className="min-h-[80px] bg-white resize-none"
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
                                         )}
-                                    />
-                                </div>
-                            )}
+                                    </CardContent>
+                                </Card>
+                            </div>
                         </div>
 
-                        <DialogFooter className="sticky bottom-0 bg-white pt-4">
-                            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-                                Cancel
-                            </Button>
-                            <LoadingButton
-                                type="submit"
-                                isLoading={convertLead.isPending}
-                                className="bg-green-600 hover:bg-green-700"
+                        <DialogFooter className="border-t p-6 bg-slate-50/50 gap-2 sm:gap-0">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={() => onOpenChange(false)}
+                                className="text-slate-500 hover:text-slate-700"
                             >
-                                Convert Lead
-                            </LoadingButton>
+                                Not Now
+                            </Button>
+                            <Button
+                                type="submit"
+                                disabled={convertLead.isPending}
+                                className="bg-blue-700 hover:bg-blue-800 text-white min-w-[140px] shadow-lg shadow-blue-200"
+                            >
+                                {convertLead.isPending ? (
+                                    <>
+                                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        Converting...
+                                    </>
+                                ) : (
+                                    "Convert Lead"
+                                )}
+                            </Button>
                         </DialogFooter>
                     </form>
                 </Form>

@@ -24,6 +24,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { CommandPalette } from "@/components/search/CommandPalette";
 
 
 export default function DashboardLayout({
@@ -53,6 +55,7 @@ export default function DashboardLayout({
 
     return (
         <div className="flex min-h-screen flex-col bg-muted/40 text-foreground">
+            <CommandPalette />
             {/* Premium Midnight Header */}
             <header className="sticky top-0 z-50 flex h-[72px] items-center gap-4 border-b border-indigo-950/20 bg-gradient-to-r from-[#0a0a2e] to-[#1a1a4a] px-6 text-white shadow-lg">
                 <Button
@@ -107,9 +110,7 @@ export default function DashboardLayout({
                             <DropdownMenuItem>Away</DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button variant="ghost" size="icon" className="text-slate-300 hover:bg-white/10 hover:text-white h-11 w-11 rounded-full transition-all">
-                        <Bell className="h-6 w-6" />
-                    </Button>
+                    <NotificationBell />
                     <Button variant="ghost" size="icon" className="text-slate-300 hover:bg-white/10 hover:text-white h-11 w-11 rounded-full flex items-center justify-center transition-all bg-white/5 border border-white/5">
                         <span className="text-lg font-bold">W</span>
                     </Button>

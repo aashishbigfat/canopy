@@ -78,6 +78,11 @@ class OpportunityResponse(OpportunityBase):
     # Additional response fields for related data
     sales_stage_name: Optional[str] = None
     opportunity_type_name: Optional[str] = None
+    owner_name: Optional[str] = None
+    account_name: Optional[str] = None
+    destination_names: List[str] = Field(default_factory=list)
+    segment: Optional[str] = None
+    creation_type: Optional[str] = "Manual" # "Auto" or "Manual"
     
     class Config:
         from_attributes = True
@@ -111,6 +116,22 @@ class OpportunityResponse(OpportunityBase):
                 data['source_medium_id'] = str(obj.source_medium_id)
             if hasattr(obj, 'locked_by') and obj.locked_by:
                 data['locked_by'] = str(obj.locked_by)
+            
+            # Map names if they exist on the object (populated by service/handler)
+            if hasattr(obj, 'sales_stage_name'):
+                data['sales_stage_name'] = obj.sales_stage_name
+            if hasattr(obj, 'opportunity_type_name'):
+                data['opportunity_type_name'] = obj.opportunity_type_name
+            if hasattr(obj, 'owner_name'):
+                data['owner_name'] = obj.owner_name
+            if hasattr(obj, 'account_name'):
+                data['account_name'] = obj.account_name
+            if hasattr(obj, 'destination_names'):
+                data['destination_names'] = obj.destination_names
+            if hasattr(obj, 'segment'):
+                data['segment'] = obj.segment
+            if hasattr(obj, 'creation_type'):
+                data['creation_type'] = obj.creation_type
             
             # Ensure datetime fields are properly formatted
             if hasattr(obj, 'travel_date') and obj.travel_date:

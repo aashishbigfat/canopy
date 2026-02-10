@@ -298,6 +298,7 @@ async def export_leads(
     """Export leads to CSV or Excel"""
     from app.services.import_export_service import ImportExportService
     
+    
     # Get all leads for export
     leads = await Lead.find(
         Lead.tenant_id == current_user.tenant_id,
@@ -310,3 +311,31 @@ async def export_leads(
         "error": False,
         "message": "Export functionality coming soon"
     }
+
+
+@router.post("/bulk-delete")
+async def bulk_delete_leads(
+    lead_ids: List[str],
+    current_user: User = Depends(check_permission("delete_lead")),
+    service: LeadService = Depends(get_lead_service)
+):
+    """Bulk delete leads"""
+    result = await service.bulk_delete(lead_ids, current_user.tenant_id, current_user.id)
+    return result
+
+
+@router.post("/bulk-change-owner")
+async def bulk_change_lead_owner(
+    lead_ids: List[str],
+    new_owner_id: str,
+    current_user: User = Depends(check_permission("edit_lead")),
+    service: LeadService = Depends(get_lead_service)
+):
+    """Bulk change lead owner"""
+    result = await service.bulk_change_owner(
+        lead_ids, 
+        new_owner_id, 
+        current_user.tenant_id, 
+        current_user.id
+    )
+    return result

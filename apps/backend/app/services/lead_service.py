@@ -311,6 +311,7 @@ class LeadService(ActivityMixin):
                 industry_id=lead.industry_id,
                 rating_id=lead.rating_id,
                 account_source_id=lead.source_id,
+                is_person_account=conversion_data.account_type == "Person Account",
                 tenant_id=tenant_id,
                 owner_id=user_id,
                 created_by=user_id
@@ -322,7 +323,7 @@ class LeadService(ActivityMixin):
             await self.log_entity_created(
                 entity=account,
                 entity_type="account",
-                additional_data={"converted_from_lead_id": str(lead.id)}
+                additional_data={"converted_from_lead_id": str(lead.id), "is_person_account": account.is_person_account}
             )
         
         # 2. Handle Contact (Existing or New)
@@ -384,10 +385,15 @@ class LeadService(ActivityMixin):
         opportunity_id = None
         if conversion_data.create_opportunity:
             # Get default sales stage
-            default_stage = await SalesStage.find_one({"is_default": True}) or await SalesStage.find_one({})
-            if not default_stage:
-                raise ValueError("No sales stages found. Please configure sales stages first.")
-            
+            sales_stage_id = None
+            if conversion_data.sales_stage_id:
+                sales_stage_id = ObjectId(conversion_data.sales_stage_id)
+            else:
+                default_stage = await SalesStage.find_one({"is_default": True}) or await SalesStage.find_one({})
+                if not default_stage:
+                    raise ValueError("No sales stages found. Please configure sales stages first.")
+                sales_stage_id = default_stage.id
+
             # Handle close date
             from datetime import datetime, time
             close_date = None
@@ -398,20 +404,43 @@ class LeadService(ActivityMixin):
                     close_date = datetime.combine(conversion_data.opportunity_close_date.date(), time.min)
                 else:
                     close_date = datetime.combine(conversion_data.opportunity_close_date, time.min)
-            
+
+            # Handle travel date
+            travel_date = None
+            if conversion_data.travel_date:
+                if isinstance(conversion_data.travel_date, str):
+                    travel_date = datetime.strptime(conversion_data.travel_date, "%Y-%m-%d")
+                elif hasattr(conversion_data.travel_date, 'date'):
+                    travel_date = datetime.combine(conversion_data.travel_date.date(), time.min)
+                else:
+                    travel_date = datetime.combine(conversion_data.travel_date, time.min)
+
+            # Dest IDs
+            dest_ids = []
+            if conversion_data.destination_ids:
+                dest_ids = [ObjectId(d) for d in conversion_data.destination_ids]
+
             opportunity = Opportunity(
                 name=conversion_data.opportunity_name or f"{lead.company or lead.full_name} - Opportunity",
                 amount=conversion_data.opportunity_amount,
                 close_date=close_date,
-                sales_stage_id=default_stage.id,
-                probability=default_stage.probability,
+                travel_date=travel_date,
+                no_of_pax=conversion_data.no_of_pax,
+                no_of_adults=conversion_data.no_of_adults,
+                no_of_childs=conversion_data.no_of_childs,
+                no_of_infants=conversion_data.no_of_infants,
+                no_of_nights=conversion_data.no_of_nights,
+                description=conversion_data.description,
+                destination_ids=dest_ids,
+                experience_id=ObjectId(conversion_data.experience_id) if conversion_data.experience_id else None,
+                sales_stage_id=sales_stage_id,
                 account_id=account_id,
                 contact_id=contact_id,
                 lead_id=lead.id,
                 source_id=lead.source_id,
                 source_medium_id=lead.source_medium_id,
                 tenant_id=tenant_id,
-                owner_id=user_id,
+                owner_id=ObjectId(conversion_data.opportunity_owner_id) if conversion_data.opportunity_owner_id else user_id,
                 created_by=user_id
             )
             await opportunity.insert()
@@ -426,6 +455,9 @@ class LeadService(ActivityMixin):
         
         # 4. Finalize Lead Conversion
         await lead.convert_to_opportunity(opportunity_id)
+        
+        # Soft delete the lead so it doesn't show up in the main list
+        await lead.soft_delete()
         
         # Log Lead conversion
         conversion_summary = {
@@ -633,17 +665,20 @@ class LeadService(ActivityMixin):
 
         # 2. Fetch Metadata in parallel
         import asyncio
+        from app.models.opportunity_picklists import Experience, SalesStage
         metadata_tasks = [
             LeadStatus.find(LeadStatus.is_active == True).sort("+sorting").to_list(),
             Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
             User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
             Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
-            Rating.find(Rating.is_active == True).sort("+sorting").to_list()
+            Rating.find(Rating.is_active == True).sort("+sorting").to_list(),
+            Experience.find(Experience.tenant_id == tenant_id, Experience.is_active == True).sort("+sorting").to_list(),
+            SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
         
-        lead_statuses, sources, users, industries, ratings = metadata_results
+        lead_statuses, sources, users, industries, ratings, experiences, sales_stages = metadata_results
 
         return {
             "leads": leads,
@@ -673,4 +708,72 @@ class LeadService(ActivityMixin):
                 {"id": str(r.id), "name": r.name}
                 for r in ratings
             ],
+            "experiences": [
+                {"id": str(e.id), "name": e.name}
+                for e in experiences
+            ],
+            "sales_stages": [
+                {"id": str(ss.id), "name": ss.name}
+                for ss in sales_stages
+            ],
         }
+
+    async def bulk_delete(
+        self,
+        lead_ids: List[str],
+        tenant_id: ObjectId,
+        user_id: ObjectId
+    ) -> Dict[str, int]:
+        """Bulk delete leads"""
+        # Convert IDs to ObjectIds
+        ids = [ObjectId(lid) for lid in lead_ids]
+        
+        # Verify leads belong to tenant
+        leads = await Lead.find(
+            Lead.id.in_(ids),
+            Lead.tenant_id == tenant_id,
+            Lead.deleted_at == None
+        ).to_list()
+        
+        if not leads:
+            return {"deleted": 0, "total": 0}
+            
+        count = 0
+        for lead in leads:
+            await self.delete_lead(str(lead.id), tenant_id, user_id)
+            count += 1
+            
+        return {"deleted": count, "total": len(lead_ids)}
+
+    async def bulk_change_owner(
+        self,
+        lead_ids: List[str],
+        new_owner_id: str,
+        tenant_id: ObjectId,
+        user_id: ObjectId
+    ) -> Dict[str, int]:
+        """Bulk change lead owner"""
+        # Convert IDs to ObjectIds
+        ids = [ObjectId(lid) for lid in lead_ids]
+        new_owner_oid = ObjectId(new_owner_id)
+        
+        # Verify leads belong to tenant
+        leads = await Lead.find(
+            Lead.id.in_(ids),
+            Lead.tenant_id == tenant_id,
+            Lead.deleted_at == None
+        ).to_list()
+        
+        if not leads:
+            return {"updated": 0, "total": 0}
+            
+        count = 0
+        for lead in leads:
+            # Skip if already owned by new owner
+            if lead.owner_id == new_owner_oid:
+                continue
+                
+            await self.change_owner(str(lead.id), new_owner_oid, user_id, tenant_id)
+            count += 1
+            
+        return {"updated": count, "total": len(lead_ids)}

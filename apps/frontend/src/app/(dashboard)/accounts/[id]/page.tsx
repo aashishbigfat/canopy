@@ -25,10 +25,8 @@ async function getAccountDetail(id: string, token: string) {
     return res.json();
 }
 
-export default async function AccountDetailPage({
-    params,
-}: {
-    params: { id: string };
+export default async function AccountDetailPage(props: {
+    params: Promise<{ id: string }>;
 }) {
     const session = await getServerSession(authOptions);
 
@@ -36,6 +34,7 @@ export default async function AccountDetailPage({
         notFound();
     }
 
+    const params = await props.params;
     const account = await getAccountDetail(params.id, session.accessToken);
 
     return (

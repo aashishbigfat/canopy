@@ -254,7 +254,8 @@ class OpportunityService(ActivityMixin):
         skip: int = 0,
         limit: int = 10,
         owner_id: Optional[ObjectId] = None,
-        sales_stage_id: Optional[ObjectId] = None
+        sales_stage_id: Optional[ObjectId] = None,
+        **kwargs
     ) -> Tuple[List[Opportunity], int]:
         """Get opportunities for a tenant with pagination"""
         
@@ -262,6 +263,10 @@ class OpportunityService(ActivityMixin):
             "tenant_id": tenant_id,
             "deleted_at": None
         }
+        
+        # Merge additional filters
+        if kwargs:
+            query.update(kwargs)
         
         if owner_id:
             query["owner_id"] = owner_id

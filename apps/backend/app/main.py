@@ -40,7 +40,7 @@ app.add_middleware(
 app.add_middleware(ActivityContextMiddleware)
 
 # Include routers
-from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks
+from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
 
@@ -79,6 +79,7 @@ app.include_router(territories.router, prefix="/api/v1/territories", tags=["Terr
 app.include_router(incentives.router, prefix="/api/v1/incentives", tags=["Incentives"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
 app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])
+app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
 
 @app.get("/")
 async def root():

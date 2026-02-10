@@ -17,12 +17,12 @@ export interface Task {
 
     contact_id?: string;
     account_id?: string;
-    assigned_user_id: string;
+    assigned_user_id?: string;
 
     // Metadata
     completed_at?: string;
     completed_by?: string;
-    owner_id: string;
+    owner_id?: string;
     tenant_id: string;
     created_at: string;
     updated_at: string;

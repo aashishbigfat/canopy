@@ -8,18 +8,19 @@ import { LeadDetails } from "@/features/leads/components/LeadDetails";
 export const dynamic = "force-dynamic";
 
 interface LeadPageProps {
-    params: {
+    params: Promise<{
         id: string;
-    };
+    }>;
 }
 
-export default async function LeadPage({ params }: LeadPageProps) {
+export default async function LeadPage(props: LeadPageProps) {
     const session = await getServerSession(authOptions);
 
     if (!session) {
         redirect("/login");
     }
 
+    const params = await props.params;
     const { id } = params;
 
     try {
@@ -52,6 +53,8 @@ export default async function LeadPage({ params }: LeadPageProps) {
                     users={metadataResponse.users}
                     industries={metadataResponse.industries}
                     ratings={metadataResponse.ratings}
+                    experiences={metadataResponse.experiences}
+                    sales_stages={metadataResponse.sales_stages}
                 />
             </div>
         );

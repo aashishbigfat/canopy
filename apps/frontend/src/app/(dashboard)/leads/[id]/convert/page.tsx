@@ -4,10 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
-export default async function ConvertLeadPage({
-    params,
-}: {
-    params: { id: string };
+export default async function ConvertLeadPage(props: {
+    params: Promise<{ id: string }>;
 }) {
     const session = await getServerSession(authOptions);
 
@@ -15,6 +13,7 @@ export default async function ConvertLeadPage({
         redirect("/login");
     }
 
+    const params = await props.params;
     const leadId = params.id;
 
     try {

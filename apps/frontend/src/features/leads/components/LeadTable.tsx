@@ -74,42 +74,36 @@ export const getColumns = (
             header: "First Name",
             cell: ({ row }) => {
                 const lead = row.original;
-                const firstName = lead.first_name || "";
-                const lastName = lead.last_name || "";
-                const initials = `${firstName[0] || ""}${lastName[0] || ""}`;
                 return (
-                    <div className="flex items-center gap-2">
-                        <Avatar className="h-8 w-8">
-                            <AvatarImage src="" />
-                            <AvatarFallback>{initials}</AvatarFallback>
-                        </Avatar>
-                        <div className="flex flex-col">
-                            <Link
-                                href={`/leads/${lead.id}`}
-                                className="text-sm font-medium text-primary hover:underline"
-                            >
-                                {lead.first_name}
-                            </Link>
-                            <span className="text-xs text-muted-foreground">{lead.email}</span>
-                        </div>
-                    </div>
+                    <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                    >
+                        {lead.first_name}
+                    </Link>
                 );
             },
         },
         {
             accessorKey: "last_name",
             header: "Last Name",
-            cell: ({ row }) => (
-                <div className="text-sm font-medium">
-                    {row.original.last_name || "-"}
-                </div>
-            ),
+            cell: ({ row }) => {
+                const lead = row.original;
+                return (
+                    <Link
+                        href={`/leads/${lead.id}`}
+                        className="text-sm font-medium text-blue-600 hover:underline"
+                    >
+                        {lead.last_name || "-"}
+                    </Link>
+                );
+            },
         },
         {
             accessorKey: "email",
             header: "Email",
             cell: ({ row }) => (
-                <div className="text-sm text-blue-600 hover:underline">
+                <div className="text-sm text-gray-700">
                     {row.original.email || "-"}
                 </div>
             ),
@@ -118,7 +112,7 @@ export const getColumns = (
             accessorKey: "phone",
             header: "Phone",
             cell: ({ row }) => (
-                <div className="text-sm">
+                <div className="text-sm text-gray-700">
                     {row.original.phone || row.original.mobile || "-"}
                 </div>
             ),
@@ -127,7 +121,7 @@ export const getColumns = (
             accessorKey: "city",
             header: "City of Origin",
             cell: ({ row }) => (
-                <div className="text-sm">
+                <div className="text-sm text-gray-700">
                     {row.original.city || "-"}
                 </div>
             ),
@@ -139,7 +133,7 @@ export const getColumns = (
                 const statusId = row.original.lead_status_id;
                 const status = statuses.find(s => s.id === statusId);
                 const label = status?.name || "New";
-                return <div className="text-sm font-medium text-emerald-600">{label}</div>;
+                return <div className="text-sm font-medium text-gray-700">{label}</div>;
             },
         },
         {
@@ -149,7 +143,7 @@ export const getColumns = (
                 const cf = row.original.custom_fields || {};
                 const travelDate = cf.travel_date as string | undefined;
                 return (
-                    <div className="text-sm">
+                    <div className="text-sm text-gray-700">
                         {travelDate ? travelDate : "-"}
                     </div>
                 );
@@ -161,7 +155,7 @@ export const getColumns = (
             cell: ({ row }) => {
                 const cf = row.original.custom_fields || {};
                 const pax = (cf.no_of_pax as number | undefined) ?? (cf.pax as number | undefined);
-                return <div className="text-sm">{pax ?? "-"}</div>;
+                return <div className="text-sm text-gray-700">{pax ?? "-"}</div>;
             },
         },
         {
@@ -171,7 +165,7 @@ export const getColumns = (
                 const cf = row.original.custom_fields || {};
                 const dest = (cf.destinations as string | undefined) ??
                     (cf.destination as string | undefined);
-                return <div className="text-sm">{dest || "-"}</div>;
+                return <div className="text-sm text-gray-700">{dest || "-"}</div>;
             },
         },
         {
@@ -180,16 +174,15 @@ export const getColumns = (
             cell: ({ row }) => {
                 const cf = row.original.custom_fields || {};
                 const segment = cf.segment as string | undefined;
-                return <div className="text-sm">{segment || "-"}</div>;
+                return <div className="text-sm text-gray-700">{segment || "-"}</div>;
             },
         },
         {
             id: "source_medium",
             header: "Source Medium",
             cell: ({ row }) => {
-                const sourceId = row.original.source_id;
-                const source = sources.find(s => s.id === sourceId);
-                return <div className="capitalize text-sm">{source?.name || "-"}</div>;
+                const sourceMedium = row.original.source_medium || "-";
+                return <div className="capitalize text-sm text-gray-700">{sourceMedium}</div>;
             },
         },
         {
@@ -211,8 +204,8 @@ export const getColumns = (
                 return (
                     <Button
                         size="sm"
-                        variant="outline"
-                        className="border-gray-400 text-gray-800 hover:bg-gray-100"
+                        variant="default"
+                        className="bg-gray-600 hover:bg-gray-700 text-white"
                         onClick={() => {
                             const tableMeta = table.options.meta as any;
                             if (tableMeta?.onConvert) {
@@ -238,7 +231,12 @@ interface LeadTableProps {
     lead_statuses: LeadStatus[];
     sources: Source[];
     users: User[];
+    experiences: { id: string; name: string }[];
+    sales_stages: { id: string; name: string }[];
     isLoading?: boolean;
+    onSelectOne?: (id: string, checked: boolean) => void;
+    onSelectAll?: (checked: boolean) => void;
+    selectedIds?: string[];
 }
 
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
@@ -250,17 +248,67 @@ export function LeadTable({
     lead_statuses,
     sources,
     users,
-    isLoading = false
+    experiences,
+    sales_stages,
+    isLoading = false,
+    onSelectOne,
+    onSelectAll,
+    selectedIds = []
 }: LeadTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
-    const [rowSelection, setRowSelection] = React.useState({});
+
+    // Derived row selection state for the table
+    const rowSelection = React.useMemo(() => {
+        const selection: Record<string, boolean> = {};
+        selectedIds.forEach(id => {
+            // Find row index for this ID
+            const index = data.findIndex(d => d.id === id);
+            if (index >= 0) {
+                selection[index] = true;
+            }
+        });
+        return selection;
+    }, [selectedIds, data]);
 
     const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
 
-    const columns = React.useMemo(() => getColumns(lead_statuses, sources, users), [lead_statuses, sources, users]);
+    const columns = React.useMemo(() => {
+        const baseColumns = getColumns(lead_statuses, sources, users);
+
+        // Override the select column to use our external handlers
+        if (baseColumns[0].id === "select") {
+            baseColumns[0] = {
+                id: "select",
+                header: ({ table }) => (
+                    <Checkbox
+                        checked={
+                            selectedIds.length > 0 && selectedIds.length === data.length
+                        }
+                        onCheckedChange={(value) => {
+                            if (onSelectAll) onSelectAll(!!value);
+                        }}
+                        aria-label="Select all"
+                    />
+                ),
+                cell: ({ row }) => (
+                    <Checkbox
+                        checked={selectedIds.includes(row.original.id)}
+                        onCheckedChange={(value) => {
+                            if (onSelectOne) onSelectOne(row.original.id, !!value);
+                        }}
+                        aria-label="Select row"
+                    />
+                ),
+                enableSorting: false,
+                enableHiding: false,
+            };
+        }
+
+        return baseColumns;
+    }, [lead_statuses, sources, users, selectedIds, onSelectOne, onSelectAll, data.length]);
 
     const table = useReactTable({
         data,
@@ -274,7 +322,6 @@ export function LeadTable({
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
         state: {
             sorting,
             columnFilters,
@@ -391,16 +438,6 @@ export function LeadTable({
                         </div>
                     </div>
                     <div className="px-4 py-3">
-                        <div className="mb-3 flex items-center">
-                            <Input
-                                placeholder="Search leads..."
-                                value={(table.getColumn("first_name")?.getFilterValue() as string) ?? ""}
-                                onChange={(event) =>
-                                    table.getColumn("first_name")?.setFilterValue(event.target.value)
-                                }
-                                className="max-w-sm"
-                            />
-                        </div>
                         <div className="rounded-md border">
                             <Table>
                                 <TableHeader>
@@ -490,6 +527,9 @@ export function LeadTable({
                     lead={selectedLead}
                     open={isConvertOpen}
                     onOpenChange={setIsConvertOpen}
+                    users={users}
+                    experiences={experiences}
+                    sales_stages={sales_stages}
                 />
             )}
         </LoadingState>

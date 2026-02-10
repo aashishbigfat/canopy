@@ -4,10 +4,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
-export default async function EditLeadPage({
-    params,
-}: {
-    params: { id: string };
+export default async function EditLeadPage(props: {
+    params: Promise<{ id: string }>;
 }) {
     const session = await getServerSession(authOptions);
 
@@ -15,6 +13,7 @@ export default async function EditLeadPage({
         redirect("/login");
     }
 
+    const params = await props.params;
     const leadId = params.id;
     // Parallel fetch for efficiency
     const [lead, metadataResponse] = await Promise.all([

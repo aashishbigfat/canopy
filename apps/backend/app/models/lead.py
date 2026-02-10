@@ -42,6 +42,16 @@ class Lead(BaseDocument):
     source_id: Optional[PydanticObjectId] = None
     source_medium_id: Optional[PydanticObjectId] = None
     
+    # New Fields
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    travel_date: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    no_of_pax: Optional[int] = None
+    ip_address: Optional[str] = None
+    is_fixed: bool = False
+    destinations: List[str] = Field(default_factory=list)
+    
     # Conversion
     is_converted: bool = False
     opportunity_id: Optional[PydanticObjectId] = None  # If converted

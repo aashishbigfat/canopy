@@ -12,7 +12,7 @@ class Task(BaseDocument):
     """Task model for CRM task management"""
     
     # Basic Information
-    name: Indexed(str)
+    name: str = "Untitled Task"
     description: Optional[str] = None
     due_date: Optional[datetime] = None
     
@@ -29,8 +29,8 @@ class Task(BaseDocument):
     account_id: Optional[PydanticObjectId] = None
     
     # Assignment
-    assigned_user_id: Indexed(PydanticObjectId)
-    owner_id: Indexed(PydanticObjectId)
+    assigned_user_id: Optional[PydanticObjectId] = None
+    owner_id: Optional[PydanticObjectId] = None
     
     # Tenant & Audit
     tenant_id: Indexed(PydanticObjectId)

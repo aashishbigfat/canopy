@@ -31,24 +31,32 @@ import { LoadingButton } from "@/components/ui/loading";
 
 const leadFormSchema = z.object({
     salutation: z.string().optional(),
-    first_name: z.string().min(2, { message: "First name is required." }),
-    middle_name: z.string().optional(),
-    last_name: z.string().min(2, { message: "Last name is required." }),
+    first_name: z.string().optional(),
+    last_name: z.string().min(1, { message: "Last name is required." }),
     company: z.string().optional(),
-    email: z.string().email().optional().or(z.literal("")),
-    phone: z.string().optional(),
-    mobile: z.string().optional(),
+    email: z.string().email({ message: "Invalid email address." }),
+    phone: z.string().min(1, { message: "Phone is required." }),
+    mobile: z.string().min(1, { message: "Mobile is required." }),
+    no_employees: z.string().optional(),
     website: z.string().optional(),
     title: z.string().optional(),
     lead_status_id: z.string().optional(),
-    source_id: z.string().optional(),
+    source_id: z.string().min(1, { message: "Source is required." }),
+    source_medium: z.string().optional(),
     industry_id: z.string().optional(),
     rating_id: z.string().optional(),
     street: z.string().optional(),
-    city: z.string().optional(),
-    state: z.string().optional(),
+    city: z.string().min(1, { message: "City is required." }),
+    state: z.string().min(1, { message: "State is required." }),
     zip: z.string().optional(),
-    country: z.string().optional(),
+    country: z.string().min(1, { message: "Country is required." }),
+    campaign_name: z.string().optional(),
+    travel_date: z.string().min(1, { message: "Travel date is required." }),
+    no_of_nights: z.string().min(1, { message: "Number of nights is required." }),
+    no_of_pax: z.string().min(1, { message: "Number of pax is required." }),
+    ip_address: z.string().min(1, { message: "IP Address is required." }),
+    is_fixed: z.boolean().default(false).optional(),
+    destinations: z.string().min(1, { message: "Destinations are required." }),
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -78,16 +86,17 @@ export function LeadForm({
         defaultValues: {
             salutation: initialData?.salutation || "",
             first_name: initialData?.first_name || "",
-            middle_name: initialData?.middle_name || "",
             last_name: initialData?.last_name || "",
             company: initialData?.company || "",
             email: initialData?.email || "",
             phone: initialData?.phone || "",
             mobile: initialData?.mobile || "",
+            no_employees: initialData?.no_employees?.toString() || "",
             website: initialData?.website || "",
             title: initialData?.title || "",
             lead_status_id: initialData?.lead_status_id || "",
             source_id: initialData?.source_id || "",
+            source_medium: initialData?.source_medium || "",
             industry_id: initialData?.industry_id || "",
             rating_id: initialData?.rating_id || "",
             street: initialData?.street || "",
@@ -95,6 +104,13 @@ export function LeadForm({
             state: initialData?.state || "",
             zip: initialData?.zip || "",
             country: initialData?.country || "",
+            campaign_name: initialData?.campaign_name || "",
+            travel_date: initialData?.travel_date || "",
+            no_of_nights: initialData?.no_of_nights?.toString() || "",
+            no_of_pax: initialData?.no_of_pax?.toString() || "",
+            ip_address: initialData?.ip_address || "",
+            is_fixed: initialData?.is_fixed || false,
+            destinations: initialData?.destinations?.join(", ") || "",
         },
     });
 
@@ -103,17 +119,18 @@ export function LeadForm({
         try {
             const payload: LeadCreateData = {
                 salutation: data.salutation,
-                first_name: data.first_name,
-                middle_name: data.middle_name,
+                first_name: data.first_name || "",
                 last_name: data.last_name,
                 company: data.company,
-                email: data.email || undefined,
+                email: data.email,
                 phone: data.phone,
                 mobile: data.mobile,
+                no_employees: data.no_employees ? parseInt(data.no_employees) : undefined,
                 website: data.website,
                 title: data.title,
                 lead_status_id: data.lead_status_id || undefined,
-                source_id: data.source_id || undefined,
+                source_id: data.source_id,
+                source_medium: data.source_medium,
                 industry_id: data.industry_id || undefined,
                 rating_id: data.rating_id || undefined,
                 street: data.street || undefined,
@@ -121,6 +138,13 @@ export function LeadForm({
                 state: data.state,
                 zip: data.zip,
                 country: data.country,
+                campaign_name: data.campaign_name,
+                travel_date: data.travel_date,
+                no_of_nights: parseInt(data.no_of_nights),
+                no_of_pax: parseInt(data.no_of_pax),
+                ip_address: data.ip_address,
+                is_fixed: data.is_fixed,
+                destinations: data.destinations.split(",").map(d => d.trim()).filter(Boolean),
             };
 
             await ErrorHandler.withErrorHandling(async () => {
@@ -145,263 +169,40 @@ export function LeadForm({
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="salutation"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Salutation</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Mr./Mrs./Ms." />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="Mr.">Mr.</SelectItem>
-                                        <SelectItem value="Mrs.">Mrs.</SelectItem>
-                                        <SelectItem value="Ms.">Ms.</SelectItem>
-                                        <SelectItem value="Dr.">Dr.</SelectItem>
-                                        <SelectItem value="Prof.">Prof.</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <div className="hidden md:block" /> { /* Spacer */}
-
-                    <FormField
-                        control={form.control}
-                        name="first_name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>First Name *</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Sarah" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="middle_name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Middle Name</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="John" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="last_name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Last Name *</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Connor" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="sarah@example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="company"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Company</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Cyberdyne Systems" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Phone</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="+1 555-000-0000" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="mobile"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Mobile</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="+1 555-000-0000" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Job Title</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Consultant" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="website"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Website</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="https://example.com" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="lead_status_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a status" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {statuses.map((status) => (
-                                            <SelectItem key={status.id} value={status.id}>
-                                                {status.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="source_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Source</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a source" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {sources.map((source) => (
-                                            <SelectItem key={source.id} value={source.id}>
-                                                {source.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="industry_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Industry</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select an industry" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {industries.map((industry) => (
-                                            <SelectItem key={industry.id} value={industry.id}>
-                                                {industry.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="rating_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Rating</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a rating" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {ratings.map((rating) => (
-                                            <SelectItem key={rating.id} value={rating.id}>
-                                                {rating.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
-
                 <div className="space-y-4">
-                    <h3 className="text-lg font-medium">Address</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
+                    <h3 className="text-lg font-medium border-b pb-2">Client Information</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                         <FormField
                             control={form.control}
-                            name="street"
+                            name="salutation"
                             render={({ field }) => (
-                                <FormItem className="col-span-2">
-                                    <FormLabel>Street</FormLabel>
+                                <FormItem>
+                                    <FormLabel>Salutation</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="Mr.">Mr.</SelectItem>
+                                            <SelectItem value="Mrs.">Mrs.</SelectItem>
+                                            <SelectItem value="Ms.">Ms.</SelectItem>
+                                            <SelectItem value="Dr.">Dr.</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="first_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>First Name</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="123 Main St" {...field} />
+                                        <Input placeholder="John" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -409,12 +210,165 @@ export function LeadForm({
                         />
                         <FormField
                             control={form.control}
-                            name="city"
+                            name="last_name"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>City</FormLabel>
+                                    <FormLabel>Last Name *</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="Los Angeles" {...field} />
+                                        <Input placeholder="Doe" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email *</FormLabel>
+                                    <FormControl>
+                                        <Input type="email" placeholder="john.doe@example.com" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Phone *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="+1 234 567 890" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mobile"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Mobile *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="+1 234 567 890" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium border-b pb-2">Company & Source</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <FormField
+                            control={form.control}
+                            name="company"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Company Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Acme Inc." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="no_employees"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>No of Employees</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="50" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="website"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Website</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="https://example.com" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="source_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Source *</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Source" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {sources.map((source) => (
+                                                <SelectItem key={source.id} value={source.id}>
+                                                    {source.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="source_medium"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Source Medium</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Facebook, Google, etc." {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="campaign_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Campaign Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Summer Sale" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium border-b pb-2">Location</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <FormField
+                            control={form.control}
+                            name="country"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Country *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="USA" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -425,9 +379,9 @@ export function LeadForm({
                             name="state"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>State</FormLabel>
+                                    <FormLabel>State *</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="CA" {...field} />
+                                        <Input placeholder="California" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -435,12 +389,12 @@ export function LeadForm({
                         />
                         <FormField
                             control={form.control}
-                            name="zip"
+                            name="city"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Zip Code</FormLabel>
+                                    <FormLabel>City *</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="90001" {...field} />
+                                        <Input placeholder="Los Angeles" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -448,12 +402,12 @@ export function LeadForm({
                         />
                         <FormField
                             control={form.control}
-                            name="country"
+                            name="street"
                             render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Country</FormLabel>
+                                <FormItem className="col-span-full">
+                                    <FormLabel>Street Address</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="USA" {...field} />
+                                        <Input placeholder="123 Main St" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -462,13 +416,124 @@ export function LeadForm({
                     </div>
                 </div>
 
-                <LoadingButton
-                    type="submit"
-                    isLoading={isLoading}
-                    loadingText={leadId ? "Updating..." : "Creating..."}
-                >
-                    {leadId ? "Update Lead" : "Create Lead"}
-                </LoadingButton>
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium border-b pb-2">Travel Requirements</h3>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <FormField
+                            control={form.control}
+                            name="travel_date"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Travel Date *</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="no_of_nights"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>No of Nights *</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="4" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="no_of_pax"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>No of Pax *</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="2" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="destinations"
+                            render={({ field }) => (
+                                <FormItem className="col-span-2">
+                                    <FormLabel>Destinations *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Paris, London, Rome" {...field} />
+                                    </FormControl>
+                                    <div className="text-[0.8rem] text-muted-foreground">
+                                        Separate destinations with commas.
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="is_fixed"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4 shadow">
+                                    <FormControl>
+                                        <Input
+                                            type="checkbox"
+                                            className="h-4 w-4"
+                                            checked={field.value}
+                                            onChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    <div className="space-y-1 leading-none">
+                                        <FormLabel>
+                                            Is Fixed Package?
+                                        </FormLabel>
+                                    </div>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-4">
+                    <h3 className="text-lg font-medium border-b pb-2">Technical Information</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                            control={form.control}
+                            name="ip_address"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>IP Address *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="127.0.0.1" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex justify-end gap-4">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => router.back()}
+                        disabled={isLoading}
+                    >
+                        Cancel
+                    </Button>
+                    <LoadingButton
+                        type="submit"
+                        isLoading={isLoading}
+                        loadingText={leadId ? "Updating..." : "Creating..."}
+                    >
+                        {leadId ? "Update Lead" : "Create Lead"}
+                    </LoadingButton>
+                </div>
             </form>
         </Form>
     );
