@@ -62,7 +62,7 @@ import {
 } from "@/components/ui/popover";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { User } from "../types";
 import { Textarea } from "@/components/ui/textarea";

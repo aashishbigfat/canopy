@@ -44,7 +44,7 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -265,18 +265,18 @@ export default function ProductsPage() {
                             </div>
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="is_active">Active</Label>
-                                <Switch
+                                <Checkbox
                                     id="is_active"
                                     checked={formData.is_active}
-                                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, is_active: !!checked })}
                                 />
                             </div>
                             <div className="flex items-center justify-between">
                                 <Label htmlFor="is_featured">Featured</Label>
-                                <Switch
+                                <Checkbox
                                     id="is_featured"
                                     checked={formData.is_featured}
-                                    onCheckedChange={(checked) => setFormData({ ...formData, is_featured: checked })}
+                                    onCheckedChange={(checked) => setFormData({ ...formData, is_featured: !!checked })}
                                 />
                             </div>
                         </div>
