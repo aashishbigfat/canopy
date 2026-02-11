@@ -14,6 +14,7 @@ import {
     useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -64,7 +65,14 @@ export const columns: ColumnDef<Opportunity>[] = [
     {
         accessorKey: "name",
         header: "Deal Name",
-        cell: ({ row }) => <div className="font-medium">{row.getValue("name")}</div>,
+        cell: ({ row }) => {
+            const opp = row.original;
+            return (
+                <Link href={`/opportunities/${opp.id}`} className="font-medium text-blue-600 hover:underline">
+                    {opp.name}
+                </Link>
+            );
+        },
     },
     {
         accessorKey: "amount",
@@ -75,13 +83,23 @@ export const columns: ColumnDef<Opportunity>[] = [
                 style: "currency",
                 currency: "USD",
             }).format(amount || 0);
-            return <div className="font-medium">{formatted}</div>;
+            return <div className="font-medium text-slate-700">{formatted}</div>;
         },
     },
     {
         accessorKey: "account_id",
         header: "Account",
-        cell: ({ row }) => <div className="text-sm">{row.getValue("account_id") || "-"}</div>,
+        cell: ({ row }) => {
+            const opp = row.original;
+            return (
+                <Link
+                    href={`/accounts/${opp.account_id}`}
+                    className="text-sm font-medium text-blue-600 hover:underline"
+                >
+                    {opp.account_name || "Account"}
+                </Link>
+            );
+        },
     },
     {
         accessorKey: "sales_stage_id",

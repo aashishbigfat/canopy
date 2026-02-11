@@ -8,7 +8,8 @@ from bson import ObjectId
 from app.models.user import User
 from app.models.contact import Contact
 from app.schemas.contact import (
-    ContactCreate, ContactUpdate, ContactResponse, ContactListResponse
+    ContactCreate, ContactUpdate, ContactResponse, ContactListResponse,
+    ContactDetailResponse
 )
 from app.services.contact_service import ContactService
 from app.api.deps import get_current_user, check_permission
@@ -80,73 +81,56 @@ async def get_contacts(
 ):
     """Get all contacts with pagination"""
     try:
-        print("DEBUG: Entering get_contacts")
-        # from app.models.user_contact_view import UserContactView
+        # print("DEBUG: Entering get_contacts")
         
         service = ContactService()
         
-        # Simplified logic: SKIP UserContactView for now
-        recent_contact_ids = []
+        # Build query
+        query = {
+            "tenant_id": current_user.tenant_id,
+            "deleted_at": None
+        }
+        if owner_id:
+            query["owner_id"] = ObjectId(owner_id)
+
+        # Count total
+        total = await Contact.find(query).count()
         
-        print("DEBUG: Fetching all contacts...")
-        # Fetch all contacts directly
-        all_contacts = await Contact.find(
-            Contact.tenant_id == current_user.tenant_id,
-            Contact.deleted_at == None
-        ).sort("-updated_at").to_list()
-        
-        print(f"DEBUG: Found {len(all_contacts)} contacts")
-        
-        # Paginate
-        total = len(all_contacts)
+        # Pagination
         skip = (page - 1) * per_page
-        contacts = all_contacts[skip:skip + per_page]
         pages = (total + per_page - 1) // per_page
         
-        # Get users for owner selection
+        # Fetch contacts
+        contacts = await Contact.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list()
+        
+        # Collect account IDs
+        account_ids = [c.account_id for c in contacts if c.account_id]
+        
+        # Fetch accounts
+        from app.models.account import Account
+        accounts = []
+        if account_ids:
+            accounts = await Account.find({"_id": {"$in": account_ids}}).to_list()
+        
+        # Map account ID to name
+        account_map = {a.id: a.name for a in accounts}
+        
+        # Get users for owner selection (optional, can be optimized)
         users = await User.find(
             User.tenant_id == current_user.tenant_id,
             User.is_active == True
         ).sort("+name").to_list()
         
+        # Prepare response
+        contact_responses = []
+        for c in contacts:
+            resp = contact_to_response(c)
+            if c.account_id and c.account_id in account_map:
+                resp.account_name = account_map[c.account_id]
+            contact_responses.append(resp)
+        
         return {
-            "contacts": [
-                {
-                    "id": str(c.id),
-                    "salutation": c.salutation,
-                    "first_name": c.first_name,
-                    "middle_name": c.middle_name,
-                    "last_name": c.last_name,
-                    "full_name": c.full_name,
-                    "email": c.email,
-                    "phone": c.phone,
-                    "mobile": c.mobile,
-                    "fax": c.fax,
-                    "title": c.title,
-                    "department": c.department,
-                    "mailing_street": c.mailing_street,
-                    "mailing_city": c.mailing_city,
-                    "mailing_state": c.mailing_state,
-                    "mailing_zip": c.mailing_zip,
-                    "mailing_country": c.mailing_country,
-                    "other_street": c.other_street,
-                    "other_city": c.other_city,
-                    "other_state": c.other_state,
-                    "other_zip": c.other_zip,
-                    "other_country": c.other_country,
-                    "description": c.description,
-                    "assistant": c.assistant,
-                    "assistant_phone": c.assistant_phone,
-                    "account_id": str(c.account_id) if c.account_id else None,
-                    "tenant_id": str(c.tenant_id),
-                    "owner_id": str(c.owner_id),
-                    "created_by": str(c.created_by),
-                    "view_count": c.view_count,
-                    "created_at": c.created_at,
-                    "updated_at": c.updated_at
-                }
-                for c in contacts
-            ],
+            "contacts": [c.model_dump() for c in contact_responses],
             "pagination": {
                 "current_page": page,
                 "total": total,
@@ -191,29 +175,31 @@ async def search_contacts(
     }
 
 
-@router.get("/{contact_id}", response_model=ContactResponse)
+@router.get("/{contact_id}", response_model=ContactDetailResponse)
 async def get_contact(
     contact_id: str,
     current_user: User = Depends(check_permission("view_contact"))
 ):
-    """Get contact by ID"""
+    """Get contact by ID with related records"""
     service = ContactService()
-    contact = await service.get_contact(contact_id, current_user.tenant_id)
+    contact_data = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
     
-    if not contact:
+    if not contact_data:
         raise HTTPException(status_code=404, detail="Contact not found")
     
     # Track view
     await service._track_user_view(
         current_user.id,
-        contact.id,
+        ObjectId(contact_id),
         current_user.tenant_id
     )
     
     # Increment view count
-    await contact.increment_view_count()
-    
-    return contact_to_response(contact)
+    contact = await Contact.get(ObjectId(contact_id))
+    if contact:
+        await contact.increment_view_count()
+            
+    return contact_data
 
 
 @router.put("/{contact_id}", response_model=ContactResponse)

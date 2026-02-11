@@ -10,6 +10,16 @@ export interface DashboardStats {
     leads_change: number;
     sales_activity: number;
     activity_change: number;
+
+    // Real-time fields
+    total_opportunities: number;
+    today_opportunities: number;
+    open_opportunities: number;
+    b2c_open_opportunities: number;
+    b2b_open_opportunities: number;
+    today_checkout: number;
+    tomorrow_departures: number;
+    today_revenue: number;
 }
 
 export interface RecentSale {
@@ -81,6 +91,14 @@ const emptyDashboardData: DashboardData = {
         leads_change: 0,
         sales_activity: 0,
         activity_change: 0,
+        total_opportunities: 0,
+        today_opportunities: 0,
+        open_opportunities: 0,
+        b2c_open_opportunities: 0,
+        b2b_open_opportunities: 0,
+        today_checkout: 0,
+        tomorrow_departures: 0,
+        today_revenue: 0,
     },
     recent_sales: [],
     revenue_chart: [],
@@ -91,14 +109,14 @@ const emptyDashboardData: DashboardData = {
 export function getLeaderBoardKPIs(data: DashboardData): LeaderBoardKPIs {
     const s = data?.stats;
     return {
-        total_opportunities: s?.active_opportunities ?? 0,
-        today_opportunities: 0,
-        open_opportunities: s?.active_opportunities ?? 0,
-        b2c_open_opportunities: 0,
-        b2b_open_opportunities: 0,
-        today_checkout: 0,
-        tomorrow_departures: 0,
-        today_revenue: s?.total_revenue ?? 0,
+        total_opportunities: s?.total_opportunities ?? s?.active_opportunities ?? 0,
+        today_opportunities: s?.today_opportunities ?? 0,
+        open_opportunities: s?.open_opportunities ?? s?.active_opportunities ?? 0,
+        b2c_open_opportunities: s?.b2c_open_opportunities ?? 0,
+        b2b_open_opportunities: s?.b2b_open_opportunities ?? 0,
+        today_checkout: s?.today_checkout ?? 0,
+        tomorrow_departures: s?.tomorrow_departures ?? 0,
+        today_revenue: s?.today_revenue ?? s?.total_revenue ?? 0,
     };
 }
 
@@ -138,9 +156,30 @@ export const dashboardService = {
         }
     },
 
-    getStats: async () => {
-        const { data } = await apiClient.get<DashboardStats>(`${BASE_URL}/stats`);
-        return data;
+    getStats: async (): Promise<DashboardStats> => {
+        const { data } = await apiClient.get<any>(`${BASE_URL}/stats`);
+
+        // Map backend AnalyticsSummary to frontend DashboardStats
+        return {
+            total_revenue: data.revenue_this_month || 0,
+            revenue_change: 0,
+            active_opportunities: data.opportunities_total || 0,
+            opportunities_change: 0,
+            active_leads: data.leads_total || 0,
+            leads_change: 0,
+            sales_activity: 0,
+            activity_change: 0,
+
+            // Map real-time fields
+            total_opportunities: data.total_opportunities || 0,
+            today_opportunities: data.today_opportunities || 0,
+            open_opportunities: data.open_opportunities || 0,
+            b2c_open_opportunities: data.b2c_open_opportunities || 0,
+            b2b_open_opportunities: data.b2b_open_opportunities || 0,
+            today_checkout: data.today_checkout || 0,
+            tomorrow_departures: data.tomorrow_departures || 0,
+            today_revenue: data.today_revenue || 0,
+        };
     },
 
     getRecentSales: async (limit: number = 10) => {
@@ -191,5 +230,17 @@ export const dashboardService = {
             console.error("Failed to fetch activity logs:", err);
             return [];
         }
+    },
+
+    getKeyDeals: async (limit: number = 5) => {
+        const { data } = await apiClient.get<any[]>(`${BASE_URL}/analytics/key-deals`, {
+            params: { limit }
+        });
+        return data;
+    },
+
+    getTaskSummary: async () => {
+        const { data } = await apiClient.get<any>(`${BASE_URL}/analytics/tasks-summary`);
+        return data;
     },
 };

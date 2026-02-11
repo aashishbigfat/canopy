@@ -14,6 +14,7 @@ import {
     useReactTable,
 } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -75,7 +76,9 @@ export const columns: ColumnDef<Contact>[] = [
                         <AvatarFallback>{initials}</AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col">
-                        <span className="font-medium text-sm">{contact.full_name}</span>
+                        <Link href={`/contacts/${contact.id}`} className="font-medium text-sm hover:underline hover:text-blue-600">
+                            {contact.full_name}
+                        </Link>
                         <span className="text-xs text-muted-foreground">{contact.email}</span>
                     </div>
                 </div>
@@ -88,9 +91,18 @@ export const columns: ColumnDef<Contact>[] = [
         cell: ({ row }) => <div className="text-sm">{row.getValue("title") || "-"}</div>,
     },
     {
-        accessorKey: "account_id", // Changed from accountName to account_id as temporary fix, ideally fetch account name
+        accessorKey: "account_id",
         header: "Account",
-        cell: ({ row }) => <div className="text-sm font-medium">{row.original.account_id ? "Account" : "-"}</div>,
+        cell: ({ row }) => {
+            const contact = row.original;
+            if (!contact.account_id) return <div className="text-sm">-</div>;
+
+            return (
+                <Link href={`/accounts/${contact.account_id}`} className="text-sm font-medium hover:underline hover:text-blue-600">
+                    {contact.account_name || "Account"}
+                </Link>
+            );
+        },
     },
     {
         accessorKey: "phone",

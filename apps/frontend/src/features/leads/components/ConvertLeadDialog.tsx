@@ -60,6 +60,9 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import { leadsService } from "@/lib/api/services/leads.service";
+import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
+import { useToast } from "@/components/ui/use-toast";
 import { cn } from "@/lib/utils";
 import { User } from "../types";
 import { Textarea } from "@/components/ui/textarea";
@@ -126,6 +129,69 @@ export function ConvertLeadDialog({
         return personalDomains.some(domain => emailLower.includes(`@${domain}.`) || emailLower.endsWith(`@${domain}.com`));
     }, [lead.email]);
 
+    // Destination handling
+    const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
+    const [leadProcessedDestinations, setLeadProcessedDestinations] = useState<{ id: string, name: string }[]>([]);
+
+    useEffect(() => {
+        if (open) {
+            destinationsService.getDestinations({ limit: 1000 }).then(res => {
+                setAvailableDestinations(res.destinations);
+            }).catch(err => console.error("Failed to fetch destinations", err));
+        }
+    }, [open]);
+
+    // Match destinations
+    useEffect(() => {
+        // If we have no destinations, nothing to process
+        if ((!lead.destinations || lead.destinations.length === 0) && (!lead.destination_ids || lead.destination_ids.length === 0)) {
+            setLeadProcessedDestinations([]);
+            return;
+        }
+
+        // If we haven't fetched destinations yet, use what we have in lead (IDs if any, otherwise wait)
+        // Actually, if we have IDs, we can use them immediately for basic display if needed, but we need names.
+        // If we rely on names, we need availableDestinations.
+
+        if (availableDestinations.length > 0) {
+            const processed: { id: string, name: string }[] = [];
+            const existingIds = lead.destination_ids || [];
+            const existingNames = lead.destinations || [];
+
+            // Add known IDs
+            existingIds.forEach(id => {
+                const match = availableDestinations.find(d => d.id === id);
+                if (match) {
+                    processed.push({ id: match.id, name: match.name });
+                } else {
+                    // If ID exists but not in fetched list, keep ID but use "Unknown"
+                    processed.push({ id, name: "Unknown Destination" });
+                }
+            });
+
+            // Match names to IDs
+            existingNames.forEach(name => {
+                const alreadyIncluded = processed.some(p => p.name.toLowerCase() === name.toLowerCase());
+                if (!alreadyIncluded) {
+                    const match = availableDestinations.find(d => d.name.toLowerCase() === name.toLowerCase());
+                    if (match) {
+                        processed.push({ id: match.id, name: match.name });
+                    }
+                }
+            });
+
+            setLeadProcessedDestinations(processed);
+        } else if (lead.destination_ids && lead.destination_ids.length > 0 && lead.destinations && lead.destinations.length === lead.destination_ids.length) {
+            // Fallback for when we have both (likely synced) but destinations not fetched yet
+            setLeadProcessedDestinations(lead.destination_ids.map((id, i) => ({ id, name: lead.destinations![i] })));
+        } else if (lead.destinations && lead.destinations.length > 0) {
+            // Only names available and destinations not fetched yet -> show placeholders?
+            // Better to wait for fetch to resolve IDs.
+        }
+    }, [availableDestinations, lead]);
+
+
+
     const form = useForm<ConvertFormValues>({
         resolver: zodResolver(convertSchema) as any,
         defaultValues: {
@@ -156,6 +222,18 @@ export function ConvertLeadDialog({
     const adults = form.watch("no_of_adults") || 0;
     const childs = form.watch("no_of_childs") || 0;
     const infants = form.watch("no_of_infants") || 0;
+
+    // Update form values with resolved IDs
+    useEffect(() => {
+        if (leadProcessedDestinations.length > 0 && form) {
+            const resolvedIds = leadProcessedDestinations.map(d => d.id);
+            const current = form.getValues("destination_ids");
+            // Only update if different to avoid loop
+            if (JSON.stringify(current?.sort()) !== JSON.stringify(resolvedIds.sort())) {
+                form.setValue("destination_ids", resolvedIds);
+            }
+        }
+    }, [leadProcessedDestinations, form]);
 
     // Update Pax automatically
     useEffect(() => {
@@ -570,6 +648,73 @@ export function ConvertLeadDialog({
                                                         )}
                                                     />
                                                 </div>
+
+                                                {/* Destinations Multi-Select */}
+                                                <FormField
+                                                    control={form.control}
+                                                    name="destination_ids"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Destinations</FormLabel>
+                                                            <FormControl>
+                                                                <div className="border rounded-md p-3 bg-white max-h-[120px] overflow-y-auto">
+                                                                    {leadProcessedDestinations.length > 0 ? (
+                                                                        <div className="space-y-2">
+                                                                            {leadProcessedDestinations.map((dest) => (
+                                                                                <div key={dest.id} className="flex items-center space-x-2">
+                                                                                    <Checkbox
+                                                                                        checked={field.value?.includes(dest.id)}
+                                                                                        onCheckedChange={(checked) => {
+                                                                                            const currentValue = field.value || [];
+                                                                                            const destId = dest.id;
+                                                                                            if (checked) {
+                                                                                                field.onChange([...currentValue, destId]);
+                                                                                            } else {
+                                                                                                field.onChange(currentValue.filter((id: string) => id !== destId));
+                                                                                            }
+                                                                                        }}
+                                                                                    />
+                                                                                    <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer">
+                                                                                        {dest.name}
+                                                                                    </label>
+                                                                                </div>
+                                                                            ))}
+                                                                        </div>
+                                                                    ) : (
+                                                                        <div className="space-y-1">
+                                                                            <p className="text-sm text-muted-foreground">No valid destinations found in lead</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Warning if we have destination names but couldn't match them to IDs */}
+                                                                    {lead.destinations && lead.destinations.length > leadProcessedDestinations.length && (
+                                                                        <div className="mt-2 pt-2 border-t">
+                                                                            <p className="text-xs text-amber-600 mb-1 font-medium">
+                                                                                Unmatched destinations:
+                                                                            </p>
+                                                                            <div className="flex flex-wrap gap-1">
+                                                                                {lead.destinations.filter(name =>
+                                                                                    !leadProcessedDestinations.some(pd => pd.name.toLowerCase() === name.toLowerCase())
+                                                                                ).map((name, i) => (
+                                                                                    <span key={i} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
+                                                                                        {name}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                            <p className="text-[10px] text-muted-foreground mt-1">
+                                                                                These destinations don't exist in the system and cannot be linked.
+                                                                            </p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Select destinations from the lead to include in the opportunity
+                                                            </FormDescription>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
 
                                                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 border p-4 rounded-lg bg-white shadow-sm">
                                                     <FormField

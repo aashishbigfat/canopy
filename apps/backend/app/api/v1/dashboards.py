@@ -1,7 +1,7 @@
 """
 API endpoints for Dashboards and Widgets.
 """
-from typing import Optional
+from typing import Optional, List
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from app.api.deps import get_current_user, check_permission
@@ -11,7 +11,7 @@ from app.schemas.dashboard import (
     DashboardCreate, DashboardUpdate, DashboardResponse, DashboardListResponse,
     WidgetCreate, WidgetUpdate, WidgetResponse, WidgetDataResponse,
     DashboardPreferenceUpdate, DashboardPreferenceResponse,
-    AnalyticsSummary, PipelineAnalytics
+    AnalyticsSummary, PipelineAnalytics, KeyDeal, TaskSummary
 )
 
 router = APIRouter()
@@ -357,6 +357,30 @@ async def get_pipeline_analytics(
 ):
     """Get opportunity pipeline analytics."""
     return await dashboard_service.get_pipeline_analytics(
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id)
+    )
+
+
+@router.get("/analytics/key-deals", response_model=List[KeyDeal])
+async def get_key_deals(
+    limit: int = 5,
+    current_user: User = Depends(get_current_user)
+):
+    """Get key deals (high value opportunities)."""
+    return await dashboard_service.get_key_deals(
+        tenant_id=str(current_user.tenant_id),
+        user_id=str(current_user.id),
+        limit=limit
+    )
+
+
+@router.get("/analytics/tasks-summary", response_model=TaskSummary)
+async def get_tasks_summary(
+    current_user: User = Depends(get_current_user)
+):
+    """Get summary of tasks."""
+    return await dashboard_service.get_task_summary(
         tenant_id=str(current_user.tenant_id),
         user_id=str(current_user.id)
     )

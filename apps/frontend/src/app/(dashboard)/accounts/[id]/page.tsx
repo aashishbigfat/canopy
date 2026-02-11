@@ -6,7 +6,7 @@ import { AccountDetailView } from "@/features/accounts/components/AccountDetailV
 
 async function getAccountDetail(id: string, token: string) {
     const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/accounts/${id}?include_related=true`,
+        `${process.env.NEXT_PUBLIC_API_URL}/accounts/${id}?include_related=true`,
         {
             headers: {
                 Authorization: `Bearer ${token}`,

@@ -88,6 +88,137 @@ class ContactService(ActivityMixin):
         if contact and contact.tenant_id == tenant_id and not contact.deleted_at:
             return contact
         return None
+
+    async def get_contact_with_relations(
+        self,
+        contact_id: str,
+        tenant_id: ObjectId
+    ) -> Optional[Dict]:
+        """Get contact with all related records for detail view"""
+        contact = await self.get_contact(contact_id, tenant_id)
+        
+        if not contact:
+            return None
+        
+        from app.models.user import User
+        from app.models.account import Account
+        from app.models.opportunity import Opportunity
+        from app.models.task import Task
+        
+        # Get owner information
+        owner = await User.get(contact.owner_id)
+        
+        # Get account name
+        account_name = None
+        if contact.account_id:
+            account = await Account.get(contact.account_id)
+            if account:
+                account_name = account.name
+        
+        # Get related opportunities
+        related_opportunities = []
+        try:
+            opportunities = await Opportunity.find(
+                Opportunity.contact_id == contact.id,
+                Opportunity.tenant_id == tenant_id,
+                Opportunity.deleted_at == None
+            ).to_list()
+            
+            for opp in opportunities:
+                # Get stage name
+                stage_name = None
+                if opp.sales_stage_id:
+                    from app.models.sales_stage import SalesStage
+                    stage = await SalesStage.get(opp.sales_stage_id)
+                    if stage:
+                        stage_name = stage.name
+                
+                related_opportunities.append({
+                    "id": str(opp.id),
+                    "name": opp.name,
+                    "amount": opp.amount,
+                    "sales_stage_id": str(opp.sales_stage_id) if opp.sales_stage_id else None,
+                    "sales_stage_name": stage_name,
+                    "close_date": opp.close_date.isoformat() if opp.close_date else None,
+                    "probability": opp.probability,
+                    "no_of_pax": opp.no_of_pax,
+                    "no_of_nights": opp.no_of_nights,
+                    "travel_date": opp.travel_date.isoformat() if opp.travel_date else None,
+                    "created_at": opp.created_at.isoformat()
+                })
+        except Exception as e:
+            print(f"Error loading opportunities for contact: {e}")
+            
+        # Get related tasks
+        related_tasks = []
+        try:
+            tasks = await Task.find(
+                Task.taskable_type == "Contact",
+                Task.taskable_id == contact.id,
+                Task.tenant_id == tenant_id,
+                Task.deleted_at == None
+            ).to_list()
+            
+            for task in tasks:
+                assigned_user_name = None
+                if task.assigned_user_id:
+                    assigned_user = await User.get(task.assigned_user_id)
+                    if assigned_user:
+                        assigned_user_name = assigned_user.name
+                
+                related_tasks.append({
+                    "id": str(task.id),
+                    "subject": task.name,
+                    "status": task.status,
+                    "priority": task.priority,
+                    "due_date": task.due_date.isoformat() if task.due_date else None,
+                    "assigned_to": str(task.assigned_user_id) if task.assigned_user_id else None,
+                    "assigned_user_name": assigned_user_name,
+                    "created_at": task.created_at.isoformat()
+                })
+        except Exception as e:
+            print(f"Error loading tasks for contact: {e}")
+
+        return {
+            "id": str(contact.id),
+            "salutation": contact.salutation,
+            "first_name": contact.first_name,
+            "middle_name": contact.middle_name,
+            "last_name": contact.last_name,
+            "full_name": contact.full_name,
+            "email": contact.email,
+            "phone": contact.phone,
+            "mobile": contact.mobile,
+            "fax": contact.fax,
+            "title": contact.title,
+            "department": contact.department,
+            "mailing_street": contact.mailing_street,
+            "mailing_city": contact.mailing_city,
+            "mailing_state": contact.mailing_state,
+            "mailing_zip": contact.mailing_zip,
+            "mailing_country": contact.mailing_country,
+            "other_street": contact.other_street,
+            "other_city": contact.other_city,
+            "other_state": contact.other_state,
+            "other_zip": contact.other_zip,
+            "other_country": contact.other_country,
+            "description": contact.description,
+            "assistant": contact.assistant,
+            "assistant_phone": contact.assistant_phone,
+            "account_id": str(contact.account_id) if contact.account_id else None,
+            "account_name": account_name,
+            "tenant_id": str(contact.tenant_id),
+            "owner_id": str(contact.owner_id),
+            "owner_name": owner.name if owner else None,
+            "owner_email": owner.email if owner else None,
+            "created_by": str(contact.created_by),
+            "last_modified_by_id": str(contact.last_modified_by_id) if contact.last_modified_by_id else None,
+            "view_count": contact.view_count,
+            "created_at": contact.created_at,
+            "updated_at": contact.updated_at,
+            "related_opportunities": related_opportunities,
+            "related_tasks": related_tasks
+        }
     
     async def update_contact(
         self,

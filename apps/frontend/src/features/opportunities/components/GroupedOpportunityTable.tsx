@@ -14,6 +14,7 @@ import {
     FileText,
     Kanban
 } from "lucide-react";
+import Link from "next/link";
 import { Opportunity } from "../types";
 import { Button } from "@/components/ui/button";
 import {
@@ -58,6 +59,17 @@ export function GroupedOpportunityTable({ data, onOpportunityClick }: GroupedOpp
             ...group
         }));
     }, [data]);
+
+    // Expand all by default when data loads
+    React.useEffect(() => {
+        if (groupedData.length > 0) {
+            const allExpanded: Record<string, boolean> = {};
+            groupedData.forEach(group => {
+                allExpanded[group.id] = true;
+            });
+            setExpandedOwners(allExpanded);
+        }
+    }, [groupedData]);
 
     const toggleOwner = (ownerId: string) => {
         setExpandedOwners(prev => ({
@@ -142,7 +154,12 @@ export function GroupedOpportunityTable({ data, onOpportunityClick }: GroupedOpp
                                                                     -
                                                                 </TableCell>
                                                                 <TableCell className="text-xs text-slate-700 font-medium">
-                                                                    {opp.account_name || "Personal Account"}
+                                                                    <Link
+                                                                        href={`/accounts/${opp.account_id}`}
+                                                                        className="hover:text-blue-600 hover:underline"
+                                                                    >
+                                                                        {opp.account_name || "Personal Account"}
+                                                                    </Link>
                                                                 </TableCell>
                                                                 <TableCell className="text-xs text-right font-semibold tabular-nums text-slate-700">
                                                                     {opp.amount ? `$${opp.amount.toLocaleString()}` : "-"}

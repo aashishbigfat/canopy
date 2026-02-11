@@ -140,8 +140,7 @@ export const getColumns = (
             id: "travel_date",
             header: "Travel Date",
             cell: ({ row }) => {
-                const cf = row.original.custom_fields || {};
-                const travelDate = cf.travel_date as string | undefined;
+                const travelDate = row.original.travel_date;
                 return (
                     <div className="text-sm text-gray-700">
                         {travelDate ? travelDate : "-"}
@@ -153,8 +152,7 @@ export const getColumns = (
             id: "no_of_pax",
             header: "No of Pax",
             cell: ({ row }) => {
-                const cf = row.original.custom_fields || {};
-                const pax = (cf.no_of_pax as number | undefined) ?? (cf.pax as number | undefined);
+                const pax = row.original.no_of_pax;
                 return <div className="text-sm text-gray-700">{pax ?? "-"}</div>;
             },
         },
@@ -162,16 +160,17 @@ export const getColumns = (
             id: "destinations",
             header: "Destination(s)",
             cell: ({ row }) => {
-                const cf = row.original.custom_fields || {};
-                const dest = (cf.destinations as string | undefined) ??
-                    (cf.destination as string | undefined);
-                return <div className="text-sm text-gray-700">{dest || "-"}</div>;
+                const dests = row.original.destinations;
+                return <div className="text-sm text-gray-700">{Array.isArray(dests) ? dests.join(", ") : (dests || "-")}</div>;
             },
         },
         {
             id: "segment",
             header: "Segment",
             cell: ({ row }) => {
+                // Segment might still be in custom_fields or mapped from something else.
+                // Checking Lead interface, there is no root 'segment'.
+                // Leaving it as custom_fields for now, or check if it maps to something else.
                 const cf = row.original.custom_fields || {};
                 const segment = cf.segment as string | undefined;
                 return <div className="text-sm text-gray-700">{segment || "-"}</div>;

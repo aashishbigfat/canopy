@@ -24,6 +24,52 @@ class LeadService(ActivityMixin):
         self.activity_service = ActivityLogService()
         self.notification_service = NotificationService()
     
+    async def _check_duplicate_lead(
+        self, 
+        email: Optional[str], 
+        mobile: Optional[str], 
+        tenant_id: ObjectId
+    ) -> Optional[Lead]:
+        """Check if a lead with same email or mobile already exists in the tenant"""
+        if not email and not mobile:
+            return None
+            
+        from beanie.operators import Or
+        
+        query_parts = []
+        if email:
+            query_parts.append(Lead.email == email)
+        if mobile:
+            query_parts.append(Lead.mobile == mobile)
+            
+        if not query_parts:
+            return None
+            
+        return await Lead.find_one(
+            Lead.tenant_id == tenant_id,
+            Or(*query_parts),
+            Lead.deleted_at == None
+        )
+
+    async def _auto_assign_lead(self, tenant_id: ObjectId) -> Optional[ObjectId]:
+        """Find the next user for assignment using Round-Robin (oldest last_assigned_at)"""
+        # Pick a user who is active and available for assignment
+        # Sort by last_assigned_at ascending to get the one who hasn't been assigned for the longest
+        available_users = await User.find(
+            User.tenant_id == tenant_id,
+            User.is_active == True,
+            User.is_available_for_assignment == True
+        ).sort("+last_assigned_at").to_list()
+        
+        if not available_users:
+            return None
+            
+        assigned_user = available_users[0]
+        assigned_user.last_assigned_at = datetime.utcnow()
+        await assigned_user.save()
+        
+        return assigned_user.id
+
     async def create_lead(
         self,
         lead_data: LeadCreate,
@@ -31,17 +77,34 @@ class LeadService(ActivityMixin):
         tenant_id: ObjectId,
         user_name: str = None,
         custom_fields: list = None,
-        destination_ids: list = None
+        destination_ids: list = None,
+        auto_assign: bool = False
     ) -> Lead:
-        """Create a new lead with comprehensive activity logging"""
+        """Create a new lead with comprehensive activity logging and deduplication"""
         
+        # 1. Deduplication check
+        duplicate = await self._check_duplicate_lead(
+            lead_data.email, 
+            lead_data.mobile, 
+            tenant_id
+        )
+        if duplicate:
+            raise ValueError(f"A lead with this contact information already exists: {duplicate.first_name} {duplicate.last_name}")
+
+        # 2. Handle Auto-assignment
+        owner_id = user_id
+        if auto_assign:
+            new_owner_id = await self._auto_assign_lead(tenant_id)
+            if new_owner_id:
+                owner_id = new_owner_id
+
         # Store original data for activity logging
         original_data = lead_data.model_dump(exclude_unset=True)
         
         lead = Lead(
             **lead_data.model_dump(exclude_unset=True, exclude={'destination_ids'}),
             tenant_id=tenant_id,
-            owner_id=user_id,
+            owner_id=owner_id,
             created_by=user_id
         )
         
@@ -297,9 +360,17 @@ class LeadService(ActivityMixin):
             existing_account = await Account.get(account_id)
             if not existing_account or existing_account.tenant_id != tenant_id:
                 raise ValueError("Specified account not found")
-        elif conversion_data.account_name:
+        elif conversion_data.account_name or (not conversion_data.account_id and not conversion_data.account_name):
+            # Auto-determine if it's a Person Account based on presence of company
+            is_person_account = conversion_data.account_type == "Person Account"
+            if not lead.company and not conversion_data.account_name:
+                is_person_account = True
+                account_name = f"{lead.first_name} {lead.last_name}"
+            else:
+                account_name = conversion_data.account_name or lead.company or f"{lead.first_name} {lead.last_name}"
+
             account = Account(
-                name=conversion_data.account_name,
+                name=account_name,
                 phone=lead.phone,
                 email=lead.email,
                 website=lead.website,
@@ -311,7 +382,7 @@ class LeadService(ActivityMixin):
                 industry_id=lead.industry_id,
                 rating_id=lead.rating_id,
                 account_source_id=lead.source_id,
-                is_person_account=conversion_data.account_type == "Person Account",
+                is_person_account=is_person_account,
                 tenant_id=tenant_id,
                 owner_id=user_id,
                 created_by=user_id
@@ -395,7 +466,7 @@ class LeadService(ActivityMixin):
                 sales_stage_id = default_stage.id
 
             # Handle close date
-            from datetime import datetime, time
+            from datetime import datetime, time, timedelta
             close_date = None
             if conversion_data.opportunity_close_date:
                 if isinstance(conversion_data.opportunity_close_date, str):
@@ -404,8 +475,11 @@ class LeadService(ActivityMixin):
                     close_date = datetime.combine(conversion_data.opportunity_close_date.date(), time.min)
                 else:
                     close_date = datetime.combine(conversion_data.opportunity_close_date, time.min)
+            else:
+                # Default close date to 30 days from now
+                close_date = datetime.utcnow() + timedelta(days=30)
 
-            # Handle travel date
+            # Handle travel date - use from conversion or inherit from lead
             travel_date = None
             if conversion_data.travel_date:
                 if isinstance(conversion_data.travel_date, str):
@@ -414,22 +488,45 @@ class LeadService(ActivityMixin):
                     travel_date = datetime.combine(conversion_data.travel_date.date(), time.min)
                 else:
                     travel_date = datetime.combine(conversion_data.travel_date, time.min)
+            elif lead.travel_date:
+                if isinstance(lead.travel_date, str):
+                    try:
+                        travel_date = datetime.strptime(lead.travel_date, "%Y-%m-%d")
+                    except:
+                        pass
 
-            # Dest IDs
+            # Dest IDs - use from conversion data, or fall back to lead's destinations
             dest_ids = []
+            dest_names = []
             if conversion_data.destination_ids:
                 dest_ids = [ObjectId(d) for d in conversion_data.destination_ids]
+            elif lead.destination_ids:
+                dest_ids = lead.destination_ids
+
+            if dest_ids:
+                from app.models.destination import Destination
+                destinations_objs = await Destination.find(Destination.id.in_(dest_ids)).to_list()
+                dest_names = [d.name for d in destinations_objs]
+
+            # Standardized Opportunity Name: [CustomerName] - [Destinations] - [TravelDate]
+            if not conversion_data.opportunity_name:
+                cust_name = lead.full_name
+                dest_str = ", ".join(dest_names) if dest_names else "Travel Package"
+                date_str = travel_date.strftime("%b %Y") if travel_date else "TBD"
+                opportunity_name = f"{cust_name} - {dest_str} - {date_str}"
+            else:
+                opportunity_name = conversion_data.opportunity_name
 
             opportunity = Opportunity(
-                name=conversion_data.opportunity_name or f"{lead.company or lead.full_name} - Opportunity",
+                name=opportunity_name,
                 amount=conversion_data.opportunity_amount,
                 close_date=close_date,
                 travel_date=travel_date,
-                no_of_pax=conversion_data.no_of_pax,
+                no_of_pax=conversion_data.no_of_pax or lead.no_of_pax,
                 no_of_adults=conversion_data.no_of_adults,
                 no_of_childs=conversion_data.no_of_childs,
                 no_of_infants=conversion_data.no_of_infants,
-                no_of_nights=conversion_data.no_of_nights,
+                no_of_nights=conversion_data.no_of_nights or lead.no_of_nights,
                 description=conversion_data.description,
                 destination_ids=dest_ids,
                 experience_id=ObjectId(conversion_data.experience_id) if conversion_data.experience_id else None,
@@ -452,6 +549,23 @@ class LeadService(ActivityMixin):
                 entity_type="opportunity",
                 additional_data={"converted_from_lead_id": str(lead.id)}
             )
+
+            # 4. Create Automated "Initial Follow-up" Task
+            from app.models.task import Task
+            task = Task(
+                name=f"Initial Follow-up: {opportunity_name}",
+                due_date=datetime.utcnow() + timedelta(days=1),
+                status="Not Started",
+                priority="High",
+                taskable_type="Opportunity",
+                taskable_id=opportunity_id,
+                owner_id=opportunity.owner_id,
+                assigned_user_id=opportunity.owner_id,
+                tenant_id=tenant_id,
+                created_by=user_id,
+                description=f"Automated follow-up for converted lead: {lead.first_name} {lead.last_name}"
+            )
+            await task.insert()
         
         # 4. Finalize Lead Conversion
         await lead.convert_to_opportunity(opportunity_id)

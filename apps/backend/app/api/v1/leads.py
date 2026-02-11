@@ -138,7 +138,7 @@ async def update_lead(
         lead_data=lead_data,
         user_id=current_user.id,
         tenant_id=current_user.tenant_id,
-        user_name=f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+        user_name=current_user.name.strip() or current_user.email
     )
     
     if not lead:
@@ -162,7 +162,7 @@ async def delete_lead(
         lead_id=lead_id,
         tenant_id=current_user.tenant_id,
         user_id=current_user.id,
-        user_name=f"{current_user.first_name} {current_user.last_name}".strip() or current_user.email
+        user_name=current_user.name.strip() or current_user.email
     )
     
     if not success:

@@ -169,6 +169,9 @@ class AccountService(ActivityMixin):
                     "sales_stage_name": stage_name,
                     "close_date": opp.close_date.isoformat() if opp.close_date else None,
                     "probability": opp.probability,
+                    "no_of_pax": opp.no_of_pax,
+                    "no_of_nights": opp.no_of_nights,
+                    "travel_date": opp.travel_date.isoformat() if opp.travel_date else None,
                     "created_at": opp.created_at.isoformat()
                 })
         except Exception as e:
@@ -189,18 +192,18 @@ class AccountService(ActivityMixin):
             for task in tasks:
                 # Get assigned user
                 assigned_user_name = None
-                if task.assigned_to:
-                    assigned_user = await User.get(task.assigned_to)
+                if task.assigned_user_id:
+                    assigned_user = await User.get(task.assigned_user_id)
                     if assigned_user:
                         assigned_user_name = assigned_user.name
                 
                 related_tasks.append({
                     "id": str(task.id),
-                    "subject": task.subject,
+                    "subject": task.name,
                     "status": task.status,
                     "priority": task.priority,
                     "due_date": task.due_date.isoformat() if task.due_date else None,
-                    "assigned_to": str(task.assigned_to) if task.assigned_to else None,
+                    "assigned_to": str(task.assigned_user_id) if task.assigned_user_id else None,
                     "assigned_user_name": assigned_user_name,
                     "created_at": task.created_at.isoformat()
                 })

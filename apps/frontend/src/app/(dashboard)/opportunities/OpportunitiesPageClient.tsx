@@ -37,9 +37,19 @@ export default function OpportunitiesPageClient() {
     const [viewMode, setViewMode] = useState<ViewMode>("kanban");
     const router = useRouter();
 
+    const opportunityViews = [
+        { label: "Today Opportunities", value: "today" },
+        { label: "Recently Viewed", value: "recent" },
+        { label: "All Opportunities", value: "all" },
+        { label: "Closed Opportunities", value: "closed" },
+    ];
+    const [currentView, setCurrentView] = useState("today");
+    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || "Today Opportunities";
+
     const { data: opportunitiesData, isLoading: isLoadingOpportunities } = useOpportunities({
         page: 1,
-        per_page: 100 // Get more for kanban view
+        per_page: 100, // Get more for kanban view
+        view: currentView
     });
     const { data: stages, isLoading: isLoadingStages } = useSalesStages();
 
@@ -51,14 +61,6 @@ export default function OpportunitiesPageClient() {
 
     const isLoading = isLoadingOpportunities || isLoadingStages;
 
-    const opportunityViews = [
-        { label: "Today Opportunities", value: "today" },
-        { label: "Recently Viewed", value: "recent" },
-        { label: "All Opportunities", value: "all" },
-        { label: "Closed Opportunities", value: "closed" },
-    ];
-    const [currentView, setCurrentView] = useState("today");
-    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || "Today Opportunities";
 
     return (
         <div className="space-y-6">

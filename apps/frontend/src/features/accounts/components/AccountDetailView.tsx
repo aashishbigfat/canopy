@@ -1,132 +1,233 @@
 "use client";
 
+import {
+    Mail,
+    Phone as PhoneIcon,
+    Globe,
+    MapPin,
+    Building2,
+    Calendar,
+    Briefcase,
+    Plus,
+    Paperclip,
+    User as UserIcon,
+    ArrowUpRight
+} from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Pencil, Trash2, UserCog, ArrowLeft } from "lucide-react";
-import Link from "next/link";
-import { AccountOverviewTab } from "./AccountOverviewTab";
-import { RelatedContactsTab } from "./RelatedContactsTab";
-import { RelatedOpportunitiesTab } from "./RelatedOpportunitiesTab";
-import { RelatedTasksTab } from "./RelatedTasksTab";
+import { Account } from "../types";
+import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
+import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
+import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
 
 interface AccountDetailViewProps {
-    account: any; // TODO: Add proper type
+    account: Account & {
+        owner_name?: string;
+        related_contacts?: any[];
+        related_opportunities?: any[];
+        related_tasks?: any[];
+        account_type_name?: string;
+        industry_name?: string;
+        rating_name?: string;
+        parent_account_name?: string;
+    };
 }
 
 export function AccountDetailView({ account }: AccountDetailViewProps) {
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                        <Link href="/accounts">
-                            <Button variant="ghost" size="icon">
-                                <ArrowLeft className="h-4 w-4" />
-                            </Button>
-                        </Link>
-                        <div>
-                            <h1 className="text-3xl font-bold tracking-tight">{account.name}</h1>
-                            <p className="text-muted-foreground">
-                                {account.account_type_name || "Account"} • Owner: {account.owner_name}
-                            </p>
+        <div className="container mx-auto px-4 py-6 max-w-7xl">
+            {/* High Fidelity Header */}
+            <EntityDetailHeader
+                type="Account"
+                name={account.name}
+                id={account.id}
+                phone={account.phone}
+                email={account.email}
+                ownerName={account.owner_name}
+                onEdit={() => console.log("Edit account")}
+                onDelete={() => console.log("Delete account")}
+            />
+
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Main Content (Left Column) */}
+                <div className="flex-1 min-w-0">
+                    <Tabs defaultValue="related" className="w-full">
+                        <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-11 p-0 gap-8">
+                            <TabsTrigger
+                                value="related"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Related
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="details"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Details
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="attachments"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Attachments
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <div className="py-6">
+                            <TabsContent value="related" className="mt-0 space-y-8">
+                                {/* Related Contacts */}
+                                <div className="space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-sm font-bold flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                                <UserIcon className="h-3 w-3" />
+                                            </div>
+                                            Contacts ({account.related_contacts?.length || 0})
+                                        </h2>
+                                        <Button variant="outline" size="sm" className="h-8 text-xs font-bold">
+                                            <Plus className="h-3 w-3 mr-1" />
+                                            New
+                                        </Button>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {account.related_contacts?.map((contact) => (
+                                            <Card key={contact.id} className="hover:border-blue-300 transition-all shadow-sm">
+                                                <CardContent className="p-4 flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                                                            <UserIcon className="h-4 w-4" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="text-sm font-bold text-blue-600">{contact.first_name} {contact.last_name}</p>
+                                                            <p className="text-xs text-slate-500">{contact.title || "No Title"}</p>
+                                                        </div>
+                                                    </div>
+                                                    <ArrowUpRight className="h-4 w-4 text-slate-300" />
+                                                </CardContent>
+                                            </Card>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Related Opportunities */}
+                                <div className="space-y-4 pt-4 border-t">
+                                    <div className="flex items-center justify-between">
+                                        <h2 className="text-sm font-bold flex items-center gap-2">
+                                            <div className="h-6 w-6 rounded bg-orange-100 flex items-center justify-center text-orange-600">
+                                                <Briefcase className="h-3 w-3" />
+                                            </div>
+                                            Opportunities ({account.related_opportunities?.length || 0})
+                                        </h2>
+                                        <Button variant="outline" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold">
+                                            <Plus className="h-3 w-3 mr-1" />
+                                            New
+                                        </Button>
+                                    </div>
+                                    <RelatedOpportunitiesCards opportunities={account.related_opportunities || []} />
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="details" className="mt-0">
+                                <div className="space-y-6">
+                                    <Card>
+                                        <CardHeader className="pb-3 border-b bg-slate-50/50">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                                <Building2 className="h-4 w-4 text-blue-600" />
+                                                Account Information
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.name}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website</p>
+                                                <p className="text-sm font-medium text-blue-600 underline">{account.website || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
+                                                <p className="text-sm font-medium text-blue-600 underline">{account.email || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.phone || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.industry_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Type</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.account_type_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Parent Account</p>
+                                                <p className="text-sm font-medium text-blue-600 underline">{account.parent_account_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.rating_name || "-"}</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+
+                                    <Card>
+                                        <CardHeader className="pb-3 border-b bg-slate-50/50">
+                                            <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                                <MapPin className="h-4 w-4 text-red-500" />
+                                                Address Information
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Street</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.billing_street || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing City</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.billing_city || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing State/Province</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.billing_state || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Zip/Postal Code</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.billing_zip || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1 md:col-span-2">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Country</p>
+                                                <p className="text-sm font-medium text-slate-700">{account.billing_country || "-"}</p>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="attachments" className="mt-0">
+                                <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50">
+                                    <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+                                    <p className="text-slate-500">No attachments found.</p>
+                                    <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
+                                </div>
+                            </TabsContent>
                         </div>
-                    </div>
+                    </Tabs>
                 </div>
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm">
-                        <UserCog className="mr-2 h-4 w-4" />
-                        Change Owner
-                    </Button>
-                    <Link href={`/accounts/${account.id}/edit`}>
-                        <Button variant="outline" size="sm">
-                            <Pencil className="mr-2 h-4 w-4" />
-                            Edit
-                        </Button>
-                    </Link>
-                    <Button variant="destructive" size="sm">
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                    </Button>
+
+                {/* Sidebar (Right Column) */}
+                <div className="w-full lg:w-[380px] flex-shrink-0">
+                    <EntityActivitySidebar
+                        entityType="Account"
+                        entityId={account.id}
+                        entityName={account.name}
+                        relatedTo={account.parent_account_name}
+                    />
                 </div>
             </div>
-
-            {/* Quick Stats */}
-            <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Contacts</CardDescription>
-                        <CardTitle className="text-2xl">
-                            {account.related_contacts?.length || 0}
-                        </CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Opportunities</CardDescription>
-                        <CardTitle className="text-2xl">
-                            {account.related_opportunities?.length || 0}
-                        </CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Tasks</CardDescription>
-                        <CardTitle className="text-2xl">
-                            {account.related_tasks?.length || 0}
-                        </CardTitle>
-                    </CardHeader>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardDescription>Views</CardDescription>
-                        <CardTitle className="text-2xl">{account.view_count || 0}</CardTitle>
-                    </CardHeader>
-                </Card>
-            </div>
-
-            {/* Tabs */}
-            <Tabs defaultValue="overview" className="space-y-4">
-                <TabsList>
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="contacts">
-                        Contacts ({account.related_contacts?.length || 0})
-                    </TabsTrigger>
-                    <TabsTrigger value="opportunities">
-                        Opportunities ({account.related_opportunities?.length || 0})
-                    </TabsTrigger>
-                    <TabsTrigger value="tasks">
-                        Tasks ({account.related_tasks?.length || 0})
-                    </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="overview">
-                    <AccountOverviewTab account={account} />
-                </TabsContent>
-
-                <TabsContent value="contacts">
-                    <RelatedContactsTab
-                        accountId={account.id}
-                        contacts={account.related_contacts || []}
-                    />
-                </TabsContent>
-
-                <TabsContent value="opportunities">
-                    <RelatedOpportunitiesTab
-                        accountId={account.id}
-                        opportunities={account.related_opportunities || []}
-                    />
-                </TabsContent>
-
-                <TabsContent value="tasks">
-                    <RelatedTasksTab
-                        accountId={account.id}
-                        tasks={account.related_tasks || []}
-                    />
-                </TabsContent>
-            </Tabs>
         </div>
     );
 }

@@ -61,6 +61,7 @@ class ContactUpdate(BaseModel):
     mailing_country: Optional[str] = None
     
     account_id: Optional[str] = None
+    account_name: Optional[str] = None
     custom_fields: Optional[Dict[str, Any]] = None
 
 
@@ -71,11 +72,30 @@ class ContactResponse(ContactBase):
     owner_id: str
     created_by: str
     
+    account_name: Optional[str] = None
+    
     full_name: str
     view_count: int = 0
     
     created_at: datetime
     updated_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
+class ContactDetailResponse(ContactResponse):
+    """Schema for detailed contact view with related records"""
+    # Owner information
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+    
+    # Related records
+    related_opportunities: List[Dict[str, Any]] = Field(default_factory=list)
+    related_tasks: List[Dict[str, Any]] = Field(default_factory=list)
+    
+    # Metadata
+    account_type_name: Optional[str] = None
     
     class Config:
         from_attributes = True

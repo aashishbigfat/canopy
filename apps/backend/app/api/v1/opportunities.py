@@ -159,7 +159,7 @@ async def get_opportunities(
             if opp.owner_id:
                 owner = await UserDoc.get(opp.owner_id)
                 if owner:
-                    owner_name = f"{owner.first_name} {owner.last_name}"
+                    owner_name = owner.name
             
             # Fetch Account Name
             account_name = "-"

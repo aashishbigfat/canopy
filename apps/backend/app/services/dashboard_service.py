@@ -412,52 +412,108 @@ class DashboardService:
         from app.models.contact import Contact
         from app.models.lead import Lead
         from app.models.opportunity import Opportunity
+        from app.models.opportunity_picklists import SalesStage
         
         now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        tomorrow_start = today_end
+        tomorrow_end = tomorrow_start + timedelta(days=1)
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
-        base_query = {"tenant_id": tenant_id}
+        tenant_obj_id = PydanticObjectId(tenant_id)
+        base_query = {"tenant_id": tenant_obj_id}
         if user_id:
-            base_query["owner_id"] = user_id
+            base_query["owner_id"] = PydanticObjectId(user_id)
         
-        # Total counts
+        # Generic counts
         accounts_total = await Account.find(base_query).count()
         contacts_total = await Contact.find(base_query).count()
         leads_total = await Lead.find(base_query).count()
         opportunities_total = await Opportunity.find(base_query).count()
         
-        # This month
+        # This month (Analytics Summary)
         month_query = {**base_query, "created_at": {"$gte": month_start}}
         leads_this_month = await Lead.find(month_query).count()
         opportunities_this_month = await Opportunity.find(month_query).count()
         
-        # Won this month
-        won_query = {**base_query, "stage": "Closed Won", "closed_at": {"$gte": month_start}}
-        won_this_month = await Opportunity.find(won_query).count()
+        # Fetch won/lost stages for accurate filtering
+        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        lost_stages = await SalesStage.find(SalesStage.is_lost == True).to_list()
+        won_stage_ids = [s.id for s in won_stages]
+        lost_stage_ids = [s.id for s in lost_stages]
         
-        # Revenue
-        won_opps = await Opportunity.find(won_query).to_list()
-        revenue_this_month = sum(getattr(opp, "amount", 0) or 0 for opp in won_opps)
+        # Won this month
+        won_month_query = {
+            **base_query, 
+            "sales_stage_id": {"$in": won_stage_ids},
+            "close_date": {"$gte": month_start} # Using close_date as it's in the model
+        }
+        won_this_month_list = await Opportunity.find(won_month_query).to_list()
+        won_this_month = len(won_this_month_list)
+        revenue_this_month = sum(getattr(opp, "amount", 0) or 0 for opp in won_this_month_list)
         
         # Conversion rate
         conversion_rate = (won_this_month / opportunities_this_month * 100) if opportunities_this_month > 0 else 0
         
+        # --- Real-time Dashboard Fields ---
+        
+        # Today's Opportunities (created today)
+        today_opps_query = {**base_query, "created_at": {"$gte": today_start, "$lt": today_end}}
+        today_opportunities = await Opportunity.find(today_opps_query).count()
+        
+        # Open Opportunities (not in won or lost stages)
+        open_opps_query = {
+            **base_query,
+            "sales_stage_id": {"$nin": won_stage_ids + lost_stage_ids}
+        }
+        open_opportunities = await Opportunity.find(open_opps_query).count()
+        
+        # B2C vs B2B Open
+        b2c_open_query = {**open_opps_query, "opportunitable_type": {"$in": ["PersonalAccount", "Individual"]}}
+        b2b_open_query = {**open_opps_query, "opportunitable_type": {"$nin": ["PersonalAccount", "Individual"]}} # Default to B2B
+        
+        b2c_open_opportunities = await Opportunity.find(b2c_open_query).count()
+        b2b_open_opportunities = await Opportunity.find(b2b_open_query).count()
+        
+        # Tomorrow's Departures (travel_date is tomorrow)
+        tomorrow_dep_query = {**base_query, "travel_date": {"$gte": tomorrow_start, "$lt": tomorrow_end}}
+        tomorrow_departures = await Opportunity.find(tomorrow_dep_query).count()
+        
+        # Today's checkout (Not clearly defined in simplified model, but let's say departures today)
+        # Using travel_date for now if we don't have a check-out date
+        today_checkout_query = {**base_query, "travel_date": {"$gte": today_start, "$lt": today_end}}
+        today_checkout = await Opportunity.find(today_checkout_query).count()
+        
+        # Today's Revenue (won today)
+        won_today_query = {
+            **base_query,
+            "sales_stage_id": {"$in": won_stage_ids},
+            "close_date": {"$gte": today_start, "$lt": today_end}
+        }
+        won_today_list = await Opportunity.find(won_today_query).to_list()
+        today_revenue = sum(getattr(opp, "amount", 0) or 0 for opp in won_today_list)
+        
         return {
-            "totals": {
-                "accounts": accounts_total,
-                "contacts": contacts_total,
-                "leads": leads_total,
-                "opportunities": opportunities_total
-            },
-            "this_month": {
-                "leads": leads_this_month,
-                "opportunities": opportunities_this_month,
-                "won": won_this_month,
-                "revenue": revenue_this_month
-            },
-            "metrics": {
-                "conversion_rate": round(conversion_rate, 2)
-            }
+            "accounts_total": accounts_total,
+            "contacts_total": contacts_total,
+            "leads_total": leads_total,
+            "opportunities_total": opportunities_total,
+            "leads_this_month": leads_this_month,
+            "opportunities_this_month": opportunities_this_month,
+            "won_this_month": won_this_month,
+            "revenue_this_month": revenue_this_month,
+            "conversion_rate": round(conversion_rate, 2),
+            
+            # Real-time fields
+            "total_opportunities": opportunities_total,
+            "today_opportunities": today_opportunities,
+            "open_opportunities": open_opportunities,
+            "b2c_open_opportunities": b2c_open_opportunities,
+            "b2b_open_opportunities": b2b_open_opportunities,
+            "today_checkout": today_checkout,
+            "tomorrow_departures": tomorrow_departures,
+            "today_revenue": today_revenue
         }
     
     async def get_pipeline_analytics(
@@ -574,6 +630,97 @@ class DashboardService:
     ) -> List[Dict[str, Any]]:
         """Get opportunities grouped by sales stage."""
         return await self.get_pipeline_analytics(tenant_id, user_id)
+        
+    async def get_key_deals(
+        self,
+        tenant_id: str,
+        user_id: Optional[str] = None,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """Get key deals (high value or marked as key)."""
+        from app.models.opportunity import Opportunity
+        from app.models.user import User
+        
+        # Criteria for key deals: key_deal=True OR amount > 10000 (arbitrary threshold for now)
+        # For now, just fetching top opportunities by amount that are open
+        
+        query = {
+            "tenant_id": tenant_id,
+            "stage": {"$ne": "Closed Won"},  # Open deals
+            # "amount": {"$gt": 0} 
+        }
+        if user_id:
+            query["owner_id"] = user_id
+            
+        # Prioritize explicitly marked key deals
+        # opportunities = await Opportunity.find(query).sort("-key_deal", "-amount").limit(limit).to_list()
+        # Since key_deal field might not be populated in all docs yet, sort by amount
+        opportunities = await Opportunity.find(query).sort("-amount").limit(limit).to_list()
+        
+        deals = []
+        for opp in opportunities:
+            owner_name = "Unknown"
+            if opp.owner_id:
+                owner = await User.get(opp.owner_id)
+                if owner:
+                    owner_name = owner.name
+            
+            travel_date_str = opp.travel_date.strftime("%Y-%m-%d") if opp.travel_date else None
+            
+            deals.append({
+                "id": str(opp.id),
+                "name": opp.name,
+                "travel_date": travel_date_str,
+                "pax": opp.no_of_pax,
+                "nights": opp.no_of_nights,
+                "stage": getattr(opp, "stage", "Open") or "Open", # Fallback if stage is generic
+                "owner_name": owner_name,
+                "amount": opp.amount
+            })
+            
+        return deals
+
+    async def get_task_summary(
+        self,
+        tenant_id: str,
+        user_id: Optional[str] = None
+    ) -> Dict[str, int]:
+        """Get summary of tasks (missed, payment reminders, etc)."""
+        from app.models.task import Task
+        
+        now = datetime.utcnow()
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        
+        base_query = {
+            "tenant_id": tenant_id,
+            "status": {"$ne": "Completed"}
+        }
+        if user_id:
+            base_query["assigned_user_id"] = user_id
+            
+        # Missed tasks (due date < today)
+        missed_query = {
+            **base_query,
+            "due_date": {"$lt": today_start}
+        }
+        missed_count = await Task.find(missed_query).count()
+        
+        # Payment reminders (Tasks with type/tag 'Payment' due today? Or just matching name?)
+        # For now, simplistic approach: search for "Payment" in name
+        payment_query = {
+            **base_query,
+            "name": {"$regex": "Payment", "$options": "i"},
+            "due_date": {"$gte": today_start, "$lt": today_end}
+        }
+        payment_count = await Task.find(payment_query).count()
+        
+        return {
+            "missed_count": missed_count,
+            "payment_reminder_count": payment_count,
+            "completed_today": 0, # TODO implement if needed
+            "upcoming_count": 0
+        }
 
 
 # Singleton instance

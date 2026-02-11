@@ -35,6 +35,7 @@ export interface Contact {
 
     // Relations
     account_id?: string;
+    account_name?: string;
     owner_id: string;
     tenant_id: string;
     created_by: string;

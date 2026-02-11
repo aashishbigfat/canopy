@@ -381,3 +381,29 @@ class OpportunityService(ActivityMixin):
         await opp.save()
         
         return opp
+    async def seed_standard_stages(self, tenant_id: ObjectId):
+        """Seed standardized sales stages for travel industry"""
+        from app.models.opportunity_picklists import SalesStage
+        
+        stages = [
+            {"name": "Inquiry", "probability": 10, "sorting": 10, "is_default": True},
+            {"name": "Quote Sent", "probability": 30, "sorting": 20},
+            {"name": "Follow-up", "probability": 50, "sorting": 30},
+            {"name": "Booking Confirmed", "probability": 90, "sorting": 40},
+            {"name": "Closed Won", "probability": 100, "sorting": 50, "is_won": True},
+            {"name": "Closed Lost", "probability": 0, "sorting": 60, "is_lost": True},
+        ]
+        
+        for stage_data in stages:
+            # Check if stage already exists for this tenant
+            existing = await SalesStage.find_one(
+                SalesStage.tenant_id == tenant_id,
+                SalesStage.name == stage_data["name"]
+            )
+            if not existing:
+                stage = SalesStage(
+                    **stage_data,
+                    tenant_id=tenant_id
+                )
+                await stage.insert()
+                print(f"DEBUG: Seeded stage '{stage_data['name']}' for tenant {tenant_id}")

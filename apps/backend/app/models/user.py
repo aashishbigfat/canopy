@@ -57,6 +57,9 @@ class User(BaseDocument):
     monthly_revenue_target: float = 0.0
     monthly_deals_target: int = 0
     
+    # Assignment tracking
+    last_assigned_at: Optional[datetime] = None
+    
     # Remember token
     remember_token: Optional[str] = None
     
