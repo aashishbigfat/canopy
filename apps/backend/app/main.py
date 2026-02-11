@@ -45,6 +45,7 @@ from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
+app.include_router(auth.router, prefix="/auth", tags=["Authentication (Alias)"]) # Fallback for misconfigured clients
 app.include_router(accounts.router, prefix="/api/v1/accounts", tags=["Accounts"])
 app.include_router(contacts_extra.router, prefix="/api/v1/contacts", tags=["Contacts"])
 app.include_router(contacts.router, prefix="/api/v1/contacts", tags=["Contacts"])

@@ -37,6 +37,10 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
         config.url = config.url.substring(1);
     }
 
+    // Diagnostic log
+    const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url;
+    console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
+
     if (typeof window !== 'undefined') {
         const session = await getSession();
         if (session?.accessToken) {
