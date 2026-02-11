@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1';
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '') + '/';
 
 // Token refresh management
 let isRefreshing = false;
@@ -30,8 +30,13 @@ export const getAuthHeaders = (accessToken?: string) => {
     return accessToken ? { Authorization: `Bearer ${accessToken}` } : {};
 };
 
-// Request Interceptor: Attach Token
+// Request Interceptor: Attach Token and fix path resolution
 apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+    // Strip leading slash from URL to ensure it correctly appends to baseURL
+    if (config.url?.startsWith('/')) {
+        config.url = config.url.substring(1);
+    }
+
     if (typeof window !== 'undefined') {
         const session = await getSession();
         if (session?.accessToken) {
@@ -75,7 +80,7 @@ apiClient.interceptors.response.use(
                     throw new Error('No refresh token available');
                 }
 
-                const response = await axios.post(`${API_URL}/auth/refresh`, {
+                const response = await axios.post(`${API_URL}auth/refresh`, {
                     refresh_token: session.refreshToken,
                 });
 
