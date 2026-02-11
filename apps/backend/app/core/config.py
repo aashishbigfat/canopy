@@ -62,6 +62,10 @@ class Settings(BaseSettings):
     }
     
     # CORS
-    CORS_ORIGINS: list = ["http://localhost:4200", "http://localhost:3000"]
+    CORS_ORIGINS: list = [
+        "http://localhost:4200",
+        "http://localhost:3000",
+        "https://tutterfly-frontend.vercel.app"
+    ]
 
 settings = Settings()
