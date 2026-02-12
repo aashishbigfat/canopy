@@ -1,14 +1,14 @@
 from beanie import Document, PydanticObjectId
 from pydantic import Field
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from beanie import PydanticObjectId
 
 class BaseDocument(Document):
     """Base document with common fields for all models"""
     
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     deleted_at: Optional[datetime] = None
     
     class Settings:
@@ -21,7 +21,7 @@ class BaseDocument(Document):
     
     async def soft_delete(self):
         # """Soft delete the document"""
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(timezone.utc)
         await self.save()
     
     @classmethod
@@ -35,7 +35,7 @@ class BaseDocument(Document):
     
     async def save(self, *args, **kwargs):
         # """Override save to update updated_at"""
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)
         return await super().save(*args, **kwargs)
 
 
@@ -46,8 +46,8 @@ class TenantMixin:
 
 class TimestampMixin:
     """Mixin for timestamp fields"""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SoftDeleteMixin:
@@ -55,5 +55,5 @@ class SoftDeleteMixin:
     deleted_at: Optional[datetime] = None
     
     async def soft_delete(self):
-        self.deleted_at = datetime.utcnow()
+        self.deleted_at = datetime.now(timezone.utc)
         await self.save()

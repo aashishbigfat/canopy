@@ -3,7 +3,7 @@ Notification service layer
 """
 from typing import List, Optional
 from bson import ObjectId
-from datetime import datetime
+from datetime import datetime, timezone
 from app.models.notification import Notification
 from app.schemas.notification import NotificationCreate
 
@@ -70,7 +70,7 @@ class NotificationService:
         notification = await Notification.get(ObjectId(notification_id))
         if notification and notification.user_id == user_id and not notification.is_read:
             notification.is_read = True
-            notification.read_at = datetime.utcnow()
+            notification.read_at = datetime.now(timezone.utc)
             await notification.save()
         return notification
     
@@ -84,7 +84,7 @@ class NotificationService:
         count = 0
         for n in notifications:
             n.is_read = True
-            n.read_at = datetime.utcnow()
+            n.read_at = datetime.now(timezone.utc)
             await n.save()
             count += 1
         return count
