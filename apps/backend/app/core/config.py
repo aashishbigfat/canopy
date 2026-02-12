@@ -62,10 +62,11 @@ class Settings(BaseSettings):
     }
     
     # CORS
-    CORS_ORIGINS: list = [
-        "http://localhost:4200",
-        "http://localhost:3000",
-        "https://tutterfly-frontend.vercel.app"
-    ]
+    CORS_ORIGINS: str = "http://localhost:4200,http://localhost:3000,https://tutterfly-frontend.vercel.app"
+    
+    @property
+    def cors_origins_list(self) -> list[str]:
+        """Parse CORS origins from comma-separated string"""
+        return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]
 
 settings = Settings()
