@@ -149,28 +149,6 @@ async def update_preferences(
     )
 
 
-# ==================== Analytics ====================
-
-@router.get("/analytics/summary")
-async def get_analytics_summary(
-    current_user: User = Depends(get_current_user)
-):
-    """Get comprehensive analytics summary."""
-    return await dashboard_service.get_analytics_summary(
-        tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id)
-    )
-
-
-@router.get("/analytics/pipeline")
-async def get_pipeline_analytics(
-    current_user: User = Depends(get_current_user)
-):
-    """Get opportunity pipeline analytics."""
-    return await dashboard_service.get_pipeline_analytics(
-        tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id)
-    )
 
 
 # ==================== Dashboard CRUD ====================

@@ -96,6 +96,14 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
+@app.get("/debug/cors")
+async def debug_cors():
+    """Debug endpoint to check CORS configuration"""
+    return {
+        "cors_origins": settings.cors_origins_list,
+        "environment": settings.ENVIRONMENT
+    }
+
 @app.get("/favicon.ico")
 async def favicon():
     """Return empty response for favicon requests"""
