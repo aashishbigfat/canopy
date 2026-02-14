@@ -29,9 +29,6 @@ class OpportunityService(ActivityMixin):
         """Create a new opportunity"""
         
         try:
-            print(f"DEBUG: Creating opportunity with data: {opp_data.model_dump()}")
-            print(f"DEBUG: User ID: {user_id}, Tenant ID: {tenant_id}")
-            
             # Prepare opportunity data
             opp_dict = opp_data.model_dump(exclude_unset=True, exclude={'destination_ids', 'origin_ids', 'team_member_ids'})
             
@@ -51,16 +48,12 @@ class OpportunityService(ActivityMixin):
             if 'source_medium_id' in opp_dict and opp_dict['source_medium_id']:
                 opp_dict['source_medium_id'] = ObjectId(opp_dict['source_medium_id'])
             
-            print(f"DEBUG: Processed opportunity dict: {opp_dict}")
-            
             opportunity = Opportunity(
                 **opp_dict,
                 tenant_id=tenant_id,
                 owner_id=user_id,
                 created_by=user_id
             )
-            
-            print("DEBUG: Opportunity object created successfully")
             
             # Set destination/origin IDs
             if opp_data.destination_ids:
@@ -71,7 +64,6 @@ class OpportunityService(ActivityMixin):
                 opportunity.team_member_ids = [ObjectId(t) for t in opp_data.team_member_ids]
             
             await opportunity.insert()
-            print("DEBUG: Opportunity inserted successfully")
             
             # Log opportunity creation
             await self.log_entity_created(
@@ -96,8 +88,6 @@ class OpportunityService(ActivityMixin):
                     )
                     await pivot.insert()
             
-            print("DEBUG: Opportunity creation completed successfully")
-            
             # Create notification for opportunity creation
             await self.notification_service.notify_user(
                 user_id=user_id,
@@ -113,10 +103,6 @@ class OpportunityService(ActivityMixin):
             return opportunity
             
         except Exception as e:
-            print(f"DEBUG: Error creating opportunity: {e}")
-            print(f"DEBUG: Error type: {type(e)}")
-            import traceback
-            traceback.print_exc()
             raise ValueError(f"Failed to create opportunity: {str(e)}")
         
         # Save custom fields

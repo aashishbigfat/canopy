@@ -80,7 +80,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         Opportunities ({contact.related_opportunities?.length || 0})
                                     </h2>
                                     <Button variant="outline" size="sm" asChild className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold">
-                                        <Link href={`/opportunities/create?contactId=${contact.id}`}>
+                                        <Link href={`/opportunities/create?contactId=${contact.id}${contact.account_id ? `&accountId=${contact.account_id}` : ''}`}>
                                             <Plus className="h-3 w-3 mr-1" />
                                             New
                                         </Link>

@@ -100,9 +100,11 @@ export default function OpportunitiesPageClient() {
                         <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
                             <LayoutGrid className="h-4 w-4 text-slate-600" />
                         </Button>
-                        <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm">
-                            <Plus className="h-4 w-4" />
-                            New Opportunity
+                        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm">
+                            <Link href="/opportunities/create">
+                                <Plus className="h-4 w-4" />
+                                New Opportunity
+                            </Link>
                         </Button>
                         <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
                             <RotateCw className="h-4 w-4 text-slate-600" />

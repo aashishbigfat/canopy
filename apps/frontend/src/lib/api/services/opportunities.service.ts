@@ -45,6 +45,12 @@ export const opportunitiesService = {
     getSalesStages: async (config?: AxiosRequestConfig): Promise<SalesStage[]> => {
         const response = await apiClient.get<SalesStage[]>(`${BASE_URL}/sales-stages`, config);
         return response.data;
+    },
+
+    // Get travel experiences
+    getExperiences: async (config?: AxiosRequestConfig): Promise<Experience[]> => {
+        const response = await apiClient.get<Experience[]>(`${BASE_URL}/experiences`, config);
+        return response.data;
     }
 };
 
@@ -55,5 +61,12 @@ export interface SalesStage {
     probability?: number;
     is_won?: boolean;
     is_lost?: boolean;
+    sorting?: number;
+}
+
+export interface Experience {
+    id: string;
+    name: string;
+    description?: string;
     sorting?: number;
 }

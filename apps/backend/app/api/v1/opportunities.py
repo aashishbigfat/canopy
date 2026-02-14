@@ -7,10 +7,10 @@ from bson import ObjectId
 
 from app.models.user import User
 from app.models.opportunity import Opportunity
-from app.models.opportunity_picklists import SalesStage
+from app.models.opportunity_picklists import SalesStage, Experience
 from app.schemas.opportunity import (
     OpportunityCreate, OpportunityUpdate, OpportunityResponse,
-    OpportunityListResponse, OpportunityStageChange
+    OpportunityListResponse, OpportunityStageChange, ExperienceResponse
 )
 from app.services.opportunity_service import OpportunityService
 from app.api.deps import get_current_user, check_permission
@@ -40,6 +40,29 @@ async def get_sales_stages(
             "sorting": stage.sorting,
         }
         for stage in stages
+    ]
+
+
+@router.get("/experiences", response_model=List[ExperienceResponse])
+async def get_experiences(
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Get all travel experiences for the opportunity form
+    """
+    experiences = await Experience.find(
+        Experience.tenant_id == current_user.tenant_id,
+        Experience.is_active == True
+    ).sort("+sorting").to_list()
+    
+    return [
+        {
+            "id": str(exp.id),
+            "name": exp.name,
+            "description": exp.description,
+            "sorting": exp.sorting,
+        }
+        for exp in experiences
     ]
 
 @router.post("/", response_model=OpportunityResponse, status_code=201)

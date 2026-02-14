@@ -15,6 +15,8 @@ class OpportunityBase(BaseModel):
     no_of_pax: Optional[int] = Field(None)
     no_of_nights: Optional[int] = Field(None)
     no_of_adults: Optional[int] = Field(None)
+    no_of_childs: Optional[int] = Field(None)
+    no_of_infants: Optional[int] = Field(None)
     travel_date: Optional[datetime] = None
     close_date: Optional[datetime] = None
     
@@ -154,7 +156,19 @@ class OpportunityListResponse(BaseModel):
     pages: int
 
 
+
 class OpportunityStageChange(BaseModel):
     """Schema for changing opportunity stage"""
     new_stage_id: str
     reason: Optional[str] = None
+
+
+class ExperienceResponse(BaseModel):
+    """Schema for experience response"""
+    id: str
+    name: str
+    description: Optional[str] = None
+    sorting: int = 0
+
+    class Config:
+        from_attributes = True

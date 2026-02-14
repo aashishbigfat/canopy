@@ -60,3 +60,11 @@ export const useSalesStages = () => {
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 };
+
+export const useExperiences = () => {
+    return useQuery({
+        queryKey: ["experiences"],
+        queryFn: () => opportunitiesService.getExperiences(),
+        staleTime: 5 * 60 * 1000, // 5 minutes
+    });
+};
