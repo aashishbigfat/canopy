@@ -17,6 +17,7 @@ router = APIRouter()
 
 @router.get("/", response_model=ActivityLogListResponse)
 @router.get("", response_model=ActivityLogListResponse)
+@router.get("/activity", response_model=ActivityLogListResponse)
 async def get_activity_logs(
     user_id: Optional[str] = None,
     entity_type: Optional[str] = None,

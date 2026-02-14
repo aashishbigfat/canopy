@@ -1,9 +1,9 @@
 """
 Pydantic schemas for Notification API
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 from typing import Optional, List, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 class NotificationCreate(BaseModel):
@@ -32,6 +32,13 @@ class NotificationResponse(BaseModel):
     
     class Config:
         from_attributes = True
+        
+    @field_validator("created_at", "read_at", mode="after")
+    @classmethod
+    def ensure_utc(cls, v):
+        if isinstance(v, datetime) and v.tzinfo is None:
+            return v.replace(tzinfo=timezone.utc)
+        return v
 
 
 class NotificationListResponse(BaseModel):

@@ -205,10 +205,11 @@ export function ConvertLeadDialog({
             create_opportunity: true,
             opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
             opportunity_amount: 0,
-            no_of_adults: 1,
+            travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
+            no_of_adults: lead.no_of_pax || 1,
             no_of_childs: 0,
             no_of_infants: 0,
-            no_of_pax: 1,
+            no_of_pax: lead.no_of_pax || 1,
             no_of_nights: lead.no_of_nights || 0,
             description: "",
             destination_ids: lead.destination_ids || [],
@@ -240,7 +241,7 @@ export function ConvertLeadDialog({
 
     // Update Pax automatically
     useEffect(() => {
-        const totalPax = Number(adults) || 0;
+        const totalPax = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         form.setValue("no_of_pax", totalPax);
     }, [adults, childs, infants, form]);
 
@@ -255,7 +256,7 @@ export function ConvertLeadDialog({
         const dateObj = travelDate;
 
         // Get primary destination name
-        let destName = "Opportunity";
+        let destName = lead.company || lead.full_name || "Opportunity";
         if (selectedDestIds && selectedDestIds.length > 0 && availableDestinations.length > 0) {
             const match = availableDestinations.find(d => d.id === selectedDestIds[0]);
             if (match) destName = match.name;

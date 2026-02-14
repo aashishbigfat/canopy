@@ -510,7 +510,7 @@ class LeadService(ActivityMixin):
 
             # Standardized Opportunity Name: [Destination]_[Pax]Pax_[TravelDate]
             if not conversion_data.opportunity_name:
-                dest_str = dest_names[0] if dest_names else "Opportunity"
+                dest_str = dest_names[0] if dest_names else (lead.company or lead.full_name or "Opportunity")
                 pax = conversion_data.no_of_pax or lead.no_of_pax or 0
                 date_str = f"_{travel_date.strftime('%d%b')}" if travel_date else ""
                 opportunity_name = f"{dest_str}_{pax}Pax{date_str}"
