@@ -49,6 +49,7 @@ class Lead(BaseDocument):
     no_of_nights: Optional[int] = None
     no_of_pax: Optional[int] = None
     ip_address: Optional[str] = None
+    segment: Optional[str] = "B2C"  # Default to B2C
     is_fixed: bool = False
     destinations: List[str] = Field(default_factory=list)
     

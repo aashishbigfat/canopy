@@ -147,6 +147,12 @@ export function LeadDetails({
                                     <span className="text-sm">{lead.mobile || "N/A"}</span>
                                 </div>
                             </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Segment</p>
+                                <Badge variant="secondary" className={lead.segment === 'B2B' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
+                                    {lead.segment || "B2C"}
+                                </Badge>
+                            </div>
                         </CardContent>
                     </Card>
 
@@ -292,19 +298,6 @@ export function LeadDetails({
                                     </div>
                                     <span className="text-sm">{owner?.name || "Unassigned"}</span>
                                 </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Technical Info */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg">Technical Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">IP Address</p>
-                                <p className="text-sm font-mono">{lead.ip_address || "N/A"}</p>
                             </div>
                         </CardContent>
                     </Card>

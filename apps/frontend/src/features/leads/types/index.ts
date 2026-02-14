@@ -41,9 +41,7 @@ export interface Lead {
     no_of_pax?: number;
     destinations?: string[]; // User said "destinations: (required)"
     is_fixed?: boolean;
-
-    // System
-    ip_address?: string;
+    segment?: string;
 
     // Conversion Status
     is_converted: boolean;
@@ -92,7 +90,7 @@ export interface LeadCreateData {
     no_of_pax?: number;
     destinations?: string[];
     is_fixed?: boolean;
-    ip_address?: string;
+    segment?: string;
 
     source_medium_id?: string;
     destination_ids?: string[];

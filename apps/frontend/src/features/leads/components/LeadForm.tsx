@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -54,9 +54,9 @@ const leadFormSchema = z.object({
     travel_date: z.string().min(1, { message: "Travel date is required." }),
     no_of_nights: z.string().min(1, { message: "Number of nights is required." }),
     no_of_pax: z.string().min(1, { message: "Number of pax is required." }),
-    ip_address: z.string().min(1, { message: "IP Address is required." }),
     is_fixed: z.boolean().default(false).optional(),
     destinations: z.string().min(1, { message: "Destinations are required." }),
+    segment: z.string().optional(),
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -69,6 +69,11 @@ interface LeadFormProps {
     industries?: Industry[];
     ratings?: Rating[];
 }
+
+const PUBLIC_EMAIL_DOMAINS = [
+    "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
+    "me.com", "live.com", "msn.com", "aol.com", "gmail.co.uk", "yahoo.co.in"
+];
 
 export function LeadForm({
     initialData,
@@ -108,11 +113,26 @@ export function LeadForm({
             travel_date: initialData?.travel_date || "",
             no_of_nights: initialData?.no_of_nights?.toString() || "",
             no_of_pax: initialData?.no_of_pax?.toString() || "",
-            ip_address: initialData?.ip_address || "",
             is_fixed: initialData?.is_fixed || false,
             destinations: initialData?.destinations?.join(", ") || "",
+            segment: initialData?.segment || "B2C",
         },
     });
+
+    const email = form.watch("email");
+
+    useEffect(() => {
+        if (!email || !email.includes("@")) return;
+
+        const domain = email.split("@")[1]?.toLowerCase();
+        if (!domain) return;
+
+        const isPublic = PUBLIC_EMAIL_DOMAINS.some(d => domain.endsWith(d));
+        const detectedSegment = isPublic ? "B2C" : "B2B";
+
+        form.setValue("segment", detectedSegment);
+    }, [email, form]);
+
 
     async function onSubmit(data: LeadFormValues) {
         setIsLoading(true);
@@ -142,9 +162,9 @@ export function LeadForm({
                 travel_date: data.travel_date,
                 no_of_nights: parseInt(data.no_of_nights),
                 no_of_pax: parseInt(data.no_of_pax),
-                ip_address: data.ip_address,
                 is_fixed: data.is_fixed,
                 destinations: data.destinations.split(",").map(d => d.trim()).filter(Boolean),
+                segment: data.segment,
             };
 
             await ErrorHandler.withErrorHandling(async () => {
@@ -230,6 +250,27 @@ export function LeadForm({
                                     <FormControl>
                                         <Input type="email" placeholder="john.doe@example.com" {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="segment"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Segment</FormLabel>
+                                    <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select Segment" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="B2C">B2C (Individual)</SelectItem>
+                                            <SelectItem value="B2B">B2B (Corporate)</SelectItem>
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -492,25 +533,6 @@ export function LeadForm({
                                             Is Fixed Package?
                                         </FormLabel>
                                     </div>
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    <h3 className="text-lg font-medium border-b pb-2">Technical Information</h3>
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <FormField
-                            control={form.control}
-                            name="ip_address"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>IP Address *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="127.0.0.1" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
                                 </FormItem>
                             )}
                         />

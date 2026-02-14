@@ -508,12 +508,12 @@ class LeadService(ActivityMixin):
                 destinations_objs = await Destination.find(Destination.id.in_(dest_ids)).to_list()
                 dest_names = [d.name for d in destinations_objs]
 
-            # Standardized Opportunity Name: [CustomerName] - [Destinations] - [TravelDate]
+            # Standardized Opportunity Name: [Destination]_[Pax]Pax_[TravelDate]
             if not conversion_data.opportunity_name:
-                cust_name = lead.full_name
-                dest_str = ", ".join(dest_names) if dest_names else "Travel Package"
-                date_str = travel_date.strftime("%b %Y") if travel_date else "TBD"
-                opportunity_name = f"{cust_name} - {dest_str} - {date_str}"
+                dest_str = dest_names[0] if dest_names else "Opportunity"
+                pax = conversion_data.no_of_pax or lead.no_of_pax or 0
+                date_str = f"_{travel_date.strftime('%d%b')}" if travel_date else ""
+                opportunity_name = f"{dest_str}_{pax}Pax{date_str}"
             else:
                 opportunity_name = conversion_data.opportunity_name
 

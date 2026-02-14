@@ -235,11 +235,43 @@ export function ConvertLeadDialog({
         }
     }, [leadProcessedDestinations, form]);
 
+    // Track if opportunity name was manually edited
+    const [isNameManuallyEdited, setIsNameManuallyEdited] = useState(false);
+
     // Update Pax automatically
     useEffect(() => {
-        const totalPax = Number(adults) + Number(childs) + Number(infants);
+        const totalPax = Number(adults) || 0;
         form.setValue("no_of_pax", totalPax);
     }, [adults, childs, infants, form]);
+
+    // Update Opportunity Name automatically
+    const travelDate = form.watch("travel_date");
+    const selectedDestIds = form.watch("destination_ids");
+
+    useEffect(() => {
+        if (isNameManuallyEdited) return;
+
+        const pax = form.getValues("no_of_pax") || 0;
+        const dateObj = travelDate;
+
+        // Get primary destination name
+        let destName = "Opportunity";
+        if (selectedDestIds && selectedDestIds.length > 0 && availableDestinations.length > 0) {
+            const match = availableDestinations.find(d => d.id === selectedDestIds[0]);
+            if (match) destName = match.name;
+        } else if (leadProcessedDestinations.length > 0) {
+            destName = leadProcessedDestinations[0].name;
+        }
+
+        // Format date: 03Apr
+        let dateStr = "";
+        if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
+            dateStr = `_${format(dateObj, "ddMMM")}`;
+        }
+
+        const newName = `${destName}_${pax}Pax${dateStr}`;
+        form.setValue("opportunity_name", newName);
+    }, [selectedDestIds, adults, childs, infants, travelDate, availableDestinations, isNameManuallyEdited, form, leadProcessedDestinations]);
 
     async function onSubmit(values: ConvertFormValues) {
         try {
@@ -514,7 +546,14 @@ export function ConvertLeadDialog({
                                                         <FormItem>
                                                             <FormLabel>Opportunity Name</FormLabel>
                                                             <FormControl>
-                                                                <Input {...field} className="bg-white" />
+                                                                <Input
+                                                                    {...field}
+                                                                    className="bg-white"
+                                                                    onChange={(e) => {
+                                                                        field.onChange(e);
+                                                                        setIsNameManuallyEdited(true);
+                                                                    }}
+                                                                />
                                                             </FormControl>
                                                             <FormMessage />
                                                         </FormItem>

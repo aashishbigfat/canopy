@@ -40,6 +40,7 @@ class LeadBase(BaseModel):
     no_of_nights: Optional[int] = None
     no_of_pax: Optional[int] = None
     ip_address: Optional[str] = None
+    segment: Optional[str] = "B2C"
     is_fixed: Optional[bool] = False
     destinations: Optional[List[str]] = Field(default_factory=list)
 
