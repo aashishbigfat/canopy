@@ -73,6 +73,7 @@ async def get_accounts(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     owner_id: Optional[str] = None,
+    is_person_account: Optional[bool] = None,
     current_user: User = Depends(get_current_user)
 ):
     """Get all accounts with pagination, views, and columns"""
@@ -83,6 +84,15 @@ async def get_accounts(
         
         service = AccountService()
     
+        # Base query
+        query = {
+            "tenant_id": current_user.tenant_id,
+            "deleted_at": None
+        }
+        
+        if is_person_account is not None:
+            query["is_person_account"] = is_person_account
+
         # Get recently viewed accounts first
         recent_views = await UserAccountView.find({
             "user_id": current_user.id
@@ -93,24 +103,18 @@ async def get_accounts(
         # Get recently viewed accounts
         recent_accounts = []
         if recent_account_ids:
-            recent_accounts = await Account.find({
-                "_id": {"$in": recent_account_ids},
-                "tenant_id": current_user.tenant_id,
-                "deleted_at": None
-            }).to_list()
+            recent_query = {
+                **query,
+                "_id": {"$in": recent_account_ids}
+            }
+            recent_accounts = await Account.find(recent_query).to_list()
         
         # Get other accounts (not in recent views)
+        other_query = query.copy()
         if recent_account_ids:
-            other_accounts = await Account.find({
-                "_id": {"$nin": recent_account_ids},
-                "tenant_id": current_user.tenant_id,
-                "deleted_at": None
-            }).sort("-updated_at").to_list()
-        else:
-            other_accounts = await Account.find({
-                "tenant_id": current_user.tenant_id,
-                "deleted_at": None
-            }).sort("-updated_at").to_list()
+            other_query["_id"] = {"$nin": recent_account_ids}
+            
+        other_accounts = await Account.find(other_query).sort("-updated_at").to_list()
         
         # Merge: recent first, then others
         all_accounts = recent_accounts + other_accounts

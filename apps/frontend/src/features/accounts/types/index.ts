@@ -60,6 +60,7 @@ export interface AccountFilters {
     acc_type_id?: string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
+    is_person_account?: boolean;
 }
 
 export interface AccountResponse {

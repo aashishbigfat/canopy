@@ -35,6 +35,11 @@ export const navItems: NavItem[] = [
         icon: Building2,
     },
     {
+        title: "Person Accounts",
+        href: "/person-accounts",
+        icon: Users,
+    },
+    {
         title: "Contacts",
         href: "/contacts",
         icon: Contact,
