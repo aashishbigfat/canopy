@@ -29,15 +29,23 @@ interface Opportunity {
 
 interface RelatedOpportunitiesCardsProps {
     opportunities: Opportunity[];
+    accountId?: string;
+    contactId?: string;
 }
 
-export function RelatedOpportunitiesCards({ opportunities }: RelatedOpportunitiesCardsProps) {
+export function RelatedOpportunitiesCards({ opportunities, accountId, contactId }: RelatedOpportunitiesCardsProps) {
+    const createUrl = accountId
+        ? `/opportunities/create?accountId=${accountId}`
+        : contactId
+            ? `/opportunities/create?contactId=${contactId}`
+            : "/opportunities/create";
+
     if (!opportunities || opportunities.length === 0) {
         return (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50">
-                <p className="text-slate-500">No opportunities associated yet.</p>
-                <Button variant="outline" size="sm" className="mt-4">
-                    <Link href="/opportunities/create">Create Opportunity</Link>
+            <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50 flex flex-col items-center justify-center space-y-4">
+                <p className="text-slate-500 font-medium">No opportunities associated yet.</p>
+                <Button variant="outline" size="sm" asChild className="font-bold border-slate-200">
+                    <Link href={createUrl}>Create Opportunity</Link>
                 </Button>
             </div>
         );
@@ -111,12 +119,15 @@ export function RelatedOpportunitiesCards({ opportunities }: RelatedOpportunitie
                 </Card>
             ))}
 
-            <button className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-6 hover:bg-slate-50 hover:border-blue-300 transition-all group">
+            <Link
+                href={createUrl}
+                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-6 hover:bg-slate-50 hover:border-blue-300 transition-all group"
+            >
                 <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
                     <Plus className="h-5 w-5" />
                 </div>
                 <span className="text-xs font-bold text-slate-900">New</span>
-            </button>
+            </Link>
         </div>
     );
 }

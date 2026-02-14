@@ -44,6 +44,7 @@ const opportunityFormSchema = z.object({
     probability: z.string().min(1, "Probability is required."),
     close_date: z.string().min(1, "Close date is required."),
     account_id: z.string().optional(),
+    contact_id: z.string().optional(),
 });
 
 type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
@@ -55,15 +56,27 @@ const defaultValues: Partial<OpportunityFormValues> = {
     probability: "10",
     close_date: "",
     account_id: "",
+    contact_id: "",
 };
+
+import { useSearchParams } from "next/navigation";
+import { useLeads } from "@/features/leads/api/useLeads";
 
 export function OpportunityForm() {
     const router = useRouter();
+    const searchParams = useSearchParams();
+    const accountId = searchParams.get("accountId") || "";
+    const contactId = searchParams.get("contactId") || "";
+
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<OpportunityFormValues>({
         resolver: zodResolver(opportunityFormSchema),
-        defaultValues,
+        defaultValues: {
+            ...defaultValues,
+            account_id: accountId,
+            contact_id: contactId,
+        },
     });
 
     async function onSubmit(data: OpportunityFormValues) {
@@ -73,6 +86,7 @@ export function OpportunityForm() {
             const payload = {
                 ...data,
                 amount: Number(data.amount) || 0,
+                contact_id: data.contact_id || undefined,
             };
             await opportunityService.createOpportunity(payload);
             router.push("/opportunities");
@@ -212,6 +226,29 @@ export function OpportunityForm() {
                                         <SelectItem value="1">Acme Corp</SelectItem>
                                         <SelectItem value="2">Global Industries</SelectItem>
                                         <SelectItem value="3">TechStart Inc</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={form.control}
+                        name="contact_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Contact</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select a contact" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {/* Iterate contacts mock */}
+                                        <SelectItem value="1">John Doe</SelectItem>
+                                        <SelectItem value="2">Jane Smith</SelectItem>
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

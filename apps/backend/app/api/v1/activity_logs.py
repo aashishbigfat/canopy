@@ -15,7 +15,8 @@ from app.api.deps import get_current_user, check_permission
 router = APIRouter()
 
 
-@router.get("/activity", response_model=ActivityLogListResponse)
+@router.get("/", response_model=ActivityLogListResponse)
+@router.get("", response_model=ActivityLogListResponse)
 async def get_activity_logs(
     user_id: Optional[str] = None,
     entity_type: Optional[str] = None,
@@ -24,7 +25,7 @@ async def get_activity_logs(
     days: int = 30,
     skip: int = 0,
     limit: int = 100,
-    current_user: User = Depends(check_permission("view_report"))
+    current_user: User = Depends(get_current_user)
 ):
     """Get activity logs with filters"""
     service = ActivityLogService()

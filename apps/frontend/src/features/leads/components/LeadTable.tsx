@@ -15,7 +15,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Filter, MoreHorizontal, Settings, ChevronDown } from "lucide-react";
+import { ArrowUpDown, Filter, MoreHorizontal, Settings, ChevronDown, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -37,10 +37,10 @@ import {
 } from "@/components/ui/table";
 import { Lead, LeadStatus, Source, User } from "../types";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { LoadingState, LoadingTable } from "@/components/ui/loading";
 import Link from "next/link";
+import { ConvertLeadDialog } from "./ConvertLeadDialog";
 
 export const getColumns = (
     statuses: LeadStatus[],
@@ -168,12 +168,16 @@ export const getColumns = (
             id: "segment",
             header: "Segment",
             cell: ({ row }) => {
-                // Segment might still be in custom_fields or mapped from something else.
-                // Checking Lead interface, there is no root 'segment'.
-                // Leaving it as custom_fields for now, or check if it maps to something else.
-                const cf = row.original.custom_fields || {};
-                const segment = cf.segment as string | undefined;
-                return <div className="text-sm text-gray-700">{segment || "-"}</div>;
+                const segment = row.original.segment || (row.original.custom_fields as any)?.segment;
+                if (!segment) return <div className="text-sm text-gray-700">-</div>;
+
+                return (
+                    <Badge variant={segment === "B2B" ? "outline" : "secondary"} className={
+                        segment === "B2B" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                    }>
+                        {segment}
+                    </Badge>
+                );
             },
         },
         {
@@ -238,9 +242,6 @@ interface LeadTableProps {
     selectedIds?: string[];
 }
 
-import { ConvertLeadDialog } from "./ConvertLeadDialog";
-import { CheckCircle2 } from "lucide-react";
-
 export function LeadTable({
     data,
     pagination,
@@ -258,11 +259,9 @@ export function LeadTable({
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
 
-    // Derived row selection state for the table
     const rowSelection = React.useMemo(() => {
         const selection: Record<string, boolean> = {};
         selectedIds.forEach(id => {
-            // Find row index for this ID
             const index = data.findIndex(d => d.id === id);
             if (index >= 0) {
                 selection[index] = true;
@@ -277,7 +276,6 @@ export function LeadTable({
     const columns = React.useMemo(() => {
         const baseColumns = getColumns(lead_statuses, sources, users);
 
-        // Override the select column to use our external handlers
         if (baseColumns[0].id === "select") {
             baseColumns[0] = {
                 id: "select",
@@ -340,7 +338,6 @@ export function LeadTable({
     const router = useRouter();
 
     const total = pagination.total ?? table.getRowModel().rows.length;
-
     const currentView = searchParams.get("view") || "today";
 
     const leadViews = [
@@ -402,12 +399,6 @@ export function LeadTable({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Button asChild size="sm" className="gap-1">
-                                <Link href="/leads/create">
-                                    <span className="text-lg leading-none">+</span>
-                                    New Lead
-                                </Link>
-                            </Button>
                             <Button
                                 variant="outline"
                                 size="icon"

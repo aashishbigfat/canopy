@@ -235,7 +235,57 @@ async def get_opportunity(
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
-        return OpportunityResponse.from_orm(opportunity)
+        # Enrich response with related names
+        from app.models.opportunity_picklists import SalesStage, OpportunityType
+        from app.models.user import User as UserDoc
+        from app.models.account import Account as AccountDoc
+        from app.models.destination import Destination as DestinationDoc
+        
+        sales_stage = None
+        if opportunity.sales_stage_id:
+            sales_stage = await SalesStage.get(opportunity.sales_stage_id)
+        
+        opportunity_type = None
+        if opportunity.opportunity_type_id:
+            opportunity_type = await OpportunityType.get(opportunity.opportunity_type_id)
+        
+        owner_name = "Unknown"
+        if opportunity.owner_id:
+            owner = await UserDoc.get(opportunity.owner_id)
+            if owner:
+                owner_name = owner.name
+        
+        account_name = "-"
+        if opportunity.account_id:
+            account = await AccountDoc.get(opportunity.account_id)
+            if account:
+                account_name = account.name
+        
+        dest_names = []
+        if opportunity.destination_ids:
+            for dest_id in opportunity.destination_ids:
+                dest = await DestinationDoc.get(dest_id)
+                if dest:
+                    dest_names.append(dest.name)
+        
+        segment = opportunity.custom_fields.get("segment", "B2C")
+        creation_type = "Manual"
+        if opportunity.lead_id:
+            creation_type = "Auto"
+            
+        opp_response = OpportunityResponse.from_orm(opportunity)
+        if sales_stage:
+            opp_response.sales_stage_name = sales_stage.name
+        if opportunity_type:
+            opp_response.opportunity_type_name = opportunity_type.name
+        
+        opp_response.owner_name = owner_name
+        opp_response.account_name = account_name
+        opp_response.destination_names = dest_names
+        opp_response.segment = segment
+        opp_response.creation_type = creation_type
+            
+        return opp_response
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

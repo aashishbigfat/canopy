@@ -12,6 +12,7 @@ import {
     Paperclip,
     Plus
 } from "lucide-react";
+import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -78,12 +79,17 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         </div>
                                         Opportunities ({contact.related_opportunities?.length || 0})
                                     </h2>
-                                    <Button variant="outline" size="sm" className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold">
-                                        <Plus className="h-3 w-3 mr-1" />
-                                        New
+                                    <Button variant="outline" size="sm" asChild className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold">
+                                        <Link href={`/opportunities/create?contactId=${contact.id}`}>
+                                            <Plus className="h-3 w-3 mr-1" />
+                                            New
+                                        </Link>
                                     </Button>
                                 </div>
-                                <RelatedOpportunitiesCards opportunities={contact.related_opportunities || []} />
+                                <RelatedOpportunitiesCards
+                                    opportunities={contact.related_opportunities || []}
+                                    contactId={contact.id}
+                                />
                             </TabsContent>
 
                             <TabsContent value="details" className="mt-0">

@@ -533,6 +533,9 @@ class LeadService(ActivityMixin):
                 sales_stage_id=sales_stage_id,
                 account_id=account_id,
                 contact_id=contact_id,
+                # Add polymorphic relationship fields
+                opportunitable_type="Account" if not is_person_account else "PersonalAccount",
+                opportunitable_id=account_id,
                 lead_id=lead.id,
                 source_id=lead.source_id,
                 source_medium_id=lead.source_medium_id,

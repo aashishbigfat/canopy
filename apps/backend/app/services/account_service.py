@@ -156,7 +156,7 @@ class AccountService(ActivityMixin):
                 # Get stage name
                 stage_name = None
                 if opp.sales_stage_id:
-                    from app.models.sales_stage import SalesStage
+                    from app.models.opportunity_picklists import SalesStage
                     stage = await SalesStage.get(opp.sales_stage_id)
                     if stage:
                         stage_name = stage.name
