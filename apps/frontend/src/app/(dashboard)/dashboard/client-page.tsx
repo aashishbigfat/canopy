@@ -24,12 +24,19 @@ export default function DashboardClientPage() {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const [data, activityLogs, deals, tasks] = await Promise.all([
+                const [data, stats, activityLogs, deals, tasks] = await Promise.all([
                     dashboardService.getDashboardData(),
+                    dashboardService.getStats(),
                     dashboardService.getActivityLogs(),
                     dashboardService.getKeyDeals(),
                     dashboardService.getTaskSummary()
                 ]);
+                
+                // Merge real-time stats into the dashboard data if available
+                if (data && stats) {
+                    data.stats = { ...data.stats, ...stats };
+                }
+                
                 setDashboardData(data);
                 setActivities(activityLogs);
                 setKeyDeals(deals);
