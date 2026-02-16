@@ -80,13 +80,13 @@ function LocationFields({ form }: { form: any }) {
                     const currentStateName = form.getValues("state");
 
                     if (currentCountryName) {
-                        const country = res.countries.find(c => c.name === currentCountryName);
+                        const country = res.countries.find((c: Country) => c.name === currentCountryName);
                         if (country) {
                             const statesRes = await locationService.getStates(country.id);
                             if (statesRes && statesRes.states) {
                                 setStates(statesRes.states);
                                 if (currentStateName) {
-                                    const state = statesRes.states.find(s => s.name === currentStateName);
+                                    const state = statesRes.states.find((s: State) => s.name === currentStateName);
                                     if (state) {
                                         const citiesRes = await locationService.getCitiesByState(state.id);
                                         if (citiesRes && citiesRes.cities) {
@@ -107,13 +107,13 @@ function LocationFields({ form }: { form: any }) {
         init();
     }, []); // Run only once
 
-    const filteredCountries = countries.filter(c =>
+    const filteredCountries = countries.filter((c: Country) =>
         c.name.toLowerCase().includes(searchTermCountry.toLowerCase())
     );
-    const filteredStates = states.filter(s =>
+    const filteredStates = states.filter((s: State) =>
         s.name.toLowerCase().includes(searchTermState.toLowerCase())
     );
-    const filteredCities = cities.filter(c =>
+    const filteredCities = cities.filter((c: City) =>
         c.name.toLowerCase().includes(searchTermCity.toLowerCase())
     );
 
@@ -137,7 +137,7 @@ function LocationFields({ form }: { form: any }) {
                                         )}
                                     >
                                         {field.value
-                                            ? countries.find((c) => c.name === field.value)?.name || field.value
+                                            ? countries.find((c: Country) => c.name === field.value)?.name || field.value
                                             : "Select country"}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
