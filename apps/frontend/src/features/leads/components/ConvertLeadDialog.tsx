@@ -213,7 +213,7 @@ export function ConvertLeadDialog({
             no_of_nights: lead.no_of_nights || 0,
             description: "",
             destination_ids: lead.destination_ids || [],
-            opportunity_close_date: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+            opportunity_close_date: new Date(),
         },
     });
 
@@ -593,8 +593,16 @@ export function ConvertLeadDialog({
                                                                     <PopoverContent className="w-auto p-0" align="start">
                                                                         <Calendar
                                                                             mode="single"
+                                                                            captionLayout="dropdown"
+                                                                            startMonth={new Date(1900, 0)}
+                                                                            endMonth={new Date(2100, 11)}
                                                                             selected={field.value}
                                                                             onSelect={field.onChange}
+                                                                            disabled={(date) => {
+                                                                                const today = new Date();
+                                                                                today.setHours(0, 0, 0, 0);
+                                                                                return date < today;
+                                                                            }}
                                                                             initialFocus
                                                                         />
                                                                     </PopoverContent>
@@ -615,6 +623,7 @@ export function ConvertLeadDialog({
                                                                         <FormControl>
                                                                             <Button
                                                                                 variant={"outline"}
+                                                                                disabled
                                                                                 className={cn(
                                                                                     "w-full pl-3 text-left font-normal bg-white",
                                                                                     !field.value && "text-muted-foreground"
@@ -632,8 +641,18 @@ export function ConvertLeadDialog({
                                                                     <PopoverContent className="w-auto p-0" align="start">
                                                                         <Calendar
                                                                             mode="single"
+                                                                            captionLayout="dropdown"
+                                                                            startMonth={new Date(1900, 0)}
+                                                                            endMonth={new Date(2100, 11)}
                                                                             selected={field.value}
                                                                             onSelect={field.onChange}
+                                                                            disabled={(date) => {
+                                                                                const today = new Date();
+                                                                                today.setHours(0, 0, 0, 0);
+                                                                                const compareDate = new Date(date);
+                                                                                compareDate.setHours(0, 0, 0, 0);
+                                                                                return compareDate.getTime() !== today.getTime();
+                                                                            }}
                                                                             initialFocus
                                                                         />
                                                                     </PopoverContent>

@@ -96,11 +96,13 @@ class CountryService:
             City.is_active == True
         ).sort("+name").to_list()
     
-    async def search_cities(self, query: str, country_id: Optional[str] = None) -> List[City]:
+    async def search_cities(self, query: str, country_id: Optional[str] = None, state_id: Optional[str] = None) -> List[City]:
         """Search cities"""
         search = {"deleted_at": None, "is_active": True, "name": {"$regex": query, "$options": "i"}}
         if country_id:
             search["country_id"] = ObjectId(country_id)
+        if state_id:
+            search["state_id"] = ObjectId(state_id)
         return await City.find(search).sort("+name").to_list()
     
     async def get_popular_cities(self, limit: int = 20) -> List[City]:

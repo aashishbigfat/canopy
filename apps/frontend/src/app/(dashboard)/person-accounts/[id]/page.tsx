@@ -25,7 +25,7 @@ async function getAccountDetail(id: string, token: string) {
     return res.json();
 }
 
-export default async function AccountDetailPage(props: {
+export default async function PersonAccountDetailPage(props: {
     params: Promise<{ id: string }>;
 }) {
     const session = await getServerSession(authOptions);
@@ -38,9 +38,11 @@ export default async function AccountDetailPage(props: {
     const account = await getAccountDetail(params.id, session.accessToken);
 
     const { isPersonAccountEmail } = await import("@/lib/utils");
-    if (isPersonAccountEmail(account.email)) {
-        const { redirect } = await import("next/navigation");
-        redirect(`/person-accounts/${params.id}`);
+    const { redirect } = await import("next/navigation");
+
+    // Ensure we are viewing the right type of account
+    if (!isPersonAccountEmail(account.email)) {
+        redirect(`/accounts/${params.id}`);
     }
 
     return (

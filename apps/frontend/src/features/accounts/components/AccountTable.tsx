@@ -15,6 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, ChevronDown, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { isPersonAccountEmail } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -75,10 +76,19 @@ export const columns: ColumnDef<Account>[] = [
         },
         cell: ({ row }) => {
             const account = row.original;
+            const isB2C = isPersonAccountEmail(account.email);
+            const basePath = isB2C ? "person-accounts" : "accounts";
+
             return (
-                <Link href={`/accounts/${account.id}`} className="hover:underline font-medium">
-                    {row.getValue("name")}
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link href={`/${basePath}/${account.id}`} className="hover:underline font-medium">
+                        {row.getValue("name")}
+                    </Link>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${isB2C ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700"
+                        }`}>
+                        {isB2C ? "B2C" : "B2B"}
+                    </span>
+                </div>
             );
         },
     },
@@ -106,6 +116,7 @@ export const columns: ColumnDef<Account>[] = [
         enableHiding: false,
         cell: ({ row }) => {
             const account = row.original;
+            const isB2C = account.is_person_account;
 
             return (
                 <DropdownMenu>
@@ -124,10 +135,10 @@ export const columns: ColumnDef<Account>[] = [
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem asChild>
-                            <Link href={`/accounts/${account.id}`}>View details</Link>
+                            <Link href={`/${isB2C ? 'person-accounts' : 'accounts'}/${account.id}`}>View details</Link>
                         </DropdownMenuItem>
                         <DropdownMenuItem asChild>
-                            <Link href={`/accounts/${account.id}/edit`}>Edit account</Link>
+                            <Link href={`/${isB2C ? 'person-accounts' : 'accounts'}/${account.id}/edit`}>Edit account</Link>
                         </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>

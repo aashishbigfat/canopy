@@ -5,6 +5,9 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon, Check, ChevronsUpDown } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -23,11 +26,294 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command"
+import {
+    Popover,
+    PopoverContent,
+    PopoverTrigger,
+} from "@/components/ui/popover"
+import { cn } from "@/lib/utils"
+import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 import { leadsService } from "@/lib/api/services/leads.service";
+import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { Lead, LeadCreateData, LeadStatus, Source, Industry, Rating } from "../types";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
 import { logger } from "@/lib/logger";
 import { LoadingButton } from "@/components/ui/loading";
+
+
+function LocationFields({ form }: { form: any }) {
+    const [countries, setCountries] = useState<Country[]>([]);
+    const [states, setStates] = useState<State[]>([]);
+    const [cities, setCities] = useState<City[]>([]);
+
+    const [loadingCountries, setLoadingCountries] = useState(false);
+    const [loadingStates, setLoadingStates] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
+
+    const [countryOpen, setCountryOpen] = useState(false);
+    const [stateOpen, setStateOpen] = useState(false);
+    const [cityOpen, setCityOpen] = useState(false);
+
+    const [searchTermCountry, setSearchTermCountry] = useState("");
+    const [searchTermState, setSearchTermState] = useState("");
+    const [searchTermCity, setSearchTermCity] = useState("");
+
+    // Initial load and edit mode support
+    useEffect(() => {
+        const init = async () => {
+            setLoadingCountries(true);
+            try {
+                const res = await locationService.getCountries();
+                if (res && res.countries) {
+                    setCountries(res.countries);
+                    const currentCountryName = form.getValues("country");
+                    const currentStateName = form.getValues("state");
+
+                    if (currentCountryName) {
+                        const country = res.countries.find(c => c.name === currentCountryName);
+                        if (country) {
+                            const statesRes = await locationService.getStates(country.id);
+                            if (statesRes && statesRes.states) {
+                                setStates(statesRes.states);
+                                if (currentStateName) {
+                                    const state = statesRes.states.find(s => s.name === currentStateName);
+                                    if (state) {
+                                        const citiesRes = await locationService.getCitiesByState(state.id);
+                                        if (citiesRes && citiesRes.cities) {
+                                            setCities(citiesRes.cities);
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Location initialization failed", err);
+            } finally {
+                setLoadingCountries(false);
+            }
+        };
+        init();
+    }, []); // Run only once
+
+    const filteredCountries = countries.filter(c =>
+        c.name.toLowerCase().includes(searchTermCountry.toLowerCase())
+    );
+    const filteredStates = states.filter(s =>
+        s.name.toLowerCase().includes(searchTermState.toLowerCase())
+    );
+    const filteredCities = cities.filter(c =>
+        c.name.toLowerCase().includes(searchTermCity.toLowerCase())
+    );
+
+    return (
+        <>
+            <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Country *</FormLabel>
+                        <Popover open={countryOpen} onOpenChange={setCountryOpen}>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn(
+                                            "w-full justify-between",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {field.value
+                                            ? countries.find((c) => c.name === field.value)?.name || field.value
+                                            : "Select country"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0">
+                                <Command shouldFilter={false}>
+                                    <CommandInput
+                                        placeholder="Search country..."
+                                        onValueChange={setSearchTermCountry}
+                                    />
+                                    <CommandList>
+                                        <CommandEmpty>No country found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {filteredCountries.map((country) => (
+                                                <CommandItem
+                                                    value={country.name}
+                                                    key={country.id}
+                                                    onSelect={() => {
+                                                        const prev = field.value;
+                                                        field.onChange(country.name);
+                                                        if (prev !== country.name) {
+                                                            form.setValue("state", "");
+                                                            form.setValue("city", "");
+                                                            setStates([]);
+                                                            setCities([]);
+                                                            setLoadingStates(true);
+                                                            locationService.getStates(country.id).then(r => {
+                                                                setStates(r?.states || []);
+                                                                setLoadingStates(false);
+                                                            });
+                                                        }
+                                                        setCountryOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", country.name === field.value ? "opacity-100" : "opacity-0")} />
+                                                    {country.name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+
+            <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>State *</FormLabel>
+                        <Popover open={stateOpen} onOpenChange={setStateOpen}>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        disabled={!form.watch("country") || loadingStates}
+                                        className={cn(
+                                            "w-full justify-between",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {field.value
+                                            ? states.find((s) => s.name === field.value)?.name || field.value
+                                            : "Select state"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0">
+                                <Command shouldFilter={false}>
+                                    <CommandInput
+                                        placeholder="Search state..."
+                                        onValueChange={setSearchTermState}
+                                    />
+                                    <CommandList>
+                                        <CommandEmpty>No state found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {filteredStates.map((state) => (
+                                                <CommandItem
+                                                    value={state.name}
+                                                    key={state.id}
+                                                    onSelect={() => {
+                                                        const prev = field.value;
+                                                        field.onChange(state.name);
+                                                        if (prev !== state.name) {
+                                                            form.setValue("city", "");
+                                                            setCities([]);
+                                                            setLoadingCities(true);
+                                                            locationService.getCitiesByState(state.id).then(r => {
+                                                                setCities(r?.cities || []);
+                                                                setLoadingCities(false);
+                                                            });
+                                                        }
+                                                        setStateOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", state.name === field.value ? "opacity-100" : "opacity-0")} />
+                                                    {state.name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+
+            <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                    <FormItem className="flex flex-col">
+                        <FormLabel>City *</FormLabel>
+                        <Popover open={cityOpen} onOpenChange={setCityOpen}>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        disabled={!form.watch("state") || loadingCities}
+                                        className={cn(
+                                            "w-full justify-between",
+                                            !field.value && "text-muted-foreground"
+                                        )}
+                                    >
+                                        {field.value
+                                            ? cities.find((c) => c.name === field.value)?.name || field.value
+                                            : "Select city"}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[200px] p-0">
+                                <Command shouldFilter={false}>
+                                    <CommandInput
+                                        placeholder="Search city..."
+                                        onValueChange={setSearchTermCity}
+                                    />
+                                    <CommandList>
+                                        <CommandEmpty>No city found.</CommandEmpty>
+                                        <CommandGroup>
+                                            {filteredCities.map((city) => (
+                                                <CommandItem
+                                                    value={city.name}
+                                                    key={city.id}
+                                                    onSelect={() => {
+                                                        field.onChange(city.name);
+                                                        setCityOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", city.name === field.value ? "opacity-100" : "opacity-0")} />
+                                                    {city.name}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                )}
+            />
+        </>
+    );
+}
+
 
 const leadFormSchema = z.object({
     salutation: z.string().optional(),
@@ -85,6 +371,15 @@ export function LeadForm({
 }: LeadFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
+    const [destinationOpen, setDestinationOpen] = useState(false);
+    const [destSearch, setDestSearch] = useState("");
+
+    useEffect(() => {
+        destinationsService.getDestinations({ limit: 1000 }).then(res => {
+            setAvailableDestinations(res.destinations);
+        }).catch(err => console.error("Failed to fetch destinations", err));
+    }, []);
 
     const form = useForm<LeadFormValues>({
         resolver: zodResolver(leadFormSchema),
@@ -402,45 +697,7 @@ export function LeadForm({
                 <div className="space-y-4">
                     <h3 className="text-lg font-medium border-b pb-2">Location</h3>
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        <FormField
-                            control={form.control}
-                            name="country"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Country *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="USA" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="state"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>State *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="California" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="city"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>City *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Los Angeles" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <LocationFields form={form} />
                         <FormField
                             control={form.control}
                             name="street"
@@ -464,11 +721,44 @@ export function LeadForm({
                             control={form.control}
                             name="travel_date"
                             render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="flex flex-col">
                                     <FormLabel>Travel Date *</FormLabel>
-                                    <FormControl>
-                                        <Input type="date" {...field} />
-                                    </FormControl>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full pl-3 text-left font-normal",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value ? (
+                                                        format(new Date(field.value), "PPP")
+                                                    ) : (
+                                                        <span>Pick a date</span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                captionLayout="dropdown"
+                                                startMonth={new Date(1900, 0)}
+                                                endMonth={new Date(2100, 11)}
+                                                selected={field.value ? new Date(field.value) : undefined}
+                                                onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                                                disabled={(date) => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    return date < today;
+                                                }}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
                                     <FormMessage />
                                 </FormItem>
                             )}
@@ -505,11 +795,93 @@ export function LeadForm({
                             render={({ field }) => (
                                 <FormItem className="col-span-2">
                                     <FormLabel>Destinations *</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="Paris, London, Rome" {...field} />
-                                    </FormControl>
+                                    <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "w-full justify-between h-auto min-h-10",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-wrap gap-1 items-center">
+                                                        {field.value ? (
+                                                            field.value.split(",").map(d => d.trim()).filter(Boolean).map((d, i) => (
+                                                                <Badge key={i} variant="secondary" className="mr-1 flex items-center gap-1">
+                                                                    {d}
+                                                                    <span
+                                                                        role="button"
+                                                                        className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 px-0 py-0 cursor-pointer"
+                                                                        onMouseDown={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                        }}
+                                                                        onClick={(e) => {
+                                                                            e.preventDefault();
+                                                                            e.stopPropagation();
+                                                                            const names = field.value.split(",").map(n => n.trim()).filter(Boolean);
+                                                                            const newNames = names.filter(n => n !== d);
+                                                                            field.onChange(newNames.join(", "));
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                                    </span>
+                                                                </Badge>
+                                                            ))
+                                                        ) : (
+                                                            <span>Select destinations</span>
+                                                        )}
+                                                    </div>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[400px] p-0" align="start">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput
+                                                    placeholder="Search destination..."
+                                                    onValueChange={setDestSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No destination found.</CommandEmpty>
+                                                    <CommandGroup className="max-h-64 overflow-y-auto">
+                                                        {availableDestinations
+                                                            .filter(d => d.name.toLowerCase().includes(destSearch.toLowerCase()))
+                                                            .map((dest) => {
+                                                                const selectedNames = field.value ? field.value.split(",").map(n => n.trim()).filter(Boolean) : [];
+                                                                const isSelected = selectedNames.includes(dest.name);
+                                                                return (
+                                                                    <CommandItem
+                                                                        key={dest.id}
+                                                                        onSelect={() => {
+                                                                            let newNames;
+                                                                            if (isSelected) {
+                                                                                newNames = selectedNames.filter(n => n !== dest.name);
+                                                                            } else {
+                                                                                newNames = [...selectedNames, dest.name];
+                                                                            }
+                                                                            field.onChange(newNames.join(", "));
+                                                                        }}
+                                                                    >
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                isSelected ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {dest.name}
+                                                                    </CommandItem>
+                                                                );
+                                                            })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <div className="text-[0.8rem] text-muted-foreground">
-                                        Separate destinations with commas.
+                                        Select one or more destinations from the list.
                                     </div>
                                     <FormMessage />
                                 </FormItem>

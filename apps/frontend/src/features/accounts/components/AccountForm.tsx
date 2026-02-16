@@ -46,7 +46,11 @@ const defaultValues: AccountFormValues = {
     status: "active",
 };
 
-export function AccountForm() {
+interface AccountFormProps {
+    isPersonAccount?: boolean;
+}
+
+export function AccountForm({ isPersonAccount = false }: AccountFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
@@ -58,9 +62,13 @@ export function AccountForm() {
     async function onSubmit(data: AccountFormValues) {
         setIsLoading(true);
         try {
-            await accountService.createAccount(data);
+            await accountService.createAccount({
+                ...data,
+                is_person_account: isPersonAccount,
+                acc_type_id: isPersonAccount ? "B2C" : "B2B", // Keep this for now if backend uses it too
+            });
             // Optional: Show success toast here
-            router.push("/accounts");
+            router.push(isPersonAccount ? "/person-accounts" : "/accounts");
             router.refresh();
         } catch (error) {
             console.error("Failed to create account", error);
@@ -87,19 +95,21 @@ export function AccountForm() {
                             </FormItem>
                         )}
                     />
-                    <FormField
-                        control={form.control}
-                        name="industry"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Industry</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Technology" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {!isPersonAccount && (
+                        <FormField
+                            control={form.control}
+                            name="industry"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Industry</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Technology" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                     <FormField
                         control={form.control}
                         name="website"

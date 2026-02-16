@@ -184,10 +184,6 @@ export function EntityActivitySidebar({
                                             <label className="text-xs font-medium text-slate-500">Name</label>
                                             <Input disabled value={entityName || "None"} className="h-9 bg-slate-50 font-medium text-slate-700" />
                                         </div>
-                                        <div className="space-y-1">
-                                            <label className="text-xs font-medium text-slate-500">Related To</label>
-                                            <Input disabled value={relatedTo || "None"} className="h-9 bg-slate-50 font-medium text-slate-700" />
-                                        </div>
                                         <div className="flex justify-end pt-2">
                                             <Button
                                                 onClick={handleSaveTask}

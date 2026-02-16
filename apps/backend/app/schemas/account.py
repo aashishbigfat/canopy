@@ -12,6 +12,7 @@ class AccountBase(BaseModel):
     phone: Optional[str] = None
     website: Optional[str] = None
     description: Optional[str] = None
+    is_person_account: bool = False
     
     # Billing Address
     billing_street: Optional[str] = None
@@ -79,6 +80,8 @@ class AccountResponse(AccountBase):
     
     view_count: int = 0
     is_favorite: bool = False
+    
+    is_person_account: bool = False
     
     created_at: datetime
     updated_at: datetime

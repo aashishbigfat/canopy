@@ -123,7 +123,7 @@ export function OpportunityForm() {
             amount: 0,
             sales_stage_id: "",
             probability: 10,
-            close_date: new Date(new Date().setMonth(new Date().getMonth() + 1)),
+            close_date: new Date(),
             account_id: accountId,
             contact_id: contactId,
             experience_id: "",
@@ -356,8 +356,18 @@ export function OpportunityForm() {
                                                     <PopoverContent className="w-auto p-0" align="start">
                                                         <Calendar
                                                             mode="single"
+                                                            captionLayout="dropdown"
+                                                            startMonth={new Date(1900, 0)}
+                                                            endMonth={new Date(2100, 11)}
                                                             selected={field.value}
                                                             onSelect={field.onChange}
+                                                            disabled={(date) => {
+                                                                const today = new Date();
+                                                                today.setHours(0, 0, 0, 0);
+                                                                const compareDate = new Date(date);
+                                                                compareDate.setHours(0, 0, 0, 0);
+                                                                return compareDate.getTime() !== today.getTime();
+                                                            }}
                                                             initialFocus
                                                         />
                                                     </PopoverContent>
@@ -378,6 +388,7 @@ export function OpportunityForm() {
                                                         <FormControl>
                                                             <Button
                                                                 variant={"outline"}
+                                                                disabled
                                                                 className={cn(
                                                                     "w-full pl-3 text-left font-normal bg-white",
                                                                     !field.value && "text-muted-foreground"
@@ -395,6 +406,9 @@ export function OpportunityForm() {
                                                     <PopoverContent className="w-auto p-0" align="start">
                                                         <Calendar
                                                             mode="single"
+                                                            captionLayout="dropdown"
+                                                            startMonth={new Date(1900, 0)}
+                                                            endMonth={new Date(2100, 11)}
                                                             selected={field.value}
                                                             onSelect={field.onChange}
                                                             initialFocus

@@ -139,3 +139,26 @@ class Account(BaseDocument):
         """Increment view count"""
         self.view_count += 1
         await self.save()
+
+    def check_is_person_account(self) -> bool:
+        """Dynamically check if this should be a person account based on email"""
+        if not self.email:
+            return False
+        
+        email_str = str(self.email).lower()
+        if "@" not in email_str:
+            return False
+            
+        domain = email_str.split("@")[1]
+        person_domains = ["gmail", "yahoo", "hotmail", "rediffmail", "outlook"]
+        return any(domain.startswith(d) for d in person_domains)
+
+    async def save(self, *args, **kwargs):
+        """Override save to enforce classification rules"""
+        self.is_person_account = self.check_is_person_account()
+        return await super().save(*args, **kwargs)
+
+    async def insert(self, *args, **kwargs):
+        """Override insert to enforce classification rules"""
+        self.is_person_account = self.check_is_person_account()
+        return await super().insert(*args, **kwargs)

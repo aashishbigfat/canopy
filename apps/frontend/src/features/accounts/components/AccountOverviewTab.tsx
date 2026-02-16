@@ -1,11 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { isPersonAccountEmail } from "@/lib/utils";
 
 interface AccountOverviewTabProps {
     account: any;
 }
 
 export function AccountOverviewTab({ account }: AccountOverviewTabProps) {
+    const isB2C = isPersonAccountEmail(account.email);
+
     return (
         <div className="grid gap-6 md:grid-cols-2">
             {/* Account Information */}
@@ -15,35 +18,30 @@ export function AccountOverviewTab({ account }: AccountOverviewTabProps) {
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Account Name
-                        </label>
+                        <p className="text-sm font-medium text-muted-foreground">Account Name</p>
                         <p className="text-sm">{account.name}</p>
                     </div>
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Account Type
-                        </label>
-                        <p className="text-sm">{account.account_type_name || "-"}</p>
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Parent Account
-                        </label>
-                        <p className="text-sm">{account.parent_account_name || "-"}</p>
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Industry
-                        </label>
-                        <p className="text-sm">{account.industry_name || "-"}</p>
-                    </div>
-                    <div>
-                        <label className="text-sm font-medium text-muted-foreground">
-                            Rating
-                        </label>
-                        <p className="text-sm">{account.rating_name || "-"}</p>
-                    </div>
+
+                    {!isB2C && (
+                        <>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Account Type</p>
+                                <p className="text-sm">{account.account_type_name || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Parent Account</p>
+                                <p className="text-sm">{account.parent_account_name || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Industry</p>
+                                <p className="text-sm">{account.industry_name || "-"}</p>
+                            </div>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Rating</p>
+                                <p className="text-sm">{account.rating_name || "-"}</p>
+                            </div>
+                        </>
+                    )}
                 </CardContent>
             </Card>
 

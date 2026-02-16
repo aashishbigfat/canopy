@@ -18,6 +18,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { isPersonAccountEmail } from "@/lib/utils";
 import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
@@ -37,11 +38,16 @@ interface AccountDetailViewProps {
 }
 
 export function AccountDetailView({ account }: AccountDetailViewProps) {
+    const isB2C = isPersonAccountEmail(account.email);
+    const headerType = isB2C ? "Person Account" : "Account";
+    const badgeLabel = isB2C ? "B2C" : "B2B";
+
     return (
         <div className="container mx-auto px-4 py-6 max-w-7xl">
             {/* High Fidelity Header */}
             <EntityDetailHeader
-                type="Account"
+                type={headerType}
+                badge={badgeLabel}
                 name={account.name}
                 id={account.id}
                 phone={account.phone}
@@ -78,39 +84,41 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
 
                         <div className="py-6">
                             <TabsContent value="related" className="mt-0 space-y-8">
-                                {/* Related Contacts */}
-                                <div className="space-y-4">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="text-sm font-bold flex items-center gap-2">
-                                            <div className="h-6 w-6 rounded bg-emerald-100 flex items-center justify-center text-emerald-600">
-                                                <UserIcon className="h-3 w-3" />
-                                            </div>
-                                            Contacts ({account.related_contacts?.length || 0})
-                                        </h2>
-                                        <Button variant="outline" size="sm" className="h-8 text-xs font-bold">
-                                            <Plus className="h-3 w-3 mr-1" />
-                                            New
-                                        </Button>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        {account.related_contacts?.map((contact) => (
-                                            <Card key={contact.id} className="hover:border-blue-300 transition-all shadow-sm">
-                                                <CardContent className="p-4 flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                                                            <UserIcon className="h-4 w-4" />
+                                {/* Related Contacts - Hidden for B2C */}
+                                {!isB2C && (
+                                    <div className="space-y-4">
+                                        <div className="flex items-center justify-between">
+                                            <h2 className="text-sm font-bold flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                                    <UserIcon className="h-3 w-3" />
+                                                </div>
+                                                Contacts ({account.related_contacts?.length || 0})
+                                            </h2>
+                                            <Button variant="outline" size="sm" className="h-8 text-xs font-bold">
+                                                <Plus className="h-3 w-3 mr-1" />
+                                                New
+                                            </Button>
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            {account.related_contacts?.map((contact) => (
+                                                <Card key={contact.id} className="hover:border-blue-300 transition-all shadow-sm">
+                                                    <CardContent className="p-4 flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                                                                <UserIcon className="h-4 w-4" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="text-sm font-bold text-blue-600">{contact.first_name} {contact.last_name}</p>
+                                                                <p className="text-xs text-slate-500">{contact.title || "No Title"}</p>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <p className="text-sm font-bold text-blue-600">{contact.first_name} {contact.last_name}</p>
-                                                            <p className="text-xs text-slate-500">{contact.title || "No Title"}</p>
-                                                        </div>
-                                                    </div>
-                                                    <ArrowUpRight className="h-4 w-4 text-slate-300" />
-                                                </CardContent>
-                                            </Card>
-                                        ))}
+                                                        <ArrowUpRight className="h-4 w-4 text-slate-300" />
+                                                    </CardContent>
+                                                </Card>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Related Opportunities */}
                                 <div className="space-y-4 pt-4 border-t">
@@ -161,22 +169,27 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
                                                 <p className="text-sm font-medium text-slate-700">{account.phone || "-"}</p>
                                             </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
-                                                <p className="text-sm font-medium text-slate-700">{account.industry_name || "-"}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Type</p>
-                                                <p className="text-sm font-medium text-slate-700">{account.account_type_name || "-"}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Parent Account</p>
-                                                <p className="text-sm font-medium text-blue-600 underline">{account.parent_account_name || "-"}</p>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</p>
-                                                <p className="text-sm font-medium text-slate-700">{account.rating_name || "-"}</p>
-                                            </div>
+
+                                            {!isB2C && (
+                                                <>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
+                                                        <p className="text-sm font-medium text-slate-700">{account.industry_name || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Type</p>
+                                                        <p className="text-sm font-medium text-slate-700">{account.account_type_name || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Parent Account</p>
+                                                        <p className="text-sm font-medium text-blue-600 underline">{account.parent_account_name || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</p>
+                                                        <p className="text-sm font-medium text-slate-700">{account.rating_name || "-"}</p>
+                                                    </div>
+                                                </>
+                                            )}
                                         </CardContent>
                                     </Card>
 

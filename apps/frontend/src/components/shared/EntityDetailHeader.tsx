@@ -22,7 +22,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 interface EntityDetailHeaderProps {
-    type: "Contact" | "Account";
+    type: "Contact" | "Account" | "Person Account";
+    customLabel?: string;
+    badge?: string;
     name: string;
     id: string;
     phone?: string;
@@ -34,6 +36,8 @@ interface EntityDetailHeaderProps {
 
 export function EntityDetailHeader({
     type,
+    customLabel,
+    badge,
     name,
     id,
     phone,
@@ -56,10 +60,15 @@ export function EntityDetailHeader({
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-slate-500 uppercase tracking-wider">{type}</span>
+                                <span className="text-sm font-medium text-slate-500 uppercase tracking-wider">{customLabel || type}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <h1 className="text-2xl font-bold text-slate-900">{name}</h1>
+                                {badge && (
+                                    <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">
+                                        {badge}
+                                    </Badge>
+                                )}
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(name)}>
                                     <Copy className="h-3 w-3" />
                                 </Button>

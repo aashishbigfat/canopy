@@ -7,6 +7,7 @@ export interface Account {
     phone?: string;
     website?: string;
     description?: string;
+    is_person_account: boolean;
 
     // Addresses
     billing_street?: string;
@@ -29,6 +30,12 @@ export interface Account {
     account_source_id?: string;
     owner_id: string;
 
+    // Virtual/Joined Fields
+    account_type_name?: string;
+    industry_name?: string;
+    parent_account_name?: string;
+    rating_name?: string;
+
     // Metadata
     view_count: number;
     is_favorite: boolean;
@@ -50,6 +57,7 @@ export interface AccountCreateData {
     billing_country?: string;
     acc_type_id?: string;
     industry_id?: string;
+    is_person_account?: boolean;
 }
 
 export interface AccountFilters {

@@ -72,7 +72,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             amount: opportunity.amount?.toString() || "0",
             sales_stage_id: opportunity.sales_stage_id || "",
             probability: opportunity.probability?.toString() || "10",
-            close_date: opportunity.close_date || "",
+            close_date: new Date().toISOString().split('T')[0],
             travel_date: opportunity.travel_date || "",
             no_of_pax: opportunity.no_of_pax?.toString() || "",
             no_of_adults: opportunity.no_of_adults?.toString() || "",
@@ -203,6 +203,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                             <FormControl>
                                                 <Button
                                                     variant={"outline"}
+                                                    disabled
                                                     className={cn(
                                                         "w-full pl-3 text-left font-normal",
                                                         !field.value && "text-muted-foreground"
@@ -220,11 +221,18 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                         <PopoverContent className="w-auto p-0" align="start">
                                             <Calendar
                                                 mode="single"
+                                                captionLayout="dropdown"
+                                                startMonth={new Date(1900, 0)}
+                                                endMonth={new Date(2100, 11)}
                                                 selected={field.value ? new Date(field.value) : undefined}
                                                 onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                                                disabled={(date) =>
-                                                    date < new Date("1900-01-01")
-                                                }
+                                                disabled={(date) => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    const compareDate = new Date(date);
+                                                    compareDate.setHours(0, 0, 0, 0);
+                                                    return compareDate.getTime() !== today.getTime();
+                                                }}
                                                 initialFocus
                                             />
                                         </PopoverContent>
@@ -262,11 +270,16 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                         <PopoverContent className="w-auto p-0" align="start">
                                             <Calendar
                                                 mode="single"
+                                                captionLayout="dropdown"
+                                                startMonth={new Date(1900, 0)}
+                                                endMonth={new Date(2100, 11)}
                                                 selected={field.value ? new Date(field.value) : undefined}
                                                 onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
-                                                disabled={(date) =>
-                                                    date < new Date("1900-01-01")
-                                                }
+                                                disabled={(date) => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    return date < today;
+                                                }}
                                                 initialFocus
                                             />
                                         </PopoverContent>
