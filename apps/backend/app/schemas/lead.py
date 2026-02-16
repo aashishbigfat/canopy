@@ -43,6 +43,7 @@ class LeadBase(BaseModel):
     segment: Optional[str] = "B2C"
     is_fixed: Optional[bool] = False
     destinations: Optional[List[str]] = Field(default_factory=list)
+    creation_type: Optional[str] = "manual"
 
 
 class LeadCreate(LeadBase):

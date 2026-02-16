@@ -52,6 +52,7 @@ class Lead(BaseDocument):
     segment: Optional[str] = "B2C"  # Default to B2C
     is_fixed: bool = False
     destinations: List[str] = Field(default_factory=list)
+    creation_type: str = "manual"  # manual or auto
     
     # Conversion
     is_converted: bool = False

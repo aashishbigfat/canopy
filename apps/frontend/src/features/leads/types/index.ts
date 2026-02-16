@@ -42,6 +42,7 @@ export interface Lead {
     destinations?: string[]; // User said "destinations: (required)"
     is_fixed?: boolean;
     segment?: string;
+    creation_type?: string;
 
     // Conversion Status
     is_converted: boolean;
@@ -91,6 +92,7 @@ export interface LeadCreateData {
     destinations?: string[];
     is_fixed?: boolean;
     segment?: string;
+    creation_type?: string;
 
     source_medium_id?: string;
     destination_ids?: string[];
