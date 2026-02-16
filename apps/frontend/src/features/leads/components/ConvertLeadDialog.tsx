@@ -486,14 +486,17 @@ export function ConvertLeadDialog({
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>Link to Existing Contact? (Optional)</FormLabel>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <Select
+                                                            onValueChange={(value) => field.onChange(value === "new_contact" ? "" : value)}
+                                                            value={field.value || ""}
+                                                        >
                                                             <FormControl>
                                                                 <SelectTrigger className="bg-white">
                                                                     <SelectValue placeholder="Select existing contact..." />
                                                                 </SelectTrigger>
                                                             </FormControl>
                                                             <SelectContent>
-                                                                <SelectItem value="">-- Create New --</SelectItem>
+                                                                <SelectItem value="new_contact">-- Create New --</SelectItem>
                                                                 {suggestions?.contacts?.map((con) => (
                                                                     <SelectItem key={con.id} value={con.id}>
                                                                         {con.name} ({con.match_type})
