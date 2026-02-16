@@ -50,23 +50,32 @@ const defaultValues: Partial<ContactFormValues> = {
     account_id: "",
 };
 
-export function ContactForm() {
+interface ContactFormProps {
+    initialData?: ContactFormValues;
+    id?: string;
+}
+
+export function ContactForm({ initialData, id }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
-        defaultValues,
+        defaultValues: initialData || defaultValues,
     });
 
     async function onSubmit(data: ContactFormValues) {
         setIsLoading(true);
         try {
-            await contactService.createContact(data);
+            if (id) {
+                await contactService.updateContact(id, data);
+            } else {
+                await contactService.createContact(data);
+            }
             router.push("/contacts");
             router.refresh();
         } catch (error) {
-            console.error("Failed to create contact", error);
+            console.error(`Failed to ${id ? 'update' : 'create'} contact`, error);
         } finally {
             setIsLoading(false);
         }
@@ -166,9 +175,9 @@ export function ContactForm() {
                         )}
                     />
 
-                    </div>
+                </div>
                 <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Creating..." : "Create Contact"}
+                    {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Contact" : "Create Contact")}
                 </Button>
             </form>
         </Form>

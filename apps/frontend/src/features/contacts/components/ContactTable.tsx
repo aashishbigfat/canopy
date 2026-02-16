@@ -139,7 +139,9 @@ export const columns: ColumnDef<Contact>[] = [
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem>Edit contact</DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                            <Link href={`/contacts/${contact.id}/edit`}>Edit contact</Link>
+                        </DropdownMenuItem>
                     </DropdownMenuContent>
                 </DropdownMenu>
             );

@@ -48,30 +48,39 @@ const defaultValues: AccountFormValues = {
 
 interface AccountFormProps {
     isPersonAccount?: boolean;
+    initialData?: AccountFormValues;
+    id?: string;
 }
 
-export function AccountForm({ isPersonAccount = false }: AccountFormProps) {
+export function AccountForm({ isPersonAccount = false, initialData, id }: AccountFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
 
     const form = useForm<AccountFormValues>({
         resolver: zodResolver(accountFormSchema),
-        defaultValues: defaultValues as any,
+        defaultValues: initialData || defaultValues as any,
     });
 
     async function onSubmit(data: AccountFormValues) {
         setIsLoading(true);
         try {
-            await accountService.createAccount({
-                ...data,
-                is_person_account: isPersonAccount,
-                acc_type_id: isPersonAccount ? "B2C" : "B2B", // Keep this for now if backend uses it too
-            });
+            if (id) {
+                await accountService.updateAccount(id, {
+                    ...data,
+                    is_person_account: isPersonAccount,
+                });
+            } else {
+                await accountService.createAccount({
+                    ...data,
+                    is_person_account: isPersonAccount,
+                    acc_type_id: isPersonAccount ? "B2C" : "B2B",
+                });
+            }
             // Optional: Show success toast here
             router.push(isPersonAccount ? "/person-accounts" : "/accounts");
             router.refresh();
         } catch (error) {
-            console.error("Failed to create account", error);
+            console.error(`Failed to ${id ? 'update' : 'create'} account`, error);
             // Optional: Show error toast here
         } finally {
             setIsLoading(false);
@@ -159,7 +168,7 @@ export function AccountForm({ isPersonAccount = false }: AccountFormProps) {
                     />
                 </div>
                 <Button type="submit" disabled={isLoading}>
-                    {isLoading ? "Creating..." : "Create Account"}
+                    {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Account" : "Create Account")}
                 </Button>
             </form>
         </Form>
