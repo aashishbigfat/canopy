@@ -3,7 +3,7 @@ Lead model matching Laravel Lead
 """
 from beanie import Indexed
 from pydantic import EmailStr, Field
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Annotated
 from datetime import datetime
 from beanie import PydanticObjectId
 from app.models.base import BaseDocument
@@ -37,10 +37,9 @@ class Lead(BaseDocument):
     
     # Lead Classification
     lead_status_id: Optional[Indexed(PydanticObjectId)] = None
-    rating_id: Optional[PydanticObjectId] = None
-    industry_id: Optional[PydanticObjectId] = None
-    source_id: Optional[PydanticObjectId] = None
-    source_medium_id: Optional[PydanticObjectId] = None
+    industry_id: Annotated[Optional[PydanticObjectId], Indexed()] = None
+    source_id: Annotated[Optional[PydanticObjectId], Indexed()] = None
+    source_medium_id: Annotated[Optional[PydanticObjectId], Indexed()] = None
     
     # New Fields
     source_medium: Optional[str] = None

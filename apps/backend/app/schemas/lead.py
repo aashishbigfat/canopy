@@ -28,7 +28,6 @@ class LeadBase(BaseModel):
     country: Optional[str] = None
     
     lead_status_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
-    rating_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
@@ -71,7 +70,6 @@ class LeadUpdate(BaseModel):
     zip: Optional[str] = None
     country: Optional[str] = None
     lead_status_id: Optional[str] = None
-    rating_id: Optional[str] = None
     industry_id: Optional[str] = None
     source_id: Optional[str] = None
     source_medium_id: Optional[str] = None

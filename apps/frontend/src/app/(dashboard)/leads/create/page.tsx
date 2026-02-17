@@ -17,7 +17,7 @@ export default async function CreateLeadPage() {
     );
 
     return (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6">
             <div>
                 <h3 className="text-lg font-medium">Create Lead</h3>
                 <p className="text-sm text-muted-foreground">
@@ -28,7 +28,6 @@ export default async function CreateLeadPage() {
                 statuses={response.lead_statuses}
                 sources={response.sources}
                 industries={response.industries}
-                ratings={response.ratings}
             />
         </div>
     );
