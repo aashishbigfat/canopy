@@ -36,6 +36,7 @@ MANIFEST
 .next/
 out/
 .vercel
+tsconfig.tsbuildinfo
 
 # IDEs
 .idea/
