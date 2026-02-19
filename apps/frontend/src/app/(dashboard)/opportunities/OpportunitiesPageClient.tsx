@@ -24,6 +24,7 @@ import { KanbanBoard } from "@/features/opportunities/components/KanbanBoard";
 import { useOpportunities, useSalesStages } from "@/features/opportunities/api/useOpportunities";
 import { Opportunity } from "@/features/opportunities/types";
 import { cn } from "@/lib/utils";
+import { normalizeSalesStages } from "@/features/opportunities/utils/stageConfig";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -54,6 +55,7 @@ export default function OpportunitiesPageClient() {
     const { data: stages, isLoading: isLoadingStages } = useSalesStages();
 
     const opportunities = opportunitiesData?.opportunities || [];
+    const normalizedStages = normalizeSalesStages(stages || []);
 
     const handleOpportunityClick = (opportunity: Opportunity) => {
         router.push(`/opportunities/${opportunity.id}`);
@@ -139,7 +141,7 @@ export default function OpportunitiesPageClient() {
                 ) : viewMode === "kanban" ? (
                     <KanbanBoard
                         opportunities={opportunities}
-                        stages={stages || []}
+                        stages={normalizedStages}
                         onOpportunityClick={handleOpportunityClick}
                     />
                 ) : (

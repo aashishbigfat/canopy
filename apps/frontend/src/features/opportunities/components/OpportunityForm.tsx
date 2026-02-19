@@ -50,6 +50,7 @@ import { useAccounts } from "@/features/accounts/api/useAccounts";
 import { useContacts } from "@/features/contacts/api/useContacts";
 import { useSalesStages, useExperiences } from "@/features/opportunities/api/useOpportunities";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
+import { normalizeSalesStages, getProbabilityForStageId } from "@/features/opportunities/utils/stageConfig";
 
 const opportunityFormSchema = z.object({
     name: z.string().min(2, "Deal name is required"),
@@ -113,7 +114,7 @@ export function OpportunityForm() {
 
     const accounts = accountsData?.accounts || [];
     const contacts = contactsData?.contacts || [];
-    const salesStages = salesStagesData || [];
+    const salesStages = normalizeSalesStages(salesStagesData || []);
     const experiences = experiencesData || [];
 
     const form = useForm<OpportunityFormValues>({
@@ -150,6 +151,9 @@ export function OpportunityForm() {
     const selectedDestIds = form.watch("destination_ids");
     const selectedAccountId = form.watch("account_id");
     const selectedContactId = form.watch("contact_id");
+    const selectedStageId = form.watch("sales_stage_id");
+
+    const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
 
     // Auto-select Account when Contact is selected
     useEffect(() => {
@@ -200,6 +204,15 @@ export function OpportunityForm() {
         const newName = `${destName}_${pax}Pax${dateStr}`;
         form.setValue("name", newName);
     }, [selectedDestIds, selectedAccountId, adults, childs, infants, travelDate, availableDestinations, isNameManuallyEdited, form, accounts]);
+
+    // Auto-set probability when stage changes (unless user has overridden)
+    useEffect(() => {
+        if (!selectedStageId || isProbabilityManuallyEdited) return;
+        const stageProbability = getProbabilityForStageId(selectedStageId, salesStages);
+        if (typeof stageProbability === "number") {
+            form.setValue("probability", stageProbability);
+        }
+    }, [selectedStageId, isProbabilityManuallyEdited, salesStages, form]);
 
     const onSubmit: SubmitHandler<OpportunityFormValues> = async (data) => {
         setIsLoading(true);
@@ -568,7 +581,6 @@ export function OpportunityForm() {
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
                                         control={form.control}
                                         name="no_of_pax"
                                         render={({ field }) => (
@@ -593,8 +605,29 @@ export function OpportunityForm() {
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
-                                    )}
-                                />
+                                    <FormField
+                                        control={form.control}
+                                        name="probability"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Probability (%)</FormLabel>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        min={0}
+                                                        max={100}
+                                                        {...field}
+                                                        className="bg-white"
+                                                        onChange={(e) => {
+                                                            setIsProbabilityManuallyEdited(true);
+                                                            field.onChange(e);
+                                                        }}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                             </CardContent>
                         </Card>
                     </div>

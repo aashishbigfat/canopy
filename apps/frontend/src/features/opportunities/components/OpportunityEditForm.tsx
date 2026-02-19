@@ -36,6 +36,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useUpdateOpportunity } from "../api/useOpportunities";
 import { Opportunity } from "../types";
+import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } from "@/features/opportunities/utils/stageConfig";
 import { toast } from "sonner";
 
 const opportunityFormSchema = z.object({
@@ -57,13 +58,16 @@ type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
 
 interface OpportunityEditFormProps {
     opportunity: Opportunity;
-    stages: { id: string; name: string }[];
+    stages: StageWithProbability[];
 }
 
 export function OpportunityEditForm({ opportunity, stages }: OpportunityEditFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const updateOpportunity = useUpdateOpportunity();
+    const normalizedStages = normalizeSalesStages(stages);
+
+    const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
 
     const form = useForm<OpportunityFormValues>({
         resolver: zodResolver(opportunityFormSchema),
@@ -80,6 +84,17 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             description: opportunity.description || "",
         },
     });
+
+    const selectedStageId = form.watch("sales_stage_id");
+
+    // Auto-set probability when sales stage changes (unless user has edited it manually)
+    useEffect(() => {
+        if (!selectedStageId || isProbabilityManuallyEdited) return;
+        const stageProbability = getProbabilityForStageId(selectedStageId, normalizedStages);
+        if (typeof stageProbability === "number") {
+            form.setValue("probability", stageProbability.toString());
+        }
+    }, [selectedStageId, isProbabilityManuallyEdited, normalizedStages, form]);
 
     async function onSubmit(data: OpportunityFormValues) {
         setIsLoading(true);
@@ -167,7 +182,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            {stages.map((stage) => (
+                                            {normalizedStages.map((stage) => (
                                                 <SelectItem key={stage.id} value={stage.id}>
                                                     {stage.name}
                                                 </SelectItem>
@@ -185,7 +200,17 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                 <FormItem>
                                     <FormLabel>Probability (%)</FormLabel>
                                     <FormControl>
-                                        <Input type="number" min="0" max="100" placeholder="50" {...field} />
+                                        <Input
+                                            type="number"
+                                            min="0"
+                                            max="100"
+                                            placeholder="50"
+                                            {...field}
+                                            onChange={(e) => {
+                                                setIsProbabilityManuallyEdited(true);
+                                                field.onChange(e);
+                                            }}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

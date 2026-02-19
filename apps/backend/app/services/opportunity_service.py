@@ -367,29 +367,63 @@ class OpportunityService(ActivityMixin):
         await opp.save()
         
         return opp
+
     async def seed_standard_stages(self, tenant_id: ObjectId):
-        """Seed standardized sales stages for travel industry"""
+        """
+        Seed/normalize sales stages for a tenant.
+
+        After this runs, the tenant will only have these active stages:
+        - Lead (10%)
+        - Qualified (20%)
+        - Proposal (30%)
+        - Closed Won (100%, won)
+        - Closed Lost (0%, lost)
+
+        Any other existing stages for this tenant are marked inactive so they
+        no longer appear in picklists, but existing opportunities that still
+        reference them will keep working.
+        """
         from app.models.opportunity_picklists import SalesStage
-        
-        stages = [
-            {"name": "Inquiry", "probability": 10, "sorting": 10, "is_default": True},
-            {"name": "Quote Sent", "probability": 30, "sorting": 20},
-            {"name": "Follow-up", "probability": 50, "sorting": 30},
-            {"name": "Booking Confirmed", "probability": 90, "sorting": 40},
-            {"name": "Closed Won", "probability": 100, "sorting": 50, "is_won": True},
-            {"name": "Closed Lost", "probability": 0, "sorting": 60, "is_lost": True},
+
+        desired_stages = [
+            {"name": "Lead", "probability": 10, "sorting": 10, "is_default": True, "is_won": False, "is_lost": False},
+            {"name": "Qualified", "probability": 20, "sorting": 20, "is_default": False, "is_won": False, "is_lost": False},
+            {"name": "Proposal", "probability": 30, "sorting": 30, "is_default": False, "is_won": False, "is_lost": False},
+            {"name": "Closed Won", "probability": 100, "sorting": 40, "is_default": False, "is_won": True, "is_lost": False},
+            {"name": "Closed Lost", "probability": 0, "sorting": 50, "is_default": False, "is_won": False, "is_lost": True},
         ]
-        
-        for stage_data in stages:
-            # Check if stage already exists for this tenant
+
+        desired_names = {s["name"] for s in desired_stages}
+
+        # Upsert desired stages
+        for stage_data in desired_stages:
             existing = await SalesStage.find_one(
                 SalesStage.tenant_id == tenant_id,
-                SalesStage.name == stage_data["name"]
+                SalesStage.name == stage_data["name"],
             )
-            if not existing:
+
+            if existing:
+                existing.probability = stage_data["probability"]
+                existing.sorting = stage_data["sorting"]
+                existing.is_default = stage_data["is_default"]
+                existing.is_won = stage_data["is_won"]
+                existing.is_lost = stage_data["is_lost"]
+                existing.is_active = True
+                await existing.save()
+            else:
                 stage = SalesStage(
                     **stage_data,
-                    tenant_id=tenant_id
+                    tenant_id=tenant_id,
+                    is_active=True,
                 )
                 await stage.insert()
-                print(f"DEBUG: Seeded stage '{stage_data['name']}' for tenant {tenant_id}")
+
+        # Deactivate any other stages for this tenant
+        other_stages_cursor = SalesStage.find(
+            SalesStage.tenant_id == tenant_id,
+            SalesStage.name.not_in(list(desired_names)),
+        )
+        async for stage in other_stages_cursor:
+            if stage.is_active:
+                stage.is_active = False
+                await stage.save()
