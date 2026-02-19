@@ -334,8 +334,9 @@ const leadFormSchema = z.object({
     website: z.string().optional(),
     title: z.string().optional(),
     lead_status_id: z.string().optional(),
-    source_id: z.string().min(1, { message: "Source is required." }),
+    source_id: z.string().optional(),
     source_medium: z.string().optional(),
+    combined_source: z.string().min(1, { message: "Source Medium is required." }),
     industry_id: z.string().optional(),
     street: z.string().optional(),
     city: z.string().min(1, { message: "City is required." }),
@@ -349,7 +350,7 @@ const leadFormSchema = z.object({
     is_fixed: z.boolean().default(false).optional(),
     destinations: z.string().min(1, { message: "Destinations are required." }),
     segment: z.string().optional(),
-    creation_type: z.enum(["manual", "auto"]).default("manual"),
+    creation_type: z.enum(["manual", "auto"]).optional(),
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -402,6 +403,7 @@ export function LeadForm({
             lead_status_id: initialData?.lead_status_id || "",
             source_id: initialData?.source_id || "",
             source_medium: initialData?.source_medium || "",
+            combined_source: initialData?.source_id || initialData?.creation_type || "manual",
             industry_id: initialData?.industry_id || "",
             street: initialData?.street || "",
             city: initialData?.city || "",
@@ -449,8 +451,8 @@ export function LeadForm({
                 website: data.website,
                 title: data.title,
                 lead_status_id: data.lead_status_id || undefined,
-                source_id: data.source_id,
-                source_medium: data.source_medium,
+                source_id: ["manual", "auto"].includes(data.combined_source) ? undefined : data.combined_source,
+                source_medium: data.source_medium, // Keep medium if it was already there or if we decide to use it somehow
                 industry_id: data.industry_id || undefined,
                 street: data.street || undefined,
                 city: data.city,
@@ -464,7 +466,7 @@ export function LeadForm({
                 is_fixed: data.is_fixed,
                 destinations: data.destinations.split(",").map((d: string) => d.trim()).filter(Boolean),
                 segment: data.segment,
-                creation_type: data.creation_type,
+                creation_type: ["manual", "auto"].includes(data.combined_source) ? data.combined_source : "manual",
             };
 
             await ErrorHandler.withErrorHandling(async () => {
@@ -487,10 +489,13 @@ export function LeadForm({
     }
 
     return (
-        <Form {...(form as any)}>
-            <form onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6 pb-12">
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-                    <div className="space-y-6">
+        <Form {...(form as any)} className="w-full">
+            <form
+                onSubmit={form.handleSubmit(onSubmit as any)}
+                className="w-full space-y-6"
+            >
+                <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
+                    <div className="space-y-6 xl:col-span-8">
                         {/* Client Information Section */}
                         <Card className="border-slate-200 shadow-sm">
                             <CardHeader className="bg-slate-50/50 border-b py-4">
@@ -503,7 +508,7 @@ export function LeadForm({
                                 </div>
                             </CardHeader>
                             <CardContent className="p-4">
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                     <FormField
                                         control={form.control as any}
                                         name="salutation"
@@ -637,7 +642,7 @@ export function LeadForm({
                                 </div>
                             </CardHeader>
                             <CardContent className="p-4">
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                                     <FormField
                                         control={form.control as any}
                                         name="lead_status_id"
@@ -714,19 +719,21 @@ export function LeadForm({
                                     />
                                     <FormField
                                         control={form.control as any}
-                                        name="source_id"
+                                        name="combined_source"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Source <span className="text-red-500">*</span>
+                                                    Source Medium <span className="text-red-500">*</span>
                                                 </FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <Select onValueChange={field.onChange} value={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger className="h-9 bg-white">
                                                             <SelectValue placeholder="Select" />
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
+                                                        <SelectItem value="manual">Manual</SelectItem>
+                                                        <SelectItem value="auto">Auto</SelectItem>
                                                         {sources.map((source) => (
                                                             <SelectItem key={source.id} value={source.id}>
                                                                 {source.name}
@@ -734,19 +741,6 @@ export function LeadForm({
                                                         ))}
                                                     </SelectContent>
                                                 </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="source_medium"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Medium</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Facebook..." className="h-9 bg-white" {...field} />
-                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -790,33 +784,12 @@ export function LeadForm({
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="creation_type"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Creation</FormLabel>
-                                                <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="manual">Manual</SelectItem>
-                                                        <SelectItem value="auto">Auto</SelectItem>
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    <div className="space-y-6">
+                    <div className="space-y-6 xl:col-span-4">
                         {/* Location Section */}
                         <Card className="border-slate-200 shadow-sm h-full">
                             <CardHeader className="bg-slate-50/50 border-b py-4">
@@ -829,13 +802,13 @@ export function LeadForm({
                                 </div>
                             </CardHeader>
                             <CardContent className="p-4">
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid gap-4 grid-cols-1">
                                     <LocationFields form={form} />
                                     <FormField
                                         control={form.control as any}
                                         name="street"
                                         render={({ field }) => (
-                                            <FormItem className="lg:col-span-2">
+                                            <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Street Address</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="123 Main St" className="h-9 bg-white" {...field} />
@@ -859,12 +832,12 @@ export function LeadForm({
                                 </div>
                             </CardHeader>
                             <CardContent className="p-4">
-                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                <div className="grid gap-4 grid-cols-2">
                                     <FormField
                                         control={form.control as any}
                                         name="travel_date"
                                         render={({ field }) => (
-                                            <FormItem className="flex flex-col">
+                                            <FormItem className="flex flex-col col-span-2">
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
                                                     Travel Date <span className="text-red-500">*</span>
                                                 </FormLabel>
@@ -940,9 +913,28 @@ export function LeadForm({
                                     />
                                     <FormField
                                         control={form.control as any}
+                                        name="is_fixed"
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-2 shadow-sm bg-slate-50/50 mt-6 lg:mt-0 h-9">
+                                                <FormControl>
+                                                    <Input
+                                                        type="checkbox"
+                                                        className="h-3 w-3"
+                                                        checked={field.value}
+                                                        onChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                                <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">
+                                                    Fixed Package?
+                                                </FormLabel>
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
                                         name="destinations"
                                         render={({ field }) => (
-                                            <FormItem className="lg:col-span-2">
+                                            <FormItem className="col-span-full">
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
                                                     Destinations <span className="text-red-500">*</span>
                                                 </FormLabel>
@@ -1028,25 +1020,6 @@ export function LeadForm({
                                                     </PopoverContent>
                                                 </Popover>
                                                 <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="is_fixed"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-2 shadow-sm bg-slate-50/50">
-                                                <FormControl>
-                                                    <Input
-                                                        type="checkbox"
-                                                        className="h-3 w-3"
-                                                        checked={field.value}
-                                                        onChange={field.onChange}
-                                                    />
-                                                </FormControl>
-                                                <FormLabel className="text-xs font-medium">
-                                                    Fixed Package?
-                                                </FormLabel>
                                             </FormItem>
                                         )}
                                     />

@@ -256,23 +256,38 @@ export function ConvertLeadDialog({
         const dateObj = travelDate;
 
         // Get primary destination name
-        let destName = lead.company || lead.full_name || "Opportunity";
+        let destName = "";
+
         if (selectedDestIds && selectedDestIds.length > 0 && availableDestinations.length > 0) {
+            // Try to find name in available destinations
             const match = availableDestinations.find(d => d.id === selectedDestIds[0]);
             if (match) destName = match.name;
-        } else if (leadProcessedDestinations.length > 0) {
+        }
+
+        if (!destName && leadProcessedDestinations.length > 0) {
+            // Fallback to processed lead destinations
             destName = leadProcessedDestinations[0].name;
         }
 
-        // Format date: 03Apr
+        // Check for raw destinations (unmatched ones like "Baku")
+        if (!destName && lead.destinations && lead.destinations.length > 0) {
+            destName = lead.destinations[0];
+        }
+
+        // If still no destination name, fall back to Company or Full Name to avoid empty prefix
+        if (!destName) {
+            destName = lead.company || lead.full_name || "Opportunity";
+        }
+
+        // Format date: 1May (dMMM)
         let dateStr = "";
         if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-            dateStr = `_${format(dateObj, "ddMMM")}`;
+            dateStr = `_${format(dateObj, "dMMM")}`;
         }
 
         const newName = `${destName}_${pax}Pax${dateStr}`;
         form.setValue("opportunity_name", newName);
-    }, [selectedDestIds, adults, childs, infants, travelDate, availableDestinations, isNameManuallyEdited, form, leadProcessedDestinations]);
+    }, [selectedDestIds, adults, childs, infants, travelDate, availableDestinations, isNameManuallyEdited, form, leadProcessedDestinations, lead.company, lead.full_name]);
 
     async function onSubmit(values: ConvertFormValues) {
         try {
