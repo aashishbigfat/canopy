@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFilters, LeadCreateData, LeadConvertData } from "../types";
-import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
+import { ErrorHandler, showSuccessToast, showWarningToast, showErrorToast } from "@/lib/error-handler";
 
 export const useLeads = (filters: LeadFilters = { page: 1, per_page: 10 }) => {
     return useQuery({
@@ -56,7 +56,21 @@ export const useConvertLead = () => {
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             showSuccessToast("Lead converted successfully");
         },
-        onError: ErrorHandler.getMutationErrorHandler("Failed to convert lead"),
+        onError: (error: any) => {
+            // Enhanced error handling for duplicate detection
+            if (error?.message?.includes("Potential duplicate")) {
+                // Show duplicate warning with more details
+                const duplicateMessage = error.message;
+                showWarningToast("Duplicate Detection", duplicateMessage);
+            } else if (error?.message?.includes("Specified account not found")) {
+                showErrorToast("Account Not Found", "The selected account was not found. Please select a valid account.");
+            } else if (error?.message?.includes("Specified contact not found")) {
+                showErrorToast("Contact Not Found", "The selected contact was not found. Please select a valid contact.");
+            } else {
+                // Default error handling
+                ErrorHandler.getMutationErrorHandler("Failed to convert lead")(error);
+            }
+        },
     });
 };
 

@@ -201,3 +201,21 @@ export const showSuccessToast = (message: string, description?: string) => {
     position: "top-right",
   });
 };
+
+// Warning toast helper
+export const showWarningToast = (title: string, description?: string) => {
+  toast.warning(title, {
+    description,
+    duration: 5000,
+    position: "top-right",
+  });
+};
+
+// Error toast helper
+export const showErrorToast = (title: string, description?: string) => {
+  toast.error(title, {
+    description,
+    duration: 5000,
+    position: "top-right",
+  });
+};

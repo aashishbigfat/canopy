@@ -61,6 +61,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { leadsService } from "@/lib/api/services/leads.service";
+import { apiClient } from "@/lib/api/client";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
@@ -106,7 +107,7 @@ interface ConvertLeadDialogProps {
     onSuccess?: () => void;
     users?: User[];
     experiences?: { id: string; name: string }[];
-    sales_stages?: { id: string; name: string }[];
+    sales_stages?: { id: string; name: string; is_default?: boolean }[];
 }
 
 export function ConvertLeadDialog({
@@ -120,6 +121,73 @@ export function ConvertLeadDialog({
 }: ConvertLeadDialogProps) {
     const convertLead = useConvertLead();
     const { data: suggestions, isLoading: suggestionsLoading } = useConversionSuggestions(lead.id);
+
+    // Smart default selection logic
+    const [accountMode, setAccountMode] = useState<"existing" | "new">("new");
+    const [contactMode, setContactMode] = useState<"existing" | "new">("new");
+    const [selectedAccountId, setSelectedAccountId] = useState<string>("");
+    const [selectedContactId, setSelectedContactId] = useState<string>("");
+
+    // Self-sufficient picklist data — use props or fetch from API if empty
+    const [localExperiences, setLocalExperiences] = useState<{ id: string; name: string }[]>(experiences);
+    const [localSalesStages, setLocalSalesStages] = useState<{ id: string; name: string; is_default?: boolean }[]>(sales_stages);
+
+    // Auto-detect existing accounts/contacts and set defaults
+    useEffect(() => {
+        if (suggestions && !suggestionsLoading) {
+            // Auto-select account mode based on suggestions
+            if (suggestions.accounts && suggestions.accounts.length > 0) {
+                setAccountMode("existing");
+                setSelectedAccountId(suggestions.accounts[0].id); // Select best match
+            } else {
+                setAccountMode("new");
+                setSelectedAccountId("");
+            }
+
+            // Auto-select contact mode based on suggestions
+            if (suggestions.contacts && suggestions.contacts.length > 0) {
+                setContactMode("existing");
+                setSelectedContactId(suggestions.contacts[0].id); // Select best match
+            } else {
+                setContactMode("new");
+                setSelectedContactId("");
+            }
+        }
+    }, [suggestions, suggestionsLoading]);
+
+    // Fetch experiences and sales stages if not provided via props
+    useEffect(() => {
+        if (!open) return;
+
+        if (experiences.length === 0) {
+            apiClient.get("opportunities/experiences")
+                .then(res => {
+                    if (Array.isArray(res.data) && res.data.length > 0) {
+                        setLocalExperiences(res.data);
+                    }
+                })
+                .catch(() => {/* silently ignore – experiences are optional */ });
+        } else {
+            setLocalExperiences(experiences);
+        }
+
+        if (sales_stages.length === 0) {
+            apiClient.get("opportunities/sales-stages")
+                .then(res => {
+                    if (Array.isArray(res.data) && res.data.length > 0) {
+                        setLocalSalesStages(res.data);
+                        // Update form default stage to the fetched default
+                        const defaultStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.is_default) || res.data[0];
+                        if (defaultStage) {
+                            form.setValue("sales_stage_id", defaultStage.id);
+                        }
+                    }
+                })
+                .catch(() => {/* silently ignore */ });
+        } else {
+            setLocalSalesStages(sales_stages);
+        }
+    }, [open, experiences, sales_stages]);
 
     // Person Account detection logic
     const isPersonAccount = React.useMemo(() => {
@@ -196,9 +264,11 @@ export function ConvertLeadDialog({
         resolver: zodResolver(convertSchema) as any,
         defaultValues: {
             account_type: isPersonAccount ? "Person Account" : "Account",
-            account_mode: isPersonAccount ? "new" : "existing",
+            account_mode: accountMode,
+            account_id: selectedAccountId,
             account_name: lead.company || lead.full_name,
-            contact_create: true,
+            contact_id: selectedContactId,
+            contact_create: contactMode === "new",
             contact_salutation: lead.salutation || "",
             contact_first_name: lead.first_name || "",
             contact_last_name: lead.last_name || "",
@@ -214,11 +284,20 @@ export function ConvertLeadDialog({
             description: "",
             destination_ids: lead.destination_ids || [],
             opportunity_close_date: new Date(),
+            sales_stage_id: sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
         },
     });
 
-    const accountType = form.watch("account_type");
-    const accountMode = form.watch("account_mode");
+    // Update form when smart defaults change
+    useEffect(() => {
+        form.setValue("account_mode", accountMode);
+        form.setValue("account_id", selectedAccountId);
+        form.setValue("contact_id", selectedContactId);
+        form.setValue("contact_create", contactMode === "new");
+    }, [accountMode, selectedAccountId, contactMode, selectedContactId, form]);
+
+    const formAccountType = form.watch("account_type");
+    const formAccountMode = form.watch("account_mode");
     const createOpportunity = form.watch("create_opportunity");
     const adults = form.watch("no_of_adults") || 0;
     const childs = form.watch("no_of_childs") || 0;
@@ -307,12 +386,12 @@ export function ConvertLeadDialog({
                 opportunity_close_date: values.opportunity_close_date?.toISOString(),
                 travel_date: values.travel_date?.toISOString(),
                 destination_ids: values.destination_ids,
-                experience_id: values.experience_id,
+                experience_id: values.experience_id === "no-experiences" ? undefined : values.experience_id,
                 no_of_adults: values.no_of_adults,
                 no_of_childs: values.no_of_childs,
                 no_of_infants: values.no_of_infants,
                 no_of_pax: values.no_of_pax,
-                sales_stage_id: values.sales_stage_id,
+                sales_stage_id: values.sales_stage_id === "no-sales-stages" ? undefined : values.sales_stage_id,
                 no_of_nights: values.no_of_nights,
                 description: values.description,
                 opportunity_owner_id: values.opportunity_owner_id,
@@ -385,7 +464,10 @@ export function ConvertLeadDialog({
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Selection Mode</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <Select onValueChange={(value) => {
+                                                        field.onChange(value);
+                                                        setAccountMode(value as "new" | "existing");
+                                                    }} value={field.value}>
                                                         <FormControl>
                                                             <SelectTrigger>
                                                                 <SelectValue />
@@ -393,7 +475,9 @@ export function ConvertLeadDialog({
                                                         </FormControl>
                                                         <SelectContent>
                                                             <SelectItem value="new">Create New</SelectItem>
-                                                            <SelectItem value="existing">Choose Existing</SelectItem>
+                                                            <SelectItem value="existing" disabled={!suggestions?.accounts || suggestions.accounts.length === 0}>
+                                                                Choose Existing {suggestions?.accounts && suggestions.accounts.length > 0 ? `(${suggestions.accounts.length})` : "(No matches)"}
+                                                            </SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
@@ -401,7 +485,7 @@ export function ConvertLeadDialog({
                                             )}
                                         />
 
-                                        {accountMode === "new" ? (
+                                        {formAccountMode === "new" ? (
                                             <FormField
                                                 control={form.control}
                                                 name="account_name"
@@ -422,7 +506,10 @@ export function ConvertLeadDialog({
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>Select Existing Account</FormLabel>
-                                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <Select onValueChange={(value) => {
+                                                            field.onChange(value);
+                                                            setSelectedAccountId(value);
+                                                        }} value={field.value}>
                                                             <FormControl>
                                                                 <SelectTrigger className="bg-white">
                                                                     <SelectValue placeholder="Select an account..." />
@@ -430,8 +517,8 @@ export function ConvertLeadDialog({
                                                             </FormControl>
                                                             <SelectContent>
                                                                 {suggestions?.accounts?.map((acc) => (
-                                                                    <SelectItem key={acc.id} value={acc.id}>
-                                                                        {acc.name} ({acc.match_type})
+                                                                    <SelectItem key={acc.id} value={acc.id || ''}>
+                                                                        {acc.name} {acc.email && `(${acc.email})`} - {acc.match_type}
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>
@@ -452,69 +539,68 @@ export function ConvertLeadDialog({
                                             <h3>Contact Details</h3>
                                         </div>
 
-                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                                            <FormField
-                                                control={form.control}
-                                                name="contact_salutation"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Salutation</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} placeholder="Mr." className="bg-white" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="contact_first_name"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>First Name</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} placeholder="First Name" className="bg-white" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            <FormField
-                                                control={form.control}
-                                                name="contact_last_name"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Last Name</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} placeholder="Last Name" className="bg-white" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-
-                                        {suggestions?.contacts && suggestions.contacts.length > 0 && (
+                                        {contactMode === "new" ? (
+                                            <div className="space-y-4">
+                                                <FormField
+                                                    control={form.control}
+                                                    name="contact_salutation"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Salutation</FormLabel>
+                                                            <FormControl>
+                                                                <Input {...field} placeholder="Mr." className="bg-white" />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="contact_first_name"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>First Name</FormLabel>
+                                                            <FormControl>
+                                                                <Input {...field} placeholder="First Name" className="bg-white" />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="contact_last_name"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Last Name</FormLabel>
+                                                            <FormControl>
+                                                                <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </div>
+                                        ) : (
                                             <FormField
                                                 control={form.control}
                                                 name="contact_id"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Link to Existing Contact? (Optional)</FormLabel>
-                                                        <Select
-                                                            onValueChange={(value) => field.onChange(value === "new_contact" ? "" : value)}
-                                                            value={field.value || ""}
-                                                        >
+                                                        <FormLabel>Select Existing Contact</FormLabel>
+                                                        <Select onValueChange={(value) => {
+                                                            field.onChange(value);
+                                                            setSelectedContactId(value);
+                                                        }} value={field.value}>
                                                             <FormControl>
                                                                 <SelectTrigger className="bg-white">
-                                                                    <SelectValue placeholder="Select existing contact..." />
+                                                                    <SelectValue placeholder="Select a contact..." />
                                                                 </SelectTrigger>
                                                             </FormControl>
                                                             <SelectContent>
-                                                                <SelectItem value="new_contact">-- Create New --</SelectItem>
                                                                 {suggestions?.contacts?.map((con) => (
-                                                                    <SelectItem key={con.id} value={con.id}>
-                                                                        {con.name} ({con.match_type})
+                                                                    <SelectItem key={con.id} value={con.id || ''}>
+                                                                        {con.name} {con.email && `(${con.email})`} - {con.match_type}
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>
@@ -524,6 +610,40 @@ export function ConvertLeadDialog({
                                                 )}
                                             />
                                         )}
+
+                                        {/* Contact selection mode toggle */}
+                                        <div className="flex gap-4">
+                                            <Button
+                                                type="button"
+                                                variant={contactMode === "new" ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => {
+                                                    setContactMode("new");
+                                                    form.setValue("contact_id", "");
+                                                    form.setValue("contact_create", true);
+                                                }}
+                                                className="flex-1"
+                                            >
+                                                Create New Contact
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant={contactMode === "existing" ? "default" : "outline"}
+                                                size="sm"
+                                                onClick={() => {
+                                                    setContactMode("existing");
+                                                    form.setValue("contact_create", false);
+                                                    if (suggestions?.contacts && suggestions.contacts.length > 0) {
+                                                        form.setValue("contact_id", suggestions.contacts[0].id);
+                                                        setSelectedContactId(suggestions.contacts[0].id);
+                                                    }
+                                                }}
+                                                disabled={!suggestions?.contacts || suggestions.contacts.length === 0}
+                                                className="flex-1"
+                                            >
+                                                Use Existing {suggestions?.contacts && suggestions.contacts.length > 0 ? `(${suggestions.contacts.length})` : "(No matches)"}
+                                            </Button>
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </div>
@@ -685,16 +805,20 @@ export function ConvertLeadDialog({
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Experience</FormLabel>
-                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <Select onValueChange={field.onChange} value={field.value}>
                                                                     <FormControl>
                                                                         <SelectTrigger className="bg-white">
                                                                             <SelectValue placeholder="Select experience..." />
                                                                         </SelectTrigger>
                                                                     </FormControl>
                                                                     <SelectContent>
-                                                                        {experiences?.map(exp => (
-                                                                            <SelectItem key={exp.id} value={exp.id}>{exp.name}</SelectItem>
-                                                                        ))}
+                                                                        {localExperiences && localExperiences.length > 0 ? (
+                                                                            localExperiences.map(exp => (
+                                                                                <SelectItem key={exp.id} value={exp.id || ''}>{exp.name}</SelectItem>
+                                                                            ))
+                                                                        ) : (
+                                                                            <SelectItem value="no-experiences" disabled>No experiences available</SelectItem>
+                                                                        )}
                                                                     </SelectContent>
                                                                 </Select>
                                                                 <FormMessage />
@@ -708,16 +832,20 @@ export function ConvertLeadDialog({
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Stage</FormLabel>
-                                                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                                <Select onValueChange={field.onChange} value={field.value}>
                                                                     <FormControl>
                                                                         <SelectTrigger className="bg-white">
                                                                             <SelectValue placeholder="Select stage..." />
                                                                         </SelectTrigger>
                                                                     </FormControl>
                                                                     <SelectContent>
-                                                                        {sales_stages?.map(stage => (
-                                                                            <SelectItem key={stage.id} value={stage.id}>{stage.name}</SelectItem>
-                                                                        ))}
+                                                                        {localSalesStages && localSalesStages.length > 0 ? (
+                                                                            localSalesStages.map(stage => (
+                                                                                <SelectItem key={stage.id} value={stage.id || ''}>{stage.name}</SelectItem>
+                                                                            ))
+                                                                        ) : (
+                                                                            <SelectItem value="no-sales-stages" disabled>No sales stages available</SelectItem>
+                                                                        )}
                                                                     </SelectContent>
                                                                 </Select>
                                                                 <FormMessage />
@@ -891,7 +1019,7 @@ export function ConvertLeadDialog({
                                                                 </FormControl>
                                                                 <SelectContent>
                                                                     {users?.map(user => (
-                                                                        <SelectItem key={user.id} value={user.id}>{user.name}</SelectItem>
+                                                                        <SelectItem key={user.id} value={user.id || ''}>{user.name}</SelectItem>
                                                                     ))}
                                                                 </SelectContent>
                                                             </Select>

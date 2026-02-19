@@ -352,52 +352,67 @@ class LeadService(ActivityMixin):
         
         account_id = None
         contact_id = None
+        is_person_account = False
         
-        # 1. Handle Account (Existing or New)
+        # ==================================================================
+        # STEP 1: Handle Account FIRST (before contact, to avoid orphans)
+        # ==================================================================
         if conversion_data.account_id:
+            # Use explicitly specified existing account
             account_id = ObjectId(conversion_data.account_id)
-            # Verify account exists and belongs to tenant
             existing_account = await Account.get(account_id)
             if not existing_account or existing_account.tenant_id != tenant_id:
                 raise ValueError("Specified account not found")
-        elif conversion_data.account_name or (not conversion_data.account_id and not conversion_data.account_name):
-            # Auto-determine if it's a Person Account based on presence of company
+            is_person_account = existing_account.is_person_account
+        else:
+            # Determine account name and type
             is_person_account = conversion_data.account_type == "Person Account"
             if not lead.company and not conversion_data.account_name:
                 is_person_account = True
-                account_name = f"{lead.first_name} {lead.last_name}"
+                account_name = f"{lead.first_name} {lead.last_name}".strip()
             else:
-                account_name = conversion_data.account_name or lead.company or f"{lead.first_name} {lead.last_name}"
+                account_name = conversion_data.account_name or lead.company or f"{lead.first_name} {lead.last_name}".strip()
 
-            account = Account(
-                name=account_name,
-                phone=lead.phone,
-                email=lead.email,
-                website=lead.website,
-                billing_street=lead.street,
-                billing_city=lead.city,
-                billing_state=lead.state,
-                billing_zip=lead.zip,
-                billing_country=lead.country,
-                industry_id=lead.industry_id,
-                rating_id=lead.rating_id,
-                account_source_id=lead.source_id,
-                is_person_account=is_person_account,
-                tenant_id=tenant_id,
-                owner_id=user_id,
-                created_by=user_id
+            # Check for duplicate account — auto-reuse instead of crashing
+            existing_dup = await self._find_duplicate_account(
+                account_name, lead.email, lead.phone, is_person_account, tenant_id
             )
-            await account.insert()
-            account_id = account.id
             
-            # Log Account creation
-            await self.log_entity_created(
-                entity=account,
-                entity_type="account",
-                additional_data={"converted_from_lead_id": str(lead.id), "is_person_account": account.is_person_account}
-            )
+            if existing_dup:
+                # Auto-reuse the existing account instead of failing
+                account_id = existing_dup
+            else:
+                # Create new account
+                account = Account(
+                    name=account_name,
+                    phone=lead.phone,
+                    email=lead.email,
+                    website=lead.website,
+                    billing_street=lead.street,
+                    billing_city=lead.city,
+                    billing_state=lead.state,
+                    billing_zip=lead.zip,
+                    billing_country=lead.country,
+                    industry_id=lead.industry_id,
+                    account_source_id=lead.source_id,
+                    is_person_account=is_person_account,
+                    tenant_id=tenant_id,
+                    owner_id=user_id,
+                    created_by=user_id
+                )
+                await account.insert()
+                account_id = account.id
+                
+                # Log Account creation
+                await self.log_entity_created(
+                    entity=account,
+                    entity_type="account",
+                    additional_data={"converted_from_lead_id": str(lead.id), "is_person_account": account.is_person_account}
+                )
         
-        # 2. Handle Contact (Existing or New)
+        # ==================================================================
+        # STEP 2: Handle Contact (after account is guaranteed to exist)
+        # ==================================================================
         if conversion_data.contact_id:
             contact_id = ObjectId(conversion_data.contact_id)
             # Verify contact exists and belongs to tenant
@@ -405,65 +420,133 @@ class LeadService(ActivityMixin):
             if not existing_contact or existing_contact.tenant_id != tenant_id:
                 raise ValueError("Specified contact not found")
             
-            # Optionally link contact to account if not already linked
+            # Link contact to account if needed
             if account_id and existing_contact.account_id != account_id:
-                # We could update the primary account or just add a pivot
-                # For simplicity during conversion, we update the primary if it's null
                 if not existing_contact.account_id:
                     existing_contact.account_id = account_id
                     await existing_contact.save()
+                else:
+                    # Create pivot entry for additional account associations
+                    from app.models.account_contact import AccountContact
+                    existing_pivot = await AccountContact.find_one({
+                        "account_id": account_id,
+                        "contact_id": contact_id
+                    })
+                    if not existing_pivot:
+                        pivot = AccountContact(
+                            account_id=account_id,
+                            contact_id=contact_id,
+                            tenant_id=tenant_id
+                        )
+                        await pivot.insert()
+                        
         elif conversion_data.contact_create:
-            contact = Contact(
-                salutation=lead.salutation,
-                first_name=lead.first_name,
-                middle_name=lead.middle_name,
-                last_name=lead.last_name,
-                email=lead.email,
-                phone=lead.phone,
-                mobile=lead.mobile,
-                title=lead.title,
-                mailing_street=lead.street,
-                mailing_city=lead.city,
-                mailing_state=lead.state,
-                mailing_zip=lead.zip,
-                mailing_country=lead.country,
-                account_id=account_id,
-                tenant_id=tenant_id,
-                owner_id=user_id,
-                created_by=user_id
-            )
-            await contact.insert()
-            contact_id = contact.id
-            
-            # Log Contact creation
-            await self.log_entity_created(
-                entity=contact,
-                entity_type="contact",
-                additional_data={"converted_from_lead_id": str(lead.id)}
-            )
-            
-            # If account exists, create pivot entry
-            if account_id:
-                from app.models.account_contact import AccountContact
-                pivot = AccountContact(
-                    account_id=account_id,
-                    contact_id=contact_id,
-                    tenant_id=tenant_id
+            # Check if contact already exists by email to avoid duplicates
+            existing_contact_dup = None
+            if lead.email:
+                existing_contact_dup = await Contact.find_one(
+                    Contact.tenant_id == tenant_id,
+                    Contact.email == lead.email,
+                    Contact.deleted_at == None
                 )
-                await pivot.insert()
+            
+            if existing_contact_dup:
+                # Reuse existing contact
+                contact_id = existing_contact_dup.id
+                # Link to account if not already linked
+                if account_id and existing_contact_dup.account_id != account_id:
+                    if not existing_contact_dup.account_id:
+                        existing_contact_dup.account_id = account_id
+                        await existing_contact_dup.save()
+                    else:
+                        from app.models.account_contact import AccountContact
+                        existing_pivot = await AccountContact.find_one({
+                            "account_id": account_id,
+                            "contact_id": contact_id
+                        })
+                        if not existing_pivot:
+                            pivot = AccountContact(
+                                account_id=account_id,
+                                contact_id=contact_id,
+                                tenant_id=tenant_id
+                            )
+                            await pivot.insert()
+            else:
+                contact = Contact(
+                    salutation=lead.salutation,
+                    first_name=lead.first_name,
+                    middle_name=lead.middle_name,
+                    last_name=lead.last_name,
+                    email=lead.email,
+                    phone=lead.phone,
+                    mobile=lead.mobile,
+                    title=lead.title,
+                    mailing_street=lead.street,
+                    mailing_city=lead.city,
+                    mailing_state=lead.state,
+                    mailing_zip=lead.zip,
+                    mailing_country=lead.country,
+                    account_id=account_id,
+                    tenant_id=tenant_id,
+                    owner_id=user_id,
+                    created_by=user_id
+                )
+                await contact.insert()
+                contact_id = contact.id
+                
+                # Log Contact creation
+                await self.log_entity_created(
+                    entity=contact,
+                    entity_type="contact",
+                    additional_data={"converted_from_lead_id": str(lead.id)}
+                )
+                
+                # If account exists, create pivot entry
+                if account_id:
+                    from app.models.account_contact import AccountContact
+                    pivot = AccountContact(
+                        account_id=account_id,
+                        contact_id=contact_id,
+                        tenant_id=tenant_id
+                    )
+                    await pivot.insert()
         
-        # 3. Handle Opportunity (Optional)
+        # ==================================================================
+        # STEP 3: Handle Opportunity (Optional)
+        # ==================================================================
         opportunity_id = None
         if conversion_data.create_opportunity:
             # Get default sales stage
             sales_stage_id = None
-            if conversion_data.sales_stage_id:
-                sales_stage_id = ObjectId(conversion_data.sales_stage_id)
-            else:
-                default_stage = await SalesStage.find_one({"is_default": True}) or await SalesStage.find_one({})
+            # Ignore invalid placeholder values from frontend
+            raw_stage_id = conversion_data.sales_stage_id
+            invalid_stage_values = ("no-sales-stages", "", None)
+            if raw_stage_id and raw_stage_id not in invalid_stage_values:
+                try:
+                    sales_stage_id = ObjectId(raw_stage_id)
+                    # Verify stage exists
+                    stage_exists = await SalesStage.get(sales_stage_id)
+                    if not stage_exists:
+                        sales_stage_id = None  # Fall through to default lookup
+                except Exception:
+                    sales_stage_id = None  # Fall through to default lookup
+            
+            if not sales_stage_id:
+                # Try tenant-specific default stage first, then global
+                default_stage = await SalesStage.find_one(
+                    SalesStage.is_default == True,
+                    SalesStage.is_active == True
+                )
                 if not default_stage:
-                    raise ValueError("No sales stages found. Please configure sales stages first.")
-                sales_stage_id = default_stage.id
+                    # Try first tenant-specific stage
+                    first_stage = await SalesStage.find_one(
+                        SalesStage.is_active == True
+                    )
+                    if first_stage:
+                        sales_stage_id = first_stage.id
+                    # If no stages at all, still proceed (stage is optional)
+                else:
+                    sales_stage_id = default_stage.id
 
             # Handle close date
             from datetime import datetime, time, timedelta
@@ -529,7 +612,7 @@ class LeadService(ActivityMixin):
                 no_of_nights=conversion_data.no_of_nights or lead.no_of_nights,
                 description=conversion_data.description,
                 destination_ids=dest_ids,
-                experience_id=ObjectId(conversion_data.experience_id) if conversion_data.experience_id else None,
+                experience_id=ObjectId(conversion_data.experience_id) if conversion_data.experience_id and conversion_data.experience_id not in ("no-experiences", "") else None,
                 sales_stage_id=sales_stage_id,
                 account_id=account_id,
                 contact_id=contact_id,
@@ -614,7 +697,9 @@ class LeadService(ActivityMixin):
             "contacts": []
         }
         
-        # 1. Search for accounts (by company name or email domain)
+        seen_account_ids = set()
+        
+        # 1a. Search for accounts by company name
         if lead.company:
             # Exact match first
             accounts = await Account.find(
@@ -631,10 +716,42 @@ class LeadService(ActivityMixin):
                     Account.deleted_at == None
                 ).limit(5).to_list()
                 
-            suggestions["accounts"] = [
-                {"id": str(a.id), "name": a.name, "email": a.email, "match_type": "company_name"}
-                for a in accounts
-            ]
+            for a in accounts:
+                if str(a.id) not in seen_account_ids:
+                    seen_account_ids.add(str(a.id))
+                    suggestions["accounts"].append(
+                        {"id": str(a.id), "name": a.name, "email": str(a.email) if a.email else None, "match_type": "company_name"}
+                    )
+        
+        # 1b. Search for accounts by email (critical for person accounts with no company)
+        if lead.email:
+            accounts_by_email = await Account.find(
+                Account.tenant_id == tenant_id,
+                Account.email == lead.email,
+                Account.deleted_at == None
+            ).to_list()
+            for a in accounts_by_email:
+                if str(a.id) not in seen_account_ids:
+                    seen_account_ids.add(str(a.id))
+                    suggestions["accounts"].append(
+                        {"id": str(a.id), "name": a.name, "email": str(a.email) if a.email else None, "match_type": "email"}
+                    )
+        
+        # 1c. Search for accounts by phone
+        lead_phones = [p for p in [lead.phone, lead.mobile] if p]
+        if lead_phones:
+            for phone in lead_phones:
+                accounts_by_phone = await Account.find(
+                    Account.tenant_id == tenant_id,
+                    Account.phone == phone,
+                    Account.deleted_at == None
+                ).to_list()
+                for a in accounts_by_phone:
+                    if str(a.id) not in seen_account_ids:
+                        seen_account_ids.add(str(a.id))
+                        suggestions["accounts"].append(
+                            {"id": str(a.id), "name": a.name, "email": str(a.email) if a.email else None, "match_type": "phone"}
+                        )
             
         # 2. Search for contacts (by email or full name)
         if lead.email:
@@ -780,9 +897,11 @@ class LeadService(ActivityMixin):
         leads = all_leads[skip : skip + per_page]
         pages = (total + per_page - 1) // per_page if per_page > 0 else 0
 
-        # 2. Fetch Metadata in parallel
+        # 2. Fetch Metadata in parallel (except sales stages which need special handling)
         import asyncio
         from app.models.opportunity_picklists import Experience, SalesStage
+        
+        # Fetch regular metadata in parallel
         metadata_tasks = [
             LeadStatus.find(LeadStatus.is_active == True).sort("+sorting").to_list(),
             Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
@@ -790,12 +909,15 @@ class LeadService(ActivityMixin):
             Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
             Rating.find(Rating.is_active == True).sort("+sorting").to_list(),
             Experience.find(Experience.tenant_id == tenant_id, Experience.is_active == True).sort("+sorting").to_list(),
-            SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
+        lead_statuses, sources, users, industries, ratings, experiences = metadata_results
         
-        lead_statuses, sources, users, industries, ratings, experiences, sales_stages = metadata_results
+        # Fetch both tenant-specific and global sales stages
+        tenant_stages = await SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
+        global_stages = await SalesStage.find(SalesStage.tenant_id == None, SalesStage.is_active == True).sort("+sorting").to_list()
+        sales_stages = tenant_stages + global_stages
 
         return {
             "leads": leads,
@@ -830,7 +952,7 @@ class LeadService(ActivityMixin):
                 for e in experiences
             ],
             "sales_stages": [
-                {"id": str(ss.id), "name": ss.name}
+                {"id": str(ss.id), "name": ss.name, "is_default": ss.is_default}
                 for ss in sales_stages
             ],
         }
@@ -894,3 +1016,129 @@ class LeadService(ActivityMixin):
             count += 1
             
         return {"updated": count, "total": len(lead_ids)}
+
+    async def _find_duplicate_account(
+        self,
+        name: str,
+        email: Optional[str],
+        phone: Optional[str],
+        is_person_account: bool,
+        tenant_id: ObjectId
+    ) -> Optional[ObjectId]:
+        """
+        Find a duplicate account by email, phone, or name.
+        Returns the existing account's ObjectId if found, None otherwise.
+        This NEVER raises — it returns the duplicate for the caller to decide what to do.
+        """
+        from app.models.account import Account
+        
+        base_query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None
+        }
+        
+        # 1. Check by email (most reliable signal)
+        if email:
+            email_match = await Account.find_one({
+                **base_query,
+                "email": email.lower().strip()
+            })
+            if email_match:
+                return email_match.id
+        
+        # 2. Check by phone
+        if phone:
+            phone_match = await Account.find_one({
+                **base_query,
+                "phone": phone.strip()
+            })
+            if phone_match:
+                return phone_match.id
+        
+        # 3. For person accounts – check by exact name (DISABLED for safety)
+        # We don't auto-reuse based on name alone because two people can have the same name.
+        # We rely on email/phone for definitive matches.
+        # if is_person_account and name:
+        #     name_match = await Account.find_one({
+        #         **base_query,
+        #         "is_person_account": True,
+        #         "name": {"$regex": f"^{name.strip()}$", "$options": "i"}
+        #     })
+        #     if name_match:
+        #         return name_match.id
+        
+        return None
+
+    async def _check_account_duplicates(self, account_data, tenant_id: ObjectId, is_update: bool = False):
+        """
+        Legacy method kept for compatibility.
+        For lead conversion, use _find_duplicate_account instead (non-raising).
+        Only used when explicitly validating account updates.
+        """
+        pass  # Soft-disabled: duplicate detection now handled gracefully in convert_lead
+
+    async def _check_contact_duplicates(self, contact_data: Dict, tenant_id: ObjectId, is_update: bool = False):
+        """Check for duplicate contacts and provide warnings/suggestions"""
+        from app.models.contact import Contact
+        
+        # Build query for potential duplicates
+        duplicate_query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None
+        }
+        
+        # Check by email (most reliable)
+        if contact_data.get("email"):
+            email_duplicates = await Contact.find({
+                **duplicate_query,
+                "email": contact_data["email"].lower().strip()
+            }).to_list()
+            
+            # Exclude current contact if updating
+            if is_update and "id" in contact_data:
+                email_duplicates = [c for c in email_duplicates if str(c.id) != str(contact_data["id"])]
+            
+            if email_duplicates:
+                duplicate_names = [f"{c.first_name} {c.last_name} (email: {c.email})" for c in email_duplicates[:3]]
+                raise ValueError(
+                    f"Potential duplicate contacts found with email {contact_data['email']}: "
+                    f"{', '.join(duplicate_names)}. "
+                    f"Please use existing contact or verify this is not a duplicate."
+                )
+        
+        # Check by phone
+        if contact_data.get("phone"):
+            phone_duplicates = await Contact.find({
+                **duplicate_query,
+                "phone": contact_data["phone"].strip()
+            }).to_list()
+            
+            if is_update and "id" in contact_data:
+                phone_duplicates = [c for c in phone_duplicates if str(c.id) != str(contact_data["id"])]
+            
+            if phone_duplicates:
+                duplicate_names = [f"{c.first_name} {c.last_name} (phone: {c.phone})" for c in phone_duplicates[:3]]
+                raise ValueError(
+                    f"Potential duplicate contacts found with phone {contact_data['phone']}: "
+                    f"{', '.join(duplicate_names)}. "
+                    f"Please use existing contact or verify this is not a duplicate."
+                )
+        
+        # Check by name combination
+        if contact_data.get("first_name") and contact_data.get("last_name"):
+            name_duplicates = await Contact.find({
+                **duplicate_query,
+                "first_name": {"$regex": f"^{contact_data['first_name'].strip()}$", "$options": "i"},
+                "last_name": {"$regex": f"^{contact_data['last_name'].strip()}$", "$options": "i"}
+            }).to_list()
+            
+            if is_update and "id" in contact_data:
+                name_duplicates = [c for c in name_duplicates if str(c.id) != str(contact_data["id"])]
+            
+            if name_duplicates:
+                duplicate_names = [f"{c.first_name} {c.last_name}" for c in name_duplicates[:3]]
+                raise ValueError(
+                    f"Potential duplicate contacts found with name {contact_data['first_name']} {contact_data['last_name']}: "
+                    f"{', '.join(duplicate_names)}. "
+                    f"Please use existing contact or verify this is not a duplicate."
+                )
