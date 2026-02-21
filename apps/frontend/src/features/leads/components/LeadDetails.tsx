@@ -264,6 +264,12 @@ export function LeadDetails({
                                 <p className="text-xs font-medium text-muted-foreground uppercase">Is Fixed Package?</p>
                                 <p className="text-sm">{lead.is_fixed ? "Yes" : "No"}</p>
                             </div>
+                            <div className="space-y-1">
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Experience</p>
+                                <p className="text-sm font-medium">
+                                    {experiences.find(e => e.id === lead.experience_id)?.name || "-"}
+                                </p>
+                            </div>
                         </CardContent>
                     </Card>
                 </div>

@@ -3,7 +3,7 @@ import type { SalesStage } from "@/lib/api/services/opportunities.service";
 // Central definition of allowed sales stages and their default probabilities
 // Order here controls how stages are displayed in dropdowns / kanban.
 const STAGE_DEFINITIONS: { name: string; probability: number }[] = [
-    { name: "Lead", probability: 10 },
+    { name: "Received", probability: 10 },
     { name: "Qualified", probability: 20 },
     { name: "Proposal", probability: 30 },
     { name: "Closed Won", probability: 100 },

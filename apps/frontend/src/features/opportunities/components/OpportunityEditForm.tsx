@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { useUpdateOpportunity } from "../api/useOpportunities";
+import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
 import { Opportunity } from "../types";
 import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } from "@/features/opportunities/utils/stageConfig";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ const opportunityFormSchema = z.object({
     probability: z.string().optional(),
     close_date: z.string().optional(),
     travel_date: z.string().optional(),
+    experience_id: z.string().optional(),
     no_of_pax: z.string().optional(),
     no_of_adults: z.string().optional(),
     no_of_nights: z.string().optional(),
@@ -65,6 +66,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const updateOpportunity = useUpdateOpportunity();
+    const { data: experiences } = useExperiences();
     const normalizedStages = normalizeSalesStages(stages);
 
     const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
@@ -78,6 +80,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             probability: opportunity.probability?.toString() || "10",
             close_date: new Date().toISOString().split('T')[0],
             travel_date: opportunity.travel_date || "",
+            experience_id: opportunity.experience_id || "",
             no_of_pax: opportunity.no_of_pax?.toString() || "",
             no_of_adults: opportunity.no_of_adults?.toString() || "",
             no_of_nights: opportunity.no_of_nights?.toString() || "",
@@ -109,6 +112,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             if (data.probability) payload.probability = Number(data.probability);
             if (data.close_date) payload.close_date = data.close_date;
             if (data.travel_date) payload.travel_date = data.travel_date;
+            if (data.experience_id && data.experience_id !== "none") payload.experience_id = data.experience_id;
             if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
             if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
             if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
@@ -212,6 +216,32 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                             }}
                                         />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="experience_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Experience</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select an experience" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="none">None</SelectItem>
+                                            {experiences?.map((exp: any) => (
+                                                <SelectItem key={exp.id} value={exp.id}>
+                                                    {exp.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}

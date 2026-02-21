@@ -153,8 +153,37 @@ class OpportunityService(ActivityMixin):
         
         # Update fields
         update_data = opp_data.model_dump(exclude_unset=True)
+        
+        # Auto-update probability if stage changed
+        if "sales_stage_id" in update_data and str(update_data["sales_stage_id"]) != str(opp.sales_stage_id):
+            from app.models.opportunity_picklists import SalesStage
+            new_stage_id = ObjectId(update_data["sales_stage_id"])
+            new_stage = await SalesStage.get(new_stage_id)
+            if new_stage:
+                # Only auto-update if probability wasn't explicitly provided in update_data
+                if "probability" not in update_data:
+                    opp.probability = new_stage.probability
+                    updated_fields["probability"] = new_stage.probability
+
         for field, value in update_data.items():
             old_values[field] = getattr(opp, field, None)
+            
+            # Handle conversion of ID fields
+            if field.endswith("_id") and value and isinstance(value, str):
+                try:
+                    value = ObjectId(value)
+                except:
+                    pass
+            elif field in ["destination_ids", "origin_ids", "team_member_ids"] and isinstance(value, list):
+                clean_ids = []
+                for vid in value:
+                    if isinstance(vid, (str, ObjectId)):
+                        try:
+                            clean_ids.append(ObjectId(vid))
+                        except:
+                            pass
+                value = clean_ids
+
             setattr(opp, field, value)
             updated_fields[field] = value
         
@@ -373,7 +402,7 @@ class OpportunityService(ActivityMixin):
         Seed/normalize sales stages for a tenant.
 
         After this runs, the tenant will only have these active stages:
-        - Lead (10%)
+        - Received (10%)
         - Qualified (20%)
         - Proposal (30%)
         - Closed Won (100%, won)
@@ -386,7 +415,7 @@ class OpportunityService(ActivityMixin):
         from app.models.opportunity_picklists import SalesStage
 
         desired_stages = [
-            {"name": "Lead", "probability": 10, "sorting": 10, "is_default": True, "is_won": False, "is_lost": False},
+            {"name": "Received", "probability": 10, "sorting": 10, "is_default": True, "is_won": False, "is_lost": False},
             {"name": "Qualified", "probability": 20, "sorting": 20, "is_default": False, "is_won": False, "is_lost": False},
             {"name": "Proposal", "probability": 30, "sorting": 30, "is_default": False, "is_won": False, "is_lost": False},
             {"name": "Closed Won", "probability": 100, "sorting": 40, "is_default": False, "is_won": True, "is_lost": False},

@@ -4,6 +4,7 @@ Pydantic schemas for Activity Log API
 from pydantic import BaseModel, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
+from bson import ObjectId
 
 
 class ActivityLogResponse(BaseModel):
@@ -19,8 +20,11 @@ class ActivityLogResponse(BaseModel):
     ip_address: Optional[str] = None
     created_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+        "extra": "ignore"
+    }
 
     @field_validator("created_at", mode="after")
     @classmethod
@@ -32,17 +36,32 @@ class ActivityLogResponse(BaseModel):
     @classmethod
     def from_orm(cls, obj):
         """Convert ObjectId fields to strings for API response"""
-        if hasattr(obj, 'id'):
-            data = obj.model_dump()
-            # Convert ObjectId fields to strings
-            data['id'] = str(obj.id)
-            if hasattr(obj, 'user_id') and obj.user_id:
-                data['user_id'] = str(obj.user_id)
-            if hasattr(obj, 'entity_id') and obj.entity_id:
-                data['entity_id'] = str(obj.entity_id)
+        if obj is None:
+            return None
             
-            return cls(**data)
-        return cls()
+        data = obj.model_dump() if hasattr(obj, 'model_dump') else {}
+        
+        # Recursive conversion of ObjectId to str
+        def stringify_ids(d):
+            if isinstance(d, dict):
+                return {k: stringify_ids(v) for k, v in d.items()}
+            elif isinstance(d, list):
+                return [stringify_ids(v) for v in d]
+            elif isinstance(d, ObjectId):
+                return str(d)
+            return d
+            
+        data = stringify_ids(data)
+        
+        # Ensure standard fields are handled if stringify_ids missed something
+        if hasattr(obj, 'id'):
+            data['id'] = str(obj.id)
+        
+        # Filter only fields defined in the schema
+        field_names = cls.model_fields.keys()
+        filtered_data = {k: v for k, v in data.items() if k in field_names}
+        
+        return cls(**filtered_data)
 
 
 class ActivityLogListResponse(BaseModel):
@@ -64,8 +83,11 @@ class LoginLogResponse(BaseModel):
     created_at: datetime
     logout_at: Optional[datetime] = None
     
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True,
+        "populate_by_name": True,
+        "extra": "ignore"
+    }
 
     @field_validator("created_at", "logout_at", mode="after")
     @classmethod
@@ -77,15 +99,32 @@ class LoginLogResponse(BaseModel):
     @classmethod
     def from_orm(cls, obj):
         """Convert ObjectId fields to strings for API response"""
-        if hasattr(obj, 'id'):
-            data = obj.model_dump()
-            # Convert ObjectId fields to strings
-            data['id'] = str(obj.id)
-            if hasattr(obj, 'user_id') and obj.user_id:
-                data['user_id'] = str(obj.user_id)
+        if obj is None:
+            return None
             
-            return cls(**data)
-        return cls()
+        data = obj.model_dump() if hasattr(obj, 'model_dump') else {}
+        
+        # Recursive conversion of ObjectId to str
+        def stringify_ids(d):
+            if isinstance(d, dict):
+                return {k: stringify_ids(v) for k, v in d.items()}
+            elif isinstance(d, list):
+                return [stringify_ids(v) for v in d]
+            elif isinstance(d, ObjectId):
+                return str(d)
+            return d
+            
+        data = stringify_ids(data)
+        
+        # Ensure standard fields are handled
+        if hasattr(obj, 'id'):
+            data['id'] = str(obj.id)
+            
+        # Filter only fields defined in the schema
+        field_names = cls.model_fields.keys()
+        filtered_data = {k: v for k, v in data.items() if k in field_names}
+        
+        return cls(**filtered_data)
 
 
 class LoginLogListResponse(BaseModel):

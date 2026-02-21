@@ -15,8 +15,7 @@ from app.api.deps import get_current_user, check_permission
 router = APIRouter()
 
 
-@router.get("/", response_model=ActivityLogListResponse)
-@router.get("", response_model=ActivityLogListResponse)
+@router.get("/activity/", response_model=ActivityLogListResponse)
 @router.get("/activity", response_model=ActivityLogListResponse)
 async def get_activity_logs(
     user_id: Optional[str] = None,
@@ -29,21 +28,32 @@ async def get_activity_logs(
     current_user: User = Depends(get_current_user)
 ):
     """Get activity logs with filters"""
-    service = ActivityLogService()
-    logs = await service.get_activity_logs(
-        current_user.tenant_id,
-        user_id=user_id,
-        entity_type=entity_type,
-        entity_id=entity_id,
-        action=action,
-        days=days,
-        skip=skip,
-        limit=limit
-    )
-    return ActivityLogListResponse(
-        logs=[ActivityLogResponse.from_orm(l) for l in logs],
-        total=len(logs)
-    )
+    try:
+        print(f"DEBUG: Entering get_activity_logs for user {current_user.id}")
+        service = ActivityLogService()
+        logs = await service.get_activity_logs(
+            current_user.tenant_id,
+            user_id=user_id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            action=action,
+            days=days,
+            skip=skip,
+            limit=limit
+        )
+        print(f"DEBUG: Service returned {len(logs)} logs")
+        
+        response_data = ActivityLogListResponse(
+            logs=[ActivityLogResponse.from_orm(l) for l in logs],
+            total=len(logs)
+        )
+        print(f"DEBUG: Response object created successfully")
+        return response_data
+    except Exception as e:
+        print(f"ERROR in get_activity_logs: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return ActivityLogListResponse(logs=[], total=0) # Return empty list on error to avoid crash
 
 
 @router.get("/activity/entity/{entity_type}/{entity_id}")

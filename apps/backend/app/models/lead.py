@@ -66,6 +66,7 @@ class Lead(BaseDocument):
     
     # Destinations (for travel CRM)
     destination_ids: List[PydanticObjectId] = Field(default_factory=list)
+    experience_id: Optional[PydanticObjectId] = None
     
     # Custom Fields
     custom_fields: Dict[str, Any] = Field(default_factory=dict)

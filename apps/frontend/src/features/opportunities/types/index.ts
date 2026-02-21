@@ -51,12 +51,36 @@ export interface Opportunity {
 export interface OpportunityCreateData {
     name: string;
     sales_stage_id: string;
+    amount?: number;
+    description?: string;
+
+    // Logistics
+    no_of_pax?: number;
+    no_of_nights?: number;
+    no_of_adults?: number;
+    no_of_childs?: number;
+    no_of_infants?: number;
+    travel_date?: string;
+    close_date?: string;
+
+    // Pipeline
+    probability?: number;
+
+    // Relations
     account_id?: string;
     contact_id?: string;
-    amount?: number;
+    opportunity_type_id?: string;
+    experience_id?: string;
     destination_ids?: string[];
+    origin_ids?: string[];
     team_member_ids?: string[];
-    // ... other optional fields
+
+    // Source
+    source_id?: string;
+    source_medium_id?: string;
+    source_url?: string;
+
+    key_deal?: boolean;
 }
 
 export interface OpportunityFilters {

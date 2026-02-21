@@ -192,7 +192,11 @@ async def convert_lead(
             "message": "Lead converted successfully",
             **result
         }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Unexpected error during lead conversion: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 

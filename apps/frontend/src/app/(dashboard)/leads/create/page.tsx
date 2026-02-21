@@ -28,6 +28,7 @@ export default async function CreateLeadPage() {
                 statuses={response.lead_statuses}
                 sources={response.sources}
                 industries={response.industries}
+                experiences={response.experiences}
             />
         </div>
     );

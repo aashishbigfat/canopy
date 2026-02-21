@@ -31,6 +31,7 @@ class LeadBase(BaseModel):
     industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
     # New Fields
     source_medium: Optional[str] = None
@@ -73,6 +74,7 @@ class LeadUpdate(BaseModel):
     industry_id: Optional[str] = None
     source_id: Optional[str] = None
     source_medium_id: Optional[str] = None
+    experience_id: Optional[str] = None
     
     # New Fields
     source_medium: Optional[str] = None
@@ -100,6 +102,7 @@ class LeadResponse(LeadBase):
     opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
     destination_ids: Optional[List[str]] = Field(default_factory=list, description="List of destination IDs")
+    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
     created_at: datetime
     updated_at: datetime

@@ -28,6 +28,7 @@ import { Separator } from "@/components/ui/separator";
 import { Opportunity } from "../types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
+import { UpdateStageDialog } from "./UpdateStageDialog";
 
 interface OpportunityDetailsProps {
     opportunity: Opportunity;
@@ -39,10 +40,18 @@ export function OpportunityDetails({
     stages = []
 }: OpportunityDetailsProps) {
     const router = useRouter();
+    const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
     const stage = stages.find(s => s.id === opportunity.sales_stage_id);
 
     return (
         <div className="space-y-6">
+            <UpdateStageDialog
+                opportunityId={opportunity.id}
+                currentStageId={opportunity.sales_stage_id}
+                stages={stages}
+                isOpen={isStageDialogOpen}
+                onClose={() => setIsStageDialogOpen(false)}
+            />
             {/* Header / Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -72,7 +81,11 @@ export function OpportunityDetails({
                             Edit
                         </Link>
                     </Button>
-                    <Button className="bg-blue-600 hover:bg-blue-700 font-medium" size="sm">
+                    <Button
+                        className="bg-blue-600 hover:bg-blue-700 font-medium"
+                        size="sm"
+                        onClick={() => setIsStageDialogOpen(true)}
+                    >
                         Update Stage
                     </Button>
                 </div>

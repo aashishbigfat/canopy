@@ -125,7 +125,7 @@ class AccountService(ActivityMixin):
             contact_ids = [p.contact_id for p in pivots]
             if contact_ids:
                 contacts = await Contact.find(
-                    Contact.id.in_(contact_ids),
+                    {"_id": {"$in": contact_ids}},
                     Contact.deleted_at == None
                 ).to_list()
                 

@@ -222,7 +222,7 @@ export const dashboardService = {
 
     getActivityLogs: async (limit: number = 50): Promise<ActivityLog[]> => {
         try {
-            const { data } = await apiClient.get<{ logs: ActivityLog[]; total: number }>("/logs/activity", {
+            const { data } = await apiClient.get<{ logs: ActivityLog[]; total: number }>("/activity-logs/activity/", {
                 params: { limit }
             });
             return data.logs;

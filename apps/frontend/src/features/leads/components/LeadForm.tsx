@@ -351,6 +351,7 @@ const leadFormSchema = z.object({
     destinations: z.string().min(1, { message: "Destinations are required." }),
     segment: z.string().optional(),
     creation_type: z.enum(["manual", "auto"]).optional(),
+    experience_id: z.string().optional(),
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -361,6 +362,7 @@ interface LeadFormProps {
     statuses?: LeadStatus[];
     sources?: Source[];
     industries?: Industry[];
+    experiences?: { id: string; name: string }[];
 }
 
 const PUBLIC_EMAIL_DOMAINS = [
@@ -374,6 +376,7 @@ export function LeadForm({
     statuses = [],
     sources = [],
     industries = [],
+    experiences = [],
 }: LeadFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -418,6 +421,7 @@ export function LeadForm({
             destinations: initialData?.destinations?.join(", ") || "",
             segment: initialData?.segment || "B2C",
             creation_type: (initialData?.creation_type as "manual" | "auto") || "manual",
+            experience_id: initialData?.experience_id || "",
         },
     });
 
@@ -467,6 +471,7 @@ export function LeadForm({
                 destinations: data.destinations.split(",").map((d: string) => d.trim()).filter(Boolean),
                 segment: data.segment,
                 creation_type: ["manual", "auto"].includes(data.combined_source) ? data.combined_source : "manual",
+                experience_id: data.experience_id || undefined,
             };
 
             await ErrorHandler.withErrorHandling(async () => {
@@ -767,6 +772,30 @@ export function LeadForm({
                                                 <FormControl>
                                                     <Input placeholder="https://..." className="h-9 bg-white" {...field} />
                                                 </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
+                                        name="experience_id"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl>
+                                                        <SelectTrigger className="h-9 bg-white">
+                                                            <SelectValue placeholder="Select Experience" />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+                                                    <SelectContent>
+                                                        {experiences.map((exp) => (
+                                                            <SelectItem key={exp.id} value={exp.id}>
+                                                                {exp.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

@@ -2,27 +2,24 @@
 Middleware to automatically set activity logging context
 """
 import uuid
+import time
 from typing import Callable
 from datetime import datetime
 from fastapi import Request, Response
-from starlette.middleware.base import BaseHTTPMiddleware
 
 
-class ActivityContextMiddleware(BaseHTTPMiddleware):
+async def activity_context_middleware(request: Request, call_next: Callable):
     """Middleware to add request context for activity logging"""
+    # Generate unique request ID
+    request_id = str(uuid.uuid4())
+    request.state.request_id = request_id
     
-    async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        # Generate unique request ID
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        
-        # Add request start time for performance tracking
-        request.state.start_time = datetime.utcnow()
-        
-        # Process the request
-        response = await call_next(request)
-        
-        # Add request ID to response headers
-        response.headers["X-Request-ID"] = request_id
-        
-        return response
+    # Track request start time
+    request.state.start_time = time.time()
+    
+    response = await call_next(request)
+    
+    # Add request ID to response headers
+    response.headers["X-Request-ID"] = request_id
+    
+    return response

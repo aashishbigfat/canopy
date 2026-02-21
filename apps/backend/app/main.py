@@ -1,13 +1,18 @@
 """
 Main FastAPI application
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from datetime import datetime
+import uuid
+import json
 
 from app.core.config import settings
 from app.db.mongodb import init_db
-from app.middleware.activity_context import ActivityContextMiddleware
+from app.middleware.activity_context import activity_context_middleware
 from app.api.v1 import accounts
 
 # Lifespan context manager for startup/shutdown
@@ -27,7 +32,13 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS middleware
+# Activity logging middleware
+@app.middleware("http")
+async def add_activity_context(request: Request, call_next):
+    return await activity_context_middleware(request, call_next)
+
+
+# CORS middleware - Added last to be outermost
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
@@ -36,8 +47,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Activity logging middleware
-app.add_middleware(ActivityContextMiddleware)
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    import json
+    print(f"DEBUG: 422 Validation Error at {request.url.path}")
+    print(f"DEBUG: Error details: {json.dumps(exc.errors(), indent=2)}")
+    print(f"DEBUG: Request body: {exc.body}")
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors(), "body": str(exc.body)},
+    )
 
 # Include routers
 from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search
@@ -67,7 +86,7 @@ app.include_router(products.router, prefix="/api/v1/products", tags=["Products"]
 app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["Quotes"])
 app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])
 app.include_router(countries.router, prefix="/api/v1/countries", tags=["Countries"])
-app.include_router(activity_logs.router, prefix="/api/v1/logs", tags=["Activity Logs"])
+app.include_router(activity_logs.router, prefix="/api/v1/activity-logs", tags=["Activity Logs"])
 app.include_router(settings_routes.router, prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(tags.router, prefix="/api/v1/tags", tags=["Tags"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])

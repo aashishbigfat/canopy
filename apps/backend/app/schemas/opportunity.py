@@ -48,6 +48,22 @@ class OpportunityCreate(OpportunityBase):
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
+def parse_date(v):
+    if v == "" or v is None:
+        return None
+    if isinstance(v, str):
+        if "T" not in v and " " not in v:
+            try:
+                # Try parsing as date and convert to datetime
+                from datetime import date
+                d = date.fromisoformat(v)
+                from datetime import datetime
+                return datetime(d.year, d.month, d.day)
+            except:
+                pass
+    return v
+
+
 class OpportunityUpdate(BaseModel):
     """Schema for updating an opportunity"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
@@ -55,11 +71,23 @@ class OpportunityUpdate(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     sales_stage_id: Optional[str] = Field(None, min_length=1)
     probability: Optional[int] = Field(None)
-    close_date: Optional[datetime] = None
-    travel_date: Optional[datetime] = None
+
+    close_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
+    travel_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
     no_of_pax: Optional[int] = Field(None)
+    no_of_adults: Optional[int] = Field(None)
+    no_of_childs: Optional[int] = Field(None)
+    no_of_infants: Optional[int] = Field(None)
+    no_of_nights: Optional[int] = Field(None)
+    experience_id: Optional[str] = None
     account_id: Optional[str] = None
     contact_id: Optional[str] = None
+    source_id: Optional[str] = None
+    source_medium_id: Optional[str] = None
+    source_url: Optional[str] = None
+    destination_ids: Optional[List[str]] = None
+    origin_ids: Optional[List[str]] = None
+    key_deal: Optional[bool] = None
     custom_fields: Optional[Dict[str, Any]] = None
 
 

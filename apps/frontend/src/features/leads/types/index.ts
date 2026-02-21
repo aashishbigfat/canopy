@@ -31,6 +31,7 @@ export interface Lead {
     source_id?: string;
     source_medium?: string; // Changed from source_medium_id as per requirement (seems to be a string field "Facebook", "Google" etc)
     source_medium_id?: string; // Keep for backward compatibility if needed, or remove if not used. User said "sourceMedium: (optional) Facebook, Google"
+    experience_id?: string;
 
     // Campaign
     campaign_name?: string;
@@ -95,6 +96,7 @@ export interface LeadCreateData {
     creation_type?: string;
 
     source_medium_id?: string;
+    experience_id?: string;
     destination_ids?: string[];
     custom_fields?: Record<string, unknown>;
 }
@@ -166,6 +168,7 @@ export interface User {
     id: string;
     name: string;
     email: string;
+    experience_id?: string;
 }
 
 export interface ConvertResponse {

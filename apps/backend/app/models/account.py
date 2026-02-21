@@ -113,7 +113,7 @@ class Account(BaseDocument):
         
         contact_ids = [p.contact_id for p in pivots]
         return await Contact.find(
-            Contact.id.in_(contact_ids)
+            {"_id": {"$in": contact_ids}}
         ).to_list()
     
     async def get_opportunities(self):

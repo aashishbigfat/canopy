@@ -132,6 +132,43 @@ export function ConvertLeadDialog({
     const [localExperiences, setLocalExperiences] = useState<{ id: string; name: string }[]>(experiences);
     const [localSalesStages, setLocalSalesStages] = useState<{ id: string; name: string; is_default?: boolean }[]>(sales_stages);
 
+    // Person Account detection logic
+    const isPersonAccount = React.useMemo(() => {
+        if (!lead.email) return false;
+        const emailLower = lead.email.toLowerCase();
+        const personalDomains = ["gmail", "yahoo", "hotmail", "rediffmail", "outlook"];
+        return personalDomains.some(domain => emailLower.includes(`@${domain}.`) || emailLower.endsWith(`@${domain}.com`));
+    }, [lead.email]);
+
+    const form = useForm<ConvertFormValues>({
+        resolver: zodResolver(convertSchema) as any,
+        defaultValues: {
+            account_type: isPersonAccount ? "Person Account" : "Account",
+            account_mode: accountMode,
+            account_id: selectedAccountId,
+            account_name: lead.company || lead.full_name,
+            contact_id: selectedContactId,
+            contact_create: contactMode === "new",
+            contact_salutation: lead.salutation || "",
+            contact_first_name: lead.first_name || "",
+            contact_last_name: lead.last_name || "",
+            create_opportunity: true,
+            opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
+            opportunity_amount: 0,
+            travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
+            no_of_adults: lead.no_of_pax || 1,
+            no_of_childs: 0,
+            no_of_infants: 0,
+            no_of_pax: lead.no_of_pax || 1,
+            no_of_nights: lead.no_of_nights || 0,
+            description: "",
+            destination_ids: lead.destination_ids || [],
+            opportunity_close_date: new Date(),
+            sales_stage_id: sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
+            experience_id: lead.experience_id || undefined,
+        },
+    });
+
     // Auto-detect existing accounts/contacts and set defaults
     useEffect(() => {
         if (suggestions && !suggestionsLoading) {
@@ -159,7 +196,7 @@ export function ConvertLeadDialog({
     useEffect(() => {
         if (!open) return;
 
-        if (experiences.length === 0) {
+        if (localExperiences.length === 0) {
             apiClient.get("opportunities/experiences")
                 .then(res => {
                     if (Array.isArray(res.data) && res.data.length > 0) {
@@ -167,11 +204,9 @@ export function ConvertLeadDialog({
                     }
                 })
                 .catch(() => {/* silently ignore – experiences are optional */ });
-        } else {
-            setLocalExperiences(experiences);
         }
 
-        if (sales_stages.length === 0) {
+        if (localSalesStages.length === 0) {
             apiClient.get("opportunities/sales-stages")
                 .then(res => {
                     if (Array.isArray(res.data) && res.data.length > 0) {
@@ -184,18 +219,10 @@ export function ConvertLeadDialog({
                     }
                 })
                 .catch(() => {/* silently ignore */ });
-        } else {
-            setLocalSalesStages(sales_stages);
         }
-    }, [open, experiences, sales_stages]);
+    }, [open, localExperiences.length, localSalesStages.length, form]);
 
-    // Person Account detection logic
-    const isPersonAccount = React.useMemo(() => {
-        if (!lead.email) return false;
-        const emailLower = lead.email.toLowerCase();
-        const personalDomains = ["gmail", "yahoo", "hotmail", "rediffmail", "outlook"];
-        return personalDomains.some(domain => emailLower.includes(`@${domain}.`) || emailLower.endsWith(`@${domain}.com`));
-    }, [lead.email]);
+
 
     // Destination handling
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
@@ -260,33 +287,7 @@ export function ConvertLeadDialog({
 
 
 
-    const form = useForm<ConvertFormValues>({
-        resolver: zodResolver(convertSchema) as any,
-        defaultValues: {
-            account_type: isPersonAccount ? "Person Account" : "Account",
-            account_mode: accountMode,
-            account_id: selectedAccountId,
-            account_name: lead.company || lead.full_name,
-            contact_id: selectedContactId,
-            contact_create: contactMode === "new",
-            contact_salutation: lead.salutation || "",
-            contact_first_name: lead.first_name || "",
-            contact_last_name: lead.last_name || "",
-            create_opportunity: true,
-            opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
-            opportunity_amount: 0,
-            travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
-            no_of_adults: lead.no_of_pax || 1,
-            no_of_childs: 0,
-            no_of_infants: 0,
-            no_of_pax: lead.no_of_pax || 1,
-            no_of_nights: lead.no_of_nights || 0,
-            description: "",
-            destination_ids: lead.destination_ids || [],
-            opportunity_close_date: new Date(),
-            sales_stage_id: sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
-        },
-    });
+
 
     // Update form when smart defaults change
     useEffect(() => {
@@ -391,7 +392,7 @@ export function ConvertLeadDialog({
                 no_of_childs: values.no_of_childs,
                 no_of_infants: values.no_of_infants,
                 no_of_pax: values.no_of_pax,
-                sales_stage_id: values.sales_stage_id === "no-sales-stages" ? undefined : values.sales_stage_id,
+                sales_stage_id: !values.sales_stage_id || ["no-sales-stages", "undefined", "null"].includes(values.sales_stage_id) ? undefined : values.sales_stage_id,
                 no_of_nights: values.no_of_nights,
                 description: values.description,
                 opportunity_owner_id: values.opportunity_owner_id,

@@ -359,7 +359,11 @@ class LeadService(ActivityMixin):
         # ==================================================================
         if conversion_data.account_id:
             # Use explicitly specified existing account
-            account_id = ObjectId(conversion_data.account_id)
+            try:
+                account_id = ObjectId(conversion_data.account_id)
+            except Exception:
+                raise ValueError("Invalid account ID format")
+                
             existing_account = await Account.get(account_id)
             if not existing_account or existing_account.tenant_id != tenant_id:
                 raise ValueError("Specified account not found")
@@ -414,7 +418,11 @@ class LeadService(ActivityMixin):
         # STEP 2: Handle Contact (after account is guaranteed to exist)
         # ==================================================================
         if conversion_data.contact_id:
-            contact_id = ObjectId(conversion_data.contact_id)
+            try:
+                contact_id = ObjectId(conversion_data.contact_id)
+            except Exception:
+                raise ValueError("Invalid contact ID format")
+                
             # Verify contact exists and belongs to tenant
             existing_contact = await Contact.get(contact_id)
             if not existing_contact or existing_contact.tenant_id != tenant_id:
@@ -520,8 +528,8 @@ class LeadService(ActivityMixin):
             sales_stage_id = None
             # Ignore invalid placeholder values from frontend
             raw_stage_id = conversion_data.sales_stage_id
-            invalid_stage_values = ("no-sales-stages", "", None)
-            if raw_stage_id and raw_stage_id not in invalid_stage_values:
+            invalid_stage_values = ("no-sales-stages", "", None, "undefined", "null")
+            if raw_stage_id and str(raw_stage_id).lower() not in invalid_stage_values:
                 try:
                     sales_stage_id = ObjectId(raw_stage_id)
                     # Verify stage exists
@@ -548,16 +556,43 @@ class LeadService(ActivityMixin):
                 else:
                     sales_stage_id = default_stage.id
 
+            # FINAL FALLBACK: If still no sales stage found, try to get ANY active stage
+            if not sales_stage_id:
+                any_stage = await SalesStage.find_one(SalesStage.is_active == True)
+                if any_stage:
+                    sales_stage_id = any_stage.id
+                else:
+                    # If absolutely no stages exist in the system, we must raise a helpful error
+                    # but the model requires it, so a descriptive ValueError is better than a 500 crash.
+                    raise ValueError("No Sales Stages found in the system. Please configure Sales Stages first.")
+
             # Handle close date
             from datetime import datetime, time, timedelta
+            import logging
+            logger = logging.getLogger(__name__)
+            
             close_date = None
             if conversion_data.opportunity_close_date:
-                if isinstance(conversion_data.opportunity_close_date, str):
-                    close_date = datetime.strptime(conversion_data.opportunity_close_date, "%Y-%m-%d")
+                if isinstance(conversion_data.opportunity_close_date, datetime):
+                    close_date = conversion_data.opportunity_close_date
                 elif hasattr(conversion_data.opportunity_close_date, 'date'):
-                    close_date = datetime.combine(conversion_data.opportunity_close_date.date(), time.min)
-                else:
+                    # It's a date object
                     close_date = datetime.combine(conversion_data.opportunity_close_date, time.min)
+                elif isinstance(conversion_data.opportunity_close_date, str) and conversion_data.opportunity_close_date.strip():
+                    # Robust parsing for string dates (handles ISO and YYYY-MM-DD)
+                    try:
+                        # Try ISO format first (e.g. 2026-02-21T12:28:44.205Z)
+                        clean_date = conversion_data.opportunity_close_date.replace('Z', '+00:00')
+                        close_date = datetime.fromisoformat(clean_date)
+                    except (ValueError, TypeError):
+                        try:
+                            # Fallback to simple YYYY-MM-DD
+                            close_date = datetime.strptime(conversion_data.opportunity_close_date[:10], "%Y-%m-%d")
+                        except (ValueError, TypeError):
+                            logger.warning(f"Could not parse opportunity_close_date: {conversion_data.opportunity_close_date}")
+                            close_date = datetime.utcnow() + timedelta(days=30)
+                else:
+                    close_date = datetime.utcnow() + timedelta(days=30)
             else:
                 # Default close date to 30 days from now
                 close_date = datetime.utcnow() + timedelta(days=30)
@@ -565,30 +600,63 @@ class LeadService(ActivityMixin):
             # Handle travel date - use from conversion or inherit from lead
             travel_date = None
             if conversion_data.travel_date:
-                if isinstance(conversion_data.travel_date, str):
-                    travel_date = datetime.strptime(conversion_data.travel_date, "%Y-%m-%d")
+                if isinstance(conversion_data.travel_date, datetime):
+                    travel_date = conversion_data.travel_date
                 elif hasattr(conversion_data.travel_date, 'date'):
-                    travel_date = datetime.combine(conversion_data.travel_date.date(), time.min)
-                else:
                     travel_date = datetime.combine(conversion_data.travel_date, time.min)
-            elif lead.travel_date:
-                if isinstance(lead.travel_date, str):
+                elif isinstance(conversion_data.travel_date, str) and conversion_data.travel_date.strip():
                     try:
-                        travel_date = datetime.strptime(lead.travel_date, "%Y-%m-%d")
-                    except:
+                        clean_date = conversion_data.travel_date.replace('Z', '+00:00')
+                        travel_date = datetime.fromisoformat(clean_date)
+                    except (ValueError, TypeError):
+                        try:
+                            travel_date = datetime.strptime(conversion_data.travel_date[:10], "%Y-%m-%d")
+                        except (ValueError, TypeError):
+                            logger.warning(f"Could not parse conversion travel_date: {conversion_data.travel_date}")
+            
+            # Inheritance if travel_date still None
+            if not travel_date and lead.travel_date:
+                if isinstance(lead.travel_date, datetime):
+                    travel_date = lead.travel_date
+                elif hasattr(lead.travel_date, 'date'):
+                    travel_date = datetime.combine(lead.travel_date, time.min)
+                elif isinstance(lead.travel_date, str) and lead.travel_date.strip():
+                    try:
+                        # Lead travel_date might be simple YYYY-MM-DD
+                        travel_date = datetime.strptime(lead.travel_date[:10], "%Y-%m-%d")
+                    except (ValueError, TypeError):
                         pass
 
             # Dest IDs - use from conversion data, or fall back to lead's destinations
             dest_ids = []
             dest_names = []
             if conversion_data.destination_ids:
-                dest_ids = [ObjectId(d) for d in conversion_data.destination_ids]
+                for d in conversion_data.destination_ids:
+                    try:
+                        dest_ids.append(ObjectId(d))
+                    except Exception:
+                        pass # Skip invalid IDs
             elif lead.destination_ids:
-                dest_ids = lead.destination_ids
+                dest_ids = lead.destination_ids or []
+            
+            # Final safety check to ensure dest_ids is a list of ObjectIds
+            if dest_ids and isinstance(dest_ids, list):
+                clean_dest_ids = []
+                for d in dest_ids:
+                    if isinstance(d, ObjectId):
+                        clean_dest_ids.append(d)
+                    elif isinstance(d, str) and d.strip():
+                        try:
+                            clean_dest_ids.append(ObjectId(d))
+                        except:
+                            pass
+                dest_ids = clean_dest_ids
+            else:
+                dest_ids = []
 
             if dest_ids:
                 from app.models.destination import Destination
-                destinations_objs = await Destination.find(Destination.id.in_(dest_ids)).to_list()
+                destinations_objs = await Destination.find({"_id": {"$in": dest_ids}}).to_list()
                 dest_names = [d.name for d in destinations_objs]
 
             # Standardized Opportunity Name: [Destination]_[Pax]Pax_[TravelDate]
@@ -612,7 +680,7 @@ class LeadService(ActivityMixin):
                 no_of_nights=conversion_data.no_of_nights or lead.no_of_nights,
                 description=conversion_data.description,
                 destination_ids=dest_ids,
-                experience_id=ObjectId(conversion_data.experience_id) if conversion_data.experience_id and conversion_data.experience_id not in ("no-experiences", "") else None,
+                experience_id=None, # Set below with safe conversion
                 sales_stage_id=sales_stage_id,
                 account_id=account_id,
                 contact_id=contact_id,
@@ -623,35 +691,70 @@ class LeadService(ActivityMixin):
                 source_id=lead.source_id,
                 source_medium_id=lead.source_medium_id,
                 tenant_id=tenant_id,
-                owner_id=ObjectId(conversion_data.opportunity_owner_id) if conversion_data.opportunity_owner_id else user_id,
+                owner_id=user_id, # Default to current user
                 created_by=user_id
             )
-            await opportunity.insert()
-            opportunity_id = opportunity.id
+            
+            # Safe conversion for experience_id
+            if conversion_data.experience_id and conversion_data.experience_id not in ("no-experiences", ""):
+                try:
+                    opportunity.experience_id = ObjectId(conversion_data.experience_id)
+                except Exception:
+                    pass # Keep None if invalid
+            elif lead.experience_id:
+                opportunity.experience_id = lead.experience_id
+            
+            # Safe conversion for other optional IDs from conversion_data if they were added
+            # (Ensuring any string IDs are converted to ObjectIds for the model)
+            if isinstance(opportunity.tenant_id, str):
+                opportunity.tenant_id = ObjectId(opportunity.tenant_id)
+            if isinstance(opportunity.owner_id, str):
+                opportunity.owner_id = ObjectId(opportunity.owner_id)
+            if isinstance(opportunity.created_by, str):
+                opportunity.created_by = ObjectId(opportunity.created_by)
+            
+            # Use specified owner if valid
+            if conversion_data.opportunity_owner_id:
+                try:
+                    opportunity.owner_id = ObjectId(conversion_data.opportunity_owner_id)
+                except Exception:
+                    pass # Keep default if invalid
+            try:
+                await opportunity.insert()
+                opportunity_id = opportunity.id
+            except Exception as e:
+                logger.error(f"Error inserting opportunity during conversion: {str(e)}")
+                raise ValueError(f"Failed to create opportunity: {str(e)}")
             
             # Log Opportunity creation
-            await self.log_entity_created(
-                entity=opportunity,
-                entity_type="opportunity",
-                additional_data={"converted_from_lead_id": str(lead.id)}
-            )
+            try:
+                await self.log_entity_created(
+                    entity=opportunity,
+                    entity_type="opportunity",
+                    additional_data={"converted_from_lead_id": str(lead.id)}
+                )
+            except Exception as e:
+                logger.warning(f"Optional logging failed for opportunity creation: {str(e)}")
 
             # 4. Create Automated "Initial Follow-up" Task
-            from app.models.task import Task
-            task = Task(
-                name=f"Initial Follow-up: {opportunity_name}",
-                due_date=datetime.utcnow() + timedelta(days=1),
-                status="Not Started",
-                priority="High",
-                taskable_type="Opportunity",
-                taskable_id=opportunity_id,
-                owner_id=opportunity.owner_id,
-                assigned_user_id=opportunity.owner_id,
-                tenant_id=tenant_id,
-                created_by=user_id,
-                description=f"Automated follow-up for converted lead: {lead.first_name} {lead.last_name}"
-            )
-            await task.insert()
+            try:
+                from app.models.task import Task
+                task = Task(
+                    name=f"Initial Follow-up: {opportunity_name}",
+                    due_date=datetime.utcnow() + timedelta(days=1),
+                    status="Not Started",
+                    priority="High",
+                    taskable_type="Opportunity",
+                    taskable_id=opportunity_id,
+                    owner_id=opportunity.owner_id,
+                    assigned_user_id=opportunity.owner_id,
+                    tenant_id=tenant_id,
+                    created_by=user_id,
+                    description=f"Automated follow-up for converted lead: {lead.first_name} {lead.last_name}"
+                )
+                await task.insert()
+            except Exception as e:
+                logger.warning(f"Optional task creation failed during conversion: {str(e)}")
         
         # 4. Finalize Lead Conversion
         await lead.convert_to_opportunity(opportunity_id)
@@ -665,16 +768,19 @@ class LeadService(ActivityMixin):
             "contact_id": str(contact_id) if contact_id else None,
             "opportunity_id": str(opportunity_id) if opportunity_id else None
         }
-        await self.activity_service.log_activity(
-            user_id=user_id,
-            user_name=lead.full_name or "Unknown",  # Or fetch from current_user if available
-            tenant_id=tenant_id,
-            action="converted",
-            entity_type="lead",
-            entity_id=lead.id,
-            description=f"Lead converted to {', '.join([k.split('_')[0] for k, v in conversion_summary.items() if v])}",
-            changes=conversion_summary
-        )
+        try:
+            await self.activity_service.log_activity(
+                user_id=user_id,
+                user_name=lead.full_name or "Unknown",  # Or fetch from current_user if available
+                tenant_id=tenant_id,
+                action="converted",
+                entity_type="lead",
+                entity_id=lead.id,
+                description=f"Lead converted to {', '.join([k.split('_')[0] for k, v in conversion_summary.items() if v])}",
+                changes=conversion_summary
+            )
+        except Exception as e:
+            logger.warning(f"Optional activity logging failed for lead conversion: {str(e)}")
         
         return {
             "lead_id": str(lead.id),
@@ -878,7 +984,7 @@ class LeadService(ActivityMixin):
             lead_ids = [rv.lead_id for rv in recent_views]
             if lead_ids:
                 leads_query = Lead.find(
-                    Lead.id.in_(lead_ids),
+                    {"_id": {"$in": lead_ids}},
                     Lead.tenant_id == tenant_id,
                     Lead.deleted_at == None,  # noqa: E711
                 )
@@ -969,7 +1075,7 @@ class LeadService(ActivityMixin):
         
         # Verify leads belong to tenant
         leads = await Lead.find(
-            Lead.id.in_(ids),
+            {"_id": {"$in": ids}},
             Lead.tenant_id == tenant_id,
             Lead.deleted_at == None
         ).to_list()
@@ -998,7 +1104,7 @@ class LeadService(ActivityMixin):
         
         # Verify leads belong to tenant
         leads = await Lead.find(
-            Lead.id.in_(ids),
+            {"_id": {"$in": ids}},
             Lead.tenant_id == tenant_id,
             Lead.deleted_at == None
         ).to_list()
