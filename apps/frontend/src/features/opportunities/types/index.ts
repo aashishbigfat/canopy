@@ -41,6 +41,7 @@ export interface Opportunity {
     segment?: string;
     creation_type?: string;
     type?: string;
+    sales_stage_name?: string;
     tenant_id: string;
     created_by: string;
     view_count: number;

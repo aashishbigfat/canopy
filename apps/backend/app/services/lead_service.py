@@ -14,6 +14,8 @@ from app.models.user import User
 from app.models.lead_picklists import LeadStatus, Source
 from app.models.picklists import Industry, Rating
 from app.models.lead_custom_fields import UserLeadView
+from app.core.cache import invalidate_tenant_cache
+from app.repositories.lead_repository import LeadRepository
 
 
 class LeadService(ActivityMixin):
@@ -23,6 +25,7 @@ class LeadService(ActivityMixin):
         super().__init__()
         self.activity_service = ActivityLogService()
         self.notification_service = NotificationService()
+        self.repository = LeadRepository()
     
     async def _check_duplicate_lead(
         self, 
@@ -34,21 +37,10 @@ class LeadService(ActivityMixin):
         if not email and not mobile:
             return None
             
-        from beanie.operators import Or
-        
-        query_parts = []
-        if email:
-            query_parts.append(Lead.email == email)
-        if mobile:
-            query_parts.append(Lead.mobile == mobile)
-            
-        if not query_parts:
-            return None
-            
-        return await Lead.find_one(
-            Lead.tenant_id == tenant_id,
-            Or(*query_parts),
-            Lead.deleted_at == None
+        return await self.repository.get_by_email_or_mobile(
+            tenant_id=tenant_id,
+            email=email,
+            mobile=mobile
         )
 
     async def _auto_assign_lead(self, tenant_id: ObjectId) -> Optional[ObjectId]:
@@ -159,15 +151,13 @@ class LeadService(ActivityMixin):
             action_url=f"/leads/{lead.id}"
         )
         
+        # Invalidate dashboard cache
+        await invalidate_tenant_cache(str(tenant_id))
+        
         return lead
-    
     async def get_lead(self, lead_id: str, tenant_id: ObjectId) -> Optional[Lead]:
         """Get lead by ID"""
-        lead = await Lead.get(ObjectId(lead_id))
-        
-        if lead and lead.tenant_id == tenant_id and not lead.deleted_at:
-            return lead
-        return None
+        return await self.repository.get_by_id(id=lead_id, tenant_id=tenant_id)
     
     async def update_lead(
         self,
@@ -221,6 +211,9 @@ class LeadService(ActivityMixin):
                 action_url=f"/leads/{lead.id}"
             )
         
+        # Invalidate dashboard cache
+        await invalidate_tenant_cache(str(tenant_id))
+        
         return lead
     
     async def delete_lead(
@@ -254,6 +247,9 @@ class LeadService(ActivityMixin):
             additional_data={"deleted_lead_info": lead_info}
         )
         
+        # Invalidate dashboard cache
+        await invalidate_tenant_cache(str(tenant_id))
+        
         return True
     
     async def get_leads_by_tenant(
@@ -265,29 +261,13 @@ class LeadService(ActivityMixin):
         is_converted: Optional[bool] = None
     ) -> Tuple[List[Lead], int]:
         """Get leads for a tenant with pagination"""
-        
-        query = {
-            "tenant_id": tenant_id,
-            "deleted_at": None
-        }
-        
-        if owner_id:
-            query["owner_id"] = owner_id
-        
-        if is_converted is not None:
-            query["is_converted"] = is_converted
-        
-        # Get total count
-        total = await Lead.find(query).count()
-        
-        # Get paginated results
-        leads = await Lead.find(query)\
-            .sort("-created_at")\
-            .skip(skip)\
-            .limit(limit)\
-            .to_list()
-        
-        return leads, total
+        return await self.repository.get_filtered_leads(
+            tenant_id=tenant_id,
+            skip=skip,
+            limit=limit,
+            owner_id=owner_id,
+            is_converted=is_converted
+        )
     
     async def search_leads(
         self,
@@ -298,37 +278,59 @@ class LeadService(ActivityMixin):
         limit: int = 10
     ) -> Tuple[List[Lead], int]:
         """Search leads"""
+        return await self.repository.search(
+            tenant_id=tenant_id,
+            query_text=query,
+            lead_status_id=lead_status_id,
+            skip=skip,
+            limit=limit
+        )
         
-        search_query = {
-            "tenant_id": tenant_id,
-            "deleted_at": None
-        }
+    async def _find_duplicate_account(
+        self,
+        account_name: str,
+        email: Optional[str],
+        phone: Optional[str],
+        is_person_account: bool,
+        tenant_id: ObjectId
+    ) -> Optional[ObjectId]:
+        """Find an existing account by name, email, or phone to prevent duplicates during conversion"""
+        from app.models.account import Account
         
-        # Text search
-        if query:
-            search_query["$or"] = [
-                {"first_name": {"$regex": query, "$options": "i"}},
-                {"last_name": {"$regex": query, "$options": "i"}},
-                {"email": {"$regex": query, "$options": "i"}},
-                {"company": {"$regex": query, "$options": "i"}},
-                {"phone": {"$regex": query, "$options": "i"}}
-            ]
-        
-        # Filter by status
-        if lead_status_id:
-            search_query["lead_status_id"] = ObjectId(lead_status_id)
-        
-        # Get total count
-        total = await Lead.find(search_query).count()
-        
-        # Get results
-        leads = await Lead.find(search_query)\
-            .sort("-created_at")\
-            .skip(skip)\
-            .limit(limit)\
-            .to_list()
-        
-        return leads, total
+        # 1. Check exact name match first
+        if account_name:
+            account = await Account.find_one(
+                Account.tenant_id == tenant_id,
+                Account.name == account_name,
+                Account.is_person_account == is_person_account,
+                Account.deleted_at == None
+            )
+            if account:
+                return account.id
+                
+        # 2. Check email if provided
+        if email:
+            account = await Account.find_one(
+                Account.tenant_id == tenant_id,
+                Account.email == email,
+                Account.is_person_account == is_person_account,
+                Account.deleted_at == None
+            )
+            if account:
+                return account.id
+                
+        # 3. Check phone as last resort
+        if phone:
+            account = await Account.find_one(
+                Account.tenant_id == tenant_id,
+                Account.phone == phone,
+                Account.is_person_account == is_person_account,
+                Account.deleted_at == None
+            )
+            if account:
+                return account.id
+                
+        return None
     
     async def convert_lead(
         self,
@@ -390,6 +392,7 @@ class LeadService(ActivityMixin):
                 account = Account(
                     name=account_name,
                     phone=lead.phone,
+                    mobile=lead.mobile if is_person_account else None,
                     email=lead.email,
                     website=lead.website,
                     billing_street=lead.street,
@@ -400,6 +403,9 @@ class LeadService(ActivityMixin):
                     industry_id=lead.industry_id,
                     account_source_id=lead.source_id,
                     is_person_account=is_person_account,
+                    salutation=lead.salutation if is_person_account else None,
+                    first_name=lead.first_name if is_person_account else None,
+                    last_name=lead.last_name if is_person_account else None,
                     tenant_id=tenant_id,
                     owner_id=user_id,
                     created_by=user_id
@@ -526,19 +532,32 @@ class LeadService(ActivityMixin):
         if conversion_data.create_opportunity:
             # Get default sales stage
             sales_stage_id = None
+            stage_probability = 0  # Track probability from the resolved stage
             # Ignore invalid placeholder values from frontend
             raw_stage_id = conversion_data.sales_stage_id
             invalid_stage_values = ("no-sales-stages", "", None, "undefined", "null")
             if raw_stage_id and str(raw_stage_id).lower() not in invalid_stage_values:
                 try:
                     sales_stage_id = ObjectId(raw_stage_id)
-                    # Verify stage exists
+                    # Verify stage exists and grab its probability
                     stage_exists = await SalesStage.get(sales_stage_id)
                     if not stage_exists:
                         sales_stage_id = None  # Fall through to default lookup
+                    else:
+                        stage_probability = stage_exists.probability or 0
                 except Exception:
                     sales_stage_id = None  # Fall through to default lookup
             
+            if not sales_stage_id:
+                # Try to find 'Receive' stage first
+                receive_stage = await SalesStage.find_one(
+                    SalesStage.name == "Receive",
+                    SalesStage.is_active == True
+                )
+                if receive_stage:
+                    sales_stage_id = receive_stage.id
+                    stage_probability = receive_stage.probability or 0
+
             if not sales_stage_id:
                 # Try tenant-specific default stage first, then global
                 default_stage = await SalesStage.find_one(
@@ -552,15 +571,18 @@ class LeadService(ActivityMixin):
                     )
                     if first_stage:
                         sales_stage_id = first_stage.id
+                        stage_probability = first_stage.probability or 0
                     # If no stages at all, still proceed (stage is optional)
                 else:
                     sales_stage_id = default_stage.id
+                    stage_probability = default_stage.probability or 0
 
             # FINAL FALLBACK: If still no sales stage found, try to get ANY active stage
             if not sales_stage_id:
                 any_stage = await SalesStage.find_one(SalesStage.is_active == True)
                 if any_stage:
                     sales_stage_id = any_stage.id
+                    stage_probability = any_stage.probability or 0
                 else:
                     # If absolutely no stages exist in the system, we must raise a helpful error
                     # but the model requires it, so a descriptive ValueError is better than a 500 crash.
@@ -682,6 +704,7 @@ class LeadService(ActivityMixin):
                 destination_ids=dest_ids,
                 experience_id=None, # Set below with safe conversion
                 sales_stage_id=sales_stage_id,
+                probability=stage_probability,  # Auto-set from stage
                 account_id=account_id,
                 contact_id=contact_id,
                 # Add polymorphic relationship fields
@@ -781,6 +804,9 @@ class LeadService(ActivityMixin):
             )
         except Exception as e:
             logger.warning(f"Optional activity logging failed for lead conversion: {str(e)}")
+        
+        # Invalidate dashboard cache
+        await invalidate_tenant_cache(str(tenant_id))
         
         return {
             "lead_id": str(lead.id),

@@ -5,9 +5,13 @@ export interface Account {
     name: string;
     email?: string;
     phone?: string;
+    mobile?: string;
     website?: string;
     description?: string;
     is_person_account: boolean;
+    salutation?: string;
+    first_name?: string;
+    last_name?: string;
 
     // Addresses
     billing_street?: string;
@@ -35,6 +39,7 @@ export interface Account {
     industry_name?: string;
     parent_account_name?: string;
     rating_name?: string;
+    owner_name?: string;
 
     // Metadata
     view_count: number;
@@ -48,8 +53,12 @@ export interface AccountCreateData {
     name: string;
     email?: string;
     phone?: string;
+    mobile?: string;
     website?: string;
     description?: string;
+    salutation?: string;
+    first_name?: string;
+    last_name?: string;
     billing_street?: string;
     billing_city?: string;
     billing_state?: string;

@@ -98,17 +98,23 @@ class Contact(BaseDocument):
         return None
     
     async def get_accounts(self):
-        # """Get all associated accounts (many-to-many)"""
+        """Get all associated accounts (many-to-many)"""
         from app.models.account import Account
         from app.models.account_contact import AccountContact
         
         pivots = await AccountContact.find(
-            AccountContact.contact_id == self.id
+            AccountContact.contact_id == self.id,
+            AccountContact.tenant_id == self.tenant_id
         ).to_list()
         
+        if not pivots:
+            return []
+            
         account_ids = [p.account_id for p in pivots]
         return await Account.find(
-            {"_id": {"$in": account_ids}}
+            {"_id": {"$in": account_ids}},
+            Account.tenant_id == self.tenant_id,
+            Account.deleted_at == None
         ).to_list()
     
     async def get_opportunities(self):

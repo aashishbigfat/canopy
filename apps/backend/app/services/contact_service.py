@@ -124,14 +124,17 @@ class ContactService(ActivityMixin):
                 Opportunity.deleted_at == None
             ).to_list()
             
+            # --- N+1 OPTIMIZATION: Bulk fetch SalesStages ---
+            from app.models.opportunity_picklists import SalesStage
+            stage_ids = list({opp.sales_stage_id for opp in opportunities if opp.sales_stage_id})
+            stages_map = {}
+            if stage_ids:
+                stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
+                stages_map = {str(stage.id): stage.name for stage in stages}
+            # ------------------------------------------------
+            
             for opp in opportunities:
-                # Get stage name
-                stage_name = None
-                if opp.sales_stage_id:
-                    from app.models.opportunity_picklists import SalesStage
-                    stage = await SalesStage.get(opp.sales_stage_id)
-                    if stage:
-                        stage_name = stage.name
+                stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
                 
                 related_opportunities.append({
                     "id": str(opp.id),
@@ -159,12 +162,16 @@ class ContactService(ActivityMixin):
                 Task.deleted_at == None
             ).to_list()
             
+            # --- N+1 OPTIMIZATION: Bulk fetch assigned Users ---
+            user_ids = list({task.assigned_user_id for task in tasks if task.assigned_user_id})
+            users_map = {}
+            if user_ids:
+                users = await User.find({"_id": {"$in": user_ids}}).to_list()
+                users_map = {str(u.id): u.name for u in users}
+            # ---------------------------------------------------
+            
             for task in tasks:
-                assigned_user_name = None
-                if task.assigned_user_id:
-                    assigned_user = await User.get(task.assigned_user_id)
-                    if assigned_user:
-                        assigned_user_name = assigned_user.name
+                assigned_user_name = users_map.get(str(task.assigned_user_id)) if task.assigned_user_id else None
                 
                 related_tasks.append({
                     "id": str(task.id),
@@ -390,11 +397,12 @@ class ContactService(ActivityMixin):
         tenant_id: ObjectId
     ):
         """Link contact to an account"""
-        # Check if already linked - using direct dict query to avoid field access issues
-        existing = await AccountContact.find_one({
-            "contact_id": ObjectId(contact_id),
-            "account_id": ObjectId(account_id)
-        })
+        # Check if already linked using ODM syntax
+        existing = await AccountContact.find_one(
+            AccountContact.contact_id == ObjectId(contact_id),
+            AccountContact.account_id == ObjectId(account_id),
+            AccountContact.tenant_id == tenant_id
+        )
         
         if not existing:
             pivot = AccountContact(
@@ -427,11 +435,12 @@ class ContactService(ActivityMixin):
         """Track that a user viewed a contact"""
         from app.models.user_contact_view import UserContactView
         
-        # Check if view exists - using direct dict query to avoid field access issues
-        view = await UserContactView.find_one({
-            "user_id": user_id,
-            "contact_id": contact_id
-        })
+        # Check if view exists using ODM syntax
+        view = await UserContactView.find_one(
+            UserContactView.user_id == user_id,
+            UserContactView.contact_id == contact_id,
+            UserContactView.tenant_id == tenant_id
+        )
         
         if view:
             view.view_count += 1

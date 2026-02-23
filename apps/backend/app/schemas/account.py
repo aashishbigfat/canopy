@@ -10,9 +10,15 @@ class AccountBase(BaseModel):
     name: str
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
     website: Optional[str] = None
     description: Optional[str] = None
     is_person_account: bool = False
+    
+    # Person Account specific fields
+    salutation: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     
     # Billing Address
     billing_street: Optional[str] = None
@@ -75,6 +81,7 @@ class AccountResponse(AccountBase):
     id: str
     tenant_id: str
     owner_id: str
+    owner_name: Optional[str] = None
     created_by: str
     last_modified_by_id: Optional[str] = None
     

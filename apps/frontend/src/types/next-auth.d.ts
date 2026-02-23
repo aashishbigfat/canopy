@@ -10,6 +10,7 @@ declare module "next-auth" {
             email?: string | null;
             image?: string | null;
             role?: string;
+            tenantId?: string;
         };
     }
 
@@ -30,5 +31,6 @@ declare module "next-auth/jwt" {
         refreshToken?: string;
         id?: string;
         role?: string;
+        tenantId?: string;
     }
 }

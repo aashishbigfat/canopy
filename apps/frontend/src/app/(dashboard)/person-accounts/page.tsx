@@ -1,4 +1,4 @@
-import { AccountTable } from "@/features/accounts/components/AccountTable";
+import { PersonAccountTable } from "@/features/accounts/components/PersonAccountTable";
 import { accountService } from "../../../features/accounts/services/accountService";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
@@ -51,7 +51,7 @@ export default async function PersonAccountsPage() {
                 </Button>
             </div>
 
-            <AccountTable data={accounts.accounts} />
+            <PersonAccountTable data={accounts.accounts} />
         </div>
     );
 }

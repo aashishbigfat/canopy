@@ -27,22 +27,36 @@ import {
 import { accountService } from "@/features/accounts/services/accountService";
 
 const accountFormSchema = z.object({
-    name: z.string().min(2, {
-        message: "Name must be at least 2 characters.",
-    }),
+    name: z.string().optional(),
+    first_name: z.string().optional(),
+    last_name: z.string().optional(),
     industry: z.string().optional(),
     website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal("")),
-    phone: z.string().optional(),
+    phone: z.string()
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid phone number.",
+        }).optional().or(z.literal("")),
+    mobile: z.string()
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid mobile number.",
+        }).optional().or(z.literal("")),
     status: z.enum(["active", "inactive"]),
-});
+}).refine(data => {
+    // If B2B, name is required
+    // If B2C, at least first_name or last_name is expected but handled below
+    return true;
+}, {});
 
 type AccountFormValues = z.infer<typeof accountFormSchema>;
 
 const defaultValues: AccountFormValues = {
     name: "",
+    first_name: "",
+    last_name: "",
     industry: "",
     website: "",
     phone: "",
+    mobile: "",
     status: "active",
 };
 
@@ -64,15 +78,26 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
     async function onSubmit(data: AccountFormValues) {
         setIsLoading(true);
         try {
+            // For person accounts, combine first and last name if name is empty
+            let finalName = data.name || "";
+            if (isPersonAccount && !finalName) {
+                finalName = `${data.first_name || ""} ${data.last_name || ""}`.trim() || "Unknown Person";
+            }
+            if (!isPersonAccount && !finalName) {
+                finalName = "Unnamed Account";
+            }
+
+            const payload = {
+                ...data,
+                name: finalName,
+                is_person_account: isPersonAccount,
+            };
+
             if (id) {
-                await accountService.updateAccount(id, {
-                    ...data,
-                    is_person_account: isPersonAccount,
-                });
+                await accountService.updateAccount(id, payload);
             } else {
                 await accountService.createAccount({
-                    ...data,
-                    is_person_account: isPersonAccount,
+                    ...payload,
                     acc_type_id: isPersonAccount ? "B2C" : "B2B",
                 });
             }
@@ -91,19 +116,50 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                 <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Account Name</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Acme Corp" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {!isPersonAccount ? (
+                        <FormField
+                            control={form.control}
+                            name="name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Account Name</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Acme Corp" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    ) : (
+                        <>
+                            <FormField
+                                control={form.control}
+                                name="first_name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>First Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="First Name" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                                control={form.control}
+                                name="last_name"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Last Name</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Last Name" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </>
+                    )}
                     {!isPersonAccount && (
                         <FormField
                             control={form.control}
@@ -145,6 +201,21 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                             </FormItem>
                         )}
                     />
+                    {isPersonAccount && (
+                        <FormField
+                            control={form.control}
+                            name="mobile"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Mobile</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="+1 555-000-0000" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                     <FormField
                         control={form.control}
                         name="status"

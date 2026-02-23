@@ -164,7 +164,7 @@ export function ConvertLeadDialog({
             description: "",
             destination_ids: lead.destination_ids || [],
             opportunity_close_date: new Date(),
-            sales_stage_id: sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
+            sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'receive')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
             experience_id: lead.experience_id || undefined,
         },
     });
@@ -212,7 +212,8 @@ export function ConvertLeadDialog({
                     if (Array.isArray(res.data) && res.data.length > 0) {
                         setLocalSalesStages(res.data);
                         // Update form default stage to the fetched default
-                        const defaultStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.is_default) || res.data[0];
+                        const receiveStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.name.toLowerCase() === 'receive');
+                        const defaultStage = receiveStage || res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.is_default) || res.data[0];
                         if (defaultStage) {
                             form.setValue("sales_stage_id", defaultStage.id);
                         }
@@ -532,122 +533,125 @@ export function ConvertLeadDialog({
                                     </CardContent>
                                 </Card>
 
-                                {/* 2. Contact Section */}
-                                <Card className="border-indigo-100 bg-indigo-50/30">
-                                    <CardContent className="pt-6 space-y-4">
-                                        <div className="flex items-center gap-2 font-semibold text-indigo-800 border-b border-indigo-100 pb-2">
-                                            <UserCircle2 className="h-5 w-5" />
-                                            <h3>Contact Details</h3>
-                                        </div>
-
-                                        {contactMode === "new" ? (
-                                            <div className="space-y-4">
-                                                <FormField
-                                                    control={form.control}
-                                                    name="contact_salutation"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Salutation</FormLabel>
-                                                            <FormControl>
-                                                                <Input {...field} placeholder="Mr." className="bg-white" />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name="contact_first_name"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>First Name</FormLabel>
-                                                            <FormControl>
-                                                                <Input {...field} placeholder="First Name" className="bg-white" />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name="contact_last_name"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Last Name</FormLabel>
-                                                            <FormControl>
-                                                                <Input {...field} placeholder="Last Name" className="bg-white" />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
+                                {/* 2. Contact Section — hidden for Person Accounts */}
+                                {form.watch("account_type") !== "Person Account" && (
+                                    <Card className="border-indigo-100 bg-indigo-50/30">
+                                        <CardContent className="pt-6 space-y-4">
+                                            <div className="flex items-center gap-2 font-semibold text-indigo-800 border-b border-indigo-100 pb-2">
+                                                <UserCircle2 className="h-5 w-5" />
+                                                <h3>Contact Details</h3>
                                             </div>
-                                        ) : (
-                                            <FormField
-                                                control={form.control}
-                                                name="contact_id"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Select Existing Contact</FormLabel>
-                                                        <Select onValueChange={(value) => {
-                                                            field.onChange(value);
-                                                            setSelectedContactId(value);
-                                                        }} value={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger className="bg-white">
-                                                                    <SelectValue placeholder="Select a contact..." />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {suggestions?.contacts?.map((con) => (
-                                                                    <SelectItem key={con.id} value={con.id || ''}>
-                                                                        {con.name} {con.email && `(${con.email})`} - {con.match_type}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        )}
 
-                                        {/* Contact selection mode toggle */}
-                                        <div className="flex gap-4">
-                                            <Button
-                                                type="button"
-                                                variant={contactMode === "new" ? "default" : "outline"}
-                                                size="sm"
-                                                onClick={() => {
-                                                    setContactMode("new");
-                                                    form.setValue("contact_id", "");
-                                                    form.setValue("contact_create", true);
-                                                }}
-                                                className="flex-1"
-                                            >
-                                                Create New Contact
-                                            </Button>
-                                            <Button
-                                                type="button"
-                                                variant={contactMode === "existing" ? "default" : "outline"}
-                                                size="sm"
-                                                onClick={() => {
-                                                    setContactMode("existing");
-                                                    form.setValue("contact_create", false);
-                                                    if (suggestions?.contacts && suggestions.contacts.length > 0) {
-                                                        form.setValue("contact_id", suggestions.contacts[0].id);
-                                                        setSelectedContactId(suggestions.contacts[0].id);
-                                                    }
-                                                }}
-                                                disabled={!suggestions?.contacts || suggestions.contacts.length === 0}
-                                                className="flex-1"
-                                            >
-                                                Use Existing {suggestions?.contacts && suggestions.contacts.length > 0 ? `(${suggestions.contacts.length})` : "(No matches)"}
-                                            </Button>
-                                        </div>
-                                    </CardContent>
-                                </Card>
+                                            {contactMode === "new" ? (
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="contact_salutation"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Salutation</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="Mr." className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="contact_first_name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>First Name</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="First Name" className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="contact_last_name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Last Name</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <FormField
+                                                    control={form.control}
+                                                    name="contact_id"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Select Existing Contact</FormLabel>
+                                                            <Select onValueChange={(value) => {
+                                                                field.onChange(value);
+                                                                setSelectedContactId(value);
+                                                            }} value={field.value}>
+                                                                <FormControl>
+                                                                    <SelectTrigger className="bg-white">
+                                                                        <SelectValue placeholder="Select a contact..." />
+                                                                    </SelectTrigger>
+                                                                </FormControl>
+                                                                <SelectContent>
+                                                                    {suggestions?.contacts?.map((con) => (
+                                                                        <SelectItem key={con.id} value={con.id || ''}>
+                                                                            {con.name} {con.email && `(${con.email})`} - {con.match_type}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
+
+                                            {/* Contact selection mode toggle */}
+                                            <div className="flex gap-4">
+                                                <Button
+                                                    type="button"
+                                                    variant={contactMode === "new" ? "default" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setContactMode("new");
+                                                        form.setValue("contact_id", "");
+                                                        form.setValue("contact_create", true);
+                                                    }}
+                                                    className="flex-1"
+                                                >
+                                                    Create New Contact
+                                                </Button>
+                                                <Button
+                                                    type="button"
+                                                    variant={contactMode === "existing" ? "default" : "outline"}
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setContactMode("existing");
+                                                        form.setValue("contact_create", false);
+                                                        if (suggestions?.contacts && suggestions.contacts.length > 0) {
+                                                            form.setValue("contact_id", suggestions.contacts[0].id);
+                                                            setSelectedContactId(suggestions.contacts[0].id);
+                                                        }
+                                                    }}
+                                                    disabled={!suggestions?.contacts || suggestions.contacts.length === 0}
+                                                    className="flex-1"
+                                                >
+                                                    Use Existing {suggestions?.contacts && suggestions.contacts.length > 0 ? `(${suggestions.contacts.length})` : "(No matches)"}
+                                                </Button>
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </div>
+
 
                             {/* Right Column: Opportunity */}
                             <div className="space-y-8">

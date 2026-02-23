@@ -23,6 +23,10 @@ import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { accountService } from "../services/accountService";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 interface AccountDetailViewProps {
     account: Account & {
@@ -41,6 +45,20 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
     const isB2C = isPersonAccountEmail(account.email);
     const headerType = isB2C ? "Person Account" : "Account";
     const badgeLabel = isB2C ? "B2C" : "B2B";
+    const queryClient = useQueryClient();
+    const router = useRouter();
+
+    const changeOwnerMutation = useMutation({
+        mutationFn: (newOwnerId: string) => accountService.changeOwner(account.id, newOwnerId),
+        onSuccess: () => {
+            toast.success("Owner changed successfully");
+            queryClient.invalidateQueries({ queryKey: ["accounts"] });
+            router.refresh();
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || "Failed to change owner");
+        }
+    });
 
     return (
         <div className="container mx-auto px-4 py-6 max-w-7xl">
@@ -55,6 +73,8 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                 ownerName={account.owner_name}
                 onEdit={() => console.log("Edit account")}
                 onDelete={() => console.log("Delete account")}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                isChangingOwner={changeOwnerMutation.isPending}
             />
 
             <div className="flex flex-col lg:flex-row gap-6">
@@ -101,20 +121,22 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             {account.related_contacts?.map((contact) => (
-                                                <Card key={contact.id} className="hover:border-blue-300 transition-all shadow-sm">
-                                                    <CardContent className="p-4 flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                                                                <UserIcon className="h-4 w-4" />
+                                                <Link href={`/contacts/${contact.id}`} key={contact.id} className="block">
+                                                    <Card className="hover:border-blue-300 transition-all shadow-sm h-full">
+                                                        <CardContent className="p-4 flex items-center justify-between">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                                                                    <UserIcon className="h-4 w-4" />
+                                                                </div>
+                                                                <div>
+                                                                    <p className="text-sm font-bold text-blue-600">{contact.first_name} {contact.last_name}</p>
+                                                                    <p className="text-xs text-slate-500">{contact.title || "No Title"}</p>
+                                                                </div>
                                                             </div>
-                                                            <div>
-                                                                <p className="text-sm font-bold text-blue-600">{contact.first_name} {contact.last_name}</p>
-                                                                <p className="text-xs text-slate-500">{contact.title || "No Title"}</p>
-                                                            </div>
-                                                        </div>
-                                                        <ArrowUpRight className="h-4 w-4 text-slate-300" />
-                                                    </CardContent>
-                                                </Card>
+                                                            <ArrowUpRight className="h-4 w-4 text-slate-300" />
+                                                        </CardContent>
+                                                    </Card>
+                                                </Link>
                                             ))}
                                         </div>
                                     </div>

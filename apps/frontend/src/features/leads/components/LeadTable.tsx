@@ -184,7 +184,14 @@ export const getColumns = (
             id: "source_medium",
             header: "Source Medium",
             cell: ({ row }) => {
-                const sourceMedium = row.original.source_medium || "-";
+                const sourceId = row.original.source_id;
+                let sourceMedium = "-";
+                if (sourceId) {
+                    const matchedSource = sources.find(s => s.id === sourceId);
+                    sourceMedium = matchedSource ? matchedSource.name : sourceId;
+                } else if (row.original.creation_type) {
+                    sourceMedium = row.original.creation_type;
+                }
                 return <div className="capitalize text-sm text-gray-700">{sourceMedium}</div>;
             },
         },

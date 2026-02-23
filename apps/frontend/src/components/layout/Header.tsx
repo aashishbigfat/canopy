@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { User, LogOut, Settings, Bell, Search } from "lucide-react";
 import { signOut, useSession } from "next-auth/react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useDebounce } from "@/hooks/useDebounce";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -20,15 +23,43 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
 export function Header() {
     const { data: session } = useSession();
+    const router = useRouter();
+    const searchParams = useSearchParams();
+
+    // Initialize with URL search params if present
+    const initialSearch = searchParams.get("search") || "";
+    const [searchTerm, setSearchTerm] = useState(initialSearch);
+
+    // Use the new generic debounce hook
+    const debouncedSearchTerm = useDebounce(searchTerm, 500);
+
+    // Trigger navigation when the debounced term changes
+    useEffect(() => {
+        // Prevent pushing immediately on mount if it matches the URL
+        if (debouncedSearchTerm === initialSearch && !debouncedSearchTerm) return;
+
+        const params = new URLSearchParams(searchParams.toString());
+        if (debouncedSearchTerm) {
+            params.set("search", debouncedSearchTerm);
+        } else {
+            params.delete("search");
+        }
+
+        // Push to current path to preserve view/filters if we are on a list page
+        const newUrl = `?${params.toString()}`;
+        router.push(newUrl);
+    }, [debouncedSearchTerm, router, searchParams]);
 
     return (
         <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background px-6 shadow-sm">
             <div className="w-full flex-1">
-                <form className="hidden md:block">
+                <form className="hidden md:block" onSubmit={(e) => e.preventDefault()}>
                     <div className="relative">
                         <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
                         <Input
                             type="search"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
                             placeholder="Search customers, quotes, invoices..."
                             className="w-full bg-background pl-8 md:w-[300px] lg:w-[400px]"
                         />

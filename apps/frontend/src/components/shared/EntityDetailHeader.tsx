@@ -20,6 +20,8 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
+import { useState } from "react";
 
 interface EntityDetailHeaderProps {
     type: "Contact" | "Account" | "Person Account";
@@ -32,6 +34,8 @@ interface EntityDetailHeaderProps {
     ownerName?: string;
     onEdit?: () => void;
     onDelete?: () => void;
+    onChangeOwner?: (newOwnerId: string) => void;
+    isChangingOwner?: boolean;
 }
 
 export function EntityDetailHeader({
@@ -44,8 +48,12 @@ export function EntityDetailHeader({
     email,
     ownerName,
     onEdit,
-    onDelete
+    onDelete,
+    onChangeOwner,
+    isChangingOwner
 }: EntityDetailHeaderProps) {
+    const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
+
     const handleCopy = (text: string) => {
         navigator.clipboard.writeText(text);
     };
@@ -100,7 +108,11 @@ export function EntityDetailHeader({
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem>Clone</DropdownMenuItem>
-                                <DropdownMenuItem>Change Owner</DropdownMenuItem>
+                                {onChangeOwner && (
+                                    <DropdownMenuItem onClick={() => setIsOwnerModalOpen(true)}>
+                                        Change Owner
+                                    </DropdownMenuItem>
+                                )}
                             </DropdownMenuContent>
                         </DropdownMenu>
                     </div>
@@ -144,6 +156,19 @@ export function EntityDetailHeader({
                     </div>
                 </div>
             </div>
+
+            {onChangeOwner && (
+                <ChangeOwnerDialog
+                    isOpen={isOwnerModalOpen}
+                    onClose={() => setIsOwnerModalOpen(false)}
+                    onConfirm={(newOwnerId) => {
+                        onChangeOwner(newOwnerId);
+                        setIsOwnerModalOpen(false);
+                    }}
+                    type={type}
+                    isLoading={isChangingOwner}
+                />
+            )}
         </div>
     );
 }

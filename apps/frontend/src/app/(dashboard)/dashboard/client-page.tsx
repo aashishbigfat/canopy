@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import {
     dashboardService,
     getLeaderBoardKPIs,
     getSalesChartData,
-    getUserActivities,
     type DashboardData,
 } from "@/features/dashboard/services/dashboardService";
 import { LeaderBoardKPIs } from "@/features/dashboard/components/LeaderBoardKPIs";
@@ -14,43 +13,33 @@ import { SalesChart } from "@/features/dashboard/components/SalesChart";
 import { UserActivities } from "@/features/dashboard/components/UserActivities";
 
 export default function DashboardClientPage() {
-    const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
-    const [activities, setActivities] = useState<any[]>([]);
-    const [keyDeals, setKeyDeals] = useState<any[]>([]);
-    const [taskSummary, setTaskSummary] = useState<any>({ missed_count: 0, payment_reminder_count: 0 });
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    // Single consolidated query to prevent waterfall/deduplicate on remounts
+    const { data: queryData, isLoading: loading, error } = useQuery({
+        queryKey: ["dashboard", "overview"],
+        queryFn: async () => {
+            const [data, stats, activityLogs, deals, tasks] = await Promise.all([
+                dashboardService.getDashboardData(),
+                dashboardService.getStats(),
+                dashboardService.getActivityLogs(),
+                dashboardService.getKeyDeals(),
+                dashboardService.getTaskSummary()
+            ]);
 
-    useEffect(() => {
-        const fetchDashboardData = async () => {
-            try {
-                const [data, stats, activityLogs, deals, tasks] = await Promise.all([
-                    dashboardService.getDashboardData(),
-                    dashboardService.getStats(),
-                    dashboardService.getActivityLogs(),
-                    dashboardService.getKeyDeals(),
-                    dashboardService.getTaskSummary()
-                ]);
-                
-                // Merge real-time stats into the dashboard data if available
-                if (data && stats) {
-                    data.stats = { ...data.stats, ...stats };
-                }
-                
-                setDashboardData(data);
-                setActivities(activityLogs);
-                setKeyDeals(deals);
-                setTaskSummary(tasks);
-            } catch (err) {
-                console.error("Failed to fetch dashboard data:", err);
-                setError("Failed to load dashboard data");
-            } finally {
-                setLoading(false);
+            // Merge real-time stats into the dashboard data if available
+            if (data && stats) {
+                data.stats = { ...data.stats, ...stats };
             }
-        };
 
-        fetchDashboardData();
-    }, []);
+            return {
+                dashboardData: data,
+                activities: activityLogs,
+                keyDeals: deals,
+                taskSummary: tasks || { missed_count: 0, payment_reminder_count: 0 }
+            };
+        },
+        staleTime: 5 * 60 * 1000, // 5 minutes cache to prevent aggressive refetching
+        refetchOnWindowFocus: false,
+    });
 
     if (loading) {
         return (
@@ -71,7 +60,7 @@ export default function DashboardClientPage() {
                 <div className="flex h-96 items-center justify-center">
                     <div className="text-center">
                         <h2 className="mb-4 text-2xl font-bold">Error</h2>
-                        <p className="mb-4 text-muted-foreground">{error}</p>
+                        <p className="mb-4 text-muted-foreground">Failed to load dashboard data</p>
                         <button
                             onClick={() => window.location.reload()}
                             className="text-primary underline underline-offset-4 hover:no-underline"
@@ -83,6 +72,8 @@ export default function DashboardClientPage() {
             </div>
         );
     }
+
+    const { dashboardData, activities, keyDeals, taskSummary } = queryData || {};
 
     if (!dashboardData) {
         return (
@@ -102,6 +93,9 @@ export default function DashboardClientPage() {
     const closedAmount = dashboardData.stats?.total_revenue ?? 0;
     const openAmount = (dashboardData.stats?.active_opportunities ?? 0) * 10000; // placeholder - backend could provide this
 
+    const safeActivities = activities || [];
+    const safeKeyDeals = keyDeals || [];
+
     return (
         <div className="space-y-6">
             {/* Leader Board KPIs */}
@@ -117,7 +111,7 @@ export default function DashboardClientPage() {
                     />
                 </div>
                 <div>
-                    <UserActivities activities={activities} />
+                    <UserActivities activities={safeActivities} />
                 </div>
             </div>
 
@@ -162,8 +156,8 @@ export default function DashboardClientPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {keyDeals.length > 0 ? (
-                                    keyDeals.map((deal) => (
+                                {safeKeyDeals.length > 0 ? (
+                                    safeKeyDeals.map((deal) => (
                                         <tr key={deal.id} className="border-b last:border-0 hover:bg-slate-50">
                                             <td className="py-3 pr-3 text-slate-500">
                                                 <Link href={`/opportunities/${deal.id}`} className="hover:text-primary hover:underline">

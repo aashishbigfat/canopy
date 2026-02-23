@@ -11,9 +11,15 @@ class Account(BaseDocument):
     name: Indexed(str)
     email: Optional[Indexed(EmailStr)] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None  # For Person Accounts
     website: Optional[str] = None
     description: Optional[str] = None
     is_person_account: bool = False
+    
+    # Person Account specific fields
+    salutation: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     
     # Billing Address
     billing_street: Optional[str] = None
@@ -98,7 +104,8 @@ class Account(BaseDocument):
         """Get child accounts"""
         return await Account.find(
             Account.acc_parent_id == self.id,
-            Account.tenant_id == self.tenant_id
+            Account.tenant_id == self.tenant_id,
+            Account.deleted_at == None
         ).to_list()
     
     async def get_contacts(self):
@@ -108,12 +115,18 @@ class Account(BaseDocument):
         
         # Get contact IDs from pivot collection
         pivots = await AccountContact.find(
-            AccountContact.account_id == self.id
+            AccountContact.account_id == self.id,
+            AccountContact.tenant_id == self.tenant_id
         ).to_list()
         
+        if not pivots:
+            return []
+            
         contact_ids = [p.contact_id for p in pivots]
         return await Contact.find(
-            {"_id": {"$in": contact_ids}}
+            {"_id": {"$in": contact_ids}},
+            Contact.tenant_id == self.tenant_id,
+            Contact.deleted_at == None
         ).to_list()
     
     async def get_opportunities(self):
@@ -139,26 +152,3 @@ class Account(BaseDocument):
         """Increment view count"""
         self.view_count += 1
         await self.save()
-
-    def check_is_person_account(self) -> bool:
-        """Dynamically check if this should be a person account based on email"""
-        if not self.email:
-            return False
-        
-        email_str = str(self.email).lower()
-        if "@" not in email_str:
-            return False
-            
-        domain = email_str.split("@")[1]
-        person_domains = ["gmail", "yahoo", "hotmail", "rediffmail", "outlook"]
-        return any(domain.startswith(d) for d in person_domains)
-
-    async def save(self, *args, **kwargs):
-        """Override save to enforce classification rules"""
-        self.is_person_account = self.check_is_person_account()
-        return await super().save(*args, **kwargs)
-
-    async def insert(self, *args, **kwargs):
-        """Override insert to enforce classification rules"""
-        self.is_person_account = self.check_is_person_account()
-        return await super().insert(*args, **kwargs)

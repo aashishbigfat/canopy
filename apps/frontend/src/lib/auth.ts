@@ -50,6 +50,7 @@ export const authOptions: NextAuthOptions = {
                 token.refreshToken = user.refreshToken;
                 token.id = user.id;
                 token.role = user.role;
+                token.tenantId = user.tenantId;
             }
             return token;
         },
@@ -59,6 +60,7 @@ export const authOptions: NextAuthOptions = {
                 session.refreshToken = token.refreshToken as string;
                 session.user.id = token.id as string;
                 session.user.role = token.role as string;
+                (session.user as any).tenantId = token.tenantId as string;
             }
             return session;
         },

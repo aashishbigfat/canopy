@@ -33,8 +33,11 @@ const contactFormSchema = z.object({
     last_name: z.string().min(2, {
         message: "Last name must be at least 2 characters.",
     }),
-    email: z.string().email({ message: "Invalid email address." }),
-    phone: z.string().optional(),
+    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
+    phone: z.string()
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid phone number (e.g. +91 9876543210).",
+        }).optional().or(z.literal("")),
     title: z.string().optional(),
     account_id: z.string().optional(),
 });

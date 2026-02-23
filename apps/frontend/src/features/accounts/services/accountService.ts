@@ -29,15 +29,17 @@ export const accountService = {
     },
 
     searchAccounts: async (search: string) => {
-        const { data } = await apiClient.get<Account[]>(`${BASE_URL}/search`, { 
-            params: { search } 
+        const { data } = await apiClient.get<Account[]>(`${BASE_URL}/search`, {
+            params: { search }
         });
         return data;
     },
 
     changeOwner: async (id: string, newOwnerId: string) => {
-        const { data } = await apiClient.post(`${BASE_URL}/${id}/change-owner`, {
+        const { data } = await apiClient.post(`${BASE_URL}/change-owner`, {
             new_owner_id: newOwnerId
+        }, {
+            params: { account_id: id }
         });
         return data;
     },

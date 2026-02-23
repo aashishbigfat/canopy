@@ -13,10 +13,7 @@ import {
     DragEndEvent,
     DragOverEvent,
 } from "@dnd-kit/core";
-import {
-    SortableContext,
-    verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Opportunity } from "../types";
 import { KanbanColumn } from "./KanbanColumn";
 import { KanbanCard } from "./KanbanCard";
@@ -43,55 +40,65 @@ export function KanbanBoard({ opportunities, stages, onOpportunityClick }: Kanba
     const [activeOpportunity, setActiveOpportunity] = useState<Opportunity | null>(null);
     const updateStage = useUpdateOpportunityStage();
 
+    // Sort stages by sorting field
+    const sortedStages = useMemo(() =>
+        [...stages].sort((a, b) => (a.sorting || 0) - (b.sorting || 0)),
+        [stages]
+    );
+
+    // Build a quick lookup: stageId → stage
+    const stageById = useMemo(() => {
+        const m: Record<string, SalesStage> = {};
+        sortedStages.forEach(s => { m[s.id] = s; });
+        return m;
+    }, [sortedStages]);
+
+    // Build a quick lookup: opportunityId → stageId (for resolving card drops)
+    const oppStageMap = useMemo(() => {
+        const m: Record<string, string> = {};
+        opportunities.forEach(o => { m[o.id] = o.sales_stage_id; });
+        return m;
+    }, [opportunities]);
+
     // Group opportunities by stage
     const opportunitiesByStage = useMemo(() => {
         const grouped: Record<string, Opportunity[]> = {};
-        
-        // Initialize all stages with empty arrays
-        stages.forEach(stage => {
-            grouped[stage.id] = [];
-        });
-        
-        // Group opportunities
+        sortedStages.forEach(s => { grouped[s.id] = []; });
         opportunities.forEach(opp => {
             if (grouped[opp.sales_stage_id]) {
                 grouped[opp.sales_stage_id].push(opp);
             }
         });
-        
         return grouped;
-    }, [opportunities, stages]);
+    }, [opportunities, sortedStages]);
 
-    // Calculate totals per stage
+    // Totals per stage
     const stageTotals = useMemo(() => {
         const totals: Record<string, { count: number; amount: number }> = {};
-        
-        stages.forEach(stage => {
+        sortedStages.forEach(stage => {
             const stageOpps = opportunitiesByStage[stage.id] || [];
             totals[stage.id] = {
                 count: stageOpps.length,
                 amount: stageOpps.reduce((sum, opp) => sum + (opp.amount || 0), 0),
             };
         });
-        
         return totals;
-    }, [opportunitiesByStage, stages]);
+    }, [opportunitiesByStage, sortedStages]);
 
     const sensors = useSensors(
         useSensor(PointerSensor, {
-            activationConstraint: {
-                distance: 8,
-            },
+            activationConstraint: { distance: 8 },
         }),
         useSensor(KeyboardSensor)
     );
 
     const handleDragStart = (event: DragStartEvent) => {
-        const { active } = event;
-        const opportunity = opportunities.find(opp => opp.id === active.id);
-        if (opportunity) {
-            setActiveOpportunity(opportunity);
-        }
+        const opp = opportunities.find(o => o.id === event.active.id);
+        if (opp) setActiveOpportunity(opp);
+    };
+
+    const handleDragOver = (_event: DragOverEvent) => {
+        // Visual feedback is handled by KanbanColumn's isOver state from useDroppable
     };
 
     const handleDragEnd = async (event: DragEndEvent) => {
@@ -101,45 +108,46 @@ export function KanbanBoard({ opportunities, stages, onOpportunityClick }: Kanba
         if (!over) return;
 
         const opportunityId = active.id as string;
-        const newStageId = over.id as string;
+        let targetStageId = over.id as string;
 
-        // Find the opportunity
-        const opportunity = opportunities.find(opp => opp.id === opportunityId);
-        if (!opportunity) return;
+        // If dropped on a card (not a column), resolve to that card's stage
+        if (!stageById[targetStageId]) {
+            const mappedStage = oppStageMap[targetStageId];
+            if (!mappedStage) return;
+            targetStageId = mappedStage;
+        }
 
-        // If dropped on same stage, do nothing
-        if (opportunity.sales_stage_id === newStageId) return;
+        // Find the opportunity being moved
+        const opp = opportunities.find(o => o.id === opportunityId);
+        if (!opp) return;
 
-        // Update the stage
+        // Same stage → nothing to do
+        if (opp.sales_stage_id === targetStageId) return;
+
+        const targetStage = stageById[targetStageId];
+
         try {
-            await updateStage.mutateAsync({
-                id: opportunityId,
-                stageId: newStageId,
-            });
-            toast.success("Stage updated successfully");
-        } catch (error) {
-            toast.error("Failed to update stage");
+            await updateStage.mutateAsync({ id: opportunityId, stageId: targetStageId });
+            toast.success(
+                `Moved to "${targetStage?.name ?? "new stage"}"` +
+                (targetStage?.probability !== undefined
+                    ? ` · Probability → ${targetStage.probability}%`
+                    : "")
+            );
+        } catch {
+            toast.error("Failed to update stage — please try again");
         }
     };
-
-    const handleDragOver = (event: DragOverEvent) => {
-        // Optional: Handle drag over for visual feedback
-    };
-
-    // Sort stages by sorting field
-    const sortedStages = useMemo(() => {
-        return [...stages].sort((a, b) => (a.sorting || 0) - (b.sorting || 0));
-    }, [stages]);
 
     return (
         <DndContext
             sensors={sensors}
             collisionDetection={closestCorners}
             onDragStart={handleDragStart}
-            onDragEnd={handleDragEnd}
             onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
         >
-            <div className="flex gap-4 overflow-x-auto pb-4 min-h-[600px]">
+            <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-2 px-4 pt-4 h-[calc(100vh-220px)] items-start">
                 {sortedStages.map(stage => (
                     <KanbanColumn
                         key={stage.id}
@@ -153,10 +161,7 @@ export function KanbanBoard({ opportunities, stages, onOpportunityClick }: Kanba
 
             <DragOverlay>
                 {activeOpportunity ? (
-                    <KanbanCard
-                        opportunity={activeOpportunity}
-                        isDragging
-                    />
+                    <KanbanCard opportunity={activeOpportunity} isDragging />
                 ) : null}
             </DragOverlay>
         </DndContext>

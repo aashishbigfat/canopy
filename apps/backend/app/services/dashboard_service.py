@@ -3,7 +3,8 @@ Dashboard service for dashboard and widget management.
 """
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
-from beanie import PydanticObjectId
+from fastapi_cache.decorator import cache
+from app.core.cache import custom_key_builder
 
 from app.models.dashboard import Dashboard, DashboardWidget, DashboardUserPreference
 from app.schemas.dashboard import (
@@ -402,12 +403,14 @@ class DashboardService:
     
     # ==================== Analytics ====================
     
+    @cache(expire=300, key_builder=custom_key_builder)
     async def get_analytics_summary(
         self,
         tenant_id: str,
         user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get comprehensive analytics summary."""
+        from beanie import PydanticObjectId
         from app.models.account import Account
         from app.models.contact import Contact
         from app.models.lead import Lead
@@ -516,6 +519,7 @@ class DashboardService:
             "today_revenue": today_revenue
         }
     
+    @cache(expire=300, key_builder=custom_key_builder)
     async def get_pipeline_analytics(
         self,
         tenant_id: str,
@@ -547,6 +551,7 @@ class DashboardService:
             "total_value": sum(v["value"] for v in stages.values())
         }
     
+    @cache(expire=300, key_builder=custom_key_builder)
     async def get_recent_sales(
         self,
         tenant_id: str,
@@ -576,6 +581,7 @@ class DashboardService:
             for opp in opportunities
         ]
     
+    @cache(expire=300, key_builder=custom_key_builder)
     async def get_revenue_chart(
         self,
         tenant_id: str,
@@ -631,40 +637,36 @@ class DashboardService:
         """Get opportunities grouped by sales stage."""
         return await self.get_pipeline_analytics(tenant_id, user_id)
         
+    @cache(expire=300, key_builder=custom_key_builder)
     async def get_key_deals(
         self,
         tenant_id: str,
         user_id: Optional[str] = None,
         limit: int = 5
     ) -> List[Dict[str, Any]]:
-        """Get key deals (high value or marked as key)."""
+        """Get key deals (high value)."""
         from app.models.opportunity import Opportunity
         from app.models.user import User
-        
-        # Criteria for key deals: key_deal=True OR amount > 10000 (arbitrary threshold for now)
-        # For now, just fetching top opportunities by amount that are open
         
         query = {
             "tenant_id": tenant_id,
             "stage": {"$ne": "Closed Won"},  # Open deals
-            # "amount": {"$gt": 0} 
         }
         if user_id:
             query["owner_id"] = user_id
             
-        # Prioritize explicitly marked key deals
-        # opportunities = await Opportunity.find(query).sort("-key_deal", "-amount").limit(limit).to_list()
-        # Since key_deal field might not be populated in all docs yet, sort by amount
         opportunities = await Opportunity.find(query).sort("-amount").limit(limit).to_list()
         
+        # N+1 OPTIMIZATION: Bulk fetch Users
+        owner_ids = list({opp.owner_id for opp in opportunities if opp.owner_id})
+        owners_map = {}
+        if owner_ids:
+            owners = await User.find({"_id": {"$in": owner_ids}}).to_list()
+            owners_map = {str(owner.id): owner.name for owner in owners}
+            
         deals = []
         for opp in opportunities:
-            owner_name = "Unknown"
-            if opp.owner_id:
-                owner = await User.get(opp.owner_id)
-                if owner:
-                    owner_name = owner.name
-            
+            owner_name = owners_map.get(str(opp.owner_id), "Unknown") if opp.owner_id else "Unknown"
             travel_date_str = opp.travel_date.strftime("%Y-%m-%d") if opp.travel_date else None
             
             deals.append({
@@ -673,13 +675,14 @@ class DashboardService:
                 "travel_date": travel_date_str,
                 "pax": opp.no_of_pax,
                 "nights": opp.no_of_nights,
-                "stage": getattr(opp, "stage", "Open") or "Open", # Fallback if stage is generic
+                "stage": getattr(opp, "stage", "Open") or "Open",
                 "owner_name": owner_name,
                 "amount": opp.amount
             })
             
         return deals
 
+    @cache(expire=300, key_builder=custom_key_builder)
     async def get_task_summary(
         self,
         tenant_id: str,

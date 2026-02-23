@@ -327,9 +327,17 @@ const leadFormSchema = z.object({
     first_name: z.string().optional(),
     last_name: z.string().min(1, { message: "Last name is required." }),
     company: z.string().optional(),
-    email: z.string().email({ message: "Invalid email address." }),
-    phone: z.string().min(1, { message: "Phone is required." }),
-    mobile: z.string().min(1, { message: "Mobile is required." }),
+    email: z.string().email({ message: "Invalid email address." }).or(z.literal("")).optional(),
+    phone: z.string()
+        .min(1, { message: "Phone is required." })
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid phone number (e.g. +91 9876543210).",
+        }),
+    mobile: z.string()
+        .min(1, { message: "Mobile is required." })
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid mobile number (e.g. +91 9876543210).",
+        }),
     no_employees: z.string().optional(),
     website: z.string().optional(),
     title: z.string().optional(),
@@ -776,30 +784,7 @@ export function LeadForm({
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="experience_id"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select Experience" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {experiences.map((exp) => (
-                                                            <SelectItem key={exp.id} value={exp.id}>
-                                                                {exp.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+
                                     <FormField
                                         control={form.control as any}
                                         name="no_employees"

@@ -10,6 +10,8 @@ from app.models.destination import DestinationOpportunity
 from app.schemas.opportunity import OpportunityCreate, OpportunityUpdate, OpportunityStageChange
 from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
+from app.core.cache import invalidate_tenant_cache
+from app.repositories.opportunity_repository import OpportunityRepository
 
 class OpportunityService(ActivityMixin):
     """Service for Opportunity business logic"""
@@ -17,6 +19,7 @@ class OpportunityService(ActivityMixin):
     def __init__(self):
         super().__init__()
         self.notification_service = NotificationService()
+        self.repository = OpportunityRepository()
     
     async def create_opportunity(
         self,
@@ -100,6 +103,9 @@ class OpportunityService(ActivityMixin):
                 action_url=f"/opportunities/{opportunity.id}"
             )
             
+            # Invalidate dashboard cache for this tenant
+            await invalidate_tenant_cache(str(tenant_id))
+            
             return opportunity
             
         except Exception as e:
@@ -124,11 +130,7 @@ class OpportunityService(ActivityMixin):
     
     async def get_opportunity(self, opp_id: str, tenant_id: ObjectId) -> Optional[Opportunity]:
         """Get opportunity by ID"""
-        opp = await Opportunity.get(ObjectId(opp_id))
-        
-        if opp and opp.tenant_id == tenant_id and not opp.deleted_at:
-            return opp
-        return None
+        return await self.repository.get_by_id(id=opp_id, tenant_id=tenant_id)
     
     async def update_opportunity(
         self,
@@ -198,6 +200,9 @@ class OpportunityService(ActivityMixin):
             updated_fields=updated_fields
         )
         
+        # Invalidate dashboard cache for this tenant
+        await invalidate_tenant_cache(str(tenant_id))
+        
         return opp
     
     async def delete_opportunity(self, opp_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
@@ -219,6 +224,9 @@ class OpportunityService(ActivityMixin):
                 "probability": opp.probability
             }
         )
+        
+        # Invalidate dashboard cache for this tenant
+        await invalidate_tenant_cache(str(tenant_id))
         
         return True
     
@@ -273,33 +281,14 @@ class OpportunityService(ActivityMixin):
         **kwargs
     ) -> Tuple[List[Opportunity], int]:
         """Get opportunities for a tenant with pagination"""
-        
-        query = {
-            "tenant_id": tenant_id,
-            "deleted_at": None
-        }
-        
-        # Merge additional filters
-        if kwargs:
-            query.update(kwargs)
-        
-        if owner_id:
-            query["owner_id"] = owner_id
-        
-        if sales_stage_id:
-            query["sales_stage_id"] = sales_stage_id
-        
-        # Get total count
-        total = await Opportunity.find(query).count()
-        
-        # Get paginated results
-        opportunities = await Opportunity.find(query)\
-            .sort("-created_at")\
-            .skip(skip)\
-            .limit(limit)\
-            .to_list()
-        
-        return opportunities, total
+        return await self.repository.get_filtered_opportunities(
+            tenant_id=tenant_id,
+            skip=skip,
+            limit=limit,
+            owner_id=owner_id,
+            sales_stage_id=sales_stage_id,
+            **kwargs
+        )
     
     async def change_stage(
         self,
@@ -339,6 +328,9 @@ class OpportunityService(ActivityMixin):
             changed_by=user_id
         )
         await history.insert()
+        
+        # Invalidate dashboard cache for this tenant
+        await invalidate_tenant_cache(str(tenant_id))
         
         return opp
     

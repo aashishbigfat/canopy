@@ -145,6 +145,7 @@ class AccountService(ActivityMixin):
         related_opportunities = []
         try:
             from app.models.opportunity import Opportunity
+            from app.models.opportunity_picklists import SalesStage
             
             opportunities = await Opportunity.find(
                 Opportunity.account_id == account.id,
@@ -152,14 +153,16 @@ class AccountService(ActivityMixin):
                 Opportunity.deleted_at == None
             ).to_list()
             
+            # --- N+1 OPTIMIZATION: Bulk fetch SalesStages ---
+            stage_ids = list({opp.sales_stage_id for opp in opportunities if opp.sales_stage_id})
+            stages_map = {}
+            if stage_ids:
+                stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
+                stages_map = {str(stage.id): stage.name for stage in stages}
+            # ------------------------------------------------
+            
             for opp in opportunities:
-                # Get stage name
-                stage_name = None
-                if opp.sales_stage_id:
-                    from app.models.opportunity_picklists import SalesStage
-                    stage = await SalesStage.get(opp.sales_stage_id)
-                    if stage:
-                        stage_name = stage.name
+                stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
                 
                 related_opportunities.append({
                     "id": str(opp.id),
@@ -189,13 +192,16 @@ class AccountService(ActivityMixin):
                 Task.deleted_at == None
             ).to_list()
             
+            # --- N+1 OPTIMIZATION: Bulk fetch assigned Users ---
+            user_ids = list({task.assigned_user_id for task in tasks if task.assigned_user_id})
+            users_map = {}
+            if user_ids:
+                users = await User.find({"_id": {"$in": user_ids}}).to_list()
+                users_map = {str(u.id): u.name for u in users}
+            # ---------------------------------------------------
+            
             for task in tasks:
-                # Get assigned user
-                assigned_user_name = None
-                if task.assigned_user_id:
-                    assigned_user = await User.get(task.assigned_user_id)
-                    if assigned_user:
-                        assigned_user_name = assigned_user.name
+                assigned_user_name = users_map.get(str(task.assigned_user_id)) if task.assigned_user_id else None
                 
                 related_tasks.append({
                     "id": str(task.id),
@@ -413,23 +419,23 @@ class AccountService(ActivityMixin):
                 {"phone": {"$regex": search_params.query, "$options": "i"}}
             ]
         
-        # Filters
-        if search_params.acc_type_id:
+        # Filters (moved outside of text search block to prevent UnboundLocalError)
+        if getattr(search_params, 'acc_type_id', None):
             query["acc_type_id"] = ObjectId(search_params.acc_type_id)
         
-        if search_params.industry_id:
+        if getattr(search_params, 'industry_id', None):
             query["industry_id"] = ObjectId(search_params.industry_id)
         
-        if search_params.rating_id:
+        if getattr(search_params, 'rating_id', None):
             query["rating_id"] = ObjectId(search_params.rating_id)
         
-        if search_params.owner_id:
+        if getattr(search_params, 'owner_id', None):
             query["owner_id"] = ObjectId(search_params.owner_id)
         
-        if search_params.billing_country:
+        if getattr(search_params, 'billing_country', None):
             query["billing_country"] = search_params.billing_country
         
-        if search_params.billing_state:
+        if getattr(search_params, 'billing_state', None):
             query["billing_state"] = search_params.billing_state
         
         # Get total count

@@ -11,6 +11,7 @@ import uuid
 import json
 
 from app.core.config import settings
+from app.core.cache import init_cache, close_cache
 from app.db.mongodb import init_db
 from app.middleware.activity_context import activity_context_middleware
 from app.api.v1 import accounts
@@ -20,8 +21,10 @@ from app.api.v1 import accounts
 async def lifespan(app: FastAPI):
     # Startup
     await init_db()
+    await init_cache()
     yield
     # Shutdown (cleanup if needed)
+    await close_cache()
 
 # Create FastAPI app
 app = FastAPI(

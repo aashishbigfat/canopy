@@ -29,11 +29,17 @@ const supplierFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
     supplier_type: z.string().min(1, "Supplier type is required."),
     email: z.string().email("Invalid email address.").optional().or(z.literal("")),
-    phone: z.string().optional(),
+    phone: z.string()
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid phone number (e.g. +91 9876543210).",
+        }).optional().or(z.literal("")),
     company_name: z.string().optional(),
     contact_person_name: z.string().optional(),
     contact_person_email: z.string().email("Invalid email address.").optional().or(z.literal("")),
-    contact_person_phone: z.string().optional(),
+    contact_person_phone: z.string()
+        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
+            message: "Please enter a valid phone number (e.g. +91 9876543210).",
+        }).optional().or(z.literal("")),
     street: z.string().optional(),
     city: z.string().optional(),
     state: z.string().optional(),

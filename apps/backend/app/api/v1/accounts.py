@@ -24,9 +24,13 @@ def account_to_response(account: Account) -> AccountResponse:
         name=account.name,
         email=account.email,
         phone=account.phone,
+        mobile=account.mobile,
         website=account.website,
         description=account.description,
         is_person_account=account.is_person_account,
+        salutation=account.salutation,
+        first_name=account.first_name,
+        last_name=account.last_name,
         billing_street=account.billing_street,
         billing_city=account.billing_city,
         billing_state=account.billing_state,
@@ -156,6 +160,9 @@ async def get_accounts(
             "is_active": True
         }).sort("+sorting").to_list()
         
+        # Build user map for owner_names
+        user_map = {str(u.id): u.name for u in users}
+        
         return {
             "accounts": [
                 {
@@ -163,6 +170,10 @@ async def get_accounts(
                     "name": acc.name,
                     "email": acc.email,
                     "phone": acc.phone,
+                    "mobile": acc.mobile,
+                    "salutation": acc.salutation,
+                    "first_name": acc.first_name,
+                    "last_name": acc.last_name,
                     "website": acc.website,
                     "description": acc.description,
                     "is_person_account": acc.is_person_account,
@@ -183,6 +194,7 @@ async def get_accounts(
                     "account_source_id": str(acc.account_source_id) if acc.account_source_id else None,
                     "tenant_id": str(acc.tenant_id),
                     "owner_id": str(acc.owner_id),
+                    "owner_name": user_map.get(str(acc.owner_id)),
                     "created_by": str(acc.created_by),
                     "last_modified_by_id": str(acc.last_modified_by_id) if acc.last_modified_by_id else None,
                     "view_count": acc.view_count,
