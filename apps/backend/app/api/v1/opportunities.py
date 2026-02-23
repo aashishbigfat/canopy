@@ -559,12 +559,16 @@ async def get_opportunity_history(
             OpportunityHistory.tenant_id == current_user.tenant_id
         ).sort("-changed_at").to_list()
         
-        # Collect unique user IDs and stage IDs to fetch names
-        user_ids = {h.changed_by for h in history_records}
+        from beanie.operators import In
         
-        # Fetch users for names
-        users = await User.find({"_id": {"$in": list(user_ids)}}).to_list()
-        user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
+        # Collect unique user IDs and stage IDs to fetch names
+        user_ids = {h.changed_by for h in history_records if h.changed_by}
+        
+        # Fetch users for names ONLY if user_ids is not empty
+        user_map = {}
+        if user_ids:
+            users = await User.find(In(User.id, list(user_ids))).to_list()
+            user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
         
         # Get all stages for this tenant just to map names
         stages = await SalesStage.find(
@@ -618,16 +622,20 @@ async def get_opportunity_tasks(
         user_ids = {t.assigned_user_id for t in tasks if t.assigned_user_id}
         user_ids.update({t.created_by for t in tasks if t.created_by})
         
+        from beanie.operators import In
+        
         # Ensure we don't query empty IN clause
         user_map = {}
         if user_ids:
-            users = await User.find({"_id": {"$in": list(user_ids)}}).to_list()
+            users = await User.find(In(User.id, list(user_ids))).to_list()
             user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
             
+        from app.schemas.task import TaskResponse
+        
         result = []
         for t in tasks:
-            task_dict = t.model_dump()
-            task_dict["id"] = str(t.id)
+            task_resp = TaskResponse.from_orm(t)
+            task_dict = task_resp.model_dump()
             task_dict["assigned_user_name"] = user_map.get(t.assigned_user_id, "Unassigned")
             task_dict["created_by_name"] = user_map.get(t.created_by, "Unknown")
             result.append(task_dict)
@@ -683,12 +691,13 @@ async def create_opportunity_task(
             owner_id=assigned_user_id
         )
         
+        from app.schemas.task import TaskResponse
+        
         await task.insert()
         
-        # Return basic dict format just to satisfy the frontend
-        resp = task.model_dump()
-        resp["id"] = str(task.id)
-        return resp
+        # Use schema to safely encode ObjectIds to strings
+        task_resp = TaskResponse.from_orm(task)
+        return task_resp.model_dump()
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
