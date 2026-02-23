@@ -91,6 +91,39 @@ class OpportunityUpdate(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = None
 
 
+class OpportunityHistoryResponse(BaseModel):
+    id: Annotated[str, BeforeValidator(str)]
+    opportunity_id: Annotated[str, BeforeValidator(str)]
+    tenant_id: Annotated[str, BeforeValidator(str)]
+    field_name: str
+    old_value: Optional[str] = None
+    new_value: Optional[str] = None
+    changed_by: Annotated[str, BeforeValidator(str)]
+    changed_at: datetime
+    
+    # Extended fields
+    user_name: Optional[str] = None
+    old_stage_name: Optional[str] = None
+    new_stage_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+    @classmethod
+    def from_orm(cls, obj):
+        if hasattr(obj, 'id'):
+            data = obj.model_dump()
+            data['id'] = str(obj.id)
+            if hasattr(obj, 'opportunity_id') and obj.opportunity_id:
+                data['opportunity_id'] = str(obj.opportunity_id)
+            if hasattr(obj, 'tenant_id') and obj.tenant_id:
+                data['tenant_id'] = str(obj.tenant_id)
+            if hasattr(obj, 'changed_by') and obj.changed_by:
+                data['changed_by'] = str(obj.changed_by)
+            return cls(**data)
+        return cls()
+
+
 class OpportunityResponse(OpportunityBase):
     """Schema for opportunity response"""
     id: Annotated[str, BeforeValidator(str)]

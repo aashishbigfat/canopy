@@ -10,7 +10,8 @@ from app.models.opportunity import Opportunity
 from app.models.opportunity_picklists import SalesStage, Experience
 from app.schemas.opportunity import (
     OpportunityCreate, OpportunityUpdate, OpportunityResponse,
-    OpportunityListResponse, OpportunityStageChange, ExperienceResponse
+    OpportunityListResponse, OpportunityStageChange, ExperienceResponse,
+    OpportunityHistoryResponse
 )
 from app.services.opportunity_service import OpportunityService
 from app.api.deps import get_current_user, check_permission
@@ -537,5 +538,157 @@ async def change_opportunity_owner(
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/{opportunity_id}/history", response_model=List[OpportunityHistoryResponse])
+async def get_opportunity_history(
+    opportunity_id: str,
+    current_user: User = Depends(check_permission("view_opportunity"))
+):
+    """
+    Get the history of changes (e.g., stage updates) for an opportunity
+    """
+    try:
+        from app.models.opportunity_picklists import OpportunityHistory, SalesStage
+        
+        # Get history records sorted by newest first
+        history_records = await OpportunityHistory.find(
+            OpportunityHistory.opportunity_id == ObjectId(opportunity_id),
+            OpportunityHistory.tenant_id == current_user.tenant_id
+        ).sort("-changed_at").to_list()
+        
+        # Collect unique user IDs and stage IDs to fetch names
+        user_ids = {h.changed_by for h in history_records}
+        
+        # Fetch users for names
+        users = await User.find({"_id": {"$in": list(user_ids)}}).to_list()
+        user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
+        
+        # Get all stages for this tenant just to map names
+        stages = await SalesStage.find(
+            SalesStage.tenant_id == current_user.tenant_id
+        ).to_list()
+        
+        # If no tenant stages found, try default stages
+        if not stages:
+            stages = await SalesStage.find(SalesStage.tenant_id == None).to_list()
+            
+        stage_map = {str(s.id): s.name for s in stages}
+        
+        # Build response manually or map fields
+        result = []
+        for record in history_records:
+            resp = OpportunityHistoryResponse.from_orm(record)
+            resp.user_name = user_map.get(record.changed_by, "Unknown User")
+            
+            if record.field_name == "sales_stage_id":
+                if record.old_value:
+                    resp.old_stage_name = stage_map.get(record.old_value, record.old_value)
+                if record.new_value:
+                    resp.new_stage_name = stage_map.get(record.new_value, record.new_value)
+                    
+            result.append(resp)
+            
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.get("/{opportunity_id}/tasks", response_model=List[dict])
+async def get_opportunity_tasks(
+    opportunity_id: str,
+    current_user: User = Depends(check_permission("view_opportunity"))
+):
+    """
+    Get all tasks related to an opportunity
+    """
+    try:
+        from app.models.task import Task
+        
+        tasks = await Task.find(
+            Task.taskable_id == ObjectId(opportunity_id),
+            Task.taskable_type == "Opportunity",
+            Task.tenant_id == current_user.tenant_id
+        ).sort("-created_at").to_list()
+        
+        # Need to fetch assigned users and created by users
+        user_ids = {t.assigned_user_id for t in tasks if t.assigned_user_id}
+        user_ids.update({t.created_by for t in tasks if t.created_by})
+        
+        # Ensure we don't query empty IN clause
+        user_map = {}
+        if user_ids:
+            users = await User.find({"_id": {"$in": list(user_ids)}}).to_list()
+            user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
+            
+        result = []
+        for t in tasks:
+            task_dict = t.model_dump()
+            task_dict["id"] = str(t.id)
+            task_dict["assigned_user_name"] = user_map.get(t.assigned_user_id, "Unassigned")
+            task_dict["created_by_name"] = user_map.get(t.created_by, "Unknown")
+            result.append(task_dict)
+            
+        return result
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/{opportunity_id}/tasks", response_model=dict)
+async def create_opportunity_task(
+    opportunity_id: str,
+    task_data: dict,
+    current_user: User = Depends(check_permission("edit_opportunity"))
+):
+    """
+    Create a new task for an opportunity
+    """
+    try:
+        from app.models.task import Task
+        from datetime import datetime
+        
+        # Parse due date if provided
+        due_date = None
+        if task_data.get("due_date"):
+            try:
+                due_date = datetime.fromisoformat(task_data["due_date"].replace('Z', '+00:00'))
+            except:
+                pass
+                
+        # Parse assigned user
+        assigned_user_id = None
+        if task_data.get("assigned_user_id"):
+            try:
+                assigned_user_id = ObjectId(task_data["assigned_user_id"])
+            except:
+                assigned_user_id = current_user.id
+        else:
+            assigned_user_id = current_user.id
+            
+        task = Task(
+            name=task_data.get("name", "Untitled Task"),
+            description=task_data.get("description"),
+            due_date=due_date,
+            status="Not Started",
+            priority=task_data.get("priority", "Normal"),
+            taskable_type="Opportunity",
+            taskable_id=ObjectId(opportunity_id),
+            assigned_user_id=assigned_user_id,
+            tenant_id=current_user.tenant_id,
+            created_by=current_user.id,
+            owner_id=assigned_user_id
+        )
+        
+        await task.insert()
+        
+        # Return basic dict format just to satisfy the frontend
+        resp = task.model_dump()
+        resp["id"] = str(task.id)
+        return resp
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")

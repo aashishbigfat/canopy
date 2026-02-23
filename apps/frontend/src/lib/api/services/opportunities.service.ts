@@ -51,8 +51,54 @@ export const opportunitiesService = {
     getExperiences: async (config?: AxiosRequestConfig): Promise<Experience[]> => {
         const response = await apiClient.get<Experience[]>(`${BASE_URL}/experiences`, config);
         return response.data;
+    },
+
+    // Get History
+    getHistory: async (id: string, config?: AxiosRequestConfig): Promise<OpportunityHistoryRecord[]> => {
+        const response = await apiClient.get<OpportunityHistoryRecord[]>(`${BASE_URL}/${id}/history`, config);
+        return response.data;
+    },
+
+    // Get Tasks
+    getTasks: async (id: string, config?: AxiosRequestConfig): Promise<OpportunityTask[]> => {
+        const response = await apiClient.get<OpportunityTask[]>(`${BASE_URL}/${id}/tasks`, config);
+        return response.data;
+    },
+
+    // Create Task
+    createTask: async (id: string, data: any): Promise<OpportunityTask> => {
+        const response = await apiClient.post<OpportunityTask>(`${BASE_URL}/${id}/tasks`, data);
+        return response.data;
     }
 };
+
+export interface OpportunityHistoryRecord {
+    id: string;
+    opportunity_id: string;
+    field_name: string;
+    old_value?: string;
+    new_value?: string;
+    changed_by: string;
+    changed_at: string;
+    user_name?: string;
+    old_stage_name?: string;
+    new_stage_name?: string;
+}
+
+export interface OpportunityTask {
+    id: string;
+    name: string;
+    description?: string;
+    due_date?: string;
+    status: string;
+    priority: string;
+    assigned_user_id?: string;
+    assigned_user_name?: string;
+    created_by: string;
+    created_by_name?: string;
+    completed_at?: string;
+    created_at: string;
+}
 
 export interface SalesStage {
     id: string;

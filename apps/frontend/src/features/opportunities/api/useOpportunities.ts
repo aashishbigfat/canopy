@@ -68,3 +68,29 @@ export const useExperiences = () => {
         staleTime: 5 * 60 * 1000, // 5 minutes
     });
 };
+
+export const useOpportunityHistory = (id: string) => {
+    return useQuery({
+        queryKey: ["opportunities", id, "history"],
+        queryFn: () => opportunitiesService.getHistory(id),
+        enabled: !!id,
+    });
+};
+
+export const useOpportunityTasks = (id: string) => {
+    return useQuery({
+        queryKey: ["opportunities", id, "tasks"],
+        queryFn: () => opportunitiesService.getTasks(id),
+        enabled: !!id,
+    });
+};
+
+export const useCreateOpportunityTask = (opportunityId: string) => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (data: any) => opportunitiesService.createTask(opportunityId, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["opportunities", opportunityId, "tasks"] });
+        },
+    });
+};
