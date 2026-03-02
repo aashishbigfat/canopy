@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.models.tenant import Tenant
 from app.schemas.auth import UserLogin, UserRegister
+from app.services.email_service import EmailService
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -109,12 +110,55 @@ class AuthService:
         
         # Generate reset token
         reset_token = self._create_reset_token(user)
-        print("\n=== RESET TOKEN ===\n", reset_token, "\n===================\n")
         
         # Send reset email
-        # await self._send_reset_email(user, reset_token)
+        await self._send_reset_email(user, reset_token)
         
         return reset_token
+    
+    async def _send_reset_email(self, user: User, reset_token: str):
+        """Send password reset email to user"""
+        email_service = EmailService()
+        
+        # Frontend reset URL - adjust based on your frontend URL
+        frontend_url = "http://localhost:3000"  # Change this for production
+        reset_url = f"{frontend_url}/reset-password?token={reset_token}"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
+            <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                <h2 style="color: #2563eb;">Password Reset Request</h2>
+                <p>Hello {user.name},</p>
+                <p>You recently requested to reset your password for your Tutterfly CRM account. Click the button below to reset it:</p>
+                <div style="text-align: center; margin: 30px 0;">
+                    <a href="{reset_url}" 
+                       style="background-color: #2563eb; color: white; padding: 12px 24px; 
+                              text-decoration: none; border-radius: 6px; display: inline-block;">
+                        Reset Your Password
+                    </a>
+                </div>
+                <p>Or copy and paste this link into your browser:</p>
+                <p style="word-break: break-all; background-color: #f3f4f6; padding: 10px; border-radius: 4px;">
+                    {reset_url}
+                </p>
+                <p><strong>This link will expire in 1 hour.</strong></p>
+                <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+                <hr style="margin: 30px 0; border: none; border-top: 1px solid #e5e7eb;">
+                <p style="font-size: 12px; color: #6b7280;">
+                    This email was sent by Tutterfly CRM.<br>
+                    If you need help, contact our support team.
+                </p>
+            </div>
+        </body>
+        </html>
+        """
+        
+        await email_service.send_html_email(
+            to_email=user.email,
+            subject="Password Reset Request - Tutterfly CRM",
+            html_body=html_body
+        )
     
     async def reset_password(
         self,

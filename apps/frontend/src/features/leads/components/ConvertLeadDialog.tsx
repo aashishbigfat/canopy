@@ -156,10 +156,10 @@ export function ConvertLeadDialog({
             opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
             opportunity_amount: 0,
             travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
-            no_of_adults: lead.no_of_pax || 1,
+            no_of_adults: (lead.no_of_pax && lead.no_of_pax > 0) ? lead.no_of_pax : 1,
             no_of_childs: 0,
             no_of_infants: 0,
-            no_of_pax: lead.no_of_pax || 1,
+            no_of_pax: (lead.no_of_pax && lead.no_of_pax > 0) ? lead.no_of_pax : 1,
             no_of_nights: lead.no_of_nights || 0,
             description: "",
             destination_ids: lead.destination_ids || [],
@@ -319,12 +319,6 @@ export function ConvertLeadDialog({
 
     // Track if opportunity name was manually edited
     const [isNameManuallyEdited, setIsNameManuallyEdited] = useState(false);
-
-    // Update Pax automatically
-    useEffect(() => {
-        const totalPax = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
-        form.setValue("no_of_pax", totalPax);
-    }, [adults, childs, infants, form]);
 
     // Update Opportunity Name automatically
     const travelDate = form.watch("travel_date");
@@ -737,7 +731,14 @@ export function ConvertLeadDialog({
                                                                             startMonth={new Date(1900, 0)}
                                                                             endMonth={new Date(2100, 11)}
                                                                             selected={field.value}
-                                                                            onSelect={field.onChange}
+                                                                            onSelect={(date) => {
+                                                                                if (!date) return field.onChange(undefined);
+                                                                                // Use local date to avoid timezone issues
+                                                                                const year = date.getFullYear();
+                                                                                const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                                                const day = String(date.getDate()).padStart(2, '0');
+                                                                                field.onChange(new Date(`${year}-${month}-${day}`));
+                                                                            }}
                                                                             disabled={(date) => {
                                                                                 const today = new Date();
                                                                                 today.setHours(0, 0, 0, 0);
@@ -970,7 +971,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} readOnly className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
+                                                                    <Input type="number" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}

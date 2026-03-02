@@ -48,13 +48,6 @@ class PasswordResetConfirm(BaseModel):
     """Schema for confirming password reset"""
     token: str
     new_password: str = Field(..., min_length=8)
-    confirm_password: str
-    
-    @validator('confirm_password')
-    def passwords_match(cls, v, values):
-        if 'new_password' in values and v != values['new_password']:
-            raise ValueError('Passwords do not match')
-        return v
 
 
 class TokenResponse(BaseModel):

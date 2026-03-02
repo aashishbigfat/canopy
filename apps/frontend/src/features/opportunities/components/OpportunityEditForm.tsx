@@ -280,7 +280,13 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                                 startMonth={new Date(1900, 0)}
                                                 endMonth={new Date(2100, 11)}
                                                 selected={field.value ? new Date(field.value) : undefined}
-                                                onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                                                onSelect={(date) => {
+                                                    if (!date) return field.onChange(undefined);
+                                                    const year = date.getFullYear();
+                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                    field.onChange(`${year}-${month}-${day}`);
+                                                }}
                                                 disabled={(date) => {
                                                     const today = new Date();
                                                     today.setHours(0, 0, 0, 0);
@@ -329,7 +335,13 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                                 startMonth={new Date(1900, 0)}
                                                 endMonth={new Date(2100, 11)}
                                                 selected={field.value ? new Date(field.value) : undefined}
-                                                onSelect={(date) => field.onChange(date?.toISOString().split('T')[0])}
+                                                onSelect={(date) => {
+                                                    if (!date) return field.onChange(undefined);
+                                                    const year = date.getFullYear();
+                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                    field.onChange(`${year}-${month}-${day}`);
+                                                }}
                                                 disabled={(date) => {
                                                     const today = new Date();
                                                     today.setHours(0, 0, 0, 0);
