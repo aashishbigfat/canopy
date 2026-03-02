@@ -526,21 +526,28 @@ class DashboardService:
         user_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Get opportunity pipeline analytics."""
+        from beanie import PydanticObjectId
         from app.models.opportunity import Opportunity
+        from app.models.opportunity_picklists import SalesStage
         
-        query = {"tenant_id": tenant_id}
+        tenant_obj_id = PydanticObjectId(tenant_id)
+        query = {"tenant_id": tenant_obj_id}
         if user_id:
-            query["owner_id"] = user_id
+            query["owner_id"] = PydanticObjectId(user_id)
         
         opportunities = await Opportunity.find(query).to_list()
         
+        # Fetch stages to map names
+        all_stages = await SalesStage.find().to_list()
+        stages_map = {str(s.id): s.name for s in all_stages}
+        
         stages = {}
         for opp in opportunities:
-            stage = getattr(opp, "stage", "Unknown")
-            if stage not in stages:
-                stages[stage] = {"count": 0, "value": 0}
-            stages[stage]["count"] += 1
-            stages[stage]["value"] += getattr(opp, "amount", 0) or 0
+            stage_name = stages_map.get(str(opp.sales_stage_id), "Unknown") if opp.sales_stage_id else "Unknown"
+            if stage_name not in stages:
+                stages[stage_name] = {"count": 0, "value": 0}
+            stages[stage_name]["count"] += 1
+            stages[stage_name]["value"] += getattr(opp, "amount", 0) or 0
         
         return {
             "stages": [
@@ -559,16 +566,22 @@ class DashboardService:
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Get recent sales/closed opportunities."""
+        from beanie import PydanticObjectId
         from app.models.opportunity import Opportunity
+        from app.models.opportunity_picklists import SalesStage
         
+        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        won_stage_ids = [s.id for s in won_stages]
+        
+        tenant_obj_id = PydanticObjectId(tenant_id)
         query = {
-            "tenant_id": tenant_id,
-            "stage": "Closed Won"
+            "tenant_id": tenant_obj_id,
+            "sales_stage_id": {"$in": won_stage_ids}
         }
         if user_id:
-            query["owner_id"] = user_id
+            query["owner_id"] = PydanticObjectId(user_id)
         
-        opportunities = await Opportunity.find(query).sort("-closed_at").limit(limit).to_list()
+        opportunities = await Opportunity.find(query).sort("-close_date").limit(limit).to_list()
         
         return [
             {
@@ -576,7 +589,7 @@ class DashboardService:
                 "customer_name": getattr(opp, "account_name", "Unknown"),
                 "email": getattr(opp, "contact_email", ""),
                 "amount": getattr(opp, "amount", 0),
-                "date": opp.closed_at.strftime("%Y-%m-%d") if opp.closed_at else ""
+                "date": opp.close_date.strftime("%Y-%m-%d") if opp.close_date else ""
             }
             for opp in opportunities
         ]
@@ -589,7 +602,11 @@ class DashboardService:
         period: str = "month"
     ) -> List[Dict[str, Any]]:
         """Get revenue chart data for specified period."""
+        from beanie import PydanticObjectId
         from app.models.opportunity import Opportunity
+        from app.models.opportunity_picklists import SalesStage
+        
+        tenant_obj_id = PydanticObjectId(tenant_id)
         
         # Determine date range
         now = datetime.utcnow()
@@ -602,24 +619,27 @@ class DashboardService:
         else:  # month
             start_date = now.replace(day=1)
             group_format = "%Y-%m-%d"
+            
+        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        won_stage_ids = [s.id for s in won_stages]
         
         query = {
-            "tenant_id": tenant_id,
-            "stage": "Closed Won",
-            "closed_at": {"$gte": start_date}
+            "tenant_id": tenant_obj_id,
+            "sales_stage_id": {"$in": won_stage_ids},
+            "close_date": {"$gte": start_date}
         }
         if user_id:
-            query["owner_id"] = user_id
+            query["owner_id"] = PydanticObjectId(user_id)
         
-        opportunities = await Opportunity.find(query).sort("closed_at").to_list()
+        opportunities = await Opportunity.find(query).sort("close_date").to_list()
         
         # Group by period
         revenue_data = {}
         for opp in opportunities:
-            if not opp.closed_at:
+            if not opp.close_date:
                 continue
             
-            period_key = opp.closed_at.strftime(group_format)
+            period_key = opp.close_date.strftime(group_format)
             if period_key not in revenue_data:
                 revenue_data[period_key] = 0
             revenue_data[period_key] += getattr(opp, "amount", 0)
@@ -635,7 +655,8 @@ class DashboardService:
         user_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """Get opportunities grouped by sales stage."""
-        return await self.get_pipeline_analytics(tenant_id, user_id)
+        result = await self.get_pipeline_analytics(tenant_id, user_id)
+        return result
         
     @cache(expire=300, key_builder=custom_key_builder)
     async def get_key_deals(
@@ -645,15 +666,21 @@ class DashboardService:
         limit: int = 5
     ) -> List[Dict[str, Any]]:
         """Get key deals (high value)."""
+        from beanie import PydanticObjectId
         from app.models.opportunity import Opportunity
         from app.models.user import User
+        from app.models.opportunity_picklists import SalesStage
         
+        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        won_stage_ids = [s.id for s in won_stages]
+        
+        tenant_obj_id = PydanticObjectId(tenant_id)
         query = {
-            "tenant_id": tenant_id,
-            "stage": {"$ne": "Closed Won"},  # Open deals
+            "tenant_id": tenant_obj_id,
+            "sales_stage_id": {"$nin": won_stage_ids},  # Open deals
         }
         if user_id:
-            query["owner_id"] = user_id
+            query["owner_id"] = PydanticObjectId(user_id)
             
         opportunities = await Opportunity.find(query).sort("-amount").limit(limit).to_list()
         
@@ -689,18 +716,20 @@ class DashboardService:
         user_id: Optional[str] = None
     ) -> Dict[str, int]:
         """Get summary of tasks (missed, payment reminders, etc)."""
+        from beanie import PydanticObjectId
         from app.models.task import Task
         
         now = datetime.utcnow()
         today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         today_end = today_start + timedelta(days=1)
         
+        tenant_obj_id = PydanticObjectId(tenant_id)
         base_query = {
-            "tenant_id": tenant_id,
+            "tenant_id": tenant_obj_id,
             "status": {"$ne": "Completed"}
         }
         if user_id:
-            base_query["assigned_user_id"] = user_id
+            base_query["assigned_user_id"] = PydanticObjectId(user_id)
             
         # Missed tasks (due date < today)
         missed_query = {

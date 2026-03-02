@@ -209,10 +209,9 @@ async def get_default_dashboard(
 async def get_dashboard_stats(
     current_user: User = Depends(get_current_user)
 ):
-    """Get dashboard analytics statistics"""
+    """Get dashboard analytics statistics (tenant-wide for dashboard KPIs)"""
     return await dashboard_service.get_analytics_summary(
-        tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id)
+        tenant_id=str(current_user.tenant_id)
     )
 
 
@@ -221,10 +220,9 @@ async def get_recent_sales(
     limit: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user)
 ):
-    """Get recent sales data"""
+    """Get recent sales data (tenant-wide)"""
     return await dashboard_service.get_recent_sales(
         tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id),
         limit=limit
     )
 
@@ -234,10 +232,9 @@ async def get_revenue_chart(
     period: str = Query("month", pattern="^(week|month|year)$"),
     current_user: User = Depends(get_current_user)
 ):
-    """Get revenue chart data"""
+    """Get revenue chart data (tenant-wide)"""
     return await dashboard_service.get_revenue_chart(
         tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id),
         period=period
     )
 
@@ -246,10 +243,9 @@ async def get_revenue_chart(
 async def get_opportunities_by_stage(
     current_user: User = Depends(get_current_user)
 ):
-    """Get opportunities grouped by sales stage"""
+    """Get opportunities grouped by sales stage (tenant-wide)"""
     return await dashboard_service.get_opportunities_by_stage(
-        tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id)
+        tenant_id=str(current_user.tenant_id)
     )
 
 
@@ -333,10 +329,9 @@ async def get_analytics_summary(
 async def get_pipeline_analytics(
     current_user: User = Depends(get_current_user)
 ):
-    """Get opportunity pipeline analytics."""
+    """Get opportunity pipeline analytics (tenant-wide)."""
     return await dashboard_service.get_pipeline_analytics(
-        tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id)
+        tenant_id=str(current_user.tenant_id)
     )
 
 
@@ -345,10 +340,9 @@ async def get_key_deals(
     limit: int = 5,
     current_user: User = Depends(get_current_user)
 ):
-    """Get key deals (high value opportunities)."""
+    """Get key deals (high value opportunities, tenant-wide)."""
     return await dashboard_service.get_key_deals(
         tenant_id=str(current_user.tenant_id),
-        user_id=str(current_user.id),
         limit=limit
     )
 
