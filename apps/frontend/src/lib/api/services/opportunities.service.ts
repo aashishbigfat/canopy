@@ -69,6 +69,14 @@ export const opportunitiesService = {
     createTask: async (id: string, data: any): Promise<OpportunityTask> => {
         const response = await apiClient.post<OpportunityTask>(`${BASE_URL}/${id}/tasks`, data);
         return response.data;
+    },
+
+    // Change Owner
+    changeOwner: async (id: string, newOwnerId: string): Promise<Opportunity> => {
+        const response = await apiClient.post<Opportunity>(`${BASE_URL}/${id}/change-owner`, null, {
+            params: { new_owner_id: newOwnerId }
+        });
+        return response.data;
     }
 };
 

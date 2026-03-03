@@ -44,12 +44,29 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Opportunity } from "../types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { UpdateStageDialog } from "./UpdateStageDialog";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
-import { useOpportunityHistory, useOpportunityTasks, useCreateOpportunityTask, useUpdateOpportunityStage, useDeleteOpportunity } from "../api/useOpportunities";
+import {
+    useOpportunity,
+    useOpportunityHistory,
+    useOpportunityTasks,
+    useCreateOpportunityTask,
+    useUpdateOpportunityStage,
+    useDeleteOpportunity,
+    useChangeOpportunityOwner
+} from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -71,40 +88,40 @@ export function OpportunityDetails({
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const { data: reactiveOpportunity } = useOpportunity(opportunity.id);
+    // Use reactive data if available, fallback to initial prop
+    const record = reactiveOpportunity || opportunity;
 
-    const stage = stages.find(s => s.id === opportunity.sales_stage_id);
+    const [selectedStageId, setSelectedStageId] = useState<string>(record.sales_stage_id);
+
+
+    const stage = stages.find(s => s.id === record.sales_stage_id);
 
     // Sort stages strictly by sorting number to represent pipeline order
     const orderedStages = [...stages].sort((a, b) => (a.sorting || 0) - (b.sorting || 0));
-    const currentStageIndex = orderedStages.findIndex(s => s.id === opportunity.sales_stage_id);
+    const currentStageIndex = orderedStages.findIndex(s => s.id === record.sales_stage_id);
 
-    const { data: history = [] } = useOpportunityHistory(opportunity.id);
-    const { data: tasks = [] } = useOpportunityTasks(opportunity.id);
+    const { data: history = [] } = useOpportunityHistory(record.id);
+    const { data: tasks = [] } = useOpportunityTasks(record.id);
     const { mutate: updateStage } = useUpdateOpportunityStage();
+    const { mutate: changeOwner } = useChangeOpportunityOwner();
 
-    const changeOwnerMutation = useMutation({
-        mutationFn: async (newOwnerId: string) => {
-            const response = await opportunitiesService.updateOpportunity(opportunity.id, { owner_id: newOwnerId } as any);
-            return response;
-        },
-        onSuccess: () => {
-            toast.success("Owner changed successfully");
-            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
-            router.refresh();
-        },
-        onError: (error: any) => {
-            toast.error(error?.response?.data?.detail || "Failed to change owner");
-        }
-    });
+    // removed local changeOwnerMutation as we use useChangeOpportunityOwner hook now
 
     const handleStageClick = (targetStageId: string, _index: number) => {
-        updateStage({ id: opportunity.id, stageId: targetStageId });
+        setSelectedStageId(targetStageId);
+    };
+
+    const handleMarkAsCurrentStage = () => {
+        if (selectedStageId && selectedStageId !== record.sales_stage_id) {
+            updateStage({ id: record.id, stageId: selectedStageId });
+        }
     };
 
     const handleDelete = async () => {
         setIsDeleting(true);
         try {
-            await opportunitiesService.deleteOpportunity(opportunity.id);
+            await opportunitiesService.deleteOpportunity(record.id);
             toast.success("Opportunity deleted successfully");
             router.push("/opportunities");
         } catch (error: any) {
@@ -117,8 +134,8 @@ export function OpportunityDetails({
     return (
         <div className="space-y-6 max-w-[1400px] mx-auto">
             <UpdateStageDialog
-                opportunityId={opportunity.id}
-                currentStageId={opportunity.sales_stage_id}
+                opportunityId={record.id}
+                currentStageId={record.sales_stage_id}
                 stages={stages}
                 isOpen={isStageDialogOpen}
                 onClose={() => setIsStageDialogOpen(false)}
@@ -130,7 +147,7 @@ export function OpportunityDetails({
                     <AlertDialogHeader>
                         <AlertDialogTitle>Delete Opportunity?</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Are you sure you want to delete <strong>{opportunity.name}</strong>? This action cannot be undone and will remove all associated data.
+                            Are you sure you want to delete <strong>{record.name}</strong>? This action cannot be undone and will remove all associated data.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
@@ -151,11 +168,10 @@ export function OpportunityDetails({
                 isOpen={isOwnerDialogOpen}
                 onClose={() => setIsOwnerDialogOpen(false)}
                 onConfirm={(newOwnerId) => {
-                    changeOwnerMutation.mutate(newOwnerId);
+                    changeOwner({ id: record.id, newOwnerId });
                     setIsOwnerDialogOpen(false);
                 }}
                 type="Opportunity"
-                isLoading={changeOwnerMutation.isPending}
             />
 
             {/* Header / Actions - Styled like reference UI */}
@@ -168,34 +184,36 @@ export function OpportunityDetails({
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <h1 className="text-xl font-semibold text-blue-600">
-                                    Opportunity <span className="text-muted-foreground font-normal">({opportunity.account_name || "Personal Account"})</span>
+                                    Opportunity <span className="text-muted-foreground font-normal">({record.contact_id ? "Person Account" : "Account"})</span>
                                 </h1>
-                                {opportunity.creation_type && (
+                                {record.creation_type && (
                                     <Badge variant="secondary" className="bg-orange-100 text-orange-700 font-normal">
-                                        {opportunity.creation_type === "Auto" ? "Lead Converted" : opportunity.creation_type}
+                                        {record.creation_type}
                                     </Badge>
                                 )}
                             </div>
-                            <h2 className="text-lg font-medium">{opportunity.name}</h2>
+                            <h2 className="text-lg font-medium">{record.name}</h2>
                             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 pt-1">
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400">Name</p>
-                                    <p className="font-medium text-blue-500">
-                                        {opportunity.contact_name || opportunity.account_name || "-"}
+                                    <p className="font-medium text-blue-500 hover:underline cursor-pointer">
+                                        <Link href={record.contact_id ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
+                                            {record.contact_name || record.account_name || "-"}
+                                        </Link>
                                     </p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400">Email | Mobile</p>
                                     <p className="font-medium text-blue-500 text-xs">
-                                        {opportunity.contact_email || "-"} | {opportunity.contact_phone || "-"}
+                                        {record.contact_email || "-"} | {record.contact_phone || "-"}
                                     </p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400">Travel Date | No of Pax</p>
                                     <p className="font-medium text-slate-700">
-                                        {opportunity.travel_date
-                                            ? new Date(opportunity.travel_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })
-                                            : "-"} | {opportunity.no_of_pax || "-"}
+                                        {record.travel_date
+                                            ? new Date(record.travel_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })
+                                            : "-"} | {record.no_of_pax || "-"}
                                     </p>
                                 </div>
                             </div>
@@ -207,7 +225,7 @@ export function OpportunityDetails({
                             <div className="text-right text-xs space-y-1 mr-4">
                                 <div className="flex items-center justify-end gap-2">
                                     <span className="text-slate-500">Key Deal</span>
-                                    <input type="checkbox" checked={opportunity.key_deal} readOnly className="rounded border-slate-300" />
+                                    <input type="checkbox" checked={record.key_deal} readOnly className="rounded border-slate-300" />
                                 </div>
                                 <div className="flex items-center justify-end gap-2">
                                     <span className="text-slate-500">Verified by Account</span>
@@ -215,7 +233,7 @@ export function OpportunityDetails({
                                 </div>
                             </div>
                             <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" asChild>
-                                <Link href={`/opportunities/${opportunity.id}/edit`}>Edit</Link>
+                                <Link href={`/opportunities/${record.id}/edit`}>Edit</Link>
                             </Button>
                             <Button
                                 variant="destructive"
@@ -234,7 +252,7 @@ export function OpportunityDetails({
                                     onClick={() => setIsOwnerDialogOpen(true)}
                                     className="font-medium text-blue-500 flex items-center gap-1 hover:text-blue-700 transition-colors"
                                 >
-                                    {opportunity.owner_name} <UserIcon className="h-3 w-3" />
+                                    {record.owner_name} <UserIcon className="h-3 w-3" />
                                 </button>
                             </div>
                             <div className="flex justify-between border-b pb-1">
@@ -265,8 +283,8 @@ export function OpportunityDetails({
                                     onClick={() => handleStageClick(s.id, index)}
                                     className={cn(
                                         "relative flex-1 py-2 px-4 text-center text-xs font-medium cursor-pointer transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
-                                        isCurrent ? "bg-slate-900 border-slate-900 text-white" :
-                                            isPast ? "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200" :
+                                        s.id === selectedStageId ? "bg-slate-900 border-slate-900 text-white" :
+                                            index < currentStageIndex ? "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200" :
                                                 "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                     )}
                                     style={{
@@ -284,12 +302,14 @@ export function OpportunityDetails({
                             );
                         })}
                     </div>
-                    <Button
-                        className="ml-4 bg-blue-500 hover:bg-blue-600 rounded-full text-xs h-8 px-6 whitespace-nowrap"
-                        onClick={() => setIsStageDialogOpen(true)}
-                    >
-                        Mark as Current Stage
-                    </Button>
+                    {selectedStageId !== record.sales_stage_id && (
+                        <Button
+                            className="ml-4 bg-blue-500 hover:bg-blue-600 rounded-full text-xs h-8 px-6 whitespace-nowrap"
+                            onClick={handleMarkAsCurrentStage}
+                        >
+                            Mark as Current Stage
+                        </Button>
+                    )}
                 </div>
             </div>
 
@@ -307,7 +327,7 @@ export function OpportunityDetails({
                             <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Supplier</TabsTrigger>
                             <TabsTrigger value="attachments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Attachments</TabsTrigger>
                             <span className="flex items-center px-4 py-3">
-                                <Link href={`/opportunities/${opportunity.id}/edit`} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
+                                <Link href={`/opportunities/${record.id}/edit`} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
                                     <Edit className="h-3.5 w-3.5" /> Edit
                                 </Link>
                             </span>
@@ -330,7 +350,7 @@ export function OpportunityDetails({
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Assigned To</label>
                                     <select className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-white">
-                                        <option>{opportunity.owner_name}</option>
+                                        <option>{record.owner_name}</option>
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
@@ -339,11 +359,15 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Name</label>
-                                    <input type="text" value={opportunity.owner_name || ""} readOnly className="w-full border rounded text-sm px-3 py-1.5 bg-slate-50 text-slate-600 outline-none" />
+                                    <div className="w-full border rounded text-sm px-3 py-1.5 bg-slate-50 text-blue-600 hover:underline cursor-pointer font-medium">
+                                        <Link href={record.contact_id ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
+                                            {record.contact_name || record.account_name || ""}
+                                        </Link>
+                                    </div>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Related to</label>
-                                    <p className="text-sm text-slate-700 pt-1.5">{opportunity.name}</p>
+                                    <p className="text-sm text-slate-700 pt-1.5">{record.name}</p>
                                 </div>
                                 <div className="space-y-1.5 mt-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -419,7 +443,7 @@ export function OpportunityDetails({
                             <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
                                 <Calendar className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                                 <p className="text-slate-500 font-medium">No departures added</p>
-                                <p className="text-slate-400 text-sm mt-1">Add departure dates and details for this opportunity.</p>
+                                <p className="text-slate-400 text-sm mt-1">Add departure dates and details for this record.</p>
                             </div>
                         </TabsContent>
 
@@ -429,41 +453,41 @@ export function OpportunityDetails({
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
                                     <p className="text-lg font-bold text-slate-900">
-                                        {opportunity.amount ? `$${opportunity.amount.toLocaleString()}` : "$0"}
+                                        {record.amount ? `$${record.amount.toLocaleString()}` : "$0"}
                                     </p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
                                     <div className="flex items-center gap-3">
-                                        <span className="text-base font-semibold">{opportunity.probability || 0}%</span>
+                                        <span className="text-base font-semibold">{record.probability || 0}%</span>
                                         <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${opportunity.probability || 0}%` }} />
+                                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
                                         </div>
                                     </div>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
-                                    <Badge variant="secondary" className={cn("uppercase font-bold mt-1", opportunity.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
-                                        {opportunity.segment || "B2C"}
+                                    <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
+                                        {record.segment || "B2C"}
                                     </Badge>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
                                     <span className="text-sm font-medium pt-1 block">
-                                        {opportunity.close_date ? format(new Date(opportunity.close_date), "PPP") : "Not Set"}
+                                        {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
                                     </span>
                                 </div>
-                                {(opportunity as any).no_of_nights && (
+                                {(record as any).no_of_nights && (
                                     <div className="space-y-1">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
-                                        <p className="text-sm font-semibold pt-1">{(opportunity as any).no_of_nights}</p>
+                                        <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
                                     </div>
                                 )}
                                 <div className="space-y-2 col-span-full mt-4">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
                                     <div className="flex flex-wrap gap-2 pt-1">
-                                        {opportunity.destination_names && opportunity.destination_names.length > 0 ? (
-                                            opportunity.destination_names.map((dest, i) => (
+                                        {record.destination_names && record.destination_names.length > 0 ? (
+                                            record.destination_names.map((dest, i) => (
                                                 <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
                                                     <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
                                                     {dest}
@@ -508,21 +532,21 @@ export function OpportunityDetails({
                                     <CardContent className="p-4">
                                         <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Deal Amount</p>
                                         <p className="text-2xl font-bold text-slate-900">
-                                            ₹{(opportunity.amount || 0).toLocaleString()}
+                                            ₹{(record.amount || 0).toLocaleString()}
                                         </p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-slate-200">
                                     <CardContent className="p-4">
                                         <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Probability</p>
-                                        <p className="text-2xl font-bold text-blue-600">{opportunity.probability || 0}%</p>
+                                        <p className="text-2xl font-bold text-blue-600">{record.probability || 0}%</p>
                                     </CardContent>
                                 </Card>
                                 <Card className="border-slate-200">
                                     <CardContent className="p-4">
                                         <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Expected Revenue</p>
                                         <p className="text-2xl font-bold text-emerald-600">
-                                            ₹{(((opportunity.amount || 0) * (opportunity.probability || 0)) / 100).toLocaleString()}
+                                            ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
                                         </p>
                                     </CardContent>
                                 </Card>
@@ -566,7 +590,7 @@ export function OpportunityDetails({
                             <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
                                 <Paperclip className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                                 <p className="text-slate-500 font-medium">No attachments found</p>
-                                <p className="text-slate-400 text-sm mt-1">Upload documents, images, or files related to this opportunity.</p>
+                                <p className="text-slate-400 text-sm mt-1">Upload documents, images, or files related to this record.</p>
                             </div>
                         </TabsContent>
                     </Tabs>
@@ -579,71 +603,63 @@ export function OpportunityDetails({
                             <CardTitle className="text-base font-semibold text-slate-700">Stage History</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
-                            {/* Current stats summary grid like reference */}
-                            <div className="grid grid-cols-2 gap-px bg-slate-100 border-b">
-                                <div className="bg-white p-3 space-y-1">
-                                    <p className="text-xs font-semibold text-slate-900">Stage:</p>
-                                    <p className="text-xs text-slate-600">{stage?.name}</p>
-                                </div>
-                                <div className="bg-white p-3 space-y-1">
-                                    <p className="text-xs font-semibold text-slate-900">Amount:</p>
-                                    <p className="text-xs text-slate-600">₹ {opportunity.amount?.toLocaleString() || "0"}</p>
-                                </div>
-                                <div className="bg-white p-3 space-y-1">
-                                    <p className="text-xs font-semibold text-slate-900">Probability (%):</p>
-                                    <p className="text-xs text-slate-600">{opportunity.probability || "0"}</p>
-                                </div>
-                                <div className="bg-white p-3 space-y-1">
-                                    <p className="text-xs font-semibold text-slate-900">Expected Revenue:</p>
-                                    <p className="text-xs text-slate-600">₹ {((opportunity.amount || 0) * (opportunity.probability || 0) / 100).toLocaleString()}</p>
-                                </div>
-                                <div className="bg-white p-3 space-y-1 col-span-2">
-                                    <p className="text-xs font-semibold text-slate-900">Close Date:</p>
-                                    <p className="text-xs text-slate-600">{opportunity.close_date ? format(new Date(opportunity.close_date), "dd MMM yyyy") : "-"}</p>
-                                </div>
-                                <div className="bg-white p-3 space-y-1 col-span-2">
-                                    <p className="text-xs font-semibold text-slate-900">Last Modified By:</p>
-                                    <p className="text-xs text-slate-600">{opportunity.owner_name}</p>
-                                </div>
-                                <div className="bg-white p-3 space-y-1 col-span-2">
-                                    <p className="text-xs font-semibold text-slate-900">Last Modified:</p>
-                                    <p className="text-xs text-slate-600">{format(new Date(opportunity.updated_at), "dd MMM yyyy | hh:mm a")}</p>
-                                </div>
-                            </div>
+                            <ScrollArea className="h-[400px]">
+                                {(() => {
+                                    const stageHistory = history.filter(h => h.field_name === "sales_stage_id");
+                                    // Deduplicate: filter out entries where stage didn't actually change (redundant logs)
+                                    const uniqueHistory = stageHistory.filter(h =>
+                                        h.old_value !== h.new_value || h.old_value === null
+                                    );
 
-                            {/* Historical Records */}
-                            {history.filter(h => h.field_name === "sales_stage_id").map((record, i) => (
-                                <div key={record.id} className="grid grid-cols-2 gap-px bg-slate-100 border-b last:border-0 border-t-8 border-t-slate-100">
-                                    <div className="bg-white p-3 space-y-1">
-                                        <p className="text-xs font-semibold text-slate-900">Stage:</p>
-                                        <p className="text-xs text-slate-600">{record.new_stage_name || record.new_value}</p>
-                                    </div>
-                                    <div className="bg-white p-3 space-y-1">
-                                        <p className="text-xs font-semibold text-slate-900">Amount:</p>
-                                        <p className="text-xs text-slate-600">₹ {opportunity.amount?.toLocaleString() || "0"}</p>
-                                    </div>
-                                    <div className="bg-white p-3 space-y-1">
-                                        <p className="text-xs font-semibold text-slate-900">Probability (%):</p>
-                                        <p className="text-xs text-slate-600">-</p>
-                                    </div>
-                                    <div className="bg-white p-3 space-y-1">
-                                        <p className="text-xs font-semibold text-slate-900">Expected Revenue:</p>
-                                        <p className="text-xs text-slate-600">-</p>
-                                    </div>
-                                    <div className="bg-white p-3 space-y-1 col-span-2">
-                                        <p className="text-xs font-semibold text-slate-900">Close Date:</p>
-                                        <p className="text-xs text-slate-600">{opportunity.close_date ? format(new Date(opportunity.close_date), "dd MMM yyyy") : "-"}</p>
-                                    </div>
-                                    <div className="bg-white p-3 space-y-1 col-span-2">
-                                        <p className="text-xs font-semibold text-slate-900">Last Modified By:</p>
-                                        <p className="text-xs text-slate-600">{record.user_name}</p>
-                                    </div>
-                                    <div className="bg-white p-3 space-y-1 col-span-2">
-                                        <p className="text-xs font-semibold text-slate-900">Last Modified:</p>
-                                        <p className="text-xs text-slate-600">{format(new Date(record.changed_at), "dd MMM yyyy | hh:mm a")}</p>
-                                    </div>
-                                </div>
-                            ))}
+                                    if (uniqueHistory.length === 0) {
+                                        return (
+                                            <div className="text-center py-10">
+                                                <p className="text-sm text-slate-400 italic">No stage history recorded yet</p>
+                                            </div>
+                                        );
+                                    }
+
+                                    return (
+                                        <Table>
+                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                                <TableRow>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Stage</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Amount</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Prob</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Modified</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {uniqueHistory.map((historyRecord, i) => (
+                                                    <TableRow key={historyRecord.id || i} className="hover:bg-slate-50/50">
+                                                        <TableCell className="py-2">
+                                                            <p className="text-xs font-semibold text-blue-600 truncate max-w-[80px]" title={historyRecord.new_stage_name || historyRecord.new_value}>
+                                                                {historyRecord.new_stage_name || historyRecord.new_value}
+                                                            </p>
+                                                        </TableCell>
+                                                        <TableCell className="py-2">
+                                                            <p className="text-xs text-slate-600">₹{record.amount?.toLocaleString()}</p>
+                                                        </TableCell>
+                                                        <TableCell className="py-2">
+                                                            <p className="text-xs text-slate-600">{record.probability}%</p>
+                                                        </TableCell>
+                                                        <TableCell className="py-2">
+                                                            <div className="flex flex-col">
+                                                                <span className="text-[10px] font-medium text-slate-900 truncate max-w-[70px]" title={historyRecord.user_name || "System"}>
+                                                                    {historyRecord.user_name || "System"}
+                                                                </span>
+                                                                <span className="text-[9px] text-slate-400 capitalize">
+                                                                    {format(new Date(historyRecord.changed_at), "dd MMM yyyy, hh:mm a")}
+                                                                </span>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                ))}
+                                            </TableBody>
+                                        </Table>
+                                    );
+                                })()}
+                            </ScrollArea>
                         </CardContent>
                     </Card>
                 </div>

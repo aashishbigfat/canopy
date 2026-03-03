@@ -354,7 +354,10 @@ const leadFormSchema = z.object({
     campaign_name: z.string().optional(),
     travel_date: z.string().min(1, { message: "Travel date is required." }),
     no_of_nights: z.coerce.number().int().min(1, { message: "Number of nights must be at least 1." }),
+    no_of_adults: z.coerce.number().int().min(1, { message: "Number of adults must be at least 1." }),
     no_of_pax: z.coerce.number().int().min(1, { message: "Number of pax must be at least 1." }),
+    no_of_childs: z.coerce.number().int().min(0).optional(),
+    no_of_infants: z.coerce.number().int().min(0).optional(),
     is_fixed: z.boolean().default(false).optional(),
     destinations: z.string().min(1, { message: "Destinations are required." }),
     segment: z.string().optional(),
@@ -423,8 +426,11 @@ export function LeadForm({
             country: initialData?.country || "",
             campaign_name: initialData?.campaign_name || "",
             travel_date: initialData?.travel_date || "",
-            no_of_nights: initialData?.no_of_nights ?? ("" as any),
-            no_of_pax: initialData?.no_of_pax ?? ("" as any),
+            no_of_nights: initialData?.no_of_nights?.toString() ?? ("" as any),
+            no_of_adults: initialData?.no_of_adults?.toString() ?? ("1" as any),
+            no_of_pax: initialData?.no_of_pax?.toString() ?? ("1" as any),
+            no_of_childs: initialData?.no_of_childs?.toString() ?? ("0" as any),
+            no_of_infants: initialData?.no_of_infants?.toString() ?? ("0" as any),
             is_fixed: initialData?.is_fixed || false,
             destinations: initialData?.destinations?.join(", ") || "",
             segment: initialData?.segment || "B2C",
@@ -434,6 +440,17 @@ export function LeadForm({
     });
 
     const email = form.watch("email");
+
+    const adults = form.watch("no_of_adults") || 0;
+    const childs = form.watch("no_of_childs") || 0;
+    const infants = form.watch("no_of_infants") || 0;
+
+    useEffect(() => {
+        const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
+        if (total > 0) {
+            form.setValue("no_of_pax", total as any);
+        }
+    }, [adults, childs, infants, form]);
 
     useEffect(() => {
         if (!email || !email.includes("@")) return;
@@ -473,8 +490,11 @@ export function LeadForm({
                 country: data.country,
                 campaign_name: data.campaign_name,
                 travel_date: data.travel_date,
-                no_of_nights: Math.abs(data.no_of_nights),
-                no_of_pax: Math.abs(data.no_of_pax),
+                no_of_nights: Number(data.no_of_nights),
+                no_of_adults: Number(data.no_of_adults),
+                no_of_pax: Number(data.no_of_pax),
+                no_of_childs: data.no_of_childs ? Number(data.no_of_childs) : 0,
+                no_of_infants: data.no_of_infants ? Number(data.no_of_infants) : 0,
                 is_fixed: data.is_fixed,
                 destinations: data.destinations.split(",").map((d: string) => d.trim()).filter(Boolean),
                 segment: data.segment,
@@ -919,14 +939,59 @@ export function LeadForm({
                                     />
                                     <FormField
                                         control={form.control as any}
+                                        name="no_of_adults"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                    Adults <span className="text-red-500">*</span>
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
                                         name="no_of_pax"
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Pax <span className="text-red-500">*</span>
+                                                    Total Pax
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
+                                                    <Input type="number" placeholder="2" readOnly className="h-9 bg-slate-50 cursor-not-allowed" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
+                                        name="no_of_childs"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                    Childs
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input type="number" placeholder="0" min={0} className="h-9 bg-white" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
+                                        name="no_of_infants"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                    Infants
+                                                </FormLabel>
+                                                <FormControl>
+                                                    <Input type="number" placeholder="0" min={0} className="h-9 bg-white" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

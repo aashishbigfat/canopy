@@ -10,6 +10,8 @@ export interface Opportunity {
     no_of_pax?: number;
     no_of_nights?: number;
     no_of_adults?: number;
+    no_of_childs?: number;
+    no_of_infants?: number;
     travel_date?: string; // Date string
     close_date?: string; // Date string
 

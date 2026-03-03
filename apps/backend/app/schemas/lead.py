@@ -38,7 +38,10 @@ class LeadBase(BaseModel):
     campaign_name: Optional[str] = None
     travel_date: Optional[str] = None
     no_of_nights: Optional[int] = Field(None, ge=1)
+    no_of_adults: Optional[int] = Field(None, ge=1)
     no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"
     is_fixed: Optional[bool] = False
@@ -81,7 +84,10 @@ class LeadUpdate(BaseModel):
     campaign_name: Optional[str] = None
     travel_date: Optional[str] = None
     no_of_nights: Optional[int] = Field(None, ge=1)
+    no_of_adults: Optional[int] = Field(None, ge=1)
     no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
     ip_address: Optional[str] = None
     is_fixed: Optional[bool] = None
     destinations: Optional[List[str]] = None
@@ -128,7 +134,10 @@ class LeadResponse(BaseModel):
     campaign_name: Optional[str] = None
     travel_date: Optional[str] = None
     no_of_nights: Optional[int] = None
+    no_of_adults: Optional[int] = None
     no_of_pax: Optional[int] = None
+    no_of_childs: Optional[int] = None
+    no_of_infants: Optional[int] = None
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"
     is_fixed: Optional[bool] = False

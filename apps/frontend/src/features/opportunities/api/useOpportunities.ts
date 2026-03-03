@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { OpportunityFilters, OpportunityCreateData } from "../types";
 
@@ -43,9 +44,44 @@ export const useUpdateOpportunity = () => {
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Partial<OpportunityCreateData> }) =>
             opportunitiesService.updateOpportunity(id, data),
-        onSuccess: (data) => {
+        onMutate: async (newOpportunity) => {
+            await queryClient.cancelQueries({ queryKey: ["opportunities"] });
+            const previousQueries = queryClient.getQueriesData({ queryKey: ["opportunities"] });
+
+            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
+                if (!old) return old;
+
+                // Handle List Response
+                if (old.opportunities && Array.isArray(old.opportunities)) {
+                    return {
+                        ...old,
+                        opportunities: old.opportunities.map((opp: any) =>
+                            opp.id === newOpportunity.id ? { ...opp, ...newOpportunity.data } : opp
+                        ),
+                    };
+                }
+
+                // Handle Single Record Response
+                if (old.id === newOpportunity.id) {
+                    return { ...old, ...newOpportunity.data };
+                }
+
+                return old;
+            });
+
+            return { previousQueries };
+        },
+        onError: (err, newOpportunity, context) => {
+            context?.previousQueries.forEach(([queryKey, previousData]) => {
+                queryClient.setQueryData(queryKey, previousData);
+            });
+            toast.error("Failed to update opportunity");
+        },
+        onSettled: (data) => {
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
-            queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            if (data) {
+                queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            }
         },
     });
 };
@@ -55,11 +91,48 @@ export const useUpdateOpportunityStage = () => {
     return useMutation({
         mutationFn: ({ id, stageId, reason }: { id: string; stageId: string; reason?: string }) =>
             opportunitiesService.updateStage(id, stageId, reason),
-        onSuccess: (data) => {
+        onMutate: async (newOpportunity) => {
+            await queryClient.cancelQueries({ queryKey: ["opportunities"] });
+            const previousQueries = queryClient.getQueriesData({ queryKey: ["opportunities"] });
+
+            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
+                if (!old) return old;
+
+                // Handle List Response
+                if (old.opportunities && Array.isArray(old.opportunities)) {
+                    return {
+                        ...old,
+                        opportunities: old.opportunities.map((opp: any) =>
+                            opp.id === newOpportunity.id
+                                ? { ...opp, sales_stage_id: newOpportunity.stageId }
+                                : opp
+                        ),
+                    };
+                }
+
+                // Handle Single Record Response
+                if (old.id === newOpportunity.id) {
+                    return { ...old, sales_stage_id: newOpportunity.stageId };
+                }
+
+                return old;
+            });
+
+            return { previousQueries };
+        },
+        onError: (err, newOpportunity, context) => {
+            context?.previousQueries.forEach(([queryKey, previousData]) => {
+                queryClient.setQueryData(queryKey, previousData);
+            });
+            toast.error("Failed to update stage — please try again");
+        },
+        onSettled: (data) => {
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
-            queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            if (data) {
+                queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            }
             queryClient.invalidateQueries({ queryKey: ["sales-stages"] });
-        }
+        },
     });
 };
 
@@ -101,6 +174,53 @@ export const useCreateOpportunityTask = (opportunityId: string) => {
         mutationFn: (data: any) => opportunitiesService.createTask(opportunityId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["opportunities", opportunityId, "tasks"] });
+        },
+    });
+};
+
+export const useChangeOpportunityOwner = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: ({ id, newOwnerId }: { id: string; newOwnerId: string }) =>
+            opportunitiesService.changeOwner(id, newOwnerId),
+        onMutate: async (newOwner) => {
+            await queryClient.cancelQueries({ queryKey: ["opportunities"] });
+            const previousQueries = queryClient.getQueriesData({ queryKey: ["opportunities"] });
+
+            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
+                if (!old) return old;
+
+                // Handle List Response
+                if (old.opportunities && Array.isArray(old.opportunities)) {
+                    return {
+                        ...old,
+                        opportunities: old.opportunities.map((opp: any) =>
+                            opp.id === newOwner.id ? { ...opp, owner_id: newOwner.newOwnerId } : opp
+                        ),
+                    };
+                }
+
+                // Handle Single Record Response
+                if (old.id === newOwner.id) {
+                    return { ...old, owner_id: newOwner.newOwnerId };
+                }
+
+                return old;
+            });
+
+            return { previousQueries };
+        },
+        onError: (err, newOwner, context) => {
+            context?.previousQueries.forEach(([queryKey, previousData]) => {
+                queryClient.setQueryData(queryKey, previousData);
+            });
+            toast.error("Failed to change owner");
+        },
+        onSettled: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+            if (data) {
+                queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            }
         },
     });
 };

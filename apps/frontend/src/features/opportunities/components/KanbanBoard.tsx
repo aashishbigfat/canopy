@@ -101,7 +101,7 @@ export function KanbanBoard({ opportunities, stages, onOpportunityClick }: Kanba
         // Visual feedback is handled by KanbanColumn's isOver state from useDroppable
     };
 
-    const handleDragEnd = async (event: DragEndEvent) => {
+    const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         setActiveOpportunity(null);
 
@@ -126,17 +126,16 @@ export function KanbanBoard({ opportunities, stages, onOpportunityClick }: Kanba
 
         const targetStage = stageById[targetStageId];
 
-        try {
-            await updateStage.mutateAsync({ id: opportunityId, stageId: targetStageId });
-            toast.success(
-                `Moved to "${targetStage?.name ?? "new stage"}"` +
-                (targetStage?.probability !== undefined
-                    ? ` · Probability → ${targetStage.probability}%`
-                    : "")
-            );
-        } catch {
-            toast.error("Failed to update stage — please try again");
-        }
+        // Trigger mutation without awaiting it for immediate feel
+        updateStage.mutate({ id: opportunityId, stageId: targetStageId });
+
+        // Show toast immediately
+        toast.success(
+            `Moved to "${targetStage?.name ?? "new stage"}"` +
+            (targetStage?.probability !== undefined
+                ? ` · Probability → ${targetStage.probability}%`
+                : "")
+        );
     };
 
     return (

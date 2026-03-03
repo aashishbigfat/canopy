@@ -1,4 +1,5 @@
 export interface User {
+    id: string;
     _id: string; // ObjectId mapped to string
     name: string;
     email: string;
@@ -51,8 +52,9 @@ export interface UserInput {
 }
 
 export interface UserResponse {
-    data: User[];
+    data?: User[];
+    users?: User[];
     total: number;
-    page: number;
-    limit: number;
+    page?: number;
+    limit?: number;
 }

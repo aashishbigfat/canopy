@@ -33,17 +33,20 @@ export interface Lead {
     source_medium_id?: string; // Keep for backward compatibility if needed, or remove if not used. User said "sourceMedium: (optional) Facebook, Google"
     experience_id?: string;
 
-    // Campaign
-    campaign_name?: string;
-
     // Travel Details
     travel_date?: string;
     no_of_nights?: number;
+    no_of_adults?: number;
     no_of_pax?: number;
+    no_of_childs?: number;
+    no_of_infants?: number;
     destinations?: string[]; // User said "destinations: (required)"
     is_fixed?: boolean;
     segment?: string;
     creation_type?: string;
+
+    // Campaign
+    campaign_name?: string;
 
     // Conversion Status
     is_converted: boolean;
@@ -89,7 +92,10 @@ export interface LeadCreateData {
     campaign_name?: string;
     travel_date?: string;
     no_of_nights?: number;
+    no_of_adults?: number;
     no_of_pax?: number;
+    no_of_childs?: number;
+    no_of_infants?: number;
     destinations?: string[];
     is_fixed?: boolean;
     segment?: string;

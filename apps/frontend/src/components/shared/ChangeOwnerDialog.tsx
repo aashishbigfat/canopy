@@ -19,7 +19,7 @@ export function ChangeOwnerDialog({
     isLoading?: boolean;
 }) {
     const [selectedUserId, setSelectedUserId] = useState<string>("");
-    const { data: usersData, isLoading: isLoadingUsers } = useGetUsers({ page: 1, limit: 100 });
+    const { data: usersData, isLoading: isLoadingUsers } = useGetUsers();
 
     const handleConfirm = () => {
         if (selectedUserId) {
@@ -45,8 +45,12 @@ export function ChangeOwnerDialog({
                                 <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a new owner"} />
                             </SelectTrigger>
                             <SelectContent>
-                                {usersData?.data?.map((user: User) => (
-                                    <SelectItem key={user._id} value={user._id}>
+                                {usersData?.users?.map((user: User) => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                        {user.name}
+                                    </SelectItem>
+                                )) || usersData?.data?.map((user: User) => (
+                                    <SelectItem key={user.id} value={user.id}>
                                         {user.name}
                                     </SelectItem>
                                 ))}

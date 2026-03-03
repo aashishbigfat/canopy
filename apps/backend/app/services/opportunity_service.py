@@ -306,6 +306,10 @@ class OpportunityService(ActivityMixin):
         old_stage_id = opp.sales_stage_id
         new_stage_id = ObjectId(stage_change.new_stage_id)
         
+        # Guard: Only change if stage is different
+        if old_stage_id == new_stage_id:
+            return opp
+
         # Update stage
         opp.sales_stage_id = new_stage_id
         opp.last_modified_by_id = user_id

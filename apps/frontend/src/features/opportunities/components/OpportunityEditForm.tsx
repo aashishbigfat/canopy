@@ -52,6 +52,8 @@ const opportunityFormSchema = z.object({
     experience_id: z.string().optional(),
     no_of_pax: z.string().optional(),
     no_of_adults: z.string().optional(),
+    no_of_childs: z.string().optional(),
+    no_of_infants: z.string().optional(),
     no_of_nights: z.string().optional(),
     description: z.string().optional(),
 });
@@ -84,6 +86,8 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             experience_id: opportunity.experience_id || "",
             no_of_pax: opportunity.no_of_pax?.toString() || "",
             no_of_adults: opportunity.no_of_adults?.toString() || "",
+            no_of_childs: opportunity.no_of_childs?.toString() || "0",
+            no_of_infants: opportunity.no_of_infants?.toString() || "0",
             no_of_nights: opportunity.no_of_nights?.toString() || "",
             description: opportunity.description || "",
         },
@@ -99,6 +103,17 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             form.setValue("probability", stageProbability.toString());
         }
     }, [selectedStageId, isProbabilityManuallyEdited, normalizedStages, form]);
+
+    const adults = form.watch("no_of_adults") || 0;
+    const childs = form.watch("no_of_childs") || 0;
+    const infants = form.watch("no_of_infants") || 0;
+
+    useEffect(() => {
+        const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
+        if (total > 0) {
+            form.setValue("no_of_pax", total.toString());
+        }
+    }, [adults, childs, infants, form]);
 
     async function onSubmit(data: OpportunityFormValues) {
         setIsLoading(true);
@@ -116,6 +131,8 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             if (data.experience_id && data.experience_id !== "none") payload.experience_id = data.experience_id;
             if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
             if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
+            if (data.no_of_childs) payload.no_of_childs = Number(data.no_of_childs);
+            if (data.no_of_infants) payload.no_of_infants = Number(data.no_of_infants);
             if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
             if (data.description) payload.description = data.description;
 
@@ -362,9 +379,9 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                             name="no_of_pax"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Number of Pax</FormLabel>
+                                    <FormLabel>Total Pax</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="4" {...field} />
+                                        <Input type="number" placeholder="4" readOnly className="bg-slate-50 cursor-not-allowed" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -379,6 +396,32 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                     <FormLabel>Number of Adults</FormLabel>
                                     <FormControl>
                                         <Input type="number" placeholder="2" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="no_of_childs"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Number of Childs</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="0" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="no_of_infants"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Number of Infants</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="0" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

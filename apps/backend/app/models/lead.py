@@ -46,7 +46,10 @@ class Lead(BaseDocument):
     campaign_name: Optional[str] = None
     travel_date: Optional[str] = None
     no_of_nights: Optional[int] = None
+    no_of_adults: Optional[int] = None
     no_of_pax: Optional[int] = None
+    no_of_childs: Optional[int] = None
+    no_of_infants: Optional[int] = None
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"  # Default to B2C
     is_fixed: bool = False

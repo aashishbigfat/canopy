@@ -582,16 +582,21 @@ async def get_opportunity_history(
         user_map = {}
         if user_ids:
             users = await User.find(In(User.id, list(user_ids))).to_list()
-            user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
+            user_map = {u.id: u.name for u in users}
         
-        # Get all stages for this tenant just to map names
-        stages = await SalesStage.find(
-            SalesStage.tenant_id == current_user.tenant_id
-        ).to_list()
+        # Collect all unique stage IDs from history
+        history_stage_ids = set()
+        for h in history_records:
+            if h.field_name == "sales_stage_id":
+                if h.old_value: history_stage_ids.add(h.old_value)
+                if h.new_value: history_stage_ids.add(h.new_value)
         
-        # If no tenant stages found, try default stages
-        if not stages:
-            stages = await SalesStage.find(SalesStage.tenant_id == None).to_list()
+        # Fetch only the stages we actually need for mapping
+        stages = []
+        if history_stage_ids:
+            from beanie.operators import In
+            valid_oids = [ObjectId(sid) for sid in history_stage_ids if len(sid) == 24]
+            stages = await SalesStage.find(In(SalesStage.id, valid_oids)).to_list()
             
         stage_map = {str(s.id): s.name for s in stages}
         
@@ -642,7 +647,7 @@ async def get_opportunity_tasks(
         user_map = {}
         if user_ids:
             users = await User.find(In(User.id, list(user_ids))).to_list()
-            user_map = {u.id: f"{u.first_name} {u.last_name}".strip() for u in users}
+            user_map = {u.id: u.name for u in users}
             
         from app.schemas.task import TaskResponse
         
