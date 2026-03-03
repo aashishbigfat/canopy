@@ -263,6 +263,7 @@ async def get_opportunity(
         from app.models.opportunity_picklists import SalesStage, OpportunityType
         from app.models.user import User as UserDoc
         from app.models.account import Account as AccountDoc
+        from app.models.contact import Contact as ContactDoc
         from app.models.destination import Destination as DestinationDoc
         
         sales_stage = None
@@ -284,6 +285,18 @@ async def get_opportunity(
             account = await AccountDoc.get(opportunity.account_id)
             if account:
                 account_name = account.name
+
+        # Fetch Contact info
+        contact_name = None
+        contact_email = None
+        contact_phone = None
+        if opportunity.contact_id:
+            contact = await ContactDoc.get(opportunity.contact_id)
+            if contact:
+                name_parts = [p for p in [getattr(contact, 'salutation', None), getattr(contact, 'first_name', None), getattr(contact, 'last_name', None)] if p]
+                contact_name = " ".join(name_parts) or None
+                contact_email = getattr(contact, 'email', None)
+                contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
         
         dest_names = []
         if opportunity.destination_ids:
@@ -293,9 +306,7 @@ async def get_opportunity(
                     dest_names.append(dest.name)
         
         segment = opportunity.custom_fields.get("segment", "B2C")
-        creation_type = "Manual"
-        if opportunity.lead_id:
-            creation_type = "Auto"
+        creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
             
         opp_response = OpportunityResponse.from_orm(opportunity)
         if sales_stage:
@@ -305,6 +316,9 @@ async def get_opportunity(
         
         opp_response.owner_name = owner_name
         opp_response.account_name = account_name
+        opp_response.contact_name = contact_name
+        opp_response.contact_email = contact_email
+        opp_response.contact_phone = contact_phone
         opp_response.destination_names = dest_names
         opp_response.segment = segment
         opp_response.creation_type = creation_type

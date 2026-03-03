@@ -58,8 +58,13 @@ export default async function LeadPage(props: LeadPageProps) {
                 />
             </div>
         );
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching lead data:", error);
+        // If lead is not found (converted/deleted), redirect to leads list
+        const status = error?.response?.status ?? error?.status;
+        if (status === 404 || status === 410) {
+            redirect("/leads");
+        }
         return (
             <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 text-red-600">
                 <h2 className="text-2xl font-semibold">Error Loading Lead</h2>

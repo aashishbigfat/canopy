@@ -17,10 +17,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Contact } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
+import { contactsService } from "@/lib/api/services/contacts.service";
+import { toast } from "sonner";
 
 interface ContactDetailsProps {
     contact: Contact & {
@@ -31,8 +45,47 @@ interface ContactDetailsProps {
 }
 
 export function ContactDetails({ contact }: ContactDetailsProps) {
+    const router = useRouter();
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await contactsService.deleteContact(contact.id);
+            toast.success("Contact deleted successfully");
+            router.push("/contacts");
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || "Failed to delete contact");
+            setIsDeleting(false);
+            setIsDeleteOpen(false);
+        }
+    };
+
     return (
         <div className="container mx-auto px-4 py-6 max-w-7xl">
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Contact?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete <strong>{contact.full_name}</strong>? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-red-500 hover:bg-red-600 text-white"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* High Fidelity Header */}
             <EntityDetailHeader
                 type="Contact"
@@ -41,8 +94,8 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                 phone={contact.phone}
                 email={contact.email}
                 ownerName={contact.owner_name}
-                onEdit={() => console.log("Edit contact")}
-                onDelete={() => console.log("Delete contact")}
+                onEdit={() => router.push(`/contacts/${contact.id}/edit`)}
+                onDelete={() => setIsDeleteOpen(true)}
             />
 
             <div className="flex flex-col lg:flex-row gap-6">

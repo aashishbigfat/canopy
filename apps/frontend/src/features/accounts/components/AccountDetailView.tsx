@@ -18,6 +18,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { isPersonAccountEmail } from "@/lib/utils";
 import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
@@ -27,6 +37,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountService } from "../services/accountService";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 interface AccountDetailViewProps {
     account: Account & {
@@ -47,6 +58,21 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
     const badgeLabel = isB2C ? "B2C" : "B2B";
     const queryClient = useQueryClient();
     const router = useRouter();
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await accountService.deleteAccount(account.id);
+            toast.success("Account deleted successfully");
+            router.push(isB2C ? "/person-accounts" : "/accounts");
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || "Failed to delete account");
+            setIsDeleting(false);
+            setIsDeleteOpen(false);
+        }
+    };
 
     const changeOwnerMutation = useMutation({
         mutationFn: (newOwnerId: string) => accountService.changeOwner(account.id, newOwnerId),
@@ -62,6 +88,28 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
 
     return (
         <div className="container mx-auto px-4 py-6 max-w-7xl">
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete {headerType}?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete <strong>{account.name}</strong>? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-red-500 hover:bg-red-600 text-white"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* High Fidelity Header */}
             <EntityDetailHeader
                 type={headerType}
@@ -71,8 +119,8 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                 phone={account.phone}
                 email={account.email}
                 ownerName={account.owner_name}
-                onEdit={() => console.log("Edit account")}
-                onDelete={() => console.log("Delete account")}
+                onEdit={() => router.push(`/${isB2C ? 'person-accounts' : 'accounts'}/${account.id}/edit`)}
+                onDelete={() => setIsDeleteOpen(true)}
                 onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
                 isChangingOwner={changeOwnerMutation.isPending}
             />

@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
 import { Opportunity } from "../types";
 import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } from "@/features/opportunities/utils/stageConfig";
+import { SalesStage } from "@/lib/api/services/opportunities.service";
 import { toast } from "sonner";
 
 const opportunityFormSchema = z.object({
@@ -59,7 +60,7 @@ type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
 
 interface OpportunityEditFormProps {
     opportunity: Opportunity;
-    stages: StageWithProbability[];
+    stages: SalesStage[] | StageWithProbability[];
 }
 
 export function OpportunityEditForm({ opportunity, stages }: OpportunityEditFormProps) {

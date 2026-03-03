@@ -37,6 +37,9 @@ export interface Opportunity {
     owner_id: string;
     owner_name?: string;
     account_name?: string;
+    contact_name?: string;
+    contact_email?: string;
+    contact_phone?: string;
     destination_names?: string[];
     segment?: string;
     creation_type?: string;

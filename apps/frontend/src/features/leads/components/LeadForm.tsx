@@ -353,8 +353,8 @@ const leadFormSchema = z.object({
     country: z.string().min(1, { message: "Country is required." }),
     campaign_name: z.string().optional(),
     travel_date: z.string().min(1, { message: "Travel date is required." }),
-    no_of_nights: z.string().min(1, { message: "Number of nights is required." }),
-    no_of_pax: z.string().min(1, { message: "Number of pax is required." }),
+    no_of_nights: z.coerce.number().int().min(1, { message: "Number of nights must be at least 1." }),
+    no_of_pax: z.coerce.number().int().min(1, { message: "Number of pax must be at least 1." }),
     is_fixed: z.boolean().default(false).optional(),
     destinations: z.string().min(1, { message: "Destinations are required." }),
     segment: z.string().optional(),
@@ -423,8 +423,8 @@ export function LeadForm({
             country: initialData?.country || "",
             campaign_name: initialData?.campaign_name || "",
             travel_date: initialData?.travel_date || "",
-            no_of_nights: initialData?.no_of_nights?.toString() || "",
-            no_of_pax: initialData?.no_of_pax?.toString() || "",
+            no_of_nights: initialData?.no_of_nights ?? ("" as any),
+            no_of_pax: initialData?.no_of_pax ?? ("" as any),
             is_fixed: initialData?.is_fixed || false,
             destinations: initialData?.destinations?.join(", ") || "",
             segment: initialData?.segment || "B2C",
@@ -473,8 +473,8 @@ export function LeadForm({
                 country: data.country,
                 campaign_name: data.campaign_name,
                 travel_date: data.travel_date,
-                no_of_nights: parseInt(data.no_of_nights),
-                no_of_pax: parseInt(data.no_of_pax),
+                no_of_nights: Math.abs(data.no_of_nights),
+                no_of_pax: Math.abs(data.no_of_pax),
                 is_fixed: data.is_fixed,
                 destinations: data.destinations.split(",").map((d: string) => d.trim()).filter(Boolean),
                 segment: data.segment,
@@ -911,7 +911,7 @@ export function LeadForm({
                                                     Nights <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="4" className="h-9 bg-white" {...field} />
+                                                    <Input type="number" placeholder="4" min={1} className="h-9 bg-white" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -926,7 +926,7 @@ export function LeadForm({
                                                     Pax <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="2" className="h-9 bg-white" {...field} />
+                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>

@@ -28,6 +28,16 @@ export const useCreateOpportunity = () => {
     });
 };
 
+export const useDeleteOpportunity = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => opportunitiesService.deleteOpportunity(id),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+        },
+    });
+};
+
 export const useUpdateOpportunity = () => {
     const queryClient = useQueryClient();
     return useMutation({

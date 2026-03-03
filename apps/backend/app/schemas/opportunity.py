@@ -143,6 +143,9 @@ class OpportunityResponse(OpportunityBase):
     opportunity_type_name: Optional[str] = None
     owner_name: Optional[str] = None
     account_name: Optional[str] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
     destination_names: List[str] = Field(default_factory=list)
     segment: Optional[str] = None
     creation_type: Optional[str] = "Manual" # "Auto" or "Manual"

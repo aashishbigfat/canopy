@@ -37,8 +37,8 @@ class LeadBase(BaseModel):
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
     travel_date: Optional[str] = None
-    no_of_nights: Optional[int] = None
-    no_of_pax: Optional[int] = None
+    no_of_nights: Optional[int] = Field(None, ge=1)
+    no_of_pax: Optional[int] = Field(None, ge=1)
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"
     is_fixed: Optional[bool] = False
@@ -80,8 +80,8 @@ class LeadUpdate(BaseModel):
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
     travel_date: Optional[str] = None
-    no_of_nights: Optional[int] = None
-    no_of_pax: Optional[int] = None
+    no_of_nights: Optional[int] = Field(None, ge=1)
+    no_of_pax: Optional[int] = Field(None, ge=1)
     ip_address: Optional[str] = None
     is_fixed: Optional[bool] = None
     destinations: Optional[List[str]] = None
@@ -90,23 +90,60 @@ class LeadUpdate(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = None
 
 
-class LeadResponse(LeadBase):
-    """Schema for lead response"""
+class LeadResponse(BaseModel):
+    """Schema for lead response - no ge constraints so old/legacy data doesn't fail serialization"""
     id: Annotated[str, BeforeValidator(str)]
     tenant_id: Annotated[str, BeforeValidator(str)]
     owner_id: Annotated[str, BeforeValidator(str)]
     created_by: Annotated[str, BeforeValidator(str)]
-    
+
+    salutation: Optional[str] = None
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
+
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+
+    company: Optional[str] = None
+    title: Optional[str] = None
+    no_employees: Optional[int] = None
+    website: Optional[str] = None
+
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+
+    lead_status_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+
+    # New Fields - no ge=1 constraint here so legacy negative values don't crash the response
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    travel_date: Optional[str] = None
+    no_of_nights: Optional[int] = None
+    no_of_pax: Optional[int] = None
+    ip_address: Optional[str] = None
+    segment: Optional[str] = "B2C"
+    is_fixed: Optional[bool] = False
+    destinations: Optional[List[str]] = Field(default_factory=list)
+    creation_type: Optional[str] = "manual"
+
     full_name: str
     is_converted: bool = False
     opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
     destination_ids: Optional[List[str]] = Field(default_factory=list, description="List of destination IDs")
-    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
-    
+
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
 

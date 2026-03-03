@@ -12,7 +12,8 @@ import {
     Edit,
     CheckCircle2,
     Briefcase,
-    ChevronLeft
+    ChevronLeft,
+    Trash2
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,8 +22,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Lead, LeadStatus, Source, User, Industry, Rating } from "../types";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
+import { leadsService } from "@/lib/api/services/leads.service";
+import { toast } from "sonner";
 import { format } from "date-fns";
 
 interface LeadDetailsProps {
@@ -48,6 +61,21 @@ export function LeadDetails({
 }: LeadDetailsProps) {
     const router = useRouter();
     const [isConvertOpen, setIsConvertOpen] = useState(false);
+    const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
+
+    const handleDelete = async () => {
+        setIsDeleting(true);
+        try {
+            await leadsService.deleteLead(lead.id);
+            toast.success("Lead deleted successfully");
+            router.push("/leads");
+        } catch (error: any) {
+            toast.error(error?.response?.data?.detail || "Failed to delete lead");
+            setIsDeleting(false);
+            setIsDeleteOpen(false);
+        }
+    };
 
     const status = statuses.find(s => s.id === lead.lead_status_id);
     const source = sources.find(s => s.id === lead.source_id);
@@ -57,6 +85,28 @@ export function LeadDetails({
 
     return (
         <div className="space-y-6">
+            {/* Delete Confirmation Dialog */}
+            <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Lead?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Are you sure you want to delete <strong>{lead.full_name}</strong>? This action cannot be undone.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                            onClick={handleDelete}
+                            disabled={isDeleting}
+                            className="bg-red-500 hover:bg-red-600 text-white"
+                        >
+                            {isDeleting ? "Deleting..." : "Delete"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+
             {/* Header / Actions */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
@@ -87,6 +137,14 @@ export function LeadDetails({
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
                         </Link>
+                    </Button>
+                    <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => setIsDeleteOpen(true)}
+                    >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
                     </Button>
                     {!lead.is_converted ? (
                         <Button
@@ -225,6 +283,10 @@ export function LeadDetails({
                         </CardContent>
                     </Card>
 
+                </div>
+
+                {/* Sidebar Column */}
+                <div className="space-y-6">
                     {/* Travel Requirements */}
                     <Card className="border-blue-100 bg-blue-50/30">
                         <CardHeader className="pb-3">
@@ -233,25 +295,37 @@ export function LeadDetails({
                                 Travel Requirements
                             </CardTitle>
                         </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Travel Date</p>
-                                <p className="text-sm font-semibold">{lead.travel_date || "-"}</p>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase">Travel Date</p>
+                                    <p className="text-sm font-semibold">{lead.travel_date || "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase">Nights</p>
+                                    <p className="text-sm">{lead.no_of_nights || "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase">Pax</p>
+                                    <p className="text-sm font-semibold text-blue-700">{lead.no_of_pax || "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-medium text-muted-foreground uppercase">Fixed Package?</p>
+                                    <p className="text-sm">{lead.is_fixed ? "Yes" : "No"}</p>
+                                </div>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">No of Nights</p>
-                                <p className="text-sm">{lead.no_of_nights || "-"}</p>
+                                <p className="text-xs font-medium text-muted-foreground uppercase">Experience</p>
+                                <p className="text-sm font-medium">
+                                    {experiences.find(e => e.id === lead.experience_id)?.name || "-"}
+                                </p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">No of Pax</p>
-                                <p className="text-sm font-semibold">{lead.no_of_pax || "-"}</p>
-                            </div>
-                            <div className="space-y-1 col-span-2 lg:col-span-3">
                                 <p className="text-xs font-medium text-muted-foreground uppercase">Destinations</p>
                                 <div className="flex flex-wrap gap-1 mt-1">
                                     {lead.destinations && lead.destinations.length > 0 ? (
                                         lead.destinations.map((dest, i) => (
-                                            <Badge key={i} variant="outline" className="bg-white">
+                                            <Badge key={i} variant="outline" className="bg-white text-xs">
                                                 {dest}
                                             </Badge>
                                         ))
@@ -260,22 +334,8 @@ export function LeadDetails({
                                     )}
                                 </div>
                             </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Is Fixed Package?</p>
-                                <p className="text-sm">{lead.is_fixed ? "Yes" : "No"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Experience</p>
-                                <p className="text-sm font-medium">
-                                    {experiences.find(e => e.id === lead.experience_id)?.name || "-"}
-                                </p>
-                            </div>
                         </CardContent>
                     </Card>
-                </div>
-
-                {/* Sidebar Column */}
-                <div className="space-y-6">
                     {/* Classification */}
                     <Card>
                         <CardHeader className="pb-3">
@@ -339,7 +399,7 @@ export function LeadDetails({
                 experiences={experiences}
                 sales_stages={sales_stages}
                 onSuccess={() => {
-                    router.refresh();
+                    router.push("/leads");
                 }}
             />
         </div>

@@ -305,7 +305,13 @@ export function ConvertLeadDialog({
     const childs = form.watch("no_of_childs") || 0;
     const infants = form.watch("no_of_infants") || 0;
 
-    // Update form values with resolved IDs
+    // Auto-calculate Total Pax = adults + children + infants
+    useEffect(() => {
+        const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
+        form.setValue("no_of_pax", total > 0 ? total : 1);
+    }, [adults, childs, infants, form]);
+
+
     useEffect(() => {
         if (leadProcessedDestinations.length > 0 && form) {
             const resolvedIds = leadProcessedDestinations.map(d => d.id);
