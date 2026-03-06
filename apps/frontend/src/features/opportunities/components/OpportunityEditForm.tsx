@@ -5,9 +5,19 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { CalendarIcon, ChevronLeft } from "lucide-react";
+import { CalendarIcon, ChevronLeft, Check, ChevronsUpDown, X } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
+
+import { Badge } from "@/components/ui/badge";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +48,7 @@ import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
 import { Opportunity } from "../types";
 import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } from "@/features/opportunities/utils/stageConfig";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
+import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { toast } from "sonner";
 
 const opportunityFormSchema = z.object({
@@ -55,6 +66,7 @@ const opportunityFormSchema = z.object({
     no_of_childs: z.string().optional(),
     no_of_infants: z.string().optional(),
     no_of_nights: z.string().optional(),
+    destinations: z.string().optional(),
     description: z.string().optional(),
 });
 
@@ -73,6 +85,16 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
     const normalizedStages = normalizeSalesStages(stages);
 
     const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
+    
+    const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
+    const [destinationOpen, setDestinationOpen] = useState(false);
+    const [destSearch, setDestSearch] = useState("");
+
+    useEffect(() => {
+        destinationsService.getDestinations({ limit: 1000 }).then(res => {
+            setAvailableDestinations(res.destinations);
+        }).catch(err => console.error("Failed to fetch destinations", err));
+    }, []);
 
     const form = useForm<OpportunityFormValues>({
         resolver: zodResolver(opportunityFormSchema),
@@ -89,6 +111,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             no_of_childs: opportunity.no_of_childs?.toString() || "0",
             no_of_infants: opportunity.no_of_infants?.toString() || "0",
             no_of_nights: opportunity.no_of_nights?.toString() || "",
+            destinations: opportunity.destination_names?.join(", ") || "",
             description: opportunity.description || "",
         },
     });
@@ -134,6 +157,18 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             if (data.no_of_childs) payload.no_of_childs = Number(data.no_of_childs);
             if (data.no_of_infants) payload.no_of_infants = Number(data.no_of_infants);
             if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
+            
+            if (data.destinations) {
+                const names = data.destinations.split(",").map(d => d.trim()).filter(Boolean);
+                const destIds = names.map(name => {
+                    const d = availableDestinations.find(x => x.name === name);
+                    return d ? d.id : null;
+                }).filter(Boolean);
+                payload.destination_ids = destIds;
+            } else {
+                payload.destination_ids = [];
+            }
+            
             if (data.description) payload.description = data.description;
 
             await updateOpportunity.mutateAsync({
@@ -437,6 +472,100 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                     <FormControl>
                                         <Input type="number" placeholder="7" {...field} />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        
+                        <FormField
+                            control={form.control}
+                            name="destinations"
+                            render={({ field }) => (
+                                <FormItem className="col-span-full">
+                                    <FormLabel>
+                                        Destinations
+                                    </FormLabel>
+                                    <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "min-h-[36px] h-auto w-full justify-between bg-white px-3 py-1",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {field.value ? (
+                                                            field.value.split(", ").filter(Boolean).map((dest: string) => (
+                                                                <Badge
+                                                                    key={dest}
+                                                                    variant="secondary"
+                                                                    className="rounded-sm px-1 font-normal text-xs"
+                                                                >
+                                                                    {dest}
+                                                                    <span
+                                                                        className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer inline-flex items-center justify-center p-[2px]"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const current = field.value!.split(", ").filter((d: string) => d !== dest);
+                                                                            field.onChange(current.join(", "));
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                                                    </span>
+                                                                </Badge>
+                                                            ))
+                                                        ) : (
+                                                            "Select destinations..."
+                                                        )}
+                                                    </div>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0 md:w-[500px]" align="start">
+                                            <Command>
+                                                <CommandInput
+                                                    placeholder="Search..."
+                                                    className="h-9"
+                                                    value={destSearch}
+                                                    onValueChange={setDestSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No results.</CommandEmpty>
+                                                    <CommandGroup className="max-h-48 overflow-auto">
+                                                        {availableDestinations.map((dest) => {
+                                                            const current = field.value ? field.value.split(", ") : [];
+                                                            const isSelected = current.includes(dest.name);
+                                                            return (
+                                                                <CommandItem
+                                                                    key={dest.id}
+                                                                    className="text-sm py-2"
+                                                                    onSelect={() => {
+                                                                        if (isSelected) {
+                                                                            field.onChange(current.filter((d: string) => d !== dest.name).join(", "));
+                                                                        } else {
+                                                                            field.onChange([...current, dest.name].join(", "));
+                                                                        }
+                                                                    }}
+                                                                >
+                                                                    <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            isSelected ? "opacity-100" : "opacity-0"
+                                                                        )}
+                                                                    />
+                                                                    {dest.name}
+                                                                </CommandItem>
+                                                            );
+                                                        })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <FormMessage />
                                 </FormItem>
                             )}

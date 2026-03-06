@@ -5,8 +5,18 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
-import { CalendarIcon } from "lucide-react";
+import { CalendarIcon, Check, ChevronsUpDown, X } from "lucide-react";
 import { format } from "date-fns";
+
+import { Badge } from "@/components/ui/badge";
+import {
+    Command,
+    CommandEmpty,
+    CommandGroup,
+    CommandInput,
+    CommandItem,
+    CommandList,
+} from "@/components/ui/command";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +45,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useCreateOpportunity, useSalesStages, useExperiences } from "../api/useOpportunities";
 import { normalizeSalesStages, getProbabilityForStageId } from "@/features/opportunities/utils/stageConfig";
+import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { toast } from "sonner";
 
 const opportunityFormSchema = z.object({
@@ -50,6 +61,7 @@ const opportunityFormSchema = z.object({
     no_of_pax: z.string().optional(),
     no_of_adults: z.string().optional(),
     no_of_nights: z.string().optional(),
+    destinations: z.string().optional(),
     description: z.string().optional(),
 });
 
@@ -65,6 +77,16 @@ export function OpportunityForm() {
     const normalizedStages = normalizeSalesStages(stages);
     const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
 
+    const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
+    const [destinationOpen, setDestinationOpen] = useState(false);
+    const [destSearch, setDestSearch] = useState("");
+
+    useEffect(() => {
+        destinationsService.getDestinations({ limit: 1000 }).then(res => {
+            setAvailableDestinations(res.destinations);
+        }).catch(err => console.error("Failed to fetch destinations", err));
+    }, []);
+
     const form = useForm<OpportunityFormValues>({
         resolver: zodResolver(opportunityFormSchema) as any,
         defaultValues: {
@@ -78,6 +100,7 @@ export function OpportunityForm() {
             no_of_pax: "",
             no_of_adults: "",
             no_of_nights: "",
+            destinations: "",
             description: "",
         },
     });
@@ -123,6 +146,16 @@ export function OpportunityForm() {
             if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
             if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
             if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
+
+            if (data.destinations) {
+                const names = data.destinations.split(",").map(d => d.trim()).filter(Boolean);
+                const destIds = names.map(name => {
+                    const d = availableDestinations.find(x => x.name === name);
+                    return d ? d.id : null;
+                }).filter(Boolean);
+                if (destIds.length > 0) payload.destination_ids = destIds;
+            }
+
             if (data.description) payload.description = data.description;
 
             const result = await createOpportunity.mutateAsync(payload);
