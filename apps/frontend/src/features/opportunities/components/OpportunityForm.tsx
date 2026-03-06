@@ -130,6 +130,41 @@ export function OpportunityForm() {
         }
     }, [normalizedStages, form, isProbabilityManuallyEdited]);
 
+    const destinationsWatch = form.watch("destinations");
+    const paxWatch = form.watch("no_of_pax");
+    const travelDateWatch = form.watch("travel_date");
+
+    // Auto-update opportunity name based on destinations, pax, and travel date
+    useEffect(() => {
+        if (!destinationsWatch && !paxWatch && !travelDateWatch) return;
+
+        const parts = [];
+
+        if (destinationsWatch) {
+            const dests = destinationsWatch.split(",").map(d => d.trim()).filter(Boolean);
+            if (dests.length > 0) {
+                parts.push(dests.join("_"));
+            }
+        }
+
+        if (paxWatch && Number(paxWatch) > 0) {
+            parts.push(`${paxWatch}Pax`);
+        }
+
+        if (travelDateWatch) {
+            const date = new Date(travelDateWatch);
+            if (!isNaN(date.getTime())) {
+                const day = date.getDate();
+                const month = date.toLocaleString('default', { month: 'short' });
+                parts.push(`${day}${month}`);
+            }
+        }
+
+        if (parts.length > 0) {
+            form.setValue("name", parts.join("_"));
+        }
+    }, [destinationsWatch, paxWatch, travelDateWatch, form]);
+
     async function onSubmit(data: OpportunityFormValues) {
         setIsLoading(true);
         try {

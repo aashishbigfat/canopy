@@ -184,7 +184,7 @@ export function OpportunityDetails({
                         <div className="space-y-1">
                             <div className="flex items-center gap-2">
                                 <h1 className="text-xl font-semibold text-blue-600">
-                                    Opportunity <span className="text-muted-foreground font-normal">({record.contact_id ? "Person Account" : "Account"})</span>
+                                    Opportunity <span className="text-muted-foreground font-normal">({record.is_person_account ? "Person Account" : "Account"})</span>
                                 </h1>
                                 {record.creation_type && (
                                     <Badge variant="secondary" className="bg-orange-100 text-orange-700 font-normal">
@@ -197,7 +197,7 @@ export function OpportunityDetails({
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400">Name</p>
                                     <p className="font-medium text-blue-500 hover:underline cursor-pointer">
-                                        <Link href={record.contact_id ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
+                                        <Link href={record.is_person_account ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
                                             {record.contact_name || record.account_name || "-"}
                                         </Link>
                                     </p>
@@ -360,7 +360,7 @@ export function OpportunityDetails({
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Name</label>
                                     <div className="w-full border rounded text-sm px-3 py-1.5 bg-slate-50 text-blue-600 hover:underline cursor-pointer font-medium">
-                                        <Link href={record.contact_id ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
+                                        <Link href={record.is_person_account ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
                                             {record.contact_name || record.account_name || ""}
                                         </Link>
                                     </div>
@@ -470,6 +470,12 @@ export function OpportunityDetails({
                                     <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
                                         {record.segment || "B2C"}
                                     </Badge>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
+                                    <span className="text-sm font-medium pt-1 block text-slate-700">
+                                        {record.experience_name || "-"}
+                                    </span>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>

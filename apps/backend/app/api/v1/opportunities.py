@@ -178,6 +178,12 @@ async def get_opportunities(
             if opp.opportunity_type_id:
                 opportunity_type = await OpportunityType.get(opp.opportunity_type_id)
             
+            experience_name = None
+            if opp.experience_id:
+                experience = await Experience.get(opp.experience_id)
+                if experience:
+                    experience_name = experience.name
+            
             # Fetch Owner Name
             owner_name = "Unknown"
             if opp.owner_id:
@@ -187,10 +193,12 @@ async def get_opportunities(
             
             # Fetch Account Name
             account_name = "-"
+            is_person_account = False
             if opp.account_id:
                 account = await AccountDoc.get(opp.account_id)
                 if account:
                     account_name = account.name
+                    is_person_account = getattr(account, 'is_person_account', False)
             
             # Fetch Destination Names
             dest_names = []
@@ -214,8 +222,10 @@ async def get_opportunities(
             if opportunity_type:
                 opp_response.opportunity_type_name = opportunity_type.name
             
+            opp_response.experience_name = experience_name
             opp_response.owner_name = owner_name
             opp_response.account_name = account_name
+            opp_response.is_person_account = is_person_account
             opp_response.destination_names = dest_names
             opp_response.segment = segment
             opp_response.creation_type = creation_type
@@ -274,6 +284,12 @@ async def get_opportunity(
         if opportunity.opportunity_type_id:
             opportunity_type = await OpportunityType.get(opportunity.opportunity_type_id)
         
+        experience_name = None
+        if opportunity.experience_id:
+            experience = await Experience.get(opportunity.experience_id)
+            if experience:
+                experience_name = experience.name
+        
         owner_name = "Unknown"
         if opportunity.owner_id:
             owner = await UserDoc.get(opportunity.owner_id)
@@ -281,10 +297,12 @@ async def get_opportunity(
                 owner_name = owner.name
         
         account_name = "-"
+        is_person_account = False
         if opportunity.account_id:
             account = await AccountDoc.get(opportunity.account_id)
             if account:
                 account_name = account.name
+                is_person_account = getattr(account, 'is_person_account', False)
 
         # Fetch Contact info
         contact_name = None
@@ -314,8 +332,10 @@ async def get_opportunity(
         if opportunity_type:
             opp_response.opportunity_type_name = opportunity_type.name
         
+        opp_response.experience_name = experience_name
         opp_response.owner_name = owner_name
         opp_response.account_name = account_name
+        opp_response.is_person_account = is_person_account
         opp_response.contact_name = contact_name
         opp_response.contact_email = contact_email
         opp_response.contact_phone = contact_phone

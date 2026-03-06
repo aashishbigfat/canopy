@@ -336,28 +336,33 @@ export function ConvertLeadDialog({
         const pax = form.getValues("no_of_pax") || 0;
         const dateObj = travelDate;
 
-        // Get primary destination name
-        let destName = "";
+        // Get destination names
+        let destNames: string[] = [];
 
         if (selectedDestIds && selectedDestIds.length > 0 && availableDestinations.length > 0) {
-            // Try to find name in available destinations
-            const match = availableDestinations.find(d => d.id === selectedDestIds[0]);
-            if (match) destName = match.name;
+            // Find all names in available destinations
+            destNames = selectedDestIds.map(id => {
+                const match = availableDestinations.find(d => d.id === id);
+                return match ? match.name : undefined;
+            }).filter(Boolean) as string[];
         }
 
-        if (!destName && leadProcessedDestinations.length > 0) {
+        if (destNames.length === 0 && leadProcessedDestinations.length > 0) {
             // Fallback to processed lead destinations
-            destName = leadProcessedDestinations[0].name;
+            destNames = leadProcessedDestinations.map(d => d.name);
         }
 
         // Check for raw destinations (unmatched ones like "Baku")
-        if (!destName && lead.destinations && lead.destinations.length > 0) {
-            destName = lead.destinations[0];
+        if (destNames.length === 0 && lead.destinations && lead.destinations.length > 0) {
+            destNames = lead.destinations;
         }
 
+        let prefix = "";
         // If still no destination name, fall back to Company or Full Name to avoid empty prefix
-        if (!destName) {
-            destName = lead.company || lead.full_name || "Opportunity";
+        if (destNames.length === 0) {
+            prefix = lead.company || lead.full_name || "Opportunity";
+        } else {
+            prefix = destNames.join("_");
         }
 
         // Format date: 1May (dMMM)
@@ -366,7 +371,7 @@ export function ConvertLeadDialog({
             dateStr = `_${format(dateObj, "dMMM")}`;
         }
 
-        const newName = `${destName}_${pax}Pax${dateStr}`;
+        const newName = `${prefix}_${pax}Pax${dateStr}`;
         form.setValue("opportunity_name", newName);
     }, [selectedDestIds, adults, childs, infants, travelDate, availableDestinations, isNameManuallyEdited, form, leadProcessedDestinations, lead.company, lead.full_name]);
 

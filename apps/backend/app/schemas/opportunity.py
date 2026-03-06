@@ -146,9 +146,11 @@ class OpportunityResponse(OpportunityBase):
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
+    experience_name: Optional[str] = None
     destination_names: List[str] = Field(default_factory=list)
     segment: Optional[str] = None
     creation_type: Optional[str] = "Manual" # "Auto" or "Manual"
+    is_person_account: bool = False
     
     class Config:
         from_attributes = True
@@ -192,12 +194,16 @@ class OpportunityResponse(OpportunityBase):
                 data['owner_name'] = obj.owner_name
             if hasattr(obj, 'account_name'):
                 data['account_name'] = obj.account_name
+            if hasattr(obj, 'experience_name'):
+                data['experience_name'] = obj.experience_name
             if hasattr(obj, 'destination_names'):
                 data['destination_names'] = obj.destination_names
             if hasattr(obj, 'segment'):
                 data['segment'] = obj.segment
             if hasattr(obj, 'creation_type'):
                 data['creation_type'] = obj.creation_type
+            if hasattr(obj, 'is_person_account'):
+                data['is_person_account'] = obj.is_person_account
             
             # Ensure datetime fields are properly formatted
             if hasattr(obj, 'travel_date') and obj.travel_date:
