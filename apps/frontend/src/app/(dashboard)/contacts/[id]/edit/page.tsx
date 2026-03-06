@@ -31,7 +31,7 @@ export default async function EditContactPage(props: EditContactPageProps) {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <div className="container mx-auto px-4 py-8 max-w-2xl">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold">Edit Contact</h1>
                 <p className="text-muted-foreground">Update the details for {contact.first_name} {contact.last_name}</p>

@@ -8,7 +8,7 @@ export default async function CreateAccountPage({
     const isPersonAccount = searchParams.type === "person";
 
     return (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6 max-w-4xl mx-auto py-8">
             <div>
                 <h3 className="text-lg font-medium">Create {isPersonAccount ? "Person Account" : "Account"}</h3>
                 <p className="text-sm text-muted-foreground">

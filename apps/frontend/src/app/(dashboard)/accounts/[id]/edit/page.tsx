@@ -31,7 +31,7 @@ export default async function EditAccountPage(props: EditAccountPageProps) {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8 max-w-5xl">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
             <div className="mb-8">
                 <h1 className="text-3xl font-bold">Edit Account</h1>
                 <p className="text-muted-foreground">Update the details for {account.name}</p>
