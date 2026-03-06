@@ -5,11 +5,14 @@ from celery import Celery
 from bson import ObjectId
 from datetime import datetime
 
+import os
+
 # Initialize Celery
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 celery_app = Celery(
     'tutterfly_tasks',
-    broker='redis://localhost:6379/0',
-    backend='redis://localhost:6379/0'
+    broker=redis_url,
+    backend=redis_url
 )
 
 celery_app.conf.update(
