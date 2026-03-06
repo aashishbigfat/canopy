@@ -47,6 +47,7 @@ twilio==8.10.0
 
 # Caching
 aioredis==2.0.1
+fastapi-cache2==0.2.1
 
 # Logging & Monitoring
 python-json-logger==2.0.7
