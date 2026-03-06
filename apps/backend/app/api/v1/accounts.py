@@ -57,6 +57,51 @@ def account_to_response(account: Account) -> AccountResponse:
         deleted_at=account.deleted_at
     )
 
+@router.get("/form-data")
+async def get_account_form_data(current_user: User = Depends(get_current_user)):
+    """Get metadata for account creation/editing forms"""
+    from app.models.picklists import Industry, Rating, AccountType, AccountSource
+    
+    industries = await Industry.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+sorting").to_list()
+    
+    ratings = await Rating.find({
+        "is_active": True
+    }).sort("+sorting").to_list()
+    
+    acc_types = await AccountType.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+sorting").to_list()
+    
+    sources = await AccountSource.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+sorting").to_list()
+    
+    users = await User.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+name").to_list()
+    
+    parent_accounts = await Account.find({
+        "tenant_id": current_user.tenant_id,
+        "is_person_account": False,
+        "deleted_at": None
+    }).sort("+name").limit(100).to_list()
+    
+    return {
+        "industries": [{"id": str(i.id), "name": i.name} for i in industries],
+        "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
+        "account_types": [{"id": str(t.id), "name": t.name} for t in acc_types],
+        "sources": [{"id": str(s.id), "name": s.name} for s in sources],
+        "users": [{"id": str(u.id), "name": u.name} for u in users],
+        "parent_accounts": [{"id": str(a.id), "name": a.name} for a in parent_accounts]
+    }
+
+
 @router.post("/", response_model=AccountResponse, status_code=201)
 async def create_account(
     account_data: AccountCreate,

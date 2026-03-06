@@ -52,21 +52,30 @@ class AccountUpdate(BaseModel):
     name: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
     website: Optional[str] = None
     description: Optional[str] = None
     
+    # Person Account specific fields
+    salutation: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    
+    # Billing Address
     billing_street: Optional[str] = None
     billing_city: Optional[str] = None
     billing_state: Optional[str] = None
     billing_zip: Optional[str] = None
     billing_country: Optional[str] = None
     
+    # Shipping Address
     shipping_street: Optional[str] = None
     shipping_city: Optional[str] = None
     shipping_state: Optional[str] = None
     shipping_zip: Optional[str] = None
     shipping_country: Optional[str] = None
     
+    # Classification
     acc_type_id: Optional[str] = None
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None

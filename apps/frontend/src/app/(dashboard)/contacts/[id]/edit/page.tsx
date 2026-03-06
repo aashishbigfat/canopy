@@ -16,7 +16,15 @@ export default async function EditContactPage(props: EditContactPageProps) {
         return null;
     }
 
-    const contact = await contactService.getContact(params.id);
+    let contact = null;
+    try {
+        contact = await contactService.getContact(params.id, {
+            headers: { Authorization: `Bearer ${session.accessToken}` }
+        });
+    } catch (error) {
+        console.error("Error fetching contact:", error);
+        notFound();
+    }
 
     if (!contact) {
         notFound();
@@ -31,14 +39,7 @@ export default async function EditContactPage(props: EditContactPageProps) {
             <div className="bg-white rounded-lg border p-6">
                 <ContactForm
                     id={params.id}
-                    initialData={{
-                        first_name: contact.first_name || "",
-                        last_name: contact.last_name || "",
-                        email: contact.email || "",
-                        phone: contact.phone || "",
-                        title: contact.title || "",
-                        account_id: contact.account_id || "",
-                    }}
+                    initialData={contact}
                 />
             </div>
         </div>

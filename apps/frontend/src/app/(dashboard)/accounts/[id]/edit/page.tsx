@@ -16,7 +16,15 @@ export default async function EditAccountPage(props: EditAccountPageProps) {
         return null;
     }
 
-    const account = await accountService.getAccount(params.id);
+    let account = null;
+    try {
+        account = await accountService.getAccount(params.id, {
+            headers: { Authorization: `Bearer ${session.accessToken}` }
+        });
+    } catch (error) {
+        console.error("Error fetching account:", error);
+        notFound();
+    }
 
     if (!account) {
         notFound();
@@ -31,13 +39,7 @@ export default async function EditAccountPage(props: EditAccountPageProps) {
             <div className="bg-white rounded-lg border p-6">
                 <AccountForm
                     id={params.id}
-                    initialData={{
-                        name: account.name,
-                        industry: account.industry_name || "",
-                        website: account.website || "",
-                        phone: account.phone || "",
-                        status: "active", // Default to active for now
-                    }}
+                    initialData={account}
                 />
             </div>
         </div>

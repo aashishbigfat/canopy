@@ -56,6 +56,27 @@ def contact_to_response(contact: Contact) -> ContactResponse:
         full_name=contact.full_name  # Add the computed full_name property
     )
 
+@router.get("/form-data")
+async def get_contact_form_data(current_user: User = Depends(get_current_user)):
+    """Get metadata for contact creation/editing forms"""
+    from app.models.account import Account
+    
+    accounts = await Account.find({
+        "tenant_id": current_user.tenant_id,
+        "deleted_at": None
+    }).sort("+name").to_list()
+    
+    users = await User.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+name").to_list()
+    
+    return {
+        "accounts": [{"id": str(a.id), "name": a.name} for a in accounts],
+        "users": [{"id": str(u.id), "name": u.name} for u in users]
+    }
+
+
 @router.post("/", response_model=ContactResponse, status_code=201)
 async def create_contact(
     contact_data: ContactCreate,

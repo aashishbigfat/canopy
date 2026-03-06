@@ -16,7 +16,15 @@ export default async function EditPersonAccountPage(props: EditPersonAccountPage
         return null;
     }
 
-    const account = await accountService.getAccount(params.id);
+    let account = null;
+    try {
+        account = await accountService.getAccount(params.id, {
+            headers: { Authorization: `Bearer ${session.accessToken}` }
+        });
+    } catch (error) {
+        console.error("Error fetching account:", error);
+        notFound();
+    }
 
     if (!account) {
         notFound();
@@ -32,13 +40,7 @@ export default async function EditPersonAccountPage(props: EditPersonAccountPage
                 <AccountForm
                     id={params.id}
                     isPersonAccount={true}
-                    initialData={{
-                        name: account.name,
-                        industry: "", // Not used in B2C
-                        website: account.website || "",
-                        phone: account.phone || "",
-                        status: "active",
-                    }}
+                    initialData={account}
                 />
             </div>
         </div>

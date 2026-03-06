@@ -24,7 +24,8 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { contactService } from "@/features/contacts/services/contactService";
+import { contactsService } from "@/lib/api/services/contacts.service";
+import { useEffect } from "react";
 
 const contactFormSchema = z.object({
     first_name: z.string().min(2, {
@@ -34,10 +35,7 @@ const contactFormSchema = z.object({
         message: "Last name must be at least 2 characters.",
     }),
     email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
-    phone: z.string()
-        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
-            message: "Please enter a valid phone number (e.g. +91 9876543210).",
-        }).optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")),
     title: z.string().optional(),
     account_id: z.string().optional(),
 });
@@ -61,19 +59,32 @@ interface ContactFormProps {
 export function ContactForm({ initialData, id }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
+    const [accounts, setAccounts] = useState<{ id: string, name: string }[]>([]);
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
         defaultValues: initialData || defaultValues,
     });
 
+    useEffect(() => {
+        const fetchMetaData = async () => {
+            try {
+                const data = await contactsService.getFormData();
+                setAccounts(data.accounts || []);
+            } catch (err) {
+                console.error("Error fetching contact form metadata", err);
+            }
+        };
+        fetchMetaData();
+    }, []);
+
     async function onSubmit(data: ContactFormValues) {
         setIsLoading(true);
         try {
             if (id) {
-                await contactService.updateContact(id, data);
+                await contactsService.updateContact(id, data);
             } else {
-                await contactService.createContact(data);
+                await contactsService.createContact(data as any);
             }
             router.push("/contacts");
             router.refresh();
@@ -160,17 +171,18 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Account</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select an account" />
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {/* Iterate over accounts from account service in real app */}
-                                        <SelectItem value="1">Acme Corp</SelectItem>
-                                        <SelectItem value="2">Global Industries</SelectItem>
-                                        <SelectItem value="3">TechStart Inc</SelectItem>
+                                        {accounts.map(account => (
+                                            <SelectItem key={account.id} value={account.id}>
+                                                {account.name}
+                                            </SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -179,9 +191,14 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
                     />
 
                 </div>
-                <Button type="submit" disabled={isLoading}>
-                    {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Contact" : "Create Contact")}
-                </Button>
+                <div className="flex justify-end gap-4 pt-4 border-t">
+                    <Button type="button" variant="outline" onClick={() => router.back()}>
+                        Cancel
+                    </Button>
+                    <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
+                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Contact" : "Create Contact")}
+                    </Button>
+                </div>
             </form>
         </Form>
     );

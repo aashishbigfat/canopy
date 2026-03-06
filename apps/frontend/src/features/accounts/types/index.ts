@@ -59,13 +59,26 @@ export interface AccountCreateData {
     salutation?: string;
     first_name?: string;
     last_name?: string;
+
+    // Addresses
     billing_street?: string;
     billing_city?: string;
     billing_state?: string;
     billing_zip?: string;
     billing_country?: string;
+
+    shipping_street?: string;
+    shipping_city?: string;
+    shipping_state?: string;
+    shipping_zip?: string;
+    shipping_country?: string;
+
+    // Classification
     acc_type_id?: string;
     industry_id?: string;
+    rating_id?: string;
+    account_source_id?: string;
+    acc_parent_id?: string;
     is_person_account?: boolean;
 }
 

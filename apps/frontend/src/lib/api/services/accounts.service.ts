@@ -1,16 +1,17 @@
 import { apiClient } from "@/lib/api/client";
 import { Account, AccountCreateData, AccountFilters, AccountResponse } from "@/features/accounts/types";
+import { AxiosRequestConfig } from "axios";
 
 const BASE_URL = "/accounts";
 
 export const accountsService = {
-    getAccounts: async (params: AccountFilters, config?: any): Promise<AccountResponse> => {
+    getAccounts: async (params: AccountFilters, config?: AxiosRequestConfig): Promise<AccountResponse> => {
         const response = await apiClient.get<AccountResponse>(BASE_URL, { params, ...config });
         return response.data;
     },
 
-    getAccount: async (id: string): Promise<Account> => {
-        const response = await apiClient.get<Account>(`${BASE_URL}/${id}`);
+    getAccount: async (id: string, config?: AxiosRequestConfig): Promise<Account> => {
+        const response = await apiClient.get<Account>(`${BASE_URL}/${id}`, config);
         return response.data;
     },
 
