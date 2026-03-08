@@ -3,10 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { AccountDetailView } from "@/features/accounts/components/AccountDetailView";
+import { getApiBaseUrlNoSlash } from "@/lib/env";
 
 async function getAccountDetail(id: string, token: string) {
     const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/accounts/${id}?include_related=true`,
+        `${getApiBaseUrlNoSlash()}/accounts/${id}?include_related=true`,
         {
             headers: {
                 Authorization: `Bearer ${token}`,

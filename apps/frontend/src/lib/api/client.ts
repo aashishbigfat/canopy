@@ -1,7 +1,6 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
-
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1').replace(/\/$/, '') + '/';
+import { API_BASE_URL } from '@/lib/env';
 
 // Token refresh management
 let isRefreshing = false;
@@ -17,7 +16,7 @@ const onTokenRefreshed = (token: string) => {
 };
 
 export const apiClient = axios.create({
-    baseURL: API_URL,
+    baseURL: API_BASE_URL,
     headers: {
         'Content-Type': 'application/json',
     },
@@ -84,7 +83,7 @@ apiClient.interceptors.response.use(
                     throw new Error('No refresh token available');
                 }
 
-                const response = await axios.post(`${API_URL}auth/refresh`, {
+                const response = await axios.post(`${API_BASE_URL}auth/refresh`, {
                     refresh_token: session.refreshToken,
                 });
 

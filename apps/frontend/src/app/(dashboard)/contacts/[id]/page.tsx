@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { ContactDetails } from "@/features/contacts/components/ContactDetails";
+import { getApiBaseUrlNoSlash } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,7 @@ interface ContactPageProps {
 
 async function getContactDetail(id: string, token: string) {
     const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/contacts/${id}?include_related=true`,
+        `${getApiBaseUrlNoSlash()}/contacts/${id}?include_related=true`,
         {
             headers: {
                 Authorization: `Bearer ${token}`,
