@@ -1,0 +1,178 @@
+"use client";
+
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import {
+    Form,
+    FormControl,
+    FormDescription,
+    FormField,
+    FormItem,
+    FormLabel,
+    FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useCreateUser, useUpdateUser } from "@/features/admin/api/use-users";
+import { useGetRoles } from "@/features/admin/api/use-roles";
+import { User } from "@/features/admin/types";
+
+// Basic schema
+const userFormSchema = z.object({
+    name: z.string().min(2, "Name must be at least 2 characters."),
+    email: z.string().email("Invalid email address."),
+    password: z.string().optional(),
+    role_ids: z.array(z.string()).min(1, "At least one role is required."),
+    is_active: z.boolean().default(true),
+});
+
+type UserFormValues = z.infer<typeof userFormSchema>;
+
+interface UserFormProps {
+    initialData?: User;
+}
+
+export function UserForm({ initialData }: UserFormProps) {
+    const router = useRouter();
+    const createUser = useCreateUser();
+    const updateUser = useUpdateUser();
+    const { data: roles = [], isLoading: isLoadingRoles } = useGetRoles();
+
+    const form = useForm({
+        resolver: zodResolver(userFormSchema),
+        defaultValues: {
+            name: initialData?.name || "",
+            email: initialData?.email || "",
+            password: "",
+            role_ids: initialData?.role_ids || [],
+            is_active: initialData?.is_active ?? true,
+        },
+    });
+
+    const onSubmit = async (data: UserFormValues) => {
+        try {
+            if (initialData) {
+                // Exclude password if empty during update
+                const updateData: any = { ...data };
+                if (!updateData.password) delete updateData.password;
+
+                await updateUser.mutateAsync({ id: initialData._id, data: updateData });
+            } else {
+                await createUser.mutateAsync(data);
+            }
+            router.push("/admin/users");
+            router.refresh();
+        } catch (error) {
+            console.error("Failed to save user", error);
+        }
+    };
+
+    return (
+        <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Name</FormLabel>
+                            <FormControl>
+                                <Input placeholder="John Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                                <Input placeholder="john@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="password"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>{initialData ? "Password (leave blank to keep current)" : "Password"}</FormLabel>
+                            <FormControl>
+                                <Input type="password" placeholder="******" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="role_ids"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Roles</FormLabel>
+                            <FormControl>
+                                <div className="flex flex-col gap-2 border p-4 rounded-md">
+                                    {isLoadingRoles ? <p>Loading roles...</p> : roles.map((role) => (
+                                        <div key={role._id} className="flex items-center space-x-2">
+                                            <Checkbox
+                                                id={role._id}
+                                                checked={field.value.includes(role._id)}
+                                                onCheckedChange={(checked) => {
+                                                    return checked
+                                                        ? field.onChange([...field.value, role._id])
+                                                        : field.onChange(field.value.filter((value) => value !== role._id))
+                                                }}
+                                            />
+                                            <label
+                                                htmlFor={role._id}
+                                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                                            >
+                                                {role.name}
+                                            </label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={form.control}
+                    name="is_active"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                            <FormControl>
+                                <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                    Active
+                                </FormLabel>
+                                <FormDescription>
+                                    This user can log in to the system.
+                                </FormDescription>
+                            </div>
+                        </FormItem>
+                    )}
+                />
+                <Button type="submit" disabled={createUser.isPending || updateUser.isPending}>
+                    {createUser.isPending || updateUser.isPending ? "Saving..." : "Save User"}
+                </Button>
+            </form>
+        </Form>
+    );
+}
