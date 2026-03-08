@@ -1,6 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { apiClient } from "@/lib/api/client";
+import { getApiBaseUrlNoSlash } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 export const authOptions: NextAuthOptions = {
@@ -14,11 +14,22 @@ export const authOptions: NextAuthOptions = {
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) return null;
 
+                const backendUrl = `${getApiBaseUrlNoSlash()}/auth/login`;
+                console.log("[Auth] Calling backend at", backendUrl);
                 try {
-                    const { data } = await apiClient.post('/auth/login', {
-                        email: credentials.email,
-                        password: credentials.password,
+                    const res = await fetch(backendUrl, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            email: credentials.email,
+                            password: credentials.password,
+                        }),
                     });
+                    const data = await res.json();
+                    if (!res.ok) {
+                        logger.error("Auth error:", res.status, data);
+                        return null;
+                    }
 
                     if (data.access_token) {
                         return {

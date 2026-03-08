@@ -1,8 +1,8 @@
 from pathlib import Path
-
-from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Set
+
 from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env path relative to backend root (apps/backend), not cwd
 _BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     }
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:4200,http://localhost:3000,https://tutterfly-frontend.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,https://tutterfly-frontend.vercel.app"
     
     @property
     def cors_origins_list(self) -> list[str]:
