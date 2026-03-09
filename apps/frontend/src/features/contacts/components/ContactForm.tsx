@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { contactsService } from "@/lib/api/services/contacts.service";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const contactFormSchema = z.object({
     first_name: z.string().min(2, {
@@ -54,17 +55,46 @@ const defaultValues: Partial<ContactFormValues> = {
 interface ContactFormProps {
     initialData?: ContactFormValues;
     id?: string;
+    /** Name of the current account (for the info banner) */
+    initialAccountName?: string;
 }
 
-export function ContactForm({ initialData, id }: ContactFormProps) {
+/** 
+ * Helper to extract domain from a string (email or website)
+ * e.g. "john@big.com" -> "big.com", "https://www.big.com/test" -> "big.com"
+ */
+function extractDomain(input: string): string {
+    if (!input) return "";
+    let domain = input.toLowerCase();
+    if (domain.includes("@")) {
+        domain = domain.split("@")[1];
+    }
+    return domain
+        .replace(/https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
+        .split("?")[0];
+}
+
+export function ContactForm({ initialData, id, initialAccountName }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const [accounts, setAccounts] = useState<{ id: string, name: string }[]>([]);
+    const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
+
+    // Track original account_id to detect changes
+    const originalAccountId = useRef(initialData?.account_id ?? "");
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
         defaultValues: initialData || defaultValues,
     });
+
+    // Watch account_id to show info banner
+    const watchedAccountId = form.watch("account_id");
+    const accountChanged = !!id && watchedAccountId !== originalAccountId.current;
+
+    // Resolve display name of the new account for the banner
+    const newAccountName = accounts.find(a => a.id === watchedAccountId)?.name;
 
     useEffect(() => {
         const fetchMetaData = async () => {
@@ -88,8 +118,12 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
             }
             router.push("/contacts");
             router.refresh();
-        } catch (error) {
-            console.error(`Failed to ${id ? 'update' : 'create'} contact`, error);
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.detail ??
+                `Failed to ${id ? "update" : "create"} contact`;
+            toast.error(message);
+            console.error(message, error);
         } finally {
             setIsLoading(false);
         }
@@ -132,7 +166,27 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
                             <FormItem>
                                 <FormLabel>Email</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="john@example.com" {...field} />
+                                    <Input
+                                        placeholder="john@example.com"
+                                        {...field}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value);
+
+                                            // Auto-select account based on email domain
+                                            if (value.includes("@")) {
+                                                const emailDomain = extractDomain(value);
+                                                if (emailDomain) {
+                                                    const matchingAccount = accounts.find(acc =>
+                                                        acc.website && extractDomain(acc.website) === emailDomain
+                                                    );
+                                                    if (matchingAccount) {
+                                                        form.setValue("account_id", matchingAccount.id);
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -171,7 +225,23 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Account</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <Select
+                                    onValueChange={(val) => {
+                                        field.onChange(val);
+                                        // Auto-update email domain based on selected account
+                                        const selectedAccount = accounts.find(a => a.id === val);
+                                        if (selectedAccount?.website) {
+                                            const currentEmail = form.getValues("email") || "";
+                                            const accountDomain = extractDomain(selectedAccount.website);
+
+                                            if (currentEmail.includes("@") && accountDomain) {
+                                                const [localPart] = currentEmail.split("@");
+                                                form.setValue("email", `${localPart}@${accountDomain}`);
+                                            }
+                                        }
+                                    }}
+                                    value={field.value || ""}
+                                >
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select an account" />
@@ -185,6 +255,20 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <FormDescription>
+                                    {/* Tier 2: Info banner when account changes in edit mode */}
+                                    {accountChanged && (
+                                        <span className="flex items-start gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400 text-xs leading-snug">
+                                            <span>ℹ️</span>
+                                            <span>
+                                                This contact will move to
+                                                {newAccountName ? ` "${newAccountName}"` : " the new account"}.
+                                                Associated opportunities will also be reassigned to
+                                                {newAccountName ? ` "${newAccountName}"` : " the new account"}.
+                                            </span>
+                                        </span>
+                                    )}
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}

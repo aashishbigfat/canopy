@@ -12,8 +12,67 @@ from app.mixins.activity_mixin import ActivityMixin
 class ContactService(ActivityMixin):
     """Service for Contact business logic"""
     
+    PUBLIC_DOMAINS = {
+        "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", 
+        "aol.com", "live.com", "msn.com", "me.com", "mac.com"
+    }
+
     def __init__(self):
         super().__init__()
+
+    def _extract_domain(self, email: str) -> Optional[str]:
+        if not email or "@" not in email:
+            return None
+        return email.split("@")[1].lower()
+
+    async def _get_or_create_account_by_domain(
+        self, 
+        domain: str, 
+        contact: Contact,
+        user_id: ObjectId, 
+        tenant_id: ObjectId
+    ) -> ObjectId:
+        from app.models.account import Account
+        
+        # 1. Search for existing account by domain in website
+        account = await Account.find_one({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "website": {"$regex": domain, "$options": "i"}
+        })
+        
+        if account:
+            return account.id
+            
+        # 2. If not found, create one
+        is_public = domain in self.PUBLIC_DOMAINS
+        
+        if is_public:
+            # Create a Person Account for public domains
+            account_name = f"{contact.first_name} {contact.last_name}"
+            account = Account(
+                name=account_name,
+                is_person_account=True,
+                first_name=contact.first_name,
+                last_name=contact.last_name,
+                tenant_id=tenant_id,
+                owner_id=user_id,
+                created_by=user_id
+            )
+        else:
+            # Create a Company Account for business domains
+            account_name = domain.split('.')[0].capitalize()
+            account = Account(
+                name=account_name,
+                website=f"https://{domain}",
+                is_person_account=False,
+                tenant_id=tenant_id,
+                owner_id=user_id,
+                created_by=user_id
+            )
+            
+        await account.insert()
+        return account.id
     
     async def create_contact(
         self,
@@ -235,29 +294,120 @@ class ContactService(ActivityMixin):
         tenant_id: ObjectId
     ) -> Optional[Contact]:
         """Update a contact"""
+        from fastapi import HTTPException
         contact = await self.get_contact(contact_id, tenant_id)
         
         if not contact:
             return None
         
+        update_data = contact_data.model_dump(exclude_unset=True)
+
+        # --- Tier 1 & 3: Email uniqueness check + Auto-account discovery ---
+        new_email = update_data.get("email")
+        # Only auto-discover account from email if user did NOT explicitly change account_id
+        explicit_account_change = "account_id" in update_data
+
+        if new_email and new_email != contact.email:
+            # Uniqueness check
+            duplicate = await Contact.find_one({
+                "email": new_email,
+                "tenant_id": tenant_id,
+                "deleted_at": None,
+                "_id": {"$ne": contact.id}
+            })
+            if duplicate:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Email '{new_email}' is already used by another contact: {duplicate.full_name}"
+                )
+            
+            # Auto-Account Logic: only if account was NOT explicitly changed by user
+            if not explicit_account_change:
+                new_domain = self._extract_domain(new_email)
+                if new_domain:
+                    new_account_id_from_email = await self._get_or_create_account_by_domain(
+                        new_domain, contact, user_id, tenant_id
+                    )
+                    # Set the account_id in update_data to move the contact
+                    update_data["account_id"] = str(new_account_id_from_email)
+
+
+        # --- Tier 2: Account pivot sync + Opportunity migration ---
+        if "account_id" in update_data:
+            raw_new_account = update_data.get("account_id")
+            new_account_id = ObjectId(raw_new_account) if raw_new_account else None
+            old_account_id = contact.account_id
+
+            if old_account_id != new_account_id:
+                # Remove old pivot row
+                if old_account_id:
+                    old_pivot = await AccountContact.find_one(
+                        AccountContact.contact_id == contact.id,
+                        AccountContact.account_id == old_account_id,
+                        AccountContact.tenant_id == tenant_id
+                    )
+                    if old_pivot:
+                        await old_pivot.delete()
+
+                # Insert new pivot row
+                if new_account_id:
+                    exists = await AccountContact.find_one(
+                        AccountContact.contact_id == contact.id,
+                        AccountContact.account_id == new_account_id,
+                        AccountContact.tenant_id == tenant_id
+                    )
+                    if not exists:
+                        await AccountContact(
+                            contact_id=contact.id,
+                            account_id=new_account_id,
+                            tenant_id=tenant_id
+                        ).insert()
+                
+                # REASSIGN OPPORTUNITIES
+                if new_account_id:
+                    from app.models.opportunity import Opportunity
+                    from app.models.account import Account as AccountModel
+                    
+                    # Fetch the new account once to determine its type
+                    new_account_obj = await AccountModel.get(new_account_id)
+                    new_opp_type = "PersonalAccount" if (new_account_obj and new_account_obj.is_person_account) else "Account"
+                    
+                    # Find and update all opportunities for this contact
+                    opportunities = await Opportunity.find(
+                        Opportunity.contact_id == contact.id,
+                        Opportunity.deleted_at == None
+                    ).to_list()
+                    
+                    for opp in opportunities:
+                        opp.account_id = new_account_id
+                        # Update polymorphic reference if it exists
+                        if opp.opportunitable_type in ["Account", "PersonalAccount"]:
+                            opp.opportunitable_id = new_account_id
+                            opp.opportunitable_type = new_opp_type
+                        
+                        await opp.save()
+
         # Track changes
         old_values = {}
         updated_fields = {}
-        
-        # Update fields
-        update_data = contact_data.model_dump(exclude_unset=True)
+
         for field, value in update_data.items():
             old_values[field] = getattr(contact, field, None)
-            if field == 'account_id' and value:
-                setattr(contact, field, ObjectId(value))
-                updated_fields[field] = str(value)
+            
+            if field == 'account_id':
+                if value:
+                    setattr(contact, field, ObjectId(value))
+                    updated_fields[field] = str(value)
+                else:
+                    setattr(contact, field, None)
+                    updated_fields[field] = None
             else:
                 setattr(contact, field, value)
                 updated_fields[field] = value
-        
+
         contact.last_modified_by_id = user_id
         await contact.save()
-        
+
         # Log update
         await self.log_entity_updated(
             entity=contact,
@@ -265,7 +415,7 @@ class ContactService(ActivityMixin):
             old_values=old_values,
             updated_fields=updated_fields
         )
-        
+
         return contact
     
     async def delete_contact(self, contact_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:

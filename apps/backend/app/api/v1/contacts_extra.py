@@ -43,7 +43,7 @@ async def get_create_form_data(
     
     return {
         "error": False,
-        "accounts": [{"id": str(a.id), "name": a.name} for a in accounts],
+        "accounts": [{"id": str(a.id), "name": a.name, "website": a.website} for a in accounts],
         "users": [{"id": str(u.id), "name": u.name, "email": u.email} for u in users],
         "custom_fields": [
             {
@@ -90,7 +90,7 @@ async def get_edit_form_data(
     return {
         "error": False,
         "contact": contact_to_response(contact),
-        "accounts": [{"id": str(a.id), "name": a.name} for a in accounts],
+        "accounts": [{"id": str(a.id), "name": a.name, "website": a.website} for a in accounts],
         "users": [{"id": str(u.id), "name": u.name, "email": u.email} for u in users],
         "custom_field_values": [
             {

@@ -1,5 +1,5 @@
 from beanie import Indexed
-from pydantic import EmailStr, Field
+from pydantic import EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
 from app.models.base import BaseDocument
@@ -58,6 +58,18 @@ class Account(BaseDocument):
     # Territory
     territory_state_id: Optional[PydanticObjectId] = None
     territory_country_id: Optional[PydanticObjectId] = None
+    
+    @field_validator(
+        "acc_type_id", "acc_parent_id", "industry_id", "rating_id", 
+        "account_source_id", "territory_state_id", "territory_country_id",
+        "last_modified_by_id",
+        mode="before"
+    )
+    @classmethod
+    def empty_string_to_none(cls, v):
+        if v == "":
+            return None
+        return v
     
     class Settings:
         name = "accounts"

@@ -40,6 +40,7 @@ export default async function EditContactPage(props: EditContactPageProps) {
                 <ContactForm
                     id={params.id}
                     initialData={contact}
+                    initialAccountName={(contact as any).account_name}
                 />
             </div>
         </div>
