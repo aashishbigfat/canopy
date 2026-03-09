@@ -35,12 +35,14 @@ function normalise(url: string): string {
  * Works on both server and client.
  */
 function getBaseNoSlash(): string {
-    // ── Server-side Logic ────────────────────────────────────────────────────
+    // ── Server-side Logic (SSR) ──────────────────────────────────────────────
     if (typeof window === "undefined") {
-        // On server, we can check if we are in production or look at an env flag
-        // For now, if we have a REMOTE URL env var that isn't localhost, we prefer it in production
         const isProd = process.env.NODE_ENV === "production";
-        if (isProd && process.env.NEXT_PUBLIC_REMOTE_API_URL && !process.env.NEXT_PUBLIC_REMOTE_API_URL.includes("localhost")) {
+        const isVercel = !!process.env.VERCEL || !!process.env.NEXT_PUBLIC_VERCEL_URL;
+
+        // On Vercel or in Production builds, default to REMOTE unless explicitly 
+        // overridden by NEXT_PUBLIC_API_URL pointing to localhost.
+        if (isVercel || isProd) {
             return normalise(REMOTE_API_BASE);
         }
         return normalise(LOCAL_API_BASE);
