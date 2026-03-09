@@ -59,10 +59,27 @@ interface ContactFormProps {
     initialAccountName?: string;
 }
 
+/** 
+ * Helper to extract domain from a string (email or website)
+ * e.g. "john@big.com" -> "big.com", "https://www.big.com/test" -> "big.com"
+ */
+function extractDomain(input: string): string {
+    if (!input) return "";
+    let domain = input.toLowerCase();
+    if (domain.includes("@")) {
+        domain = domain.split("@")[1];
+    }
+    return domain
+        .replace(/https?:\/\//, "")
+        .replace(/^www\./, "")
+        .split("/")[0]
+        .split("?")[0];
+}
+
 export function ContactForm({ initialData, id, initialAccountName }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
-    const [accounts, setAccounts] = useState<{ id: string, name: string }[]>([]);
+    const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
 
     // Track original account_id to detect changes
     const originalAccountId = useRef(initialData?.account_id ?? "");
@@ -149,7 +166,27 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                             <FormItem>
                                 <FormLabel>Email</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="john@example.com" {...field} />
+                                    <Input
+                                        placeholder="john@example.com"
+                                        {...field}
+                                        onChange={(e) => {
+                                            const value = e.target.value;
+                                            field.onChange(value);
+
+                                            // Auto-select account based on email domain
+                                            if (value.includes("@")) {
+                                                const emailDomain = extractDomain(value);
+                                                if (emailDomain) {
+                                                    const matchingAccount = accounts.find(acc =>
+                                                        acc.website && extractDomain(acc.website) === emailDomain
+                                                    );
+                                                    if (matchingAccount) {
+                                                        form.setValue("account_id", matchingAccount.id);
+                                                    }
+                                                }
+                                            }
+                                        }}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -188,7 +225,23 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Account</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                <Select
+                                    onValueChange={(val) => {
+                                        field.onChange(val);
+                                        // Auto-update email domain based on selected account
+                                        const selectedAccount = accounts.find(a => a.id === val);
+                                        if (selectedAccount?.website) {
+                                            const currentEmail = form.getValues("email") || "";
+                                            const accountDomain = extractDomain(selectedAccount.website);
+
+                                            if (currentEmail.includes("@") && accountDomain) {
+                                                const [localPart] = currentEmail.split("@");
+                                                form.setValue("email", `${localPart}@${accountDomain}`);
+                                            }
+                                        }
+                                    }}
+                                    value={field.value || ""}
+                                >
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select an account" />
@@ -210,8 +263,8 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                                             <span>
                                                 This contact will move to
                                                 {newAccountName ? ` "${newAccountName}"` : " the new account"}.
-                                                Existing opportunities will remain under
-                                                {initialAccountName ? ` "${initialAccountName}"` : " the original account"} and will not be re-assigned.
+                                                Associated opportunities will also be reassigned to
+                                                {newAccountName ? ` "${newAccountName}"` : " the new account"}.
                                             </span>
                                         </span>
                                     )}
