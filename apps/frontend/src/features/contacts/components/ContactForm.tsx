@@ -177,11 +177,21 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                                             if (value.includes("@")) {
                                                 const emailDomain = extractDomain(value);
                                                 if (emailDomain) {
-                                                    const matchingAccount = accounts.find(acc =>
-                                                        acc.website && extractDomain(acc.website) === emailDomain
-                                                    );
+                                                    // Try to match by website OR by account name matching the domain
+                                                    const matchingAccount = accounts.find(acc => {
+                                                        const websiteMatch = acc.website && extractDomain(acc.website) === emailDomain;
+
+                                                        // Extract just the name part from domain (e.g. "bigfatailabs" from "bigfatailabs.com")
+                                                        const rawDomainName = emailDomain.split('.')[0];
+                                                        const nameMatch = acc.name.toLowerCase().replace(/\s+/g, '') === rawDomainName;
+
+                                                        return websiteMatch || nameMatch;
+                                                    });
+
                                                     if (matchingAccount) {
-                                                        form.setValue("account_id", matchingAccount.id);
+                                                        form.setValue("account_id", matchingAccount.id, { shouldValidate: true, shouldDirty: true });
+                                                    } else {
+                                                        form.setValue("account_id", "", { shouldValidate: true, shouldDirty: true });
                                                     }
                                                 }
                                             }
@@ -230,13 +240,16 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                                         field.onChange(val);
                                         // Auto-update email domain based on selected account
                                         const selectedAccount = accounts.find(a => a.id === val);
-                                        if (selectedAccount?.website) {
+                                        if (selectedAccount) {
                                             const currentEmail = form.getValues("email") || "";
-                                            const accountDomain = extractDomain(selectedAccount.website);
+                                            // Fallback to account name if website is missing
+                                            const accountDomain = selectedAccount.website ? extractDomain(selectedAccount.website) : `${selectedAccount.name.toLowerCase().replace(/\s+/g, '')}.com`;
 
                                             if (currentEmail.includes("@") && accountDomain) {
                                                 const [localPart] = currentEmail.split("@");
-                                                form.setValue("email", `${localPart}@${accountDomain}`);
+                                                form.setValue("email", `${localPart}@${accountDomain}`, { shouldValidate: true, shouldDirty: true });
+                                            } else if (!currentEmail && accountDomain) {
+                                                form.setValue("email", `info@${accountDomain}`, { shouldValidate: true, shouldDirty: true });
                                             }
                                         }
                                     }}

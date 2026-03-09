@@ -122,7 +122,13 @@ export function EntityDetailHeader({
                     <div className="space-y-1">
                         <p className="text-xs font-semibold text-slate-500 uppercase">Phone</p>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-blue-600 font-medium">{phone || "No Phone"}</span>
+                            {phone ? (
+                                <a href={`tel:${phone}`} className="text-sm text-blue-600 font-medium hover:underline">
+                                    {phone}
+                                </a>
+                            ) : (
+                                <span className="text-sm text-slate-500 font-medium">No Phone</span>
+                            )}
                             {phone && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => handleCopy(phone)}>
                                     <Copy className="h-3 w-3" />
@@ -133,7 +139,13 @@ export function EntityDetailHeader({
                     <div className="space-y-1">
                         <p className="text-xs font-semibold text-slate-500 uppercase">Email</p>
                         <div className="flex items-center gap-2 overflow-hidden">
-                            <span className="text-sm text-blue-600 font-medium truncate max-w-full">{email || "No Email"}</span>
+                            {email ? (
+                                <a href={`mailto:${email}`} className="text-sm text-blue-600 font-medium truncate max-w-full hover:underline">
+                                    {email}
+                                </a>
+                            ) : (
+                                <span className="text-sm text-slate-500 font-medium">No Email</span>
+                            )}
                             {email && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4 flex-shrink-0" onClick={() => handleCopy(email)}>
                                     <Copy className="h-3 w-3" />
