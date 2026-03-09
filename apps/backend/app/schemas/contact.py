@@ -61,7 +61,8 @@ class ContactUpdate(BaseModel):
     mailing_country: Optional[str] = None
     
     account_id: Optional[str] = None
-    account_name: Optional[str] = None
+    # account_name is NOT included — it is a read-only computed field from the
+    # service layer and does not exist on the Contact document.
     custom_fields: Optional[Dict[str, Any]] = None
 
 

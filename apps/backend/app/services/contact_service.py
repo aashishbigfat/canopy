@@ -235,29 +235,81 @@ class ContactService(ActivityMixin):
         tenant_id: ObjectId
     ) -> Optional[Contact]:
         """Update a contact"""
+        from fastapi import HTTPException
         contact = await self.get_contact(contact_id, tenant_id)
         
         if not contact:
             return None
         
+        update_data = contact_data.model_dump(exclude_unset=True)
+
+        # --- Tier 1: Email uniqueness check within tenant ---
+        new_email = update_data.get("email")
+        if new_email and new_email != contact.email:
+            duplicate = await Contact.find_one({
+                "email": new_email,
+                "tenant_id": tenant_id,
+                "deleted_at": None,
+                "_id": {"$ne": contact.id}
+            })
+            if duplicate:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Email '{new_email}' is already used by another contact: {duplicate.full_name}"
+                )
+
+        # --- Tier 2: Account pivot sync when account_id changes ---
+        if "account_id" in update_data:
+            raw_new_account = update_data.get("account_id")
+            new_account_id = ObjectId(raw_new_account) if raw_new_account else None
+            old_account_id = contact.account_id
+
+            if old_account_id != new_account_id:
+                # Remove old pivot row
+                if old_account_id:
+                    old_pivot = await AccountContact.find_one(
+                        AccountContact.contact_id == contact.id,
+                        AccountContact.account_id == old_account_id,
+                        AccountContact.tenant_id == tenant_id
+                    )
+                    if old_pivot:
+                        await old_pivot.delete()
+
+                # Insert new pivot row (if a new account is set)
+                if new_account_id:
+                    exists = await AccountContact.find_one(
+                        AccountContact.contact_id == contact.id,
+                        AccountContact.account_id == new_account_id,
+                        AccountContact.tenant_id == tenant_id
+                    )
+                    if not exists:
+                        await AccountContact(
+                            contact_id=contact.id,
+                            account_id=new_account_id,
+                            tenant_id=tenant_id
+                        ).insert()
+            # NOTE: Opportunities are intentionally NOT touched.
+            # They remain linked to their original account_id.
+
         # Track changes
         old_values = {}
         updated_fields = {}
-        
-        # Update fields
-        update_data = contact_data.model_dump(exclude_unset=True)
+
         for field, value in update_data.items():
             old_values[field] = getattr(contact, field, None)
             if field == 'account_id' and value:
                 setattr(contact, field, ObjectId(value))
                 updated_fields[field] = str(value)
+            elif field == 'account_id' and not value:
+                setattr(contact, field, None)
+                updated_fields[field] = None
             else:
                 setattr(contact, field, value)
                 updated_fields[field] = value
-        
+
         contact.last_modified_by_id = user_id
         await contact.save()
-        
+
         # Log update
         await self.log_entity_updated(
             entity=contact,
@@ -265,7 +317,7 @@ class ContactService(ActivityMixin):
             old_values=old_values,
             updated_fields=updated_fields
         )
-        
+
         return contact
     
     async def delete_contact(self, contact_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:

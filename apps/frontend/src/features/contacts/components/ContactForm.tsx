@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -25,7 +26,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { contactsService } from "@/lib/api/services/contacts.service";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 const contactFormSchema = z.object({
     first_name: z.string().min(2, {
@@ -54,17 +55,29 @@ const defaultValues: Partial<ContactFormValues> = {
 interface ContactFormProps {
     initialData?: ContactFormValues;
     id?: string;
+    /** Name of the current account (for the info banner) */
+    initialAccountName?: string;
 }
 
-export function ContactForm({ initialData, id }: ContactFormProps) {
+export function ContactForm({ initialData, id, initialAccountName }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [accounts, setAccounts] = useState<{ id: string, name: string }[]>([]);
+
+    // Track original account_id to detect changes
+    const originalAccountId = useRef(initialData?.account_id ?? "");
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
         defaultValues: initialData || defaultValues,
     });
+
+    // Watch account_id to show info banner
+    const watchedAccountId = form.watch("account_id");
+    const accountChanged = !!id && watchedAccountId !== originalAccountId.current;
+
+    // Resolve display name of the new account for the banner
+    const newAccountName = accounts.find(a => a.id === watchedAccountId)?.name;
 
     useEffect(() => {
         const fetchMetaData = async () => {
@@ -88,8 +101,12 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
             }
             router.push("/contacts");
             router.refresh();
-        } catch (error) {
-            console.error(`Failed to ${id ? 'update' : 'create'} contact`, error);
+        } catch (error: any) {
+            const message =
+                error?.response?.data?.detail ??
+                `Failed to ${id ? "update" : "create"} contact`;
+            toast.error(message);
+            console.error(message, error);
         } finally {
             setIsLoading(false);
         }
@@ -185,6 +202,20 @@ export function ContactForm({ initialData, id }: ContactFormProps) {
                                         ))}
                                     </SelectContent>
                                 </Select>
+                                <FormDescription>
+                                    {/* Tier 2: Info banner when account changes in edit mode */}
+                                    {accountChanged && (
+                                        <span className="flex items-start gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400 text-xs leading-snug">
+                                            <span>ℹ️</span>
+                                            <span>
+                                                This contact will move to
+                                                {newAccountName ? ` "${newAccountName}"` : " the new account"}.
+                                                Existing opportunities will remain under
+                                                {initialAccountName ? ` "${initialAccountName}"` : " the original account"} and will not be re-assigned.
+                                            </span>
+                                        </span>
+                                    )}
+                                </FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
