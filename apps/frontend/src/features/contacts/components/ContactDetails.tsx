@@ -165,11 +165,23 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
-                                                <p className="text-sm font-medium text-blue-600 underline">{contact.email || "-"}</p>
+                                                {contact.email ? (
+                                                    <a href={`mailto:${contact.email}`} className="text-sm font-medium text-blue-600 hover:underline">
+                                                        {contact.email}
+                                                    </a>
+                                                ) : (
+                                                    <p className="text-sm font-medium text-slate-700">-</p>
+                                                )}
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
-                                                <p className="text-sm font-medium text-slate-700">{contact.phone || "-"}</p>
+                                                {contact.phone ? (
+                                                    <a href={`tel:${contact.phone}`} className="text-sm font-medium text-blue-600 hover:underline">
+                                                        {contact.phone}
+                                                    </a>
+                                                ) : (
+                                                    <p className="text-sm font-medium text-slate-700">-</p>
+                                                )}
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Title</p>
@@ -177,7 +189,13 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>
-                                                <p className="text-sm font-medium text-blue-600 underline">{contact.account_name || "-"}</p>
+                                                {contact.account_name && contact.account_id ? (
+                                                    <Link href={`/accounts/${contact.account_id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                                                        {contact.account_name}
+                                                    </Link>
+                                                ) : (
+                                                    <p className="text-sm font-medium text-slate-700">-</p>
+                                                )}
                                             </div>
                                         </CardContent>
                                     </Card>

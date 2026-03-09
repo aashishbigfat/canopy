@@ -304,10 +304,12 @@ class ContactService(ActivityMixin):
 
         # --- Tier 1 & 3: Email uniqueness check + Auto-account discovery ---
         new_email = update_data.get("email")
-        # Only auto-discover account from email if user did NOT explicitly change account_id
-        explicit_account_change = "account_id" in update_data
-
-        if new_email and new_email != contact.email:
+        if new_email is None:
+            new_email = contact.email
+            
+        raw_new_account = update_data.get("account_id")
+        
+        if "email" in update_data and new_email != contact.email:
             # Uniqueness check
             duplicate = await Contact.find_one({
                 "email": new_email,
@@ -320,16 +322,29 @@ class ContactService(ActivityMixin):
                     status_code=400,
                     detail=f"Email '{new_email}' is already used by another contact: {duplicate.full_name}"
                 )
-            
-            # Auto-Account Logic: only if account was NOT explicitly changed by user
-            if not explicit_account_change:
-                new_domain = self._extract_domain(new_email)
-                if new_domain:
-                    new_account_id_from_email = await self._get_or_create_account_by_domain(
-                        new_domain, contact, user_id, tenant_id
-                    )
-                    # Set the account_id in update_data to move the contact
-                    update_data["account_id"] = str(new_account_id_from_email)
+        
+        # Determine if we should forcefully auto-create/find account
+        # If the frontend cleared the account_id ("") it means they typed an email domain that doesn't exist
+        # in their current account dropdown, so they are relying on the backend to create it.
+        new_domain = self._extract_domain(new_email) if new_email else None
+        
+        force_auto_create = "account_id" in update_data and raw_new_account == ""
+        
+        str_new_account = str(raw_new_account) if raw_new_account else ""
+        str_old_account = str(contact.account_id) if contact.account_id else ""
+        explicit_valid_account_change = "account_id" in update_data and str_new_account != "" and str_new_account != str_old_account
+        
+        # We auto-discover/create if:
+        # 1. We have a valid new domain.
+        # AND
+        # 2. The frontend forcefully cleared the account_id (`force_auto_create`)
+        # OR 3. The email changed AND the user didn't explicitly pick a completely new valid account in the dropdown.
+        if new_domain and (force_auto_create or ("email" in update_data and new_email != contact.email and not explicit_valid_account_change)):
+            new_account_id_from_email = await self._get_or_create_account_by_domain(
+                new_domain, contact, user_id, tenant_id
+            )
+            update_data["account_id"] = str(new_account_id_from_email)
+
 
 
         # --- Tier 2: Account pivot sync + Opportunity migration ---
