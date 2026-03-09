@@ -146,8 +146,15 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                 finalName = initialData?.name || "Unnamed Account";
             }
 
+            // Clean up payload: convert empty strings to null for backend compatibility
+            // This prevents "400 Bad Request" errors when the backend expects ObjectIds or valid Email strings
+            const cleanedData = Object.entries(data).reduce((acc, [key, value]) => {
+                acc[key] = value === "" ? null : value;
+                return acc;
+            }, {} as any);
+
             const payload = {
-                ...data,
+                ...cleanedData,
                 name: finalName,
                 is_person_account: isPersonAccount,
             };
