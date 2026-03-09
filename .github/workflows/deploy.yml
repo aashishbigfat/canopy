@@ -1,0 +1,101 @@
+name: Deploy (EC2 + Vercel)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/backend/**"
+      - "apps/frontend/**"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+    inputs:
+      deploy_target:
+        description: "Deployment target"
+        required: true
+        default: "all"
+        type: choice
+        options:
+          - all
+          - backend-only
+          - frontend-only
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "production"
+        type: choice
+        options:
+          - production
+          - staging
+      force_rebuild:
+        description: "Force rebuild backend image without cache"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push-backend:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'backend-only'))
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/backend
+          file: ./apps/backend/Dockerfile
+          push: true
+          tags: |
+            ghcr.io/bigfat-ai-labs/tutterfly-backend:main
+            ghcr.io/bigfat-ai-labs/tutterfly-backend:latest
+          cache-from: ${{ github.event.inputs.force_rebuild == 'true' && '' || 'type=registry,ref=ghcr.io/bigfat-ai-labs/tutterfly-backend:buildcache' }}
+          cache-to: ${{ github.event.inputs.force_rebuild == 'true' && '' || 'type=registry,ref=ghcr.io/bigfat-ai-labs/tutterfly-backend:buildcache,mode=max' }}
+
+  deploy-backend:
+    runs-on: ubuntu-latest
+    needs: build-and-push-backend
+    if: always() && needs.build-and-push-backend.result == 'success'
+    steps:
+      - name: Deploy backend on EC2 via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+          script: |
+            cd /opt/apps/bigfat-core
+            docker compose pull tutterfly-backend
+            docker compose up -d tutterfly-backend
+            docker image prune -a -f
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'frontend-only'))
+    steps:
+      - name: Trigger Vercel deploy
+        run: |
+          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK }}" ]; then
+            curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
+          elif [ -n "${{ secrets.VERCEL_HOOK_ADMIN }}" ]; then
+            curl -X POST "${{ secrets.VERCEL_HOOK_ADMIN }}"
+          else
+            echo "No Vercel deploy hook secret set (VERCEL_DEPLOY_HOOK or VERCEL_HOOK_ADMIN)"
+          fi

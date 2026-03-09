@@ -1,15 +1,23 @@
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pathlib import Path
 from typing import Set
-from dotenv import load_dotenv
 
-# Load .env file explicitly
-load_dotenv()
+from dotenv import load_dotenv
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve .env path relative to backend root (apps/backend), not cwd
+_BACKEND_ROOT = Path(__file__).resolve().parent.parent.parent
+_ENV_FILE = _BACKEND_ROOT / ".env"
+
+# Load .env into os.environ (override=False: existing env vars are kept)
+# Precedence: env vars (Docker/shell) > .env file > defaults in code
+load_dotenv(_ENV_FILE, override=False)
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE,
+        env_file_encoding="utf-8",
         case_sensitive=True,
-        extra="ignore"
+        extra="ignore",
     )
     # App
     APP_NAME: str = "TutterflyC CRM API"
@@ -62,7 +70,7 @@ class Settings(BaseSettings):
     }
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:4200,http://localhost:3000,https://tutterfly-frontend.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,https://tutterfly-frontend.vercel.app"
     
     @property
     def cors_origins_list(self) -> list[str]:

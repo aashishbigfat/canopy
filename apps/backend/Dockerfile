@@ -1,6 +1,9 @@
 # Use an official Python runtime as a parent image
 FROM python:3.11-slim
 
+LABEL org.opencontainers.image.source="https://github.com/bigfat-ai-labs/tutterfly"
+LABEL org.opencontainers.image.description="Tutterfly Backend API"
+
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
@@ -19,9 +22,11 @@ RUN apt-get update && apt-get install -y \
     shared-mime-info \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Install dependencies
+# Install uv and Python deps with cache mount for faster rebuilds
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/uv \
+    pip install --no-cache-dir uv \
+    && uv pip install --system --no-cache -r requirements.txt
 
 # Copy project
 COPY . .
