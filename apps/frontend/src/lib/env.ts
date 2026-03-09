@@ -1,7 +1,11 @@
 /**
- * Central env for API base URL. Use this everywhere (client + server) so
- * requests always go to the backend, never to the frontend origin.
- * Set NEXT_PUBLIC_API_URL in .env / .env.local (e.g. http://localhost:8000/api/v1).
+ * Single source for backend API base URL (must include /api/v1).
+ *
+ * All API calls use this (apiClient baseURL, getApiBaseUrlNoSlash for fetch).
+ * Set NEXT_PUBLIC_API_URL in .env / Vercel so every route hits the backend.
+ *
+ * Optional: NEXT_PUBLIC_REMOTE_API_URL for ?apiUrl=remote (client-side switch).
+ * Server-side always uses NEXT_PUBLIC_API_URL.
  */
 const FALLBACK_API_BASE = "http://localhost:8000/api/v1";
 
