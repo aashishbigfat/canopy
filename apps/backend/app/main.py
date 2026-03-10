@@ -10,7 +10,12 @@ from datetime import datetime
 import uuid
 import json
 
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+
 from app.core.config import settings
+from app.core.rate_limiter import limiter
 from app.core.cache import init_cache, close_cache
 from app.db.mongodb import init_db
 from app.middleware.activity_context import activity_context_middleware
@@ -34,6 +39,12 @@ app = FastAPI(
     redoc_url="/api/redoc",
     lifespan=lifespan
 )
+
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+# Attach limiter state to app for SlowAPI middleware discovery
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Activity logging middleware
 @app.middleware("http")

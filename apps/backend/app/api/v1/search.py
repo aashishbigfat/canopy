@@ -1,7 +1,7 @@
 """
 Global Search API endpoint - Cross-module search
 """
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from typing import Optional, List
 from bson import ObjectId
 import re
@@ -12,12 +12,15 @@ from app.models.account import Account
 from app.models.contact import Contact
 from app.models.opportunity import Opportunity
 from app.api.deps import get_current_user
+from app.core.rate_limiter import limiter
 
 router = APIRouter()
 
 
 @router.get("/")
+@limiter.limit("30/minute")
 async def global_search(
+    request: Request,
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(5, ge=1, le=20, description="Results per module"),
     current_user: User = Depends(get_current_user)
