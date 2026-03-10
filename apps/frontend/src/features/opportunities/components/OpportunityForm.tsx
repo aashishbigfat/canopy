@@ -52,9 +52,9 @@ const opportunityFormSchema = z.object({
     name: z.string().min(2, {
         message: "Deal name must be at least 2 characters.",
     }),
-    amount: z.string().optional(),
+    amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Amount must be a positive number.").optional().or(z.literal("")),
     sales_stage_id: z.string().min(1, "Sales stage is required."),
-    probability: z.string().optional(),
+    probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
     close_date: z.string().optional(),
     travel_date: z.string().optional(),
     experience_id: z.string().optional(),

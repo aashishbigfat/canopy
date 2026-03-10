@@ -26,17 +26,23 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { contactsService } from "@/lib/api/services/contacts.service";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { useEffect, useRef } from "react";
 
 const contactFormSchema = z.object({
     first_name: z.string().min(2, {
         message: "First name must be at least 2 characters.",
-    }),
+    }).max(100),
     last_name: z.string().min(2, {
         message: "Last name must be at least 2 characters.",
-    }),
+    }).max(100),
     email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
-    phone: z.string().optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
+        message: "Please enter a valid phone number (e.g. +91 9876543210).",
+    }),
+    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
+        message: "Please enter a valid mobile number (e.g. +91 9876543210).",
+    }),
     title: z.string().optional(),
     account_id: z.string().optional(),
 });
@@ -48,6 +54,7 @@ const defaultValues: Partial<ContactFormValues> = {
     last_name: "",
     email: "",
     phone: "",
+    mobile: "",
     title: "",
     account_id: "",
 };
@@ -108,22 +115,42 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
         fetchMetaData();
     }, []);
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     async function onSubmit(data: ContactFormValues) {
         setIsLoading(true);
         try {
-            if (id) {
-                await contactsService.updateContact(id, data);
-            } else {
-                await contactsService.createContact(data as any);
-            }
-            router.push("/contacts");
-            router.refresh();
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.detail ??
-                `Failed to ${id ? "update" : "create"} contact`;
-            toast.error(message);
-            console.error(message, error);
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (id) {
+                        await contactsService.updateContact(id, data);
+                        toast.success("Contact updated successfully");
+                    } else {
+                        await contactsService.createContact(data as any);
+                        toast.success("Contact created successfully");
+                    }
+                    router.push("/contacts");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save contact"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save contact");
+        } catch (error) {
+            // Error is already handled
         } finally {
             setIsLoading(false);
         }
@@ -131,7 +158,13 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form
+                onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                    console.error("Validation errors:", errors);
+                    toast.error("Please fix the validation errors in the form.");
+                })}
+                className="space-y-8"
+            >
                 <div className="grid gap-4 md:grid-cols-2">
                     <FormField
                         control={form.control}
@@ -208,6 +241,19 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Phone</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="+1 555-000-0000" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="mobile"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Mobile</FormLabel>
                                 <FormControl>
                                     <Input placeholder="+1 555-000-0000" {...field} />
                                 </FormControl>

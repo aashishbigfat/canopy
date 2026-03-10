@@ -5,6 +5,8 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ErrorType } from "@/lib/error-handler";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarIcon, Check, ChevronsUpDown, User, Building2, Globe, MapPin, Activity, Info, Tag, Layers, Share2 } from "lucide-react";
 import { Calendar as DayPicker } from "@/components/ui/calendar";
@@ -327,19 +329,21 @@ const leadFormSchema = z.object({
     first_name: z.string().optional(),
     last_name: z.string().min(1, { message: "Last name is required." }),
     company: z.string().optional(),
-    email: z.string().email({ message: "Invalid email address." }).or(z.literal("")).optional(),
+    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
     phone: z.string()
-        .min(1, { message: "Phone is required." })
-        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
-            message: "Please enter a valid phone number (e.g. +91 9876543210).",
+        .optional()
+        .or(z.literal(""))
+        .refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
+            message: "Invalid phone format. Please use a valid number (e.g. +91 9876543210).",
         }),
     mobile: z.string()
-        .min(1, { message: "Mobile is required." })
-        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
-            message: "Please enter a valid mobile number (e.g. +91 9876543210).",
+        .optional()
+        .or(z.literal(""))
+        .refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
+            message: "Invalid mobile format. Please use a valid number (e.g. +91 9876543210).",
         }),
     no_employees: z.string().optional(),
-    website: z.string().optional(),
+    website: z.string().url({ message: "Please enter a valid URL (e.g. https://example.com)" }).optional().or(z.literal("")),
     title: z.string().optional(),
     lead_status_id: z.string().optional(),
     source_id: z.string().optional(),
@@ -349,7 +353,9 @@ const leadFormSchema = z.object({
     street: z.string().optional(),
     city: z.string().min(1, { message: "City is required." }),
     state: z.string().min(1, { message: "State is required." }),
-    zip: z.string().optional(),
+    zip: z.string().optional().or(z.literal("")).refine(val => !val || /^[A-Za-z0-9\s-]{3,10}$/.test(val), {
+        message: "Invalid Zip/Postal code format.",
+    }),
     country: z.string().min(1, { message: "Country is required." }),
     campaign_name: z.string().optional(),
     travel_date: z.string().min(1, { message: "Travel date is required." }),
@@ -464,6 +470,23 @@ export function LeadForm({
         form.setValue("segment", detectedSegment);
     }, [email, form]);
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                // loc is usually ["body", "field_name"] or ["query", "field_name"]
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
+
 
     const onSubmit = async (data: any) => {
         setIsLoading(true);
@@ -503,17 +526,21 @@ export function LeadForm({
             };
 
             await ErrorHandler.withErrorHandling(async () => {
-                if (leadId) {
-                    await leadsService.updateLead(leadId, payload);
-                    showSuccessToast("Lead updated successfully");
-                } else {
-                    await leadsService.createLead(payload);
-                    showSuccessToast("Lead created successfully");
+                try {
+                    if (leadId) {
+                        await leadsService.updateLead(leadId, payload);
+                        showSuccessToast("Lead updated successfully");
+                    } else {
+                        await leadsService.createLead(payload);
+                        showSuccessToast("Lead created successfully");
+                    }
+                    router.push("/leads");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save lead"));
+                    if (!mapped) throw error;
                 }
             }, "Failed to save lead");
-
-            router.push("/leads");
-            router.refresh();
         } catch (error) {
             // Error is already handled by ErrorHandler.withErrorHandling
         } finally {
@@ -524,7 +551,10 @@ export function LeadForm({
     return (
         <Form {...(form as any)} className="w-full">
             <form
-                onSubmit={form.handleSubmit(onSubmit as any)}
+                onSubmit={form.handleSubmit(onSubmit as any, (errors) => {
+                    console.error("Validation errors:", errors);
+                    toast.error("Please fix the validation errors in the form.");
+                })}
                 className="w-full space-y-6"
             >
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">

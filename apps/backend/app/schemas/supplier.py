@@ -1,9 +1,10 @@
 """
 Pydantic schemas for Supplier API
 """
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator
+from typing import Optional, Annotated
 from datetime import datetime
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
 
 class SupplierBase(BaseModel):
     """Base schema for Supplier"""
@@ -11,20 +12,20 @@ class SupplierBase(BaseModel):
     company_name: Optional[str] = None
     supplier_type: str
     
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
     website: Optional[str] = None
     
     street: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
-    zip: Optional[str] = None
+    zip: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)] = None
     country: Optional[str] = None
     
     contact_person_name: Optional[str] = None
-    contact_person_email: Optional[EmailStr] = None
-    contact_person_phone: Optional[str] = None
+    contact_person_email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    contact_person_phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
     
     payment_terms: Optional[str] = None
     credit_limit: Optional[float] = None
@@ -43,8 +44,8 @@ class SupplierUpdate(BaseModel):
     """Schema for updating a supplier"""
     name: Optional[str] = None
     supplier_type: Optional[str] = None
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
     is_active: Optional[bool] = None
     is_preferred: Optional[bool] = None
     rating: Optional[int] = None

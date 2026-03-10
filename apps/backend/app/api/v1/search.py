@@ -1,7 +1,7 @@
 """
 Global Search API endpoint - Cross-module search
 """
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from typing import Optional, List
 from bson import ObjectId
 import re
@@ -21,6 +21,7 @@ router = APIRouter()
 @limiter.limit("30/minute")
 async def global_search(
     request: Request,
+    response: Response,
     q: str = Query(..., min_length=2, description="Search query"),
     limit: int = Query(5, ge=1, le=20, description="Results per module"),
     current_user: User = Depends(get_current_user)

@@ -8,7 +8,7 @@ from datetime import datetime
 class OpportunityBase(BaseModel):
     """Base schema for Opportunity"""
     name: str = Field(..., min_length=1, max_length=255)
-    amount: Optional[float] = Field(None)
+    amount: Optional[float] = Field(None, ge=0.0)
     description: Optional[str] = Field(None, max_length=1000)
     
     # Travel-specific fields
@@ -22,7 +22,7 @@ class OpportunityBase(BaseModel):
     
     # Sales information
     sales_stage_id: Annotated[str, BeforeValidator(str)]
-    probability: Optional[int] = Field(0)
+    probability: Optional[int] = Field(0, ge=0, le=100)
     
     # Relationships
     account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
@@ -67,10 +67,10 @@ def parse_date(v):
 class OpportunityUpdate(BaseModel):
     """Schema for updating an opportunity"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
-    amount: Optional[float] = Field(None)
+    amount: Optional[float] = Field(None, ge=0.0)
     description: Optional[str] = Field(None, max_length=1000)
     sales_stage_id: Optional[str] = Field(None, min_length=1)
-    probability: Optional[int] = Field(None)
+    probability: Optional[int] = Field(None, ge=0, le=100)
 
     close_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
     travel_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None

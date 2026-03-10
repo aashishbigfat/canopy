@@ -27,16 +27,23 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { accountService } from "@/features/accounts/services/accountService";
-import { getSession } from "next-auth/react";
+import { contactService } from "@/features/contacts/services/contactService";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 const accountFormSchema = z.object({
-    name: z.string().min(2, "Name must be at least 2 characters.").optional().or(z.literal("")),
+    name: z.string().min(2, "Name must be at least 2 characters.").max(255).optional().or(z.literal("")),
     salutation: z.string().optional(),
     first_name: z.string().optional(),
     last_name: z.string().optional(),
     email: z.string().email("Invalid email address.").optional().or(z.literal("")),
-    phone: z.string().optional().or(z.literal("")),
-    mobile: z.string().optional().or(z.literal("")),
+    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
+        message: "Invalid phone format. Please use a valid number (e.g. +91 9876543210)."
+    }),
+    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
+        message: "Invalid mobile format. Please use a valid number (e.g. +91 9876543210)."
+    }),
     website: z.string().url("Invalid URL.").optional().or(z.literal("")),
     description: z.string().optional(),
 
@@ -51,13 +58,13 @@ const accountFormSchema = z.object({
     billing_street: z.string().optional(),
     billing_city: z.string().optional(),
     billing_state: z.string().optional(),
-    billing_zip: z.string().optional(),
+    billing_zip: z.string().regex(/^[A-Za-z0-9\s-]{3,10}$/, "Invalid Zip/Postal code format.").optional().or(z.literal("")),
     billing_country: z.string().optional(),
 
     shipping_street: z.string().optional(),
     shipping_city: z.string().optional(),
     shipping_state: z.string().optional(),
-    shipping_zip: z.string().optional(),
+    shipping_zip: z.string().regex(/^[A-Za-z0-9\s-]{3,10}$/, "Invalid Zip/Postal code format.").optional().or(z.literal("")),
     shipping_country: z.string().optional(),
 
     status: z.enum(["active", "inactive"]),
@@ -136,6 +143,21 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
         form.setValue("shipping_country", values.billing_country);
     };
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     async function onSubmit(data: AccountFormValues) {
         setIsLoading(true);
         try {
@@ -146,8 +168,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                 finalName = initialData?.name || "Unnamed Account";
             }
 
-            // Clean up payload: convert empty strings to null for backend compatibility
-            // This prevents "400 Bad Request" errors when the backend expects ObjectIds or valid Email strings
+            // Clean up payload: convert empty strings to null/undefined for backend compatibility
             const cleanedData = Object.entries(data).reduce((acc, [key, value]) => {
                 acc[key] = value === "" ? null : value;
                 return acc;
@@ -159,15 +180,24 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                 is_person_account: isPersonAccount,
             };
 
-            if (id) {
-                await accountService.updateAccount(id, payload);
-            } else {
-                await accountService.createAccount(payload as any);
-            }
-            router.push(isPersonAccount ? "/person-accounts" : "/accounts");
-            router.refresh();
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (id) {
+                        await accountService.updateAccount(id, payload);
+                        toast.success("Account updated successfully");
+                    } else {
+                        await accountService.createAccount(payload as any);
+                        toast.success("Account created successfully");
+                    }
+                    router.push(isPersonAccount ? "/person-accounts" : "/accounts");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save account"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save account");
         } catch (error) {
-            console.error(`Failed to ${id ? 'update' : 'create'} account`, error);
+            // Error is already handled
         } finally {
             setIsLoading(false);
         }
@@ -175,7 +205,13 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form
+                onSubmit={form.handleSubmit(onSubmit, (errors) => {
+                    console.error("Validation errors:", errors);
+                    toast.error("Please fix the validation errors in the form.");
+                })}
+                className="space-y-8"
+            >
                 {/* General Information */}
                 <div>
                     <h3 className="text-lg font-medium mb-4">General Information</h3>
