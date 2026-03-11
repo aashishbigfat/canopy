@@ -14,7 +14,7 @@
  */
 
 const LOCAL_API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-const REMOTE_API_BASE = process.env.NEXT_PUBLIC_REMOTE_API_URL || "http://15.206.79.199:8000/api/v1";
+const REMOTE_API_BASE = "/api/v1";
 
 const STORAGE_KEY = "tutterfly_api_target"; // "local" | "remote" | "auto"
 
