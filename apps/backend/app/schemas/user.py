@@ -5,13 +5,22 @@ from pydantic import BaseModel, EmailStr, Field, validator, BeforeValidator
 from typing import Optional, List, Annotated
 from datetime import datetime
 from app.core.validators import validate_password_complexity, PHONE_REGEX, PHONE_REGEX_MESSAGE
+import re
+
+def parse_phone_number(v: str) -> Optional[str]:
+    if not v:
+        return None
+    # If it is fetched from DB but fails the strict regex, we return None to avoid 500 error
+    if not re.match(PHONE_REGEX, v):
+        return None
+    return v
 
 
 class UserBase(BaseModel):
     """Base schema for User"""
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
-    phone: Optional[str] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     department_id: Optional[str] = None
     role_hierarchy_id: Optional[str] = None
     
@@ -61,7 +70,7 @@ class UserUpdate(BaseModel):
     """Schema for updating user"""
     name: Optional[str] = None
     email: Optional[EmailStr] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    phone: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     department_id: Optional[str] = None
     role_hierarchy_id: Optional[str] = None
     

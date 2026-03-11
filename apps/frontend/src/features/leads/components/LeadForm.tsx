@@ -21,6 +21,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
     Select,
     SelectContent,
@@ -28,6 +29,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
     Command,
     CommandEmpty,
@@ -134,63 +136,32 @@ function LocationFields({ form }: { form: any }) {
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
                         <FormLabel>Country *</FormLabel>
-                        <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        className={cn(
-                                            "w-full justify-between",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {field.value
-                                            ? countries.find((c: Country) => c.name === field.value)?.name || field.value
-                                            : "Select country"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command shouldFilter={false}>
-                                    <CommandInput
-                                        placeholder="Search country..."
-                                        onValueChange={setSearchTermCountry}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No country found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredCountries.map((country) => (
-                                                <CommandItem
-                                                    value={country.name}
-                                                    key={country.id}
-                                                    onSelect={() => {
-                                                        const prev = field.value;
-                                                        field.onChange(country.name);
-                                                        if (prev !== country.name) {
-                                                            form.setValue("state", "");
-                                                            form.setValue("city", "");
-                                                            setStates([]);
-                                                            setCities([]);
-                                                            setLoadingStates(true);
-                                                            locationService.getStates(country.id).then(r => {
-                                                                setStates(r?.states || []);
-                                                                setLoadingStates(false);
-                                                            });
-                                                        }
-                                                        setCountryOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", country.name === field.value ? "opacity-100" : "opacity-0")} />
-                                                    {country.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <FormControl>
+                            <SearchableSelect
+                                options={countries.map(c => ({ label: c.name, value: c.name }))}
+                                value={field.value}
+                                onValueChange={(val) => {
+                                    const prev = field.value;
+                                    field.onChange(val);
+                                    if (prev !== val) {
+                                        const country = countries.find(c => c.name === val);
+                                        form.setValue("state", "");
+                                        form.setValue("city", "");
+                                        setStates([]);
+                                        setCities([]);
+                                        if (country) {
+                                            setLoadingStates(true);
+                                            locationService.getStates(country.id).then(r => {
+                                                setStates(r?.states || []);
+                                                setLoadingStates(false);
+                                            });
+                                        }
+                                    }
+                                }}
+                                placeholder="Select country"
+                                isLoading={loadingCountries}
+                            />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -202,62 +173,31 @@ function LocationFields({ form }: { form: any }) {
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
                         <FormLabel>State *</FormLabel>
-                        <Popover open={stateOpen} onOpenChange={setStateOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        disabled={!form.watch("country") || loadingStates}
-                                        className={cn(
-                                            "w-full justify-between",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {field.value
-                                            ? states.find((s) => s.name === field.value)?.name || field.value
-                                            : "Select state"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command shouldFilter={false}>
-                                    <CommandInput
-                                        placeholder="Search state..."
-                                        onValueChange={setSearchTermState}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No state found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredStates.map((state) => (
-                                                <CommandItem
-                                                    value={state.name}
-                                                    key={state.id}
-                                                    onSelect={() => {
-                                                        const prev = field.value;
-                                                        field.onChange(state.name);
-                                                        if (prev !== state.name) {
-                                                            form.setValue("city", "");
-                                                            setCities([]);
-                                                            setLoadingCities(true);
-                                                            locationService.getCitiesByState(state.id).then(r => {
-                                                                setCities(r?.cities || []);
-                                                                setLoadingCities(false);
-                                                            });
-                                                        }
-                                                        setStateOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", state.name === field.value ? "opacity-100" : "opacity-0")} />
-                                                    {state.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <FormControl>
+                            <SearchableSelect
+                                options={states.map(s => ({ label: s.name, value: s.name }))}
+                                value={field.value}
+                                onValueChange={(val) => {
+                                    const prev = field.value;
+                                    field.onChange(val);
+                                    if (prev !== val) {
+                                        const state = states.find(s => s.name === val);
+                                        form.setValue("city", "");
+                                        setCities([]);
+                                        if (state) {
+                                            setLoadingCities(true);
+                                            locationService.getCitiesByState(state.id).then(r => {
+                                                setCities(r?.cities || []);
+                                                setLoadingCities(false);
+                                            });
+                                        }
+                                    }
+                                }}
+                                disabled={!form.watch("country")}
+                                isLoading={loadingStates}
+                                placeholder="Select state"
+                            />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -269,52 +209,16 @@ function LocationFields({ form }: { form: any }) {
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
                         <FormLabel>City *</FormLabel>
-                        <Popover open={cityOpen} onOpenChange={setCityOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        disabled={!form.watch("state") || loadingCities}
-                                        className={cn(
-                                            "w-full justify-between",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {field.value
-                                            ? cities.find((c) => c.name === field.value)?.name || field.value
-                                            : "Select city"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command shouldFilter={false}>
-                                    <CommandInput
-                                        placeholder="Search city..."
-                                        onValueChange={setSearchTermCity}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No city found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredCities.map((city) => (
-                                                <CommandItem
-                                                    value={city.name}
-                                                    key={city.id}
-                                                    onSelect={() => {
-                                                        field.onChange(city.name);
-                                                        setCityOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", city.name === field.value ? "opacity-100" : "opacity-0")} />
-                                                    {city.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <FormControl>
+                            <SearchableSelect
+                                options={cities.map(c => ({ label: c.name, value: c.name }))}
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                disabled={!form.watch("state")}
+                                isLoading={loadingCities}
+                                placeholder="Select city"
+                            />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -333,14 +237,14 @@ const leadFormSchema = z.object({
     phone: z.string()
         .optional()
         .or(z.literal(""))
-        .refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
-            message: "Invalid phone format. Please use a valid number (e.g. +91 9876543210).",
+        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+            message: "Please select a country code and enter exactly a 10-digit number.",
         }),
     mobile: z.string()
         .optional()
         .or(z.literal(""))
-        .refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
-            message: "Invalid mobile format. Please use a valid number (e.g. +91 9876543210).",
+        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+            message: "Please select a country code and enter exactly a 10-digit number.",
         }),
     no_employees: z.string().optional(),
     website: z.string().url({ message: "Please enter a valid URL (e.g. https://example.com)" }).optional().or(z.literal("")),
@@ -551,10 +455,7 @@ export function LeadForm({
     return (
         <Form {...(form as any)} className="w-full">
             <form
-                onSubmit={form.handleSubmit(onSubmit as any, (errors) => {
-                    console.error("Validation errors:", errors);
-                    toast.error("Please fix the validation errors in the form.");
-                })}
+                onSubmit={form.handleSubmit(onSubmit as any)}
                 className="w-full space-y-6"
             >
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
@@ -647,7 +548,7 @@ export function LeadForm({
                                                     Phone <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="+1 234..." className="h-9 bg-white" {...field} />
+                                                    <PhoneInput {...field} placeholder="Phone number" />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -662,7 +563,7 @@ export function LeadForm({
                                                     Mobile <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="+1 234..." className="h-9 bg-white" {...field} />
+                                                    <PhoneInput {...field} placeholder="Mobile number" />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -712,20 +613,14 @@ export function LeadForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Lead Status</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select Status" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {statuses.map((status) => (
-                                                            <SelectItem key={status.id} value={status.id}>
-                                                                {status.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={statuses.map(s => ({ label: s.name, value: s.id }))}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Status"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -736,20 +631,14 @@ export function LeadForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Industry</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select Industry" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {industries.map((industry) => (
-                                                            <SelectItem key={industry.id} value={industry.id}>
-                                                                {industry.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={industries.map(i => ({ label: i.name, value: i.id }))}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Industry"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -788,22 +677,18 @@ export function LeadForm({
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
                                                     Source Medium <span className="text-red-500">*</span>
                                                 </FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="manual">Manual</SelectItem>
-                                                        <SelectItem value="auto">Auto</SelectItem>
-                                                        {sources.map((source) => (
-                                                            <SelectItem key={source.id} value={source.id}>
-                                                                {source.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={[
+                                                            { label: "Manual", value: "manual" },
+                                                            { label: "Auto", value: "auto" },
+                                                            ...sources.map(s => ({ label: s.name, value: s.id }))
+                                                        ]}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Source"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -1041,7 +926,7 @@ export function LeadForm({
                                                     />
                                                 </FormControl>
                                                 <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">
-                                                    Fixed Package?
+                                                    Fixed Departure?
                                                 </FormLabel>
                                             </FormItem>
                                         )}

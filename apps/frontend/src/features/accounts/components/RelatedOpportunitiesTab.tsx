@@ -9,7 +9,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, ExternalLink, DollarSign } from "lucide-react";
+import { Plus, ExternalLink, IndianRupee } from "lucide-react";
 import Link from "next/link";
 
 interface RelatedOpportunitiesTabProps {
@@ -27,7 +27,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                     <div>
                         <CardTitle>Related Opportunities</CardTitle>
                         <CardDescription>
-                            Sales opportunities for this account • Total Value: ${totalValue.toLocaleString()}
+                            Sales opportunities for this account • Total Value: ₹{totalValue.toLocaleString()}
                         </CardDescription>
                     </div>
                     <Link href={`/opportunities/create?account_id=${accountId}`}>
@@ -78,7 +78,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
-                                            <DollarSign className="h-3 w-3" />
+                                            <IndianRupee className="h-3 w-3" />
                                             {opp.amount?.toLocaleString() || "0"}
                                         </div>
                                     </TableCell>

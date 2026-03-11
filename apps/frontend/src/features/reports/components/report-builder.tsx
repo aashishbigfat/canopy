@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateReport } from "@/features/reports/api/use-reports";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const reportFormSchema = z.object({
     name: z.string().min(2, "Name is required"),
@@ -47,22 +48,44 @@ export function ReportBuilder() {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     const onSubmit = async (data: ReportFormValues) => {
         try {
-            // Construct full payload with defaults
-            const payload = {
-                ...data,
-                report_type: 'custom',
-                filters: {},
-                order_direction: 'desc' as const,
-                chart_config: {},
-                is_public: false
-            };
-            await createReport.mutateAsync(payload);
-            router.push("/reports");
-            router.refresh();
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    // Construct full payload with defaults
+                    const payload = {
+                        ...data,
+                        report_type: 'custom',
+                        filters: {},
+                        order_direction: 'desc' as const,
+                        chart_config: {},
+                        is_public: false
+                    };
+                    await createReport.mutateAsync(payload);
+                    router.push("/reports");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save report"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save report");
         } catch (error) {
-            console.error("Failed to save report", error);
+            // Error handled
         }
     };
 

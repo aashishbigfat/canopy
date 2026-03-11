@@ -44,37 +44,7 @@ export const useUpdateOpportunity = () => {
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Partial<OpportunityCreateData> }) =>
             opportunitiesService.updateOpportunity(id, data),
-        onMutate: async (newOpportunity) => {
-            await queryClient.cancelQueries({ queryKey: ["opportunities"] });
-            const previousQueries = queryClient.getQueriesData({ queryKey: ["opportunities"] });
-
-            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
-                if (!old) return old;
-
-                // Handle List Response
-                if (old.opportunities && Array.isArray(old.opportunities)) {
-                    return {
-                        ...old,
-                        opportunities: old.opportunities.map((opp: any) =>
-                            opp.id === newOpportunity.id ? { ...opp, ...newOpportunity.data } : opp
-                        ),
-                    };
-                }
-
-                // Handle Single Record Response
-                if (old.id === newOpportunity.id) {
-                    return { ...old, ...newOpportunity.data };
-                }
-
-                return old;
-            });
-
-            return { previousQueries };
-        },
-        onError: (err, newOpportunity, context) => {
-            context?.previousQueries.forEach(([queryKey, previousData]) => {
-                queryClient.setQueryData(queryKey, previousData);
-            });
+        onError: () => {
             toast.error("Failed to update opportunity");
         },
         onSettled: (data) => {

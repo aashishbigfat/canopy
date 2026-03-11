@@ -5,6 +5,22 @@ from pydantic import BaseModel, EmailStr, Field, BeforeValidator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
+import re
+
+def safe_phone_validator(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    # When returning from DB, old data might fail the new strict regex
+    if not re.match(PHONE_REGEX, str(v)):
+        return None
+    return str(v)
+
+def safe_zip_validator(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    if not re.match(ZIP_REGEX, str(v)):
+        return None
+    return str(v)
 
 class ContactBase(BaseModel):
     """Base schema for Contact"""
@@ -14,8 +30,8 @@ class ContactBase(BaseModel):
     last_name: str = Field(..., min_length=2, max_length=100)
     
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
-    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     fax: Optional[str] = None
     
     title: Optional[str] = None
@@ -24,18 +40,18 @@ class ContactBase(BaseModel):
     mailing_street: Optional[str] = None
     mailing_city: Optional[str] = None
     mailing_state: Optional[str] = None
-    mailing_zip: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)] = None
+    mailing_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
     mailing_country: Optional[str] = None
     
     other_street: Optional[str] = None
     other_city: Optional[str] = None
     other_state: Optional[str] = None
-    other_zip: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)] = None
+    other_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
     other_country: Optional[str] = None
     
     description: Optional[str] = None
     assistant: Optional[str] = None
-    assistant_phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    assistant_phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     
     account_id: Optional[str] = None
 

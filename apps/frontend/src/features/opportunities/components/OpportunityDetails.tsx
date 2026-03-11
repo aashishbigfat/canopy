@@ -14,7 +14,7 @@ import {
     Briefcase,
     ChevronLeft,
     TrendingUp,
-    DollarSign,
+
     Target,
     Map,
     MessageSquare,
@@ -195,12 +195,34 @@ export function OpportunityDetails({
                             <h2 className="text-lg font-medium">{record.name}</h2>
                             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 pt-1">
                                 <div className="space-y-1">
+                                    {!record.is_person_account && record.account_name && (
+                                        <div className="mb-2">
+                                            <Link href={`/accounts/${record.account_id}`} className="font-medium text-blue-500 hover:underline cursor-pointer">
+                                                {record.account_name}
+                                            </Link>
+                                        </div>
+                                    )}
                                     <p className="text-xs text-slate-400">Name</p>
-                                    <p className="font-medium text-blue-500 hover:underline cursor-pointer">
-                                        <Link href={record.is_person_account ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
-                                            {record.contact_name || record.account_name || "-"}
-                                        </Link>
-                                    </p>
+                                    {record.is_person_account ? (
+                                        <p className="font-medium text-blue-500 hover:underline cursor-pointer mt-0.5">
+                                            <Link href={`/person-accounts/${record.account_id}`}>
+                                                {record.contact_name || record.account_name || "-"}
+                                            </Link>
+                                        </p>
+                                    ) : (
+                                        <div className="flex flex-col items-start leading-tight mt-0.5">
+                                            {record.contact_name ? (
+                                                <Link 
+                                                    href={record.contact_id ? `/contacts/${record.contact_id}` : "#"} 
+                                                    className="font-medium text-slate-700 hover:text-blue-500 hover:underline cursor-pointer"
+                                                >
+                                                    {record.contact_name}
+                                                </Link>
+                                            ) : (
+                                                <span className="font-medium text-slate-700">-</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400">Email | Mobile</p>
@@ -453,7 +475,7 @@ export function OpportunityDetails({
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
                                     <p className="text-lg font-bold text-slate-900">
-                                        {record.amount ? `$${record.amount.toLocaleString()}` : "$0"}
+                                        {record.amount ? `₹${record.amount.toLocaleString()}` : "₹0"}
                                     </p>
                                 </div>
                                 <div className="space-y-1">

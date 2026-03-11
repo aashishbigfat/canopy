@@ -162,9 +162,11 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 </div>
                                                 Contacts ({account.related_contacts?.length || 0})
                                             </h2>
-                                            <Button variant="outline" size="sm" className="h-8 text-xs font-bold">
-                                                <Plus className="h-3 w-3 mr-1" />
-                                                New
+                                            <Button variant="outline" size="sm" asChild className="h-8 text-xs font-bold">
+                                                <Link href={`/contacts/create?accountId=${account.id}`}>
+                                                    <Plus className="h-3 w-3 mr-1" />
+                                                    New
+                                                </Link>
                                             </Button>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

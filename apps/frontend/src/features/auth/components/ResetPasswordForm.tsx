@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { authService } from "@/lib/api/services/auth.service";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const resetPasswordSchema = z.object({
     new_password: z.string().min(8, "Password must be at least 8 characters"),
@@ -47,6 +48,21 @@ function ResetPasswordFormContent() {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     useEffect(() => {
         if (!token) {
             setIsInvalidToken(true);
@@ -64,19 +80,23 @@ function ResetPasswordFormContent() {
         setIsLoading(true);
 
         try {
-            await authService.resetPassword({
-                token,
-                new_password: data.new_password,
-            });
-            setIsSuccess(true);
-            toast.success("Password reset successful", {
-                description: "You can now log in with your new password.",
-            });
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    await authService.resetPassword({
+                        token,
+                        new_password: data.new_password,
+                    });
+                    setIsSuccess(true);
+                    toast.success("Password reset successful", {
+                        description: "You can now log in with your new password.",
+                    });
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to reset password"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to reset password");
         } catch (error: any) {
-            const message = error?.response?.data?.detail || "Failed to reset password. The link may be expired.";
-            toast.error("Error", {
-                description: message,
-            });
+            // Error handled
         } finally {
             setIsLoading(false);
         }

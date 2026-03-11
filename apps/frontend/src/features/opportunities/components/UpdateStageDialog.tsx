@@ -24,6 +24,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { useForm } from "react-hook-form";
@@ -32,6 +33,7 @@ import * as z from "zod";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { useRouter } from "next/navigation";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const stageUpdateSchema = z.object({
     new_stage_id: z.string().min(1, "Please select a stage"),
@@ -66,6 +68,21 @@ export function UpdateStageDialog({
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     async function onSubmit(data: StageUpdateValues) {
         if (data.new_stage_id === currentStageId) {
             onClose();
@@ -74,13 +91,19 @@ export function UpdateStageDialog({
 
         setIsLoading(true);
         try {
-            await opportunitiesService.updateStage(opportunityId, data.new_stage_id, data.reason);
-            toast.success("Opportunity stage updated successfully");
-            onClose();
-            router.refresh();
-        } catch (error: any) {
-            console.error("Failed to update stage", error);
-            toast.error("Failed to update stage");
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    await opportunitiesService.updateStage(opportunityId, data.new_stage_id, data.reason);
+                    toast.success("Opportunity stage updated successfully");
+                    onClose();
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to update stage"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to update stage");
+        } catch (error) {
+            // Handled
         } finally {
             setIsLoading(false);
         }
@@ -104,20 +127,17 @@ export function UpdateStageDialog({
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>New Stage</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select a stage" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {stages.map((stage) => (
-                                                <SelectItem key={stage.id} value={stage.id}>
-                                                    {stage.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={stages.map((stage) => ({
+                                                label: stage.name,
+                                                value: stage.id
+                                            }))}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="Select a stage"
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

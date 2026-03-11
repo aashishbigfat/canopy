@@ -23,12 +23,10 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 
 import { LeadTable } from "@/features/leads/components/LeadTable";
@@ -193,21 +191,15 @@ export default function LeadsClientPage() {
                                     </DialogHeader>
                                     <div className="py-4">
                                         <Label htmlFor="new-owner">New Owner</Label>
-                                        <Select
+                                        <SearchableSelect
+                                            options={response.users.map((user) => ({
+                                                label: user.name,
+                                                value: user.id
+                                            }))}
                                             value={selectedNewOwner}
                                             onValueChange={setSelectedNewOwner}
-                                        >
-                                            <SelectTrigger id="new-owner">
-                                                <SelectValue placeholder="Select user..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {response.users.map((user) => (
-                                                    <SelectItem key={user.id} value={user.id}>
-                                                        {user.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select user..."
+                                        />
                                     </div>
                                     <DialogFooter>
                                         <Button

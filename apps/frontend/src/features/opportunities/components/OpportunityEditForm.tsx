@@ -42,7 +42,9 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Calendar } from "@/components/ui/calendar";
+
 import { cn } from "@/lib/utils";
 import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
 import { Opportunity } from "../types";
@@ -50,6 +52,7 @@ import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } 
 import { SalesStage } from "@/lib/api/services/opportunities.service";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { toast } from "sonner";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const opportunityFormSchema = z.object({
     name: z.string().min(2, {
@@ -84,8 +87,6 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
     const { data: experiences } = useExperiences();
     const normalizedStages = normalizeSalesStages(stages);
 
-    const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
-
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
     const [destinationOpen, setDestinationOpen] = useState(false);
     const [destSearch, setDestSearch] = useState("");
@@ -118,14 +119,14 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
 
     const selectedStageId = form.watch("sales_stage_id");
 
-    // Auto-set probability when sales stage changes (unless user has edited it manually)
+    // Auto-set probability when sales stage changes
     useEffect(() => {
-        if (!selectedStageId || isProbabilityManuallyEdited) return;
+        if (!selectedStageId) return;
         const stageProbability = getProbabilityForStageId(selectedStageId, normalizedStages);
         if (typeof stageProbability === "number") {
             form.setValue("probability", stageProbability.toString());
         }
-    }, [selectedStageId, isProbabilityManuallyEdited, normalizedStages, form]);
+    }, [selectedStageId, normalizedStages, form]);
 
     const adults = form.watch("no_of_adults") || 0;
     const childs = form.watch("no_of_childs") || 0;
@@ -142,81 +143,73 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
     const paxWatch = form.watch("no_of_pax");
     const travelDateWatch = form.watch("travel_date");
 
-    // Auto-update opportunity name based on destinations, pax, and travel date
-    useEffect(() => {
-        if (!destinationsWatch && !paxWatch && !travelDateWatch) return;
 
-        const parts = [];
 
-        if (destinationsWatch) {
-            const dests = destinationsWatch.split(",").map(d => d.trim()).filter(Boolean);
-            if (dests.length > 0) {
-                parts.push(dests.join("_"));
-            }
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
         }
-
-        if (paxWatch && Number(paxWatch) > 0) {
-            parts.push(`${paxWatch}Pax`);
-        }
-
-        if (travelDateWatch) {
-            const date = new Date(travelDateWatch);
-            if (!isNaN(date.getTime())) {
-                const day = date.getDate();
-                const month = date.toLocaleString('default', { month: 'short' });
-                parts.push(`${day}${month}`);
-            }
-        }
-
-        if (parts.length > 0) {
-            form.setValue("name", parts.join("_"));
-        }
-    }, [destinationsWatch, paxWatch, travelDateWatch, form]);
+        return false;
+    };
 
     async function onSubmit(data: OpportunityFormValues) {
         setIsLoading(true);
         try {
-            // Convert string values to numbers for API
-            const payload: any = {
-                name: data.name,
-                sales_stage_id: data.sales_stage_id,
-            };
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    // Convert string values to numbers for API
+                    const payload: any = {
+                        name: data.name,
+                        sales_stage_id: data.sales_stage_id,
+                    };
 
-            if (data.amount) payload.amount = Number(data.amount);
-            if (data.probability) payload.probability = Number(data.probability);
-            if (data.close_date) payload.close_date = data.close_date;
-            if (data.travel_date) payload.travel_date = data.travel_date;
-            if (data.experience_id && data.experience_id !== "none") payload.experience_id = data.experience_id;
-            if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
-            if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
-            if (data.no_of_childs) payload.no_of_childs = Number(data.no_of_childs);
-            if (data.no_of_infants) payload.no_of_infants = Number(data.no_of_infants);
-            if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
+                    payload.amount = data.amount !== undefined && data.amount !== "" ? Number(data.amount) : 0;
+                    if (data.probability) payload.probability = Number(data.probability);
+                    if (data.close_date) payload.close_date = data.close_date;
+                    if (data.travel_date) payload.travel_date = data.travel_date;
+                    if (data.experience_id && data.experience_id !== "none") payload.experience_id = data.experience_id;
+                    if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
+                    if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
+                    if (data.no_of_childs) payload.no_of_childs = Number(data.no_of_childs);
+                    if (data.no_of_infants) payload.no_of_infants = Number(data.no_of_infants);
+                    if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
 
-            if (data.destinations) {
-                const names = data.destinations.split(",").map(d => d.trim()).filter(Boolean);
-                const destIds = names.map(name => {
-                    const d = availableDestinations.find(x => x.name === name);
-                    return d ? d.id : null;
-                }).filter(Boolean);
-                payload.destination_ids = destIds;
-            } else {
-                payload.destination_ids = [];
-            }
+                    if (data.destinations) {
+                        const names = data.destinations.split(",").map(d => d.trim()).filter(Boolean);
+                        const destIds = names.map(name => {
+                            const d = availableDestinations.find(x => x.name === name);
+                            return d ? d.id : null;
+                        }).filter(Boolean);
+                        payload.destination_ids = destIds;
+                    } else {
+                        payload.destination_ids = [];
+                    }
 
-            if (data.description) payload.description = data.description;
+                    if (data.description) payload.description = data.description;
 
-            await updateOpportunity.mutateAsync({
-                id: opportunity.id,
-                data: payload
-            });
+                    await updateOpportunity.mutateAsync({
+                        id: opportunity.id,
+                        data: payload
+                    });
 
-            toast.success("Opportunity updated successfully");
-            router.push(`/opportunities/${opportunity.id}`);
-            router.refresh();
+                    toast.success("Opportunity updated successfully");
+                    router.push(`/opportunities/${opportunity.id}`);
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to update opportunity"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to update opportunity");
         } catch (error) {
-            console.error("Failed to update opportunity", error);
-            toast.error("Failed to update opportunity");
+            // Error mapped to UI via ErrorHandler
         } finally {
             setIsLoading(false);
         }
@@ -253,9 +246,19 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                             name="amount"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Amount ($)</FormLabel>
+                                    <FormLabel>Amount (₹)</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="5000" {...field} />
+                                        <Input
+                                            type="text"
+                                            inputMode="decimal"
+                                            placeholder="5000"
+                                            {...field}
+                                            onChange={(e) => {
+                                                // Only allow digits and decimal point
+                                                const val = e.target.value.replace(/[^0-9.]/g, "");
+                                                field.onChange(val);
+                                            }}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -294,14 +297,11 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                     <FormControl>
                                         <Input
                                             type="number"
-                                            min="0"
-                                            max="100"
                                             placeholder="50"
                                             {...field}
-                                            onChange={(e) => {
-                                                setIsProbabilityManuallyEdited(true);
-                                                field.onChange(e);
-                                            }}
+                                            readOnly
+                                            disabled
+                                            className="bg-slate-50 text-slate-500 cursor-not-allowed"
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -315,21 +315,17 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Experience</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select an experience" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="none">None</SelectItem>
-                                            {experiences?.map((exp: any) => (
-                                                <SelectItem key={exp.id} value={exp.id}>
-                                                    {exp.name}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={[
+                                                { label: "None", value: "none" },
+                                                ...(experiences?.map((exp: any) => ({ label: exp.name, value: exp.id })) || [])
+                                            ]}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="Select an experience"
+                                        />
+                                    </FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}

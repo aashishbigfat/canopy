@@ -3,6 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { useGetUsers } from "@/features/admin/api/use-users";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { User } from "@/features/admin/types";
 
 export function ChangeOwnerDialog({
@@ -36,26 +37,16 @@ export function ChangeOwnerDialog({
                 <div className="py-4 space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium">New Owner</label>
-                        <Select
+                        <SearchableSelect
+                            options={(usersData?.users || usersData?.data || []).map((user: User) => ({
+                                label: user.name,
+                                value: user.id
+                            }))}
                             value={selectedUserId}
                             onValueChange={setSelectedUserId}
                             disabled={isLoadingUsers || isLoading}
-                        >
-                            <SelectTrigger>
-                                <SelectValue placeholder={isLoadingUsers ? "Loading users..." : "Select a new owner"} />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {usersData?.users?.map((user: User) => (
-                                    <SelectItem key={user.id} value={user.id}>
-                                        {user.name}
-                                    </SelectItem>
-                                )) || usersData?.data?.map((user: User) => (
-                                    <SelectItem key={user.id} value={user.id}>
-                                        {user.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            placeholder={isLoadingUsers ? "Loading users..." : "Select a new owner"}
+                        />
                     </div>
                 </div>
                 <DialogFooter>

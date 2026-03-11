@@ -19,6 +19,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateUser, useUpdateUser } from "@/features/admin/api/use-users";
 import { useGetRoles } from "@/features/admin/api/use-roles";
 import { User } from "@/features/admin/types";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 // Basic schema
 const userFormSchema = z.object({
@@ -52,21 +53,43 @@ export function UserForm({ initialData }: UserFormProps) {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     const onSubmit = async (data: UserFormValues) => {
         try {
-            if (initialData) {
-                // Exclude password if empty during update
-                const updateData: any = { ...data };
-                if (!updateData.password) delete updateData.password;
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (initialData) {
+                        // Exclude password if empty during update
+                        const updateData: any = { ...data };
+                        if (!updateData.password) delete updateData.password;
 
-                await updateUser.mutateAsync({ id: initialData._id, data: updateData });
-            } else {
-                await createUser.mutateAsync(data);
-            }
-            router.push("/admin/users");
-            router.refresh();
+                        await updateUser.mutateAsync({ id: initialData._id, data: updateData });
+                    } else {
+                        await createUser.mutateAsync(data);
+                    }
+                    router.push("/admin/users");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save user"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save user");
         } catch (error) {
-            console.error("Failed to save user", error);
+            // Handled
         }
     };
 

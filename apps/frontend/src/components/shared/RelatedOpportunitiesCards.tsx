@@ -6,7 +6,7 @@ import {
     Moon,
     ChevronRight,
     MapPin,
-    DollarSign,
+    IndianRupee,
     MoreVertical,
     Plus
 } from "lucide-react";
@@ -110,7 +110,7 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId 
                             </Badge>
                             {opp.amount && (
                                 <span className="text-sm font-bold text-slate-900 flex items-center">
-                                    <DollarSign className="h-3 w-3" />
+                                    <IndianRupee className="h-3 w-3" />
                                     {opp.amount.toLocaleString()}
                                 </span>
                             )}

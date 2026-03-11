@@ -1,6 +1,10 @@
 import { ContactForm } from "@/features/contacts/components/ContactForm";
 
-export default function CreateContactPage() {
+export default function CreateContactPage({ 
+    searchParams 
+}: { 
+    searchParams: { accountId?: string } 
+}) {
     return (
         <div className="space-y-6 max-w-2xl mx-auto py-8">
             <div>
@@ -9,7 +13,13 @@ export default function CreateContactPage() {
                     Add a new contact to your CRM.
                 </p>
             </div>
-            <ContactForm />
+            <ContactForm 
+                initialData={{ 
+                    first_name: "", 
+                    last_name: "", 
+                    account_id: searchParams.accountId 
+                }} 
+            />
         </div>
     );
 }

@@ -17,7 +17,15 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { Textarea } from "@/components/ui/textarea";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Separator } from "@/components/ui/separator";
+import { accountService } from "@/features/accounts/services/accountService";
+import { contactService } from "@/features/contacts/services/contactService";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -25,12 +33,6 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { accountService } from "@/features/accounts/services/accountService";
-import { contactService } from "@/features/contacts/services/contactService";
-import { ErrorHandler, ErrorType } from "@/lib/error-handler";
-import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 const accountFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters.").max(255).optional().or(z.literal("")),
@@ -38,14 +40,13 @@ const accountFormSchema = z.object({
     first_name: z.string().optional(),
     last_name: z.string().optional(),
     email: z.string().email("Invalid email address.").optional().or(z.literal("")),
-    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
-        message: "Invalid phone format. Please use a valid number (e.g. +91 9876543210)."
+    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number."
     }),
-    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
-        message: "Invalid mobile format. Please use a valid number (e.g. +91 9876543210)."
+    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number."
     }),
     website: z.string().url("Invalid URL.").optional().or(z.literal("")),
-    description: z.string().optional(),
 
     // Classification
     industry_id: z.string().optional(),
@@ -67,7 +68,6 @@ const accountFormSchema = z.object({
     shipping_zip: z.string().regex(/^[A-Za-z0-9\s-]{3,10}$/, "Invalid Zip/Postal code format.").optional().or(z.literal("")),
     shipping_country: z.string().optional(),
 
-    status: z.enum(["active", "inactive"]),
 });
 
 type AccountFormValues = z.infer<typeof accountFormSchema>;
@@ -102,7 +102,6 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
             phone: initialData?.phone || "",
             mobile: initialData?.mobile || "",
             website: initialData?.website || "",
-            description: initialData?.description || "",
             industry_id: initialData?.industry_id || initialData?.industry || "",
             rating_id: initialData?.rating_id || initialData?.rating || "",
             acc_type_id: initialData?.acc_type_id || "",
@@ -118,7 +117,6 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
             shipping_state: initialData?.shipping_state || "",
             shipping_zip: initialData?.shipping_zip || "",
             shipping_country: initialData?.shipping_country || "",
-            status: initialData?.status || "active",
         },
     });
 
@@ -206,10 +204,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit, (errors) => {
-                    console.error("Validation errors:", errors);
-                    toast.error("Please fix the validation errors in the form.");
-                })}
+                onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-8"
             >
                 {/* General Information */}
@@ -300,6 +295,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                             )}
                         />
 
+                        {!isPersonAccount && (
                         <FormField
                             control={form.control}
                             name="website"
@@ -313,6 +309,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                 </FormItem>
                             )}
                         />
+                        )}
                     </div>
                 </div>
 
@@ -329,7 +326,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                 <FormItem>
                                     <FormLabel>Phone</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="1234567890" {...field} />
+                                        <PhoneInput {...field} placeholder="Phone number" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -342,7 +339,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                 <FormItem>
                                     <FormLabel>Mobile</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="1234567890" {...field} />
+                                        <PhoneInput {...field} placeholder="Mobile number" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -351,102 +348,89 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                     </div>
                 </div>
 
-                <Separator />
-
-                {/* Classification */}
-                <div>
-                    <h3 className="text-lg font-medium mb-4">Classification</h3>
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <FormField
-                            control={form.control}
-                            name="industry_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Industry</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Industry" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.industries.map(i => (
-                                                <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="rating_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Rating</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Rating" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.ratings.map(r => (
-                                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="account_source_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Account Source</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Source" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.sources.map(s => (
-                                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="owner_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Owner</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Owner" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.users.map(u => (
-                                                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                </div>
+                {!isPersonAccount && (
+                    <>
+                        <Separator />
+                        {/* Classification */}
+                        <div>
+                            <h3 className="text-lg font-medium mb-4">Classification</h3>
+                            <div className="grid gap-6 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="industry_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Industry</FormLabel>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={metaData?.industries.map(i => ({ label: i.name, value: i.id })) || []}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Select Industry"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="rating_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Rating</FormLabel>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={metaData?.ratings.map(r => ({ label: r.name, value: r.id })) || []}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Select Rating"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="account_source_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Account Source</FormLabel>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={metaData?.sources.map(s => ({ label: s.name, value: s.id })) || []}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Select Source"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="owner_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Owner</FormLabel>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Select Owner"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </div>
+                    </>
+                )}
 
                 <Separator />
 
@@ -610,49 +594,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                     </div>
                 </div>
 
-                <Separator />
 
-                {/* Description & Status */}
-                <div className="grid gap-6 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Description</FormLabel>
-                                <FormControl>
-                                    <Textarea
-                                        placeholder="Add any additional notes here..."
-                                        className="h-32"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a status" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                </div>
 
                 <div className="flex justify-end gap-4 pt-4 border-t">
                     <Button type="button" variant="outline" onClick={() => router.back()}>

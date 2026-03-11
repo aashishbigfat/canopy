@@ -1,10 +1,18 @@
 """
 Pydantic schemas for Lead API
 """
-from pydantic import BaseModel, EmailStr, Field, BeforeValidator, HttpUrl
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator
 from typing import Optional, Dict, List, Any, Union, Annotated
 from datetime import datetime, date
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE
+import re
+
+def safe_phone_validator(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    if not re.match(PHONE_REGEX, str(v)):
+        return None
+    return str(v)
 
 class LeadBase(BaseModel):
     """Base schema for Lead"""
@@ -14,13 +22,13 @@ class LeadBase(BaseModel):
     last_name: str = Field(..., min_length=1, max_length=100)
     
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
-    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     
     company: Optional[str] = Field(None, max_length=255)
     title: Optional[str] = Field(None, max_length=100)
     no_employees: Optional[int] = Field(None, ge=1)
-    website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
+    website: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
     street: Optional[str] = None
     city: Optional[str] = None
@@ -63,12 +71,12 @@ class LeadUpdate(BaseModel):
     middle_name: Optional[str] = None
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
-    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     company: Optional[str] = Field(None, max_length=255)
     title: Optional[str] = Field(None, max_length=100)
     no_employees: Optional[int] = Field(None, ge=1)
-    website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
+    website: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     street: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None

@@ -1,8 +1,8 @@
 import re
 
 # E.164 standard phone number regex (e.g. +919876543210 or 9876543210)
-PHONE_REGEX = r"^\+?[1-9]\d{1,14}$"
-PHONE_REGEX_MESSAGE = "Invalid phone format. Please use a valid number (e.g. +91 9876543210)."
+PHONE_REGEX = r"^\+?\d{1,4}\s\d{10}$"
+PHONE_REGEX_MESSAGE = "Invalid phone format. Please select a country code and enter exactly a 10-digit number."
 
 # Standard alphunumeric zip codes (e.g. 10001 or W1A 0AX)
 ZIP_REGEX = r"^[A-Za-z0-9\s-]{3,10}$"

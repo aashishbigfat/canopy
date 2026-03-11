@@ -24,6 +24,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateSupplier, useUpdateSupplier } from "@/features/suppliers/api/use-suppliers";
 import { Supplier } from "@/features/suppliers/types";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const supplierFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -90,20 +91,42 @@ export function SupplierForm({ initialData, onSuccess }: SupplierFormProps) {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     const onSubmit = async (data: SupplierFormValues) => {
         try {
-            if (initialData) {
-                await updateSupplier.mutateAsync({ id: initialData.id, data });
-            } else {
-                await createSupplier.mutateAsync(data);
-            }
-            form.reset();
-            router.refresh();
-            if (onSuccess) {
-                onSuccess();
-            }
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (initialData) {
+                        await updateSupplier.mutateAsync({ id: initialData.id, data });
+                    } else {
+                        await createSupplier.mutateAsync(data);
+                    }
+                    form.reset();
+                    router.refresh();
+                    if (onSuccess) {
+                        onSuccess();
+                    }
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save supplier"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save supplier");
         } catch (error) {
-            console.error("Failed to save supplier", error);
+            // Handled
         }
     };
 

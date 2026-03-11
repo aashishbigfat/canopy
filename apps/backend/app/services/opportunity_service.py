@@ -96,7 +96,7 @@ class OpportunityService(ActivityMixin):
                 user_id=user_id,
                 tenant_id=tenant_id,
                 title="New Opportunity Created",
-                message=f"Opportunity '{opportunity.name}' worth ${opportunity.amount:,.2f} has been created",
+                message=f"Opportunity '{opportunity.name}' worth ₹{opportunity.amount:,.2f} has been created",
                 type="opportunity",
                 entity_type="opportunity",
                 entity_id=opportunity.id,

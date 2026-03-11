@@ -41,12 +41,14 @@ import {
     PopoverContent,
     PopoverTrigger,
 } from "@/components/ui/popover";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useCreateOpportunity, useSalesStages, useExperiences } from "../api/useOpportunities";
 import { normalizeSalesStages, getProbabilityForStageId } from "@/features/opportunities/utils/stageConfig";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { toast } from "sonner";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const opportunityFormSchema = z.object({
     name: z.string().min(2, {
@@ -63,11 +65,18 @@ const opportunityFormSchema = z.object({
     no_of_nights: z.string().optional(),
     destinations: z.string().optional(),
     description: z.string().optional(),
+    account_id: z.string().optional(),
+    contact_id: z.string().optional(),
 });
 
 type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
 
-export function OpportunityForm() {
+interface OpportunityFormProps {
+    initialAccountId?: string;
+    initialContactId?: string;
+}
+
+export function OpportunityForm({ initialAccountId, initialContactId }: OpportunityFormProps = {}) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const createOpportunity = useCreateOpportunity();
@@ -75,7 +84,6 @@ export function OpportunityForm() {
     const { data: experiences } = useExperiences();
 
     const normalizedStages = normalizeSalesStages(stages);
-    const [isProbabilityManuallyEdited, setIsProbabilityManuallyEdited] = useState(false);
 
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
     const [destinationOpen, setDestinationOpen] = useState(false);
@@ -102,6 +110,8 @@ export function OpportunityForm() {
             no_of_nights: "",
             destinations: "",
             description: "",
+            account_id: initialAccountId || "",
+            contact_id: initialContactId || "",
         },
     });
 
@@ -109,12 +119,12 @@ export function OpportunityForm() {
 
     // Auto-set probability when sales stage changes
     useEffect(() => {
-        if (!selectedStageId || isProbabilityManuallyEdited) return;
+        if (!selectedStageId) return;
         const stageProbability = getProbabilityForStageId(selectedStageId, normalizedStages);
         if (typeof stageProbability === "number") {
             form.setValue("probability", stageProbability.toString());
         }
-    }, [selectedStageId, isProbabilityManuallyEdited, normalizedStages, form]);
+    }, [selectedStageId, normalizedStages, form]);
 
     // Set default sales stage when stages are loaded
     useEffect(() => {
@@ -122,85 +132,76 @@ export function OpportunityForm() {
             const defaultStage = normalizedStages.find(s => s.is_default) || normalizedStages[0];
             if (defaultStage) {
                 form.setValue("sales_stage_id", defaultStage.id);
-                // Also set probability if not manually edited
-                if (!isProbabilityManuallyEdited) {
-                    form.setValue("probability", (defaultStage.probability ?? 10).toString());
-                }
+                form.setValue("probability", (defaultStage.probability ?? 10).toString());
             }
         }
-    }, [normalizedStages, form, isProbabilityManuallyEdited]);
+    }, [normalizedStages, form]);
 
     const destinationsWatch = form.watch("destinations");
     const paxWatch = form.watch("no_of_pax");
     const travelDateWatch = form.watch("travel_date");
 
-    // Auto-update opportunity name based on destinations, pax, and travel date
-    useEffect(() => {
-        if (!destinationsWatch && !paxWatch && !travelDateWatch) return;
 
-        const parts = [];
 
-        if (destinationsWatch) {
-            const dests = destinationsWatch.split(",").map(d => d.trim()).filter(Boolean);
-            if (dests.length > 0) {
-                parts.push(dests.join("_"));
-            }
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
         }
-
-        if (paxWatch && Number(paxWatch) > 0) {
-            parts.push(`${paxWatch}Pax`);
-        }
-
-        if (travelDateWatch) {
-            const date = new Date(travelDateWatch);
-            if (!isNaN(date.getTime())) {
-                const day = date.getDate();
-                const month = date.toLocaleString('default', { month: 'short' });
-                parts.push(`${day}${month}`);
-            }
-        }
-
-        if (parts.length > 0) {
-            form.setValue("name", parts.join("_"));
-        }
-    }, [destinationsWatch, paxWatch, travelDateWatch, form]);
+        return false;
+    };
 
     async function onSubmit(data: OpportunityFormValues) {
         setIsLoading(true);
         try {
-            const payload: any = {
-                name: data.name,
-                sales_stage_id: data.sales_stage_id,
-            };
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    const payload: any = {
+                        name: data.name,
+                        sales_stage_id: data.sales_stage_id,
+                    };
 
-            if (data.amount) payload.amount = Number(data.amount);
-            if (data.probability) payload.probability = Number(data.probability);
-            if (data.close_date) payload.close_date = data.close_date;
-            if (data.travel_date) payload.travel_date = data.travel_date;
-            if (data.experience_id && data.experience_id !== "none") payload.experience_id = data.experience_id;
-            if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
-            if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
-            if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
+                    if (data.amount !== undefined && data.amount !== "") payload.amount = Number(data.amount);
+                    if (data.probability) payload.probability = Number(data.probability);
+                    if (data.close_date) payload.close_date = data.close_date;
+                    if (data.travel_date) payload.travel_date = data.travel_date;
+                    if (data.experience_id && data.experience_id !== "none") payload.experience_id = data.experience_id;
+                    if (data.no_of_pax) payload.no_of_pax = Number(data.no_of_pax);
+                    if (data.no_of_adults) payload.no_of_adults = Number(data.no_of_adults);
+                    if (data.no_of_nights) payload.no_of_nights = Number(data.no_of_nights);
 
-            if (data.destinations) {
-                const names = data.destinations.split(",").map(d => d.trim()).filter(Boolean);
-                const destIds = names.map(name => {
-                    const d = availableDestinations.find(x => x.name === name);
-                    return d ? d.id : null;
-                }).filter(Boolean);
-                if (destIds.length > 0) payload.destination_ids = destIds;
-            }
+                    if (data.destinations) {
+                        const names = data.destinations.split(",").map(d => d.trim()).filter(Boolean);
+                        const destIds = names.map(name => {
+                            const d = availableDestinations.find(x => x.name === name);
+                            return d ? d.id : null;
+                        }).filter(Boolean);
+                        if (destIds.length > 0) payload.destination_ids = destIds;
+                    }
 
-            if (data.description) payload.description = data.description;
+                    if (data.description) payload.description = data.description;
+                    if (data.account_id) payload.account_id = data.account_id;
+                    if (data.contact_id) payload.contact_id = data.contact_id;
 
-            const result = await createOpportunity.mutateAsync(payload);
+                    const result = await createOpportunity.mutateAsync(payload);
 
-            toast.success("Opportunity created successfully");
-            router.push(`/opportunities/${result.id}`);
-            router.refresh();
+                    toast.success("Opportunity created successfully");
+                    router.push(`/opportunities/${result.id}`);
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to create opportunity"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to create opportunity");
         } catch (error) {
-            console.error("Failed to create opportunity", error);
-            toast.error("Failed to create opportunity");
+            // Error is already handled by ErrorHandler and mapped to UI
         } finally {
             setIsLoading(false);
         }
@@ -228,9 +229,18 @@ export function OpportunityForm() {
                         name="amount"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Amount ($)</FormLabel>
+                                <FormLabel>Amount (₹)</FormLabel>
                                 <FormControl>
-                                    <Input type="number" placeholder="5000" {...field} />
+                                    <Input
+                                        type="text"
+                                        inputMode="decimal"
+                                        placeholder="5000"
+                                        {...field}
+                                        onChange={(e) => {
+                                            const val = e.target.value.replace(/[^0-9.]/g, "");
+                                            field.onChange(val);
+                                        }}
+                                    />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -269,14 +279,11 @@ export function OpportunityForm() {
                                 <FormControl>
                                     <Input
                                         type="number"
-                                        min="0"
-                                        max="100"
                                         placeholder="50"
                                         {...field}
-                                        onChange={(e) => {
-                                            setIsProbabilityManuallyEdited(true);
-                                            field.onChange(e);
-                                        }}
+                                        readOnly
+                                        disabled
+                                        className="bg-slate-50 text-slate-500 cursor-not-allowed"
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -290,21 +297,17 @@ export function OpportunityForm() {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Experience</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select an experience" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="none">None</SelectItem>
-                                        {experiences?.map((exp: any) => (
-                                            <SelectItem key={exp.id} value={exp.id}>
-                                                {exp.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <SearchableSelect
+                                        options={[
+                                            { label: "None", value: "none" },
+                                            ...(experiences?.map((exp: any) => ({ label: exp.name, value: exp.id })) || [])
+                                        ]}
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        placeholder="Select an experience"
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -447,6 +450,103 @@ export function OpportunityForm() {
                         )}
                     />
                 </div>
+
+                <FormField
+                    control={form.control as any}
+                    name="destinations"
+                    render={({ field }) => (
+                        <FormItem className="col-span-full">
+                            <FormLabel>
+                                Destinations
+                            </FormLabel>
+                            <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
+                                <PopoverTrigger asChild>
+                                    <FormControl>
+                                        <Button
+                                            variant="outline"
+                                            role="combobox"
+                                            className={cn(
+                                                "min-h-[36px] h-auto w-full justify-between bg-white px-3 py-1",
+                                                !field.value && "text-muted-foreground"
+                                            )}
+                                        >
+                                            <div className="flex flex-wrap gap-1">
+                                                {field.value ? (
+                                                    field.value.split(", ").map((dest: string) => (
+                                                        <Badge
+                                                            key={dest}
+                                                            variant="secondary"
+                                                            className="rounded-sm px-1 font-normal text-[10px]"
+                                                        >
+                                                            {dest}
+                                                            <span
+                                                                className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    const current = field.value.split(", ").filter((d: string) => d !== dest);
+                                                                    field.onChange(current.join(", "));
+                                                                }}
+                                                            >
+                                                                <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
+                                                            </span>
+                                                        </Badge>
+                                                    ))
+                                                ) : (
+                                                    "Select destinations..."
+                                                )}
+                                            </div>
+                                            <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                        </Button>
+                                    </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-full p-0 md:w-[500px]" align="start" onPointerDownOutside={(e) => e.stopPropagation()}>
+                                    <Command>
+                                        <CommandInput
+                                            placeholder="Search destinations..."
+                                            className="h-8"
+                                            value={destSearch}
+                                            onValueChange={setDestSearch}
+                                        />
+                                        <CommandList>
+                                            <CommandEmpty>No destinations found.</CommandEmpty>
+                                            <CommandGroup>
+                                                {availableDestinations
+                                                    .filter(d => d.name.toLowerCase().includes(destSearch.toLowerCase()))
+                                                    .map((dest) => {
+                                                        const isSelected = field.value?.split(", ").includes(dest.name);
+                                                        return (
+                                                            <CommandItem
+                                                                key={dest.id}
+                                                                value={dest.name}
+                                                                onSelect={() => {
+                                                                    const current = field.value ? field.value.split(", ") : [];
+                                                                    if (isSelected) {
+                                                                        field.onChange(current.filter((d: string) => d !== dest.name).join(", "));
+                                                                    } else {
+                                                                        field.onChange([...current, dest.name].join(", "));
+                                                                    }
+                                                                    setDestSearch("");
+                                                                }}
+                                                            >
+                                                                <Check
+                                                                    className={cn(
+                                                                        "mr-2 h-4 w-4",
+                                                                        isSelected ? "opacity-100" : "opacity-0"
+                                                                    )}
+                                                                />
+                                                                {dest.name}
+                                                            </CommandItem>
+                                                        );
+                                                    })}
+                                            </CommandGroup>
+                                        </CommandList>
+                                    </Command>
+                                </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
 
                 <FormField
                     control={form.control}

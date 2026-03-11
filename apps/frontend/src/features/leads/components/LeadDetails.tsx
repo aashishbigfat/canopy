@@ -310,7 +310,7 @@ export function LeadDetails({
                                     <p className="text-sm font-semibold text-blue-700">{lead.no_of_pax || "-"}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase">Fixed Package?</p>
+                                    <p className="text-xs font-medium text-muted-foreground uppercase">Fixed Departure?</p>
                                     <p className="text-sm">{lead.is_fixed ? "Yes" : "No"}</p>
                                 </div>
                             </div>

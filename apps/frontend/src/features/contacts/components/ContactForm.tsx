@@ -18,6 +18,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
     Select,
     SelectContent,
@@ -25,6 +26,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { useEffect, useRef } from "react";
@@ -37,11 +39,11 @@ const contactFormSchema = z.object({
         message: "Last name must be at least 2 characters.",
     }).max(100),
     email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
-    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
-        message: "Please enter a valid phone number (e.g. +91 9876543210).",
+    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number.",
     }),
-    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?[1-9]\d{1,14}$/.test(val), {
-        message: "Please enter a valid mobile number (e.g. +91 9876543210).",
+    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number.",
     }),
     title: z.string().optional(),
     account_id: z.string().optional(),
@@ -66,23 +68,6 @@ interface ContactFormProps {
     initialAccountName?: string;
 }
 
-/** 
- * Helper to extract domain from a string (email or website)
- * e.g. "john@big.com" -> "big.com", "https://www.big.com/test" -> "big.com"
- */
-function extractDomain(input: string): string {
-    if (!input) return "";
-    let domain = input.toLowerCase();
-    if (domain.includes("@")) {
-        domain = domain.split("@")[1];
-    }
-    return domain
-        .replace(/https?:\/\//, "")
-        .replace(/^www\./, "")
-        .split("/")[0]
-        .split("?")[0];
-}
-
 export function ContactForm({ initialData, id, initialAccountName }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
@@ -93,7 +78,7 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
-        defaultValues: initialData || defaultValues,
+        defaultValues: { ...defaultValues, ...(initialData || {}) },
     });
 
     // Watch account_id to show info banner
@@ -159,10 +144,7 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
     return (
         <Form {...form}>
             <form
-                onSubmit={form.handleSubmit(onSubmit, (errors) => {
-                    console.error("Validation errors:", errors);
-                    toast.error("Please fix the validation errors in the form.");
-                })}
+                onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-8"
             >
                 <div className="grid gap-4 md:grid-cols-2">
@@ -202,33 +184,6 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                                     <Input
                                         placeholder="john@example.com"
                                         {...field}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            field.onChange(value);
-
-                                            // Auto-select account based on email domain
-                                            if (value.includes("@")) {
-                                                const emailDomain = extractDomain(value);
-                                                if (emailDomain) {
-                                                    // Try to match by website OR by account name matching the domain
-                                                    const matchingAccount = accounts.find(acc => {
-                                                        const websiteMatch = acc.website && extractDomain(acc.website) === emailDomain;
-
-                                                        // Extract just the name part from domain (e.g. "bigfatailabs" from "bigfatailabs.com")
-                                                        const rawDomainName = emailDomain.split('.')[0];
-                                                        const nameMatch = acc.name.toLowerCase().replace(/\s+/g, '') === rawDomainName;
-
-                                                        return websiteMatch || nameMatch;
-                                                    });
-
-                                                    if (matchingAccount) {
-                                                        form.setValue("account_id", matchingAccount.id, { shouldValidate: true, shouldDirty: true });
-                                                    } else {
-                                                        form.setValue("account_id", "", { shouldValidate: true, shouldDirty: true });
-                                                    }
-                                                }
-                                            }
-                                        }}
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -242,7 +197,7 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                             <FormItem>
                                 <FormLabel>Phone</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1 555-000-0000" {...field} />
+                                    <PhoneInput {...field} placeholder="Phone number" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -255,7 +210,7 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                             <FormItem>
                                 <FormLabel>Mobile</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1 555-000-0000" {...field} />
+                                    <PhoneInput {...field} placeholder="Mobile number" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -281,39 +236,14 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Account</FormLabel>
-                                <Select
-                                    onValueChange={(val) => {
-                                        field.onChange(val);
-                                        // Auto-update email domain based on selected account
-                                        const selectedAccount = accounts.find(a => a.id === val);
-                                        if (selectedAccount) {
-                                            const currentEmail = form.getValues("email") || "";
-                                            // Fallback to account name if website is missing
-                                            const accountDomain = selectedAccount.website ? extractDomain(selectedAccount.website) : `${selectedAccount.name.toLowerCase().replace(/\s+/g, '')}.com`;
-
-                                            if (currentEmail.includes("@") && accountDomain) {
-                                                const [localPart] = currentEmail.split("@");
-                                                form.setValue("email", `${localPart}@${accountDomain}`, { shouldValidate: true, shouldDirty: true });
-                                            } else if (!currentEmail && accountDomain) {
-                                                form.setValue("email", `info@${accountDomain}`, { shouldValidate: true, shouldDirty: true });
-                                            }
-                                        }
-                                    }}
-                                    value={field.value || ""}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select an account" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {accounts.map(account => (
-                                            <SelectItem key={account.id} value={account.id}>
-                                                {account.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <SearchableSelect
+                                        options={accounts.map(acc => ({ label: acc.name, value: acc.id }))}
+                                        value={field.value || ""}
+                                        onValueChange={field.onChange}
+                                        placeholder="Select an account"
+                                    />
+                                </FormControl>
                                 <FormDescription>
                                     {/* Tier 2: Info banner when account changes in edit mode */}
                                     {accountChanged && (
