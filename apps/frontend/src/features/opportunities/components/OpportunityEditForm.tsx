@@ -64,11 +64,11 @@ const opportunityFormSchema = z.object({
     close_date: z.string().optional(),
     travel_date: z.string().optional(),
     experience_id: z.string().optional(),
-    no_of_pax: z.string().optional(),
-    no_of_adults: z.string().optional(),
-    no_of_childs: z.string().optional(),
-    no_of_infants: z.string().optional(),
-    no_of_nights: z.string().optional(),
+    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
+    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
+    no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_nights: z.string().refine((val) => !val || Number(val) > 0, "Number of nights must be at least 1").optional(),
     destinations: z.string().optional(),
     description: z.string().optional(),
 });
@@ -128,14 +128,14 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
         }
     }, [selectedStageId, normalizedStages, form]);
 
-    const adults = form.watch("no_of_adults") || 0;
-    const childs = form.watch("no_of_childs") || 0;
-    const infants = form.watch("no_of_infants") || 0;
+    const adults = form.watch("no_of_adults") || "0";
+    const childs = form.watch("no_of_childs") || "0";
+    const infants = form.watch("no_of_infants") || "0";
 
     useEffect(() => {
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         if (total > 0) {
-            form.setValue("no_of_pax", total.toString());
+             form.setValue("no_of_pax", total.toString());
         }
     }, [adults, childs, infants, form]);
 

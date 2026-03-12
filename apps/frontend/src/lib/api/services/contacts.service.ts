@@ -37,5 +37,17 @@ export const contactsService = {
     getFormData: async (): Promise<any> => {
         const response = await apiClient.get(`${BASE_URL}/form-data`);
         return response.data;
+    },
+
+    getContactsByAccount: async (accountId: string, signal?: AbortSignal): Promise<Contact[]> => {
+        const response = await apiClient.get<{ contacts: any[]; total: number }>(`${BASE_URL}/search`, {
+            params: { account_id: accountId, per_page: 100 },
+            signal,
+        });
+        // The search endpoint returns ContactResponse objects, map to Contact
+        return response.data.contacts.map((c: any) => ({
+            ...c,
+            full_name: c.full_name || `${c.first_name || ''} ${c.last_name || ''}`.trim(),
+        }));
     }
 };

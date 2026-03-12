@@ -90,12 +90,12 @@ const convertSchema = z.object({
     travel_date: z.date().optional(),
     destination_ids: z.array(z.string()).optional(),
     experience_id: z.string().optional(),
-    no_of_adults: z.coerce.number().optional(),
-    no_of_childs: z.coerce.number().optional(),
-    no_of_infants: z.coerce.number().optional(),
-    no_of_pax: z.coerce.number().optional(),
+    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
+    no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
     sales_stage_id: z.string().optional(),
-    no_of_nights: z.coerce.number().optional(),
+    no_of_nights: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     description: z.string().optional(),
     opportunity_owner_id: z.string().optional(),
 });
@@ -155,14 +155,14 @@ export function ConvertLeadDialog({
             contact_first_name: lead.first_name || "",
             contact_last_name: lead.last_name || "",
             create_opportunity: true,
-            opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
+            opportunity_name: "",
             opportunity_amount: 0,
             travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
-            no_of_adults: lead.no_of_adults || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax : 1),
-            no_of_childs: lead.no_of_childs || 0,
-            no_of_infants: lead.no_of_infants || 0,
-            no_of_pax: lead.no_of_pax || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax : 1),
-            no_of_nights: lead.no_of_nights || 0,
+            no_of_adults: lead.no_of_adults?.toString() || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax.toString() : "1"),
+            no_of_childs: lead.no_of_childs?.toString() || "0",
+            no_of_infants: lead.no_of_infants?.toString() || "0",
+            no_of_pax: lead.no_of_pax?.toString() || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax.toString() : "1"),
+            no_of_nights: lead.no_of_nights?.toString() || "0",
             description: "",
             destination_ids: lead.destination_ids || [],
             opportunity_close_date: new Date(),
@@ -224,6 +224,16 @@ export function ConvertLeadDialog({
                 .catch(() => {/* silently ignore */ });
         }
     }, [open, localExperiences.length, localSalesStages.length, form]);
+
+    // Set default experience to Luxury when experiences are loaded
+    useEffect(() => {
+        if (localExperiences.length > 0 && !form.getValues("experience_id")) {
+            const luxuryExp = localExperiences.find(exp => exp.name.toLowerCase() === "luxury");
+            if (luxuryExp) {
+                form.setValue("experience_id", luxuryExp.id);
+            }
+        }
+    }, [localExperiences, form]);
 
 
 
@@ -310,7 +320,7 @@ export function ConvertLeadDialog({
     // Auto-calculate Total Pax = adults + children + infants
     useEffect(() => {
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
-        form.setValue("no_of_pax", total > 0 ? total : 1);
+        form.setValue("no_of_pax", total > 0 ? total.toString() : "1");
     }, [adults, childs, infants, form]);
 
 
@@ -365,12 +375,12 @@ export function ConvertLeadDialog({
                         travel_date: values.travel_date?.toISOString(),
                         destination_ids: values.destination_ids,
                         experience_id: values.experience_id === "no-experiences" ? undefined : values.experience_id,
-                        no_of_adults: values.no_of_adults,
-                        no_of_childs: values.no_of_childs,
-                        no_of_infants: values.no_of_infants,
-                        no_of_pax: values.no_of_pax,
+                        no_of_adults: values.no_of_adults ? Number(values.no_of_adults) : undefined,
+                        no_of_childs: values.no_of_childs ? Number(values.no_of_childs) : undefined,
+                        no_of_infants: values.no_of_infants ? Number(values.no_of_infants) : undefined,
+                        no_of_pax: values.no_of_pax ? Number(values.no_of_pax) : undefined,
                         sales_stage_id: !values.sales_stage_id || ["no-sales-stages", "undefined", "null"].includes(values.sales_stage_id) ? undefined : values.sales_stage_id,
-                        no_of_nights: values.no_of_nights,
+                        no_of_nights: values.no_of_nights ? Number(values.no_of_nights) : undefined,
                         description: values.description,
                         opportunity_owner_id: values.opportunity_owner_id,
                     };
@@ -902,7 +912,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Adults</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                    <Input type="number" min="1" {...field} className="h-8 text-xs" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -914,7 +924,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Childs</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                    <Input type="number" min="0" {...field} className="h-8 text-xs" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -926,7 +936,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Infants</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                    <Input type="number" min="0" {...field} className="h-8 text-xs" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -938,7 +948,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
+                                                                    <Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -979,7 +989,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>No of Nights</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="bg-white" />
+                                                                    <Input type="number" min="0" {...field} className="bg-white" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>

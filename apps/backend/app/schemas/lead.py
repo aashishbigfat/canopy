@@ -182,12 +182,12 @@ class LeadConvert(BaseModel):
     travel_date: Optional[Union[datetime, date]] = None
     destination_ids: Optional[List[str]] = Field(default_factory=list)
     experience_id: Optional[str] = None
-    no_of_adults: Optional[int] = None
-    no_of_childs: Optional[int] = None
-    no_of_infants: Optional[int] = None
-    no_of_pax: Optional[int] = None
+    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
+    no_of_pax: Optional[int] = Field(None, ge=1)
     sales_stage_id: Optional[str] = None
-    no_of_nights: Optional[int] = None
+    no_of_nights: Optional[int] = Field(None, ge=0)
     description: Optional[str] = None
     opportunity_owner_id: Optional[str] = None
 

@@ -1,10 +1,11 @@
 import { OpportunityForm } from "@/features/opportunities/components/OpportunityForm";
 
-export default function CreateOpportunityPage({ 
+export default async function CreateOpportunityPage({ 
     searchParams 
 }: { 
-    searchParams: { accountId?: string, contactId?: string } 
+    searchParams: Promise<{ accountId?: string, contactId?: string }> 
 }) {
+    const params = await searchParams;
     return (
         <div className="space-y-6 max-w-2xl mx-auto py-8">
             <div>
@@ -14,8 +15,8 @@ export default function CreateOpportunityPage({
                 </p>
             </div>
             <OpportunityForm 
-                initialAccountId={searchParams.accountId} 
-                initialContactId={searchParams.contactId} 
+                initialAccountId={params.accountId} 
+                initialContactId={params.contactId} 
             />
         </div>
     );

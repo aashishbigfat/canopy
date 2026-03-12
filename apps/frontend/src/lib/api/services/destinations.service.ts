@@ -16,10 +16,10 @@ export interface DestinationListResponse {
 }
 
 export const destinationsService = {
-    getDestinations: async (params?: { search?: string; limit?: number }) => {
+    getDestinations: async (params?: { search?: string; limit?: number }, signal?: AbortSignal) => {
         const response = await apiClient.get<DestinationListResponse>(
             "/destinations",
-            { params }
+            { params, signal }
         );
         return response.data;
     }

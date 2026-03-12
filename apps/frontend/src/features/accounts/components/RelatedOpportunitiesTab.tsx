@@ -30,7 +30,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                             Sales opportunities for this account • Total Value: ₹{totalValue.toLocaleString()}
                         </CardDescription>
                     </div>
-                    <Link href={`/opportunities/create?account_id=${accountId}`}>
+                    <Link href={`/opportunities/create?accountId=${accountId}`}>
                         <Button size="sm">
                             <Plus className="mr-2 h-4 w-4" />
                             Create Opportunity
@@ -42,7 +42,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                 {opportunities.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                         <p>No opportunities for this account</p>
-                        <Link href={`/opportunities/create?account_id=${accountId}`}>
+                        <Link href={`/opportunities/create?accountId=${accountId}`}>
                             <Button variant="outline" size="sm" className="mt-4">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Create First Opportunity

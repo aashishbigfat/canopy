@@ -25,47 +25,47 @@ export interface City {
 
 export const locationService = {
     // Country methods
-    getCountries: async (isPopular?: boolean): Promise<{ countries: Country[] }> => {
+    getCountries: async (isPopular?: boolean, signal?: AbortSignal): Promise<{ countries: Country[] }> => {
         const params = new URLSearchParams();
         if (isPopular) params.append("is_popular", "true");
-        const { data } = await apiClient.get(`/countries/?${params.toString()}`);
+        const { data } = await apiClient.get(`/countries/?${params.toString()}`, { signal });
         return data;
     },
 
-    searchCountries: async (query: string): Promise<{ countries: Country[] }> => {
-        const { data } = await apiClient.get(`/countries/search?query=${query}`);
+    searchCountries: async (query: string, signal?: AbortSignal): Promise<{ countries: Country[] }> => {
+        const { data } = await apiClient.get(`/countries/search?query=${query}`, { signal });
         return data;
     },
 
-    getCountry: async (id: string): Promise<Country> => {
-        const { data } = await apiClient.get(`/countries/${id}`);
+    getCountry: async (id: string, signal?: AbortSignal): Promise<Country> => {
+        const { data } = await apiClient.get(`/countries/${id}`, { signal });
         return data;
     },
 
     // State methods
-    getStates: async (countryId: string): Promise<{ states: State[] }> => {
-        const { data } = await apiClient.get(`/countries/${countryId}/states`);
+    getStates: async (countryId: string, signal?: AbortSignal): Promise<{ states: State[] }> => {
+        const { data } = await apiClient.get(`/countries/${countryId}/states`, { signal });
         return data;
     },
 
-    searchStates: async (query: string, countryId?: string): Promise<{ states: State[] }> => {
+    searchStates: async (query: string, countryId?: string, signal?: AbortSignal): Promise<{ states: State[] }> => {
         let url = `/countries/states/search?query=${query}`;
         if (countryId) url += `&country_id=${countryId}`;
-        const { data } = await apiClient.get(url);
+        const { data } = await apiClient.get(url, { signal });
         return data;
     },
 
     // City methods
-    getCitiesByState: async (stateId: string): Promise<{ cities: City[] }> => {
-        const { data } = await apiClient.get(`/countries/states/${stateId}/cities`);
+    getCitiesByState: async (stateId: string, signal?: AbortSignal): Promise<{ cities: City[] }> => {
+        const { data } = await apiClient.get(`/countries/states/${stateId}/cities`, { signal });
         return data;
     },
 
-    searchCities: async (query: string, countryId?: string, stateId?: string): Promise<{ cities: City[] }> => {
+    searchCities: async (query: string, countryId?: string, stateId?: string, signal?: AbortSignal): Promise<{ cities: City[] }> => {
         let url = `/countries/cities/search?query=${query}`;
         if (countryId) url += `&country_id=${countryId}`;
         if (stateId) url += `&state_id=${stateId}`;
-        const { data } = await apiClient.get(url);
+        const { data } = await apiClient.get(url, { signal });
         return data;
     }
 };

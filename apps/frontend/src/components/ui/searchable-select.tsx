@@ -2,7 +2,7 @@
 
 import * as React from "react"
 import { Check, ChevronsUpDown, Loader2 } from "lucide-react"
-
+import { useDebounce } from "@/hooks/use-debounce"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import {
@@ -29,6 +29,7 @@ interface SearchableSelectProps {
     options: SearchableSelectOption[]
     value?: string
     onValueChange: (value: string) => void
+    onSearch?: (query: string, signal?: AbortSignal) => void
     placeholder?: string
     searchPlaceholder?: string
     emptyMessage?: string
@@ -41,6 +42,7 @@ export function SearchableSelect({
     options,
     value,
     onValueChange,
+    onSearch,
     placeholder = "Select...",
     searchPlaceholder = "Search...",
     emptyMessage = "No results found.",
@@ -49,6 +51,24 @@ export function SearchableSelect({
     className
 }: SearchableSelectProps) {
     const [open, setOpen] = React.useState(false)
+    const [searchValue, setSearchValue] = React.useState("")
+    const debouncedSearch = useDebounce(searchValue, 300)
+
+    const onSearchRef = React.useRef(onSearch)
+    React.useEffect(() => {
+        onSearchRef.current = onSearch
+    }, [onSearch])
+
+    React.useEffect(() => {
+        if (!onSearchRef.current) return
+
+        const controller = new AbortController()
+        onSearchRef.current(debouncedSearch, controller.signal)
+
+        return () => {
+            controller.abort()
+        }
+    }, [debouncedSearch])
 
     const selectedOption = React.useMemo(() => 
         options.find((opt) => opt.value === value),
@@ -82,38 +102,52 @@ export function SearchableSelect({
                 </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                <Command>
-                    <CommandInput placeholder={searchPlaceholder} className="h-9" />
+                <Command shouldFilter={!onSearch}>
+                    <CommandInput 
+                        placeholder={searchPlaceholder} 
+                        className="h-9" 
+                        value={searchValue}
+                        onValueChange={setSearchValue}
+                    />
                     <CommandList>
-                        <CommandEmpty>{emptyMessage}</CommandEmpty>
-                        <CommandGroup className="max-h-64 overflow-auto p-1">
-                            {options.map((option) => (
-                                <CommandItem
-                                    key={option.value}
-                                    value={option.label} // Command filters by value, which is usually label text
-                                    onSelect={() => {
-                                        if (option.disabled) return
-                                        onValueChange(option.value === value ? "" : option.value)
-                                        setOpen(false)
-                                    }}
-                                    disabled={option.disabled}
-                                    className={cn(
-                                        "flex items-center justify-between py-2 px-2",
-                                        option.disabled && "opacity-50 cursor-not-allowed"
-                                    )}
-                                >
-                                    <div className="flex items-center gap-2 truncate">
-                                        <Check
+                        {isLoading ? (
+                            <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Searching...
+                            </div>
+                        ) : (
+                            <>
+                                <CommandEmpty>{emptyMessage}</CommandEmpty>
+                                <CommandGroup className="max-h-64 overflow-auto p-1">
+                                    {options.map((option) => (
+                                        <CommandItem
+                                            key={option.value}
+                                            value={option.value} // Use value for selection
+                                            onSelect={() => {
+                                                if (option.disabled) return
+                                                onValueChange(option.value === value ? "" : option.value)
+                                                setOpen(false)
+                                            }}
+                                            disabled={option.disabled}
                                             className={cn(
-                                                "h-4 w-4 text-blue-600",
-                                                value === option.value ? "opacity-100" : "opacity-0"
+                                                "flex items-center justify-between py-2 px-2",
+                                                option.disabled && "opacity-50 cursor-not-allowed"
                                             )}
-                                        />
-                                        <span className="truncate">{option.label}</span>
-                                    </div>
-                                </CommandItem>
-                            ))}
-                        </CommandGroup>
+                                        >
+                                            <div className="flex items-center gap-2 truncate">
+                                                <Check
+                                                    className={cn(
+                                                        "h-4 w-4 text-blue-600",
+                                                        value === option.value ? "opacity-100" : "opacity-0"
+                                                    )}
+                                                />
+                                                <span className="truncate">{option.label}</span>
+                                            </div>
+                                        </CommandItem>
+                                    ))}
+                                </CommandGroup>
+                            </>
+                        )}
                     </CommandList>
                 </Command>
             </PopoverContent>

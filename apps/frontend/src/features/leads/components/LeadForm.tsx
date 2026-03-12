@@ -1,10 +1,12 @@
 "use client";
 
+import axios from "axios";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { ErrorType } from "@/lib/error-handler";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -62,6 +64,13 @@ import {
 } from "@/components/ui/card";
 
 
+const searchCache = {
+    countries: new Map<string, any>(),
+    states: new Map<string, any>(),
+    cities: new Map<string, any>(),
+    destinations: new Map<string, any>(),
+};
+
 function LocationFields({ form }: { form: any }) {
     const [countries, setCountries] = useState<Country[]>([]);
     const [states, setStates] = useState<State[]>([]);
@@ -71,62 +80,155 @@ function LocationFields({ form }: { form: any }) {
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
-    const [countryOpen, setCountryOpen] = useState(false);
-    const [stateOpen, setStateOpen] = useState(false);
-    const [cityOpen, setCityOpen] = useState(false);
-
-    const [searchTermCountry, setSearchTermCountry] = useState("");
-    const [searchTermState, setSearchTermState] = useState("");
-    const [searchTermCity, setSearchTermCity] = useState("");
-
-    // Initial load and edit mode support
+    // Initial load for popular countries or current value
     useEffect(() => {
         const init = async () => {
-            setLoadingCountries(true);
-            try {
-                const res = await locationService.getCountries();
-                if (res && res.countries) {
-                    setCountries(res.countries);
-                    const currentCountryName = form.getValues("country");
-                    const currentStateName = form.getValues("state");
+            const currentCountryName = form.getValues("country");
+            const currentStateName = form.getValues("state");
+            const currentCityName = form.getValues("city");
 
-                    if (currentCountryName) {
-                        const country = res.countries.find((c: Country) => c.name === currentCountryName);
-                        if (country) {
-                            const statesRes = await locationService.getStates(country.id);
-                            if (statesRes && statesRes.states) {
-                                setStates(statesRes.states);
-                                if (currentStateName) {
-                                    const state = statesRes.states.find((s: State) => s.name === currentStateName);
-                                    if (state) {
-                                        const citiesRes = await locationService.getCitiesByState(state.id);
-                                        if (citiesRes && citiesRes.cities) {
-                                            setCities(citiesRes.cities);
-                                        }
-                                    }
-                                }
-                            }
+            if (currentCountryName) {
+                setLoadingCountries(true);
+                try {
+                    const res = await locationService.searchCountries(currentCountryName);
+                    setCountries(res.countries);
+                    const country = res.countries.find(c => c.name === currentCountryName);
+                    
+                    if (country && currentStateName) {
+                        setLoadingStates(true);
+                        const sRes = await locationService.searchStates(currentStateName, country.id);
+                        setStates(sRes.states);
+                        const state = sRes.states.find(s => s.name === currentStateName);
+                        
+                        if (state && currentCityName) {
+                            setLoadingCities(true);
+                            const cRes = await locationService.searchCities(currentCityName, country.id, state.id);
+                            setCities(cRes.cities);
+                            setLoadingCities(false);
                         }
+                        setLoadingStates(false);
                     }
+                } catch (err) {
+                    console.error("Location init error", err);
+                } finally {
+                    setLoadingCountries(false);
                 }
-            } catch (err) {
-                console.error("Location initialization failed", err);
-            } finally {
-                setLoadingCountries(false);
+            } else {
+                // Load popular countries as default options
+                const cacheKey = "popular";
+                if (searchCache.countries.has(cacheKey)) {
+                    setCountries(searchCache.countries.get(cacheKey));
+                } else {
+                    setLoadingCountries(true);
+                    locationService.getCountries(true).then(r => {
+                        searchCache.countries.set(cacheKey, r.countries);
+                        setCountries(r.countries);
+                        setLoadingCountries(false);
+                    });
+                }
             }
         };
         init();
-    }, []); // Run only once
+    }, []);
 
-    const filteredCountries = countries.filter((c: Country) =>
-        c.name.toLowerCase().includes(searchTermCountry.toLowerCase())
-    );
-    const filteredStates = states.filter((s: State) =>
-        s.name.toLowerCase().includes(searchTermState.toLowerCase())
-    );
-    const filteredCities = cities.filter((c: City) =>
-        c.name.toLowerCase().includes(searchTermCity.toLowerCase())
-    );
+    const handleCountrySearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        try {
+            if (!query) {
+                const cacheKey = "popular";
+                if (searchCache.countries.has(cacheKey)) {
+                    setCountries(searchCache.countries.get(cacheKey));
+                    return;
+                }
+                const res = await locationService.getCountries(true, signal);
+                searchCache.countries.set(cacheKey, res.countries);
+                setCountries(res.countries);
+                return;
+            }
+
+            if (searchCache.countries.has(query)) {
+                setCountries(searchCache.countries.get(query));
+                return;
+            }
+
+            setLoadingCountries(true);
+            const res = await locationService.searchCountries(query, signal);
+            searchCache.countries.set(query, res.countries);
+            setCountries(res.countries);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("Country search error", error);
+            }
+        } finally {
+            setLoadingCountries(false);
+        }
+    }, []);
+
+    const handleStateSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        const countryName = form.getValues("country");
+        const country = countries.find(c => c.name === countryName);
+        if (!country) return;
+
+        try {
+            const cacheKey = `${country.id}:${query || "all"}`;
+            if (searchCache.states.has(cacheKey)) {
+                setStates(searchCache.states.get(cacheKey));
+                return;
+            }
+
+            if (!query) {
+                const res = await locationService.getStates(country.id, signal);
+                searchCache.states.set(cacheKey, res.states);
+                setStates(res.states);
+                return;
+            }
+
+            setLoadingStates(true);
+            const res = await locationService.searchStates(query, country.id, signal);
+            searchCache.states.set(cacheKey, res.states);
+            setStates(res.states);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("State search error", error);
+            }
+        } finally {
+            setLoadingStates(false);
+        }
+    }, [countries, form]);
+
+    const handleCitySearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        const countryName = form.getValues("country");
+        const stateName = form.getValues("state");
+        const country = countries.find(c => c.name === countryName);
+        const state = states.find(s => s.name === stateName);
+        
+        if (!state) return;
+
+        try {
+            const cacheKey = `${state.id}:${query || "all"}`;
+            if (searchCache.cities.has(cacheKey)) {
+                setCities(searchCache.cities.get(cacheKey));
+                return;
+            }
+
+            if (!query) {
+                const res = await locationService.getCitiesByState(state.id, signal);
+                searchCache.cities.set(cacheKey, res.cities);
+                setCities(res.cities);
+                return;
+            }
+
+            setLoadingCities(true);
+            const res = await locationService.searchCities(query, country?.id, state.id, signal);
+            searchCache.cities.set(cacheKey, res.cities);
+            setCities(res.cities);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("City search error", error);
+            }
+        } finally {
+            setLoadingCities(false);
+        }
+    }, [countries, states, form]);
 
     return (
         <>
@@ -135,11 +237,13 @@ function LocationFields({ form }: { form: any }) {
                 name="country"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>Country *</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Country *</FormLabel>
                         <FormControl>
                             <SearchableSelect
                                 options={countries.map(c => ({ label: c.name, value: c.name }))}
                                 value={field.value}
+                                onSearch={handleCountrySearch}
+                                isLoading={loadingCountries}
                                 onValueChange={(val) => {
                                     const prev = field.value;
                                     field.onChange(val);
@@ -159,7 +263,6 @@ function LocationFields({ form }: { form: any }) {
                                     }
                                 }}
                                 placeholder="Select country"
-                                isLoading={loadingCountries}
                             />
                         </FormControl>
                         <FormMessage />
@@ -172,7 +275,7 @@ function LocationFields({ form }: { form: any }) {
                 name="state"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>State *</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">State *</FormLabel>
                         <FormControl>
                             <SearchableSelect
                                 options={states.map(s => ({ label: s.name, value: s.name }))}
@@ -193,6 +296,7 @@ function LocationFields({ form }: { form: any }) {
                                         }
                                     }
                                 }}
+                                onSearch={handleStateSearch}
                                 disabled={!form.watch("country")}
                                 isLoading={loadingStates}
                                 placeholder="Select state"
@@ -208,12 +312,13 @@ function LocationFields({ form }: { form: any }) {
                 name="city"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>City *</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">City *</FormLabel>
                         <FormControl>
                             <SearchableSelect
                                 options={cities.map(c => ({ label: c.name, value: c.name }))}
                                 value={field.value}
                                 onValueChange={field.onChange}
+                                onSearch={handleCitySearch}
                                 disabled={!form.watch("state")}
                                 isLoading={loadingCities}
                                 placeholder="Select city"
@@ -263,16 +368,24 @@ const leadFormSchema = z.object({
     country: z.string().min(1, { message: "Country is required." }),
     campaign_name: z.string().optional(),
     travel_date: z.string().min(1, { message: "Travel date is required." }),
-    no_of_nights: z.coerce.number().int().min(1, { message: "Number of nights must be at least 1." }),
-    no_of_adults: z.coerce.number().int().min(1, { message: "Number of adults must be at least 1." }),
-    no_of_pax: z.coerce.number().int().min(1, { message: "Number of pax must be at least 1." }),
-    no_of_childs: z.coerce.number().int().min(0).optional(),
-    no_of_infants: z.coerce.number().int().min(0).optional(),
+    no_of_nights: z.string().refine((val) => !val || Number(val) > 0, "Number of nights must be at least 1"),
+    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1"),
+    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1"),
+    no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     is_fixed: z.boolean().default(false).optional(),
     destinations: z.string().min(1, { message: "Destinations are required." }),
     segment: z.string().optional(),
     creation_type: z.enum(["manual", "auto"]).optional(),
     experience_id: z.string().optional(),
+}).superRefine((data, ctx) => {
+    if (data.segment === "B2B" && (!data.company || data.company.trim() === "")) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Company name is required for B2B leads.",
+            path: ["company"],
+        });
+    }
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -302,13 +415,36 @@ export function LeadForm({
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
-    const [destinationOpen, setDestinationOpen] = useState(false);
-    const [destSearch, setDestSearch] = useState("");
+
+    const [loadingDestinations, setLoadingDestinations] = useState(false);
 
     useEffect(() => {
-        destinationsService.getDestinations({ limit: 1000 }).then(res => {
+        setLoadingDestinations(true);
+        destinationsService.getDestinations({ limit: 20 }).then(res => {
             setAvailableDestinations(res.destinations);
-        }).catch(err => console.error("Failed to fetch destinations", err));
+        }).catch(err => console.error("Failed to fetch destinations", err))
+          .finally(() => setLoadingDestinations(false));
+    }, []);
+
+    const handleDestinationSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        try {
+            const cacheKey = query || "all";
+            if (searchCache.destinations.has(cacheKey)) {
+                setAvailableDestinations(searchCache.destinations.get(cacheKey));
+                return;
+            }
+
+            setLoadingDestinations(true);
+            const res = await destinationsService.getDestinations({ search: query, limit: 50 }, signal);
+            searchCache.destinations.set(cacheKey, res.destinations);
+            setAvailableDestinations(res.destinations);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("Destination search error", error);
+            }
+        } finally {
+            setLoadingDestinations(false);
+        }
     }, []);
 
     const form = useForm<LeadFormValues>({
@@ -648,7 +784,9 @@ export function LeadForm({
                                         name="company"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Company Name</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                    Company Name {form.watch("segment") === "B2B" && <span className="text-red-500">*</span>}
+                                                </FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Acme Inc." className="h-9 bg-white" {...field} />
                                                 </FormControl>
@@ -939,87 +1077,44 @@ export function LeadForm({
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
                                                     Destinations <span className="text-red-500">*</span>
                                                 </FormLabel>
-                                                <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
-                                                    <PopoverTrigger asChild>
-                                                        <FormControl>
-                                                            <Button
-                                                                variant="outline"
-                                                                role="combobox"
-                                                                className={cn(
-                                                                    "min-h-[36px] h-auto w-full justify-between bg-white px-3 py-1",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
+                                                <SearchableSelect
+                                                    options={availableDestinations.map(d => ({ label: d.name, value: d.name }))}
+                                                    value=""
+                                                    onValueChange={(val) => {
+                                                        if (!val) return;
+                                                        const current = field.value ? field.value.split(", ") : [];
+                                                        if (!current.includes(val)) {
+                                                            field.onChange([...current, val].join(", "));
+                                                        }
+                                                    }}
+                                                    onSearch={handleDestinationSearch}
+                                                    placeholder="Add destination..."
+                                                    isLoading={loadingDestinations}
+                                                    className="border-none shadow-none focus-visible:ring-0 p-0 h-auto"
+                                                />
+                                                <div className="flex flex-wrap gap-1 mt-2">
+                                                    {field.value ? (
+                                                        field.value.split(", ").map((dest: string) => (
+                                                            <Badge
+                                                                key={dest}
+                                                                variant="secondary"
+                                                                className="rounded-sm px-1 font-normal text-[10px]"
                                                             >
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {field.value ? (
-                                                                        field.value.split(", ").map((dest: string) => (
-                                                                            <Badge
-                                                                                key={dest}
-                                                                                variant="secondary"
-                                                                                className="rounded-sm px-1 font-normal text-[10px]"
-                                                                            >
-                                                                                {dest}
-                                                                                <span
-                                                                                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        const current = field.value.split(", ").filter((d: string) => d !== dest);
-                                                                                        field.onChange(current.join(", "));
-                                                                                    }}
-                                                                                >
-                                                                                    <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
-                                                                                </span>
-                                                                            </Badge>
-                                                                        ))
-                                                                    ) : (
-                                                                        "Select..."
-                                                                    )}
-                                                                </div>
-                                                                <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                                                            </Button>
-                                                        </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-full p-0 md:w-[500px]" align="start">
-                                                        <Command>
-                                                            <CommandInput
-                                                                placeholder="Search..."
-                                                                className="h-8"
-                                                                value={destSearch}
-                                                                onValueChange={setDestSearch}
-                                                            />
-                                                            <CommandList>
-                                                                <CommandEmpty>No results.</CommandEmpty>
-                                                                <CommandGroup className="max-h-48 overflow-auto">
-                                                                    {availableDestinations.map((dest) => {
-                                                                        const current = field.value ? field.value.split(", ") : [];
-                                                                        const isSelected = current.includes(dest.name);
-                                                                        return (
-                                                                            <CommandItem
-                                                                                key={dest.id}
-                                                                                className="text-sm py-1"
-                                                                                onSelect={() => {
-                                                                                    if (isSelected) {
-                                                                                        field.onChange(current.filter((d: string) => d !== dest.name).join(", "));
-                                                                                    } else {
-                                                                                        field.onChange([...current, dest.name].join(", "));
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                <Check
-                                                                                    className={cn(
-                                                                                        "mr-2 h-3 w-3",
-                                                                                        isSelected ? "opacity-100" : "opacity-0"
-                                                                                    )}
-                                                                                />
-                                                                                {dest.name}
-                                                                            </CommandItem>
-                                                                        );
-                                                                    })}
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
-                                                    </PopoverContent>
-                                                </Popover>
+                                                                {dest}
+                                                                <span
+                                                                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const current = field.value.split(", ").filter((d: string) => d !== dest);
+                                                                        field.onChange(current.join(", "));
+                                                                    }}
+                                                                >
+                                                                    <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
+                                                                </span>
+                                                            </Badge>
+                                                        ))
+                                                    ) : null}
+                                                </div>
                                                 <FormMessage />
                                             </FormItem>
                                         )}

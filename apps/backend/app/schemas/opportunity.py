@@ -12,11 +12,11 @@ class OpportunityBase(BaseModel):
     description: Optional[str] = Field(None, max_length=1000)
     
     # Travel-specific fields
-    no_of_pax: Optional[int] = Field(None)
-    no_of_nights: Optional[int] = Field(None)
-    no_of_adults: Optional[int] = Field(None)
-    no_of_childs: Optional[int] = Field(None)
-    no_of_infants: Optional[int] = Field(None)
+    no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_nights: Optional[int] = Field(None, ge=0)
+    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
     travel_date: Optional[datetime] = None
     close_date: Optional[datetime] = None
     
@@ -74,11 +74,11 @@ class OpportunityUpdate(BaseModel):
 
     close_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
     travel_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
-    no_of_pax: Optional[int] = Field(None)
-    no_of_adults: Optional[int] = Field(None)
-    no_of_childs: Optional[int] = Field(None)
-    no_of_infants: Optional[int] = Field(None)
-    no_of_nights: Optional[int] = Field(None)
+    no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
+    no_of_nights: Optional[int] = Field(None, ge=0)
     experience_id: Optional[str] = None
     account_id: Optional[str] = None
     contact_id: Optional[str] = None
