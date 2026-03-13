@@ -516,7 +516,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                 <FormItem>
                                     <FormLabel>Total Pax</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="4" readOnly className="bg-slate-50 cursor-not-allowed" {...field} />
+                                        <Input type="number" min="1" placeholder="4" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

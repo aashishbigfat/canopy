@@ -494,7 +494,7 @@ export function LeadForm({
     useEffect(() => {
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         if (total > 0) {
-            form.setValue("no_of_pax", total as any);
+            form.setValue("no_of_pax", total.toString() as any);
         }
     }, [adults, childs, infants, form]);
 
@@ -1014,7 +1014,7 @@ export function LeadForm({
                                                     Total Pax
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="2" readOnly className="h-9 bg-slate-50 cursor-not-allowed" {...field} />
+                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
