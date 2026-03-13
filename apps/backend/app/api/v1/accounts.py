@@ -365,7 +365,7 @@ async def search_account_autocomplete(
     return {
         "error": False,
         "accounts": [
-            {"id": str(acc.id), "name": acc.name}
+            {"id": str(acc.id), "name": acc.name, "is_person_account": acc.is_person_account}
             for acc in accounts
         ]
     }

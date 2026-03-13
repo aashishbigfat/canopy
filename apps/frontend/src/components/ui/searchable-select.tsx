@@ -123,6 +123,7 @@ export function SearchableSelect({
                                         <CommandItem
                                             key={option.value}
                                             value={option.value} // Use value for selection
+                                            keywords={[option.label]} // Fix: Allows searching by label text
                                             onSelect={() => {
                                                 if (option.disabled) return
                                                 onValueChange(option.value === value ? "" : option.value)

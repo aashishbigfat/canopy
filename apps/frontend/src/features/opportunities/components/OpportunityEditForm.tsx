@@ -51,6 +51,9 @@ import { Opportunity } from "../types";
 import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } from "@/features/opportunities/utils/stageConfig";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
+import { accountsService } from "@/lib/api/services/accounts.service";
+import { contactsService } from "@/lib/api/services/contacts.service";
+import { Contact } from "@/features/contacts/types";
 import { toast } from "sonner";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
@@ -71,6 +74,8 @@ const opportunityFormSchema = z.object({
     no_of_nights: z.string().refine((val) => !val || Number(val) > 0, "Number of nights must be at least 1").optional(),
     destinations: z.string().optional(),
     description: z.string().optional(),
+    account_id: z.string().optional(),
+    contact_id: z.string().optional(),
 });
 
 type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
@@ -91,11 +96,73 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
     const [destinationOpen, setDestinationOpen] = useState(false);
     const [destSearch, setDestSearch] = useState("");
 
+    // Account & Contact state
+    const [accountOptions, setAccountOptions] = useState<{ id: string; name: string; is_person_account?: boolean }[]>([]);
+    const [accountContacts, setAccountContacts] = useState<Contact[]>([]);
+    const [loadingAccounts, setLoadingAccounts] = useState(false);
+    const [loadingContacts, setLoadingContacts] = useState(false);
+    const [selectedAccountId, setSelectedAccountId] = useState(opportunity.account_id || "");
+    const [isPersonAccount, setIsPersonAccount] = useState(opportunity.is_person_account || false);
+
+    // Ensure close_date is always current date
+    const todayStr = new Date().toISOString().split('T')[0];
+
     useEffect(() => {
         destinationsService.getDestinations({ limit: 1000 }).then(res => {
             setAvailableDestinations(res.destinations);
         }).catch(err => console.error("Failed to fetch destinations", err));
     }, []);
+
+    // Load initial account into options
+    useEffect(() => {
+        if (opportunity.account_id) {
+            accountsService.getAccount(opportunity.account_id).then(acc => {
+                setAccountOptions([{ id: acc.id, name: acc.name, is_person_account: acc.is_person_account }]);
+                setIsPersonAccount(acc.is_person_account);
+            }).catch(() => {});
+        }
+    }, [opportunity.account_id]);
+
+    // Load contacts when account changes
+    useEffect(() => {
+        if (!selectedAccountId) {
+            setAccountContacts([]);
+            return;
+        }
+        setLoadingContacts(true);
+        contactsService.getContactsByAccount(selectedAccountId)
+            .then(contacts => {
+                setAccountContacts(contacts);
+            })
+            .catch(err => console.error("Failed to fetch contacts", err))
+            .finally(() => setLoadingContacts(false));
+    }, [selectedAccountId]);
+
+    // Load initial contact into list if not present
+    useEffect(() => {
+        if (opportunity.contact_id && accountContacts.length === 0) {
+             contactsService.getContact(opportunity.contact_id).then(c => {
+                 setAccountContacts([c]);
+             }).catch(() => {});
+        }
+    }, [opportunity.contact_id, accountContacts.length]);
+
+    // Search accounts handler
+    const handleAccountSearch = async (query: string, signal?: AbortSignal) => {
+        if (!query || query.length < 1) {
+            setAccountOptions(opportunity.account_id ? [...accountOptions] : []);
+            return;
+        }
+        try {
+            setLoadingAccounts(true);
+            const results = await accountsService.searchAccountAutocomplete(query, signal);
+            setAccountOptions(results as any);
+        } catch (error) {
+            console.error("Account search error", error);
+        } finally {
+            setLoadingAccounts(false);
+        }
+    };
 
     const form = useForm<OpportunityFormValues>({
         resolver: zodResolver(opportunityFormSchema),
@@ -104,8 +171,8 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             amount: opportunity.amount?.toString() || "0",
             sales_stage_id: opportunity.sales_stage_id || "",
             probability: opportunity.probability?.toString() || "10",
-            close_date: new Date().toISOString().split('T')[0],
-            travel_date: opportunity.travel_date || "",
+            close_date: todayStr,
+            travel_date: opportunity.travel_date ? opportunity.travel_date.split('T')[0] : "",
             experience_id: opportunity.experience_id || "",
             no_of_pax: opportunity.no_of_pax?.toString() || "",
             no_of_adults: opportunity.no_of_adults?.toString() || "",
@@ -114,6 +181,8 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
             no_of_nights: opportunity.no_of_nights?.toString() || "",
             destinations: opportunity.destination_names?.join(", ") || "",
             description: opportunity.description || "",
+            account_id: opportunity.account_id || "",
+            contact_id: opportunity.contact_id || "",
         },
     });
 
@@ -194,6 +263,8 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                     }
 
                     if (data.description) payload.description = data.description;
+                    if (data.account_id !== undefined) payload.account_id = data.account_id || null;
+                    if (data.contact_id !== undefined) payload.contact_id = data.contact_id || null;
 
                     await updateOpportunity.mutateAsync({
                         id: opportunity.id,
@@ -344,7 +415,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                                     variant={"outline"}
                                                     disabled
                                                     className={cn(
-                                                        "w-full pl-3 text-left font-normal",
+                                                        "w-full pl-3 text-left font-normal cursor-not-allowed opacity-70",
                                                         !field.value && "text-muted-foreground"
                                                     )}
                                                 >
@@ -374,9 +445,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                                 disabled={(date) => {
                                                     const today = new Date();
                                                     today.setHours(0, 0, 0, 0);
-                                                    const compareDate = new Date(date);
-                                                    compareDate.setHours(0, 0, 0, 0);
-                                                    return compareDate.getTime() !== today.getTime();
+                                                    return date < today;
                                                 }}
                                                 initialFocus
                                             />

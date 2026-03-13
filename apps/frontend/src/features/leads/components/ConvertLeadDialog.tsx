@@ -316,12 +316,53 @@ export function ConvertLeadDialog({
     const adults = form.watch("no_of_adults") || 0;
     const childs = form.watch("no_of_childs") || 0;
     const infants = form.watch("no_of_infants") || 0;
+    const watchedDestinationIds = form.watch("destination_ids");
+    const watchedPax = form.watch("no_of_pax");
+    const watchedTravelDate = form.watch("travel_date");
 
     // Auto-calculate Total Pax = adults + children + infants
     useEffect(() => {
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         form.setValue("no_of_pax", total > 0 ? total.toString() : "1");
     }, [adults, childs, infants, form]);
+
+    // Auto-generate opportunity name: Dest1_Dest2_Npax_DDMon
+    useEffect(() => {
+        const parts: string[] = [];
+
+        // Destination names (from resolved list)
+        if (watchedDestinationIds && watchedDestinationIds.length > 0) {
+            const names = watchedDestinationIds
+                .map(id => {
+                    const match = (leadProcessedDestinations.length > 0 ? leadProcessedDestinations : availableDestinations)
+                        .find(d => d.id === id);
+                    return match?.name || "";
+                })
+                .filter(Boolean);
+            if (names.length > 0) parts.push(names.join("_"));
+        }
+
+        // Pax
+        if (watchedPax && Number(watchedPax) > 0) {
+            parts.push(`${watchedPax}pax`);
+        }
+
+        // Travel date as DDMon (e.g. 24Mar)
+        if (watchedTravelDate) {
+            try {
+                const d = new Date(watchedTravelDate);
+                if (!isNaN(d.getTime())) {
+                    const day = String(d.getDate()).padStart(2, "0");
+                    const mon = d.toLocaleString("en", { month: "short" });
+                    parts.push(`${day}${mon}`);
+                }
+            } catch {}
+        }
+
+        if (parts.length > 0) {
+            form.setValue("opportunity_name", parts.join("_"), { shouldDirty: false });
+        }
+    }, [watchedDestinationIds, watchedPax, watchedTravelDate, leadProcessedDestinations, availableDestinations, form]);
 
 
     useEffect(() => {
@@ -678,8 +719,10 @@ export function ConvertLeadDialog({
                                                                 <Input
                                                                     {...field}
                                                                     className="bg-white"
+                                                                    placeholder="Auto-generated from destination, pax & date"
                                                                 />
                                                             </FormControl>
+                                                            <p className="text-[11px] text-muted-foreground mt-1">Auto-filled from destinations, pax &amp; travel date. You can edit manually.</p>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}

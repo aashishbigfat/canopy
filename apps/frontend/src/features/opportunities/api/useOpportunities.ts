@@ -90,6 +90,24 @@ export const useUpdateOpportunityStage = () => {
 
             return { previousQueries };
         },
+        onSuccess: (data) => {
+            queryClient.setQueryData(["opportunities", data.id], data);
+            
+            // Also update it in the list view cache
+            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
+                if (!old) return old;
+                if (old.opportunities && Array.isArray(old.opportunities)) {
+                    return {
+                        ...old,
+                        opportunities: old.opportunities.map((opp: any) =>
+                            opp.id === data.id ? data : opp
+                        ),
+                    };
+                }
+                return old;
+            });
+            toast.success("Stage updated successfully");
+        },
         onError: (err, newOpportunity, context) => {
             context?.previousQueries.forEach(([queryKey, previousData]) => {
                 queryClient.setQueryData(queryKey, previousData);
@@ -97,7 +115,6 @@ export const useUpdateOpportunityStage = () => {
             toast.error("Failed to update stage — please try again");
         },
         onSettled: (data) => {
-            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             if (data) {
                 queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
             }

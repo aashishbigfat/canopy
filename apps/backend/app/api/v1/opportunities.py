@@ -386,7 +386,56 @@ async def update_opportunity(
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
-        return OpportunityResponse.from_orm(opportunity)
+        # Enrich response with related contact/account info
+        from app.models.opportunity_picklists import SalesStage as SalesStageDoc, Experience as ExperienceDoc
+        from app.models.user import User as UserDoc
+        from app.models.account import Account as AccountDoc
+        from app.models.contact import Contact as ContactDoc
+        from app.models.destination import Destination as DestinationDoc
+
+        opp_response = OpportunityResponse.from_orm(opportunity)
+
+        if opportunity.sales_stage_id:
+            stage = await SalesStageDoc.get(opportunity.sales_stage_id)
+            if stage:
+                opp_response.sales_stage_name = stage.name
+
+        if opportunity.experience_id:
+            exp = await ExperienceDoc.get(opportunity.experience_id)
+            if exp:
+                opp_response.experience_name = exp.name
+
+        if opportunity.owner_id:
+            owner = await UserDoc.get(opportunity.owner_id)
+            if owner:
+                opp_response.owner_name = owner.name
+
+        if opportunity.account_id:
+            account = await AccountDoc.get(opportunity.account_id)
+            if account:
+                opp_response.account_name = account.name
+                opp_response.is_person_account = getattr(account, 'is_person_account', False)
+
+        if opportunity.contact_id:
+            contact = await ContactDoc.get(opportunity.contact_id)
+            if contact:
+                name_parts = [p for p in [getattr(contact, 'salutation', None), getattr(contact, 'first_name', None), getattr(contact, 'last_name', None)] if p]
+                opp_response.contact_name = " ".join(name_parts) or None
+                opp_response.contact_email = getattr(contact, 'email', None)
+                opp_response.contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
+
+        dest_names = []
+        if opportunity.destination_ids:
+            for dest_id in opportunity.destination_ids:
+                dest = await DestinationDoc.get(dest_id)
+                if dest:
+                    dest_names.append(dest.name)
+        opp_response.destination_names = dest_names
+
+        opp_response.segment = opportunity.custom_fields.get("segment", "B2C")
+        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+
+        return opp_response
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

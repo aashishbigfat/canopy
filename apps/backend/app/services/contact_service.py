@@ -119,6 +119,21 @@ class ContactService(ActivityMixin):
                     tenant_id=tenant_id
                 )
                 await pivot.insert()
+                
+        # Handle primary account linkage if not present in account_ids
+        if contact_data.account_id and not (account_ids and contact_data.account_id in [str(a) for a in account_ids]):
+            exist_pivot = await AccountContact.find_one(
+                AccountContact.contact_id == contact.id,
+                AccountContact.account_id == ObjectId(contact_data.account_id),
+                AccountContact.tenant_id == tenant_id
+            )
+            if not exist_pivot:
+                pivot = AccountContact(
+                    account_id=ObjectId(contact_data.account_id),
+                    contact_id=contact.id,
+                    tenant_id=tenant_id
+                )
+                await pivot.insert()
         
         # Save custom fields
         if custom_fields:

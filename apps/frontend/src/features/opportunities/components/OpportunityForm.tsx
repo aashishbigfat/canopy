@@ -101,6 +101,7 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
     const [loadingAccounts, setLoadingAccounts] = useState(false);
     const [loadingContacts, setLoadingContacts] = useState(false);
     const [selectedAccountId, setSelectedAccountId] = useState(initialAccountId || "");
+    const [isPersonAccount, setIsPersonAccount] = useState(false);
 
     useEffect(() => {
         destinationsService.getDestinations({ limit: 1000 }).then(res => {
@@ -117,7 +118,7 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
         try {
             setLoadingAccounts(true);
             const results = await accountsService.searchAccountAutocomplete(query, signal);
-            setAccountOptions(results);
+            setAccountOptions(results as any);
         } catch (error) {
             if (!axios.isCancel(error)) {
                 console.error("Account search error", error);
@@ -169,23 +170,36 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
         if (initialAccountId) {
             accountsService.getAccount(initialAccountId).then(acc => {
                 // Put account into options so SearchableSelect can display it
-                setAccountOptions([{ id: acc.id, name: acc.name }]);
+                setAccountOptions([{ id: acc.id, name: acc.name, is_person_account: acc.is_person_account } as any]);
                 // Set form value
                 form.setValue("account_id", acc.id);
                 setSelectedAccountId(acc.id);
+                setIsPersonAccount(acc.is_person_account);
             }).catch(() => {});
         }
     }, [initialAccountId, form]);
 
-    // Pre-select contact once contacts for the account are loaded
+    // Pre-select contact: directly fetch if initialContactId is provided
     useEffect(() => {
-        if (initialContactId && accountContacts.length > 0) {
-            const match = accountContacts.find(c => c.id === initialContactId);
-            if (match) {
-                form.setValue("contact_id", initialContactId);
-            }
+        if (!initialContactId) return;
+        // First check if it's already in the loaded contacts list
+        const existing = accountContacts.find(c => c.id === initialContactId);
+        if (existing) {
+            form.setValue("contact_id", initialContactId);
+            return;
         }
-    }, [initialContactId, accountContacts, form]);
+        // Otherwise fetch it directly and inject it
+        contactsService.getContact(initialContactId).then(contact => {
+            setAccountContacts(prev => {
+                // avoid duplicates
+                if (prev.some(c => c.id === contact.id)) return prev;
+                return [...prev, contact];
+            });
+            form.setValue("contact_id", initialContactId);
+        }).catch(() => {
+            // silently ignore — contact_id just won't be pre-selected
+        });
+    }, [initialContactId, accountContacts.length, form]);
 
     const selectedStageId = form.watch("sales_stage_id");
 
@@ -314,6 +328,19 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                {selectedAccountId && (
+                    <div className="flex items-center gap-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
+                        <Badge variant="outline" className={cn(
+                            "px-2 py-0.5 font-bold text-[10px] transition-colors",
+                            isPersonAccount 
+                                ? "bg-orange-100 text-orange-700 border-orange-200" 
+                                : "bg-blue-100 text-blue-700 border-blue-200"
+                        )}>
+                            {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
+                        </Badge>
+                    </div>
+                )}
                 <div className="grid gap-6 md:grid-cols-2">
                     {/* Opportunity Name — first field */}
                     <FormField
@@ -344,6 +371,9 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
                                         onValueChange={(val) => {
                                             field.onChange(val);
                                             setSelectedAccountId(val);
+                                            const selectedOpt = accountOptions.find((a: any) => a.id === val);
+                                            const isPerson = selectedOpt ? (selectedOpt as any).is_person_account : false;
+                                            setIsPersonAccount(isPerson);
                                             // Reset contact when account changes
                                             form.setValue("contact_id", "");
                                         }}
@@ -357,26 +387,28 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
                         )}
                     />
 
-                    {/* Contact Field */}
-                    <FormField
-                        control={form.control}
-                        name="contact_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Contact</FormLabel>
-                                <FormControl>
-                                    <SearchableSelect
-                                        options={accountContacts.map(c => ({ label: c.full_name || `${c.first_name} ${c.last_name}`, value: c.id }))}
-                                        value={field.value}
-                                        onValueChange={field.onChange}
-                                        placeholder={loadingContacts ? "Loading contacts..." : (selectedAccountId ? "Select contact" : "Select an account first")}
-                                        disabled={!selectedAccountId || loadingContacts}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    {/* Contact Field - Hidden if Person Account */}
+                    {!isPersonAccount && (
+                        <FormField
+                            control={form.control}
+                            name="contact_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Contact</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={accountContacts.map(c => ({ label: c.full_name || `${c.first_name} ${c.last_name}`, value: c.id }))}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder={loadingContacts ? "Loading contacts..." : (selectedAccountId ? "Select contact" : "Select an account first")}
+                                            disabled={!selectedAccountId || loadingContacts}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                     <FormField
                         control={form.control}
                         name="amount"
@@ -477,8 +509,9 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
                                         <FormControl>
                                             <Button
                                                 variant={"outline"}
+                                                disabled
                                                 className={cn(
-                                                    "w-full pl-3 text-left font-normal",
+                                                    "w-full pl-3 text-left font-normal cursor-not-allowed opacity-70",
                                                     !field.value && "text-muted-foreground"
                                                 )}
                                             >
@@ -492,18 +525,23 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
                                         </FormControl>
                                     </PopoverTrigger>
                                     <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            mode="single"
-                                            selected={field.value ? new Date(field.value) : undefined}
-                                            onSelect={(date) => {
-                                                if (!date) return field.onChange(undefined);
-                                                const year = date.getFullYear();
-                                                const month = String(date.getMonth() + 1).padStart(2, '0');
-                                                const day = String(date.getDate()).padStart(2, '0');
-                                                field.onChange(`${year}-${month}-${day}`);
-                                            }}
-                                            initialFocus
-                                        />
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value ? new Date(field.value) : undefined}
+                                                onSelect={(date) => {
+                                                    if (!date) return field.onChange(undefined);
+                                                    const year = date.getFullYear();
+                                                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                    field.onChange(`${year}-${month}-${day}`);
+                                                }}
+                                                disabled={(date) => {
+                                                    const today = new Date();
+                                                    today.setHours(0, 0, 0, 0);
+                                                    return date < today;
+                                                }}
+                                                initialFocus
+                                            />
                                     </PopoverContent>
                                 </Popover>
                                 <FormMessage />

@@ -473,6 +473,24 @@ export function OpportunityDetails({
                         <TabsContent value="details" className="p-6">
                             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                                 <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Name</p>
+                                    <p className="text-sm font-bold text-slate-900 pt-1">{record.name}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</p>
+                                    <p className="text-sm font-semibold text-slate-900 pt-1">{record.account_name || record.contact_name || "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Owner</p>
+                                    <p className="text-sm font-semibold text-slate-900 pt-1">{record.owner_name || "-"}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stage</p>
+                                    <p className="text-sm font-semibold text-slate-900 pt-1">
+                                        {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
+                                    </p>
+                                </div>
+                                <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
                                     <p className="text-lg font-bold text-slate-900">
                                         {record.amount ? `₹${record.amount.toLocaleString()}` : "₹0"}
@@ -480,12 +498,18 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex items-center gap-3 pt-1">
                                         <span className="text-base font-semibold">{record.probability || 0}%</span>
                                         <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
                                             <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
                                         </div>
                                     </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Revenue</p>
+                                    <p className="text-lg font-bold text-emerald-600">
+                                        ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
+                                    </p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
@@ -500,17 +524,39 @@ export function OpportunityDetails({
                                     </span>
                                 </div>
                                 <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
+                                    <span className="text-sm font-medium pt-1 block">
+                                        {record.travel_date ? format(new Date(record.travel_date), "PPP") : "Not Set"}
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
                                     <span className="text-sm font-medium pt-1 block">
                                         {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
                                     </span>
                                 </div>
-                                {(record as any).no_of_nights && (
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
+                                    <p className="text-sm font-semibold pt-1">{record.no_of_pax || "-"}</p>
+                                </div>
+                                {(record as any).no_of_nights > 0 && (
                                     <div className="space-y-1">
                                         <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
                                         <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
                                     </div>
                                 )}
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Modified</p>
+                                    <span className="text-sm font-medium pt-1 block">
+                                        {record.updated_at ? format(new Date(record.updated_at), "dd MMM yyyy | hh:mm a") : "-"}
+                                    </span>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Source</p>
+                                    <span className="text-sm font-medium pt-1 block text-blue-600 cursor-pointer hover:underline">
+                                        {(record as any).source_name || "-"}
+                                    </span>
+                                </div>
                                 <div className="space-y-2 col-span-full mt-4">
                                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
                                     <div className="flex flex-wrap gap-2 pt-1">
@@ -525,6 +571,12 @@ export function OpportunityDetails({
                                             <p className="text-sm text-slate-400">No destinations specified</p>
                                         )}
                                     </div>
+                                </div>
+                                <div className="space-y-1 col-span-full mt-2">
+                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
+                                    <p className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">
+                                        {record.description || "-"}
+                                    </p>
                                 </div>
                             </div>
                         </TabsContent>
@@ -669,7 +721,9 @@ export function OpportunityDetails({
                                                             <p className="text-xs text-slate-600">₹{record.amount?.toLocaleString()}</p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
-                                                            <p className="text-xs text-slate-600">{record.probability}%</p>
+                                                            <p className="text-xs text-slate-600">
+                                                                {stages.find(s => s.id === historyRecord.new_value)?.probability ?? record.probability}%
+                                                            </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
