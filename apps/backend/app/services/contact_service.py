@@ -8,6 +8,7 @@ from app.models.contact import Contact
 from app.models.account_contact import AccountContact
 from app.schemas.contact import ContactCreate, ContactUpdate
 from app.mixins.activity_mixin import ActivityMixin
+from app.services.notification_service import NotificationService
 
 class ContactService(ActivityMixin):
     """Service for Contact business logic"""
@@ -19,6 +20,7 @@ class ContactService(ActivityMixin):
 
     def __init__(self):
         super().__init__()
+        self.notification_service = NotificationService()
 
     def _extract_domain(self, email: str) -> Optional[str]:
         if not email or "@" not in email:
@@ -108,6 +110,18 @@ class ContactService(ActivityMixin):
                 "phone": contact.phone,
                 "title": contact.title
             }
+        )
+        
+        # Create notification for contact creation
+        await self.notification_service.notify_user(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            title="New Contact Created",
+            message=f"Contact '{contact.full_name}' has been created",
+            type="contact",
+            entity_type="contact",
+            entity_id=contact.id,
+            action_url=f"/contacts/{contact.id}"
         )
         
         # Link to accounts (many-to-many)

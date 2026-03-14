@@ -8,12 +8,14 @@ from app.models.account import Account
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountUpdate, AccountSearch
 from app.mixins.activity_mixin import ActivityMixin
+from app.services.notification_service import NotificationService
 
 class AccountService(ActivityMixin):
     """Service for Account business logic"""
     
     def __init__(self):
         super().__init__()
+        self.notification_service = NotificationService()
     
     async def create_account(
         self,
@@ -44,6 +46,18 @@ class AccountService(ActivityMixin):
                 "website": account.website,
                 "email": account.email
             }
+        )
+        
+        # Create notification for account creation
+        await self.notification_service.notify_user(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            title="New Account Created",
+            message=f"Account '{account.name}' has been created",
+            type="account",
+            entity_type="account",
+            entity_id=account.id,
+            action_url=f"/accounts/{account.id}"
         )
         
         # Save custom fields

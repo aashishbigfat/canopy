@@ -69,7 +69,7 @@ export class ErrorHandler {
         switch (status) {
           case 400:
             return new AppError(
-              data?.message || "Invalid request data",
+              data?.detail || data?.message || "Invalid request data",
               ErrorType.VALIDATION,
               status,
               data
@@ -94,20 +94,20 @@ export class ErrorHandler {
             );
           case 422:
             return new AppError(
-              data?.message || "Invalid data provided",
+              data?.detail || data?.message || "Invalid data provided",
               ErrorType.VALIDATION,
               status,
               data
             );
           case 500:
             return new AppError(
-              "Server error occurred. Please try again later.",
+              data?.detail || data?.message || "Server error occurred. Please try again later.",
               ErrorType.SERVER,
               status
             );
           default:
             return new AppError(
-              data?.message || fallbackMessage,
+              data?.detail || data?.message || fallbackMessage,
               ErrorType.UNKNOWN,
               status,
               data
