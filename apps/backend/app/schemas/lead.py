@@ -45,7 +45,7 @@ class LeadBase(BaseModel):
     # New Fields
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
-    travel_date: Optional[str] = None
+    travel_date: str = Field(..., description="Travel date is required")
     no_of_nights: Optional[int] = Field(None, ge=1)
     no_of_adults: Optional[int] = Field(None, ge=1)
     no_of_pax: Optional[int] = Field(None, ge=1)

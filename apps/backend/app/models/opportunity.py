@@ -67,6 +67,7 @@ class Opportunity(BaseDocument):
     is_queue: bool = False
     key_deal: bool = False
     country_of_origin: Optional[str] = None
+    segment: Optional[str] = "B2C"  # B2B or B2C
     
     # Departure
     departure_id: Optional[PydanticObjectId] = None

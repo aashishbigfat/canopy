@@ -87,7 +87,7 @@ const convertSchema = z.object({
     opportunity_name: z.string().optional(),
     opportunity_amount: z.coerce.number().optional(),
     opportunity_close_date: z.date().optional(),
-    travel_date: z.date().optional(),
+    travel_date: z.date({ message: "Travel date is required." }),
     destination_ids: z.array(z.string()).optional(),
     experience_id: z.string().optional(),
     no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
@@ -734,7 +734,7 @@ export function ConvertLeadDialog({
                                                         name="travel_date"
                                                         render={({ field }) => (
                                                             <FormItem className="flex flex-col">
-                                                                <FormLabel>Date of Travel</FormLabel>
+                                                                <FormLabel>Date of Travel *</FormLabel>
                                                                 <Popover>
                                                                     <PopoverTrigger asChild>
                                                                         <FormControl>

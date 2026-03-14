@@ -378,14 +378,6 @@ const leadFormSchema = z.object({
     segment: z.string().optional(),
     creation_type: z.enum(["manual", "auto"]).optional(),
     experience_id: z.string().optional(),
-}).superRefine((data, ctx) => {
-    if (data.segment === "B2B" && (!data.company || data.company.trim() === "")) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "Company name is required for B2B leads.",
-            path: ["company"],
-        });
-    }
 });
 
 type LeadFormValues = z.infer<typeof leadFormSchema>;
@@ -785,7 +777,7 @@ export function LeadForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Company Name {form.watch("segment") === "B2B" && <span className="text-red-500">*</span>}
+                                                    Company Name
                                                 </FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Acme Inc." className="h-9 bg-white" {...field} />

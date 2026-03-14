@@ -208,9 +208,11 @@ async def get_opportunities(
                     if dest:
                         dest_names.append(dest.name)
 
-            # Segment - derived or custom? 
-            # Default to "B2C" as per screenshot if not set
-            segment = opp.custom_fields.get("segment", "B2C")
+            # Segment - derived from model or account type
+            segment = getattr(opp, 'segment', None)
+            if not segment or segment == "B2C": # If default or missing, check account type
+                segment = "B2C" if is_person_account else "B2B"
+            
             creation_type = "Manual"
             if opp.lead_id:
                 creation_type = "Auto"
@@ -323,7 +325,10 @@ async def get_opportunity(
                 if dest:
                     dest_names.append(dest.name)
         
-        segment = opportunity.custom_fields.get("segment", "B2C")
+        segment = getattr(opportunity, 'segment', None)
+        if not segment or segment == "B2C":
+            segment = "B2C" if is_person_account else "B2B"
+        
         creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
             
         opp_response = OpportunityResponse.from_orm(opportunity)
@@ -432,7 +437,10 @@ async def update_opportunity(
                     dest_names.append(dest.name)
         opp_response.destination_names = dest_names
 
-        opp_response.segment = opportunity.custom_fields.get("segment", "B2C")
+        opp_response.segment = getattr(opportunity, 'segment', None)
+        if not opp_response.segment or opp_response.segment == "B2C":
+            opp_response.segment = "B2C" if opp_response.is_person_account else "B2B"
+            
         opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
 
         return opp_response

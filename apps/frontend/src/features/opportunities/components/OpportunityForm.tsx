@@ -62,7 +62,7 @@ const opportunityFormSchema = z.object({
     sales_stage_id: z.string().min(1, "Sales stage is required."),
     probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
     close_date: z.string().optional(),
-    travel_date: z.string().optional(),
+    travel_date: z.string().min(1, "Travel date is required."),
     experience_id: z.string().optional(),
     no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
     no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
@@ -554,7 +554,7 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
                         name="travel_date"
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel>Travel Date</FormLabel>
+                                <FormLabel>Travel Date *</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>

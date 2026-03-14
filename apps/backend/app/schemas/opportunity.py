@@ -17,7 +17,7 @@ class OpportunityBase(BaseModel):
     no_of_adults: Optional[int] = Field(None, ge=1)
     no_of_childs: Optional[int] = Field(None, ge=0)
     no_of_infants: Optional[int] = Field(None, ge=0)
-    travel_date: Optional[datetime] = None
+    travel_date: datetime = Field(..., description="Travel date is required")
     close_date: Optional[datetime] = None
     
     # Sales information
@@ -37,6 +37,7 @@ class OpportunityBase(BaseModel):
     
     # Additional fields
     country_of_origin: Optional[str] = Field(None, max_length=100)
+    segment: Optional[str] = "B2C"
     key_deal: bool = False
 
 

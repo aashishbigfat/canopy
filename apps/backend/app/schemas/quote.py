@@ -76,7 +76,7 @@ class QuoteBase(BaseModel):
     tax_percent: float = 0.0
     terms_and_conditions: Optional[str] = None
     notes: Optional[str] = None
-    travel_date: Optional[datetime] = None
+    travel_date: datetime = Field(..., description="Travel date is required")
     return_date: Optional[datetime] = None
     num_adults: int = 0
     num_children: int = 0

@@ -286,6 +286,23 @@ class LeadService(ActivityMixin):
             limit=limit
         )
         
+    def _extract_domain(self, email: Optional[str]) -> Optional[str]:
+        """Extract domain from email address, ignoring public providers"""
+        if not email or "@" not in email:
+            return None
+            
+        domain = email.split("@")[-1].lower()
+        public_domains = {
+            "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
+            "me.com", "live.com", "msn.com", "aol.com", "mail.com", "zoho.com",
+            "yandex.com", "protonmail.com", "tutanota.com", "gmail.co.in", "yahoo.co.in"
+        }
+        
+        if domain in public_domains:
+            return None
+            
+        return domain
+
     async def _find_duplicate_account(
         self,
         account_name: str,
@@ -294,7 +311,7 @@ class LeadService(ActivityMixin):
         is_person_account: bool,
         tenant_id: ObjectId
     ) -> Optional[ObjectId]:
-        """Find an existing account by name, email, or phone to prevent duplicates during conversion"""
+        """Find an existing account by name, email, phone, or domain to prevent duplicates during conversion"""
         from app.models.account import Account
         
         # 1. Check exact name match first
@@ -329,6 +346,25 @@ class LeadService(ActivityMixin):
             )
             if account:
                 return account.id
+        
+        # 4. Check domain match (for corporate accounts)
+        if not is_person_account and email:
+            domain = self._extract_domain(email)
+            if domain:
+                # Search for accounts with same domain in website or email
+                account = await Account.find_one(
+                    Account.tenant_id == tenant_id,
+                    Account.is_person_account == False,
+                    Account.deleted_at == None,
+                    {
+                        "$or": [
+                            {"email": {"$regex": f"@{domain}$", "$options": "i"}},
+                            {"website": {"$regex": domain, "$options": "i"}}
+                        ]
+                    }
+                )
+                if account:
+                    return account.id
                 
         return None
     
@@ -711,6 +747,7 @@ class LeadService(ActivityMixin):
                 opportunitable_type="Account" if not is_person_account else "PersonalAccount",
                 opportunitable_id=account_id,
                 lead_id=lead.id,
+                segment=lead.segment,
                 source_id=lead.source_id,
                 source_medium_id=lead.source_medium_id,
                 tenant_id=tenant_id,

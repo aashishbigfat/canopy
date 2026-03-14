@@ -65,7 +65,7 @@ const opportunityFormSchema = z.object({
     sales_stage_id: z.string().min(1, "Sales stage is required."),
     probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
     close_date: z.string().optional(),
-    travel_date: z.string().optional(),
+    travel_date: z.string().min(1, "Travel date is required."),
     experience_id: z.string().optional(),
     no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
     no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
@@ -298,12 +298,25 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                    {selectedAccountId && (
+                        <div className="flex items-center gap-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                            <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
+                            <Badge variant="outline" className={cn(
+                                "px-2 py-0.5 font-bold text-[10px] transition-colors",
+                                isPersonAccount 
+                                    ? "bg-orange-100 text-orange-700 border-orange-200" 
+                                    : "bg-blue-100 text-blue-700 border-blue-200"
+                            )}>
+                                {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
+                            </Badge>
+                        </div>
+                    )}
                     <div className="grid gap-6 md:grid-cols-2">
                         <FormField
                             control={form.control}
                             name="name"
                             render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="md:col-span-2">
                                     <FormLabel>Opportunity Name *</FormLabel>
                                     <FormControl>
                                         <Input placeholder="Enter opportunity name" {...field} />
@@ -312,6 +325,59 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                                 </FormItem>
                             )}
                         />
+
+                        {/* Account Field */}
+                        <FormField
+                            control={form.control}
+                            name="account_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Account</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={accountOptions.map(a => ({ label: a.name, value: a.id }))}
+                                            value={field.value}
+                                            onValueChange={(val) => {
+                                                field.onChange(val);
+                                                setSelectedAccountId(val);
+                                                const selectedOpt = accountOptions.find((a: any) => a.id === val);
+                                                const isPerson = selectedOpt ? (selectedOpt as any).is_person_account : false;
+                                                setIsPersonAccount(isPerson);
+                                                // Reset contact when account changes
+                                                form.setValue("contact_id", "");
+                                            }}
+                                            onSearch={handleAccountSearch}
+                                            isLoading={loadingAccounts}
+                                            placeholder="Search accounts..."
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Contact Field - Hidden if Person Account */}
+                        {!isPersonAccount && (
+                            <FormField
+                                control={form.control}
+                                name="contact_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Contact</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={accountContacts.map(c => ({ label: c.full_name || `${c.first_name} ${c.last_name}`, value: c.id }))}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder={loadingContacts ? "Loading contacts..." : (selectedAccountId ? "Select contact" : "Select an account first")}
+                                                disabled={!selectedAccountId || loadingContacts}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
                         <FormField
                             control={form.control}
                             name="amount"
@@ -461,7 +527,7 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                             name="travel_date"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Travel Date</FormLabel>
+                                    <FormLabel>Travel Date *</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <FormControl>
