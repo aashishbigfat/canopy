@@ -44,6 +44,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
 import {
     Table,
     TableBody,
@@ -473,114 +474,141 @@ export function OpportunityDetails({
 
                         {/* ── DETAILS TAB ── */}
                         <TabsContent value="details" className="p-6">
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Name</p>
-                                    <p className="text-sm font-bold text-slate-900 pt-1">{record.name}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</p>
-                                    <p className="text-sm font-semibold text-slate-900 pt-1">{record.account_name || record.contact_name || "-"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Owner</p>
-                                    <p className="text-sm font-semibold text-slate-900 pt-1">{record.owner_name || "-"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stage</p>
-                                    <p className="text-sm font-semibold text-slate-900 pt-1">
-                                        {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
-                                    <p className="text-lg font-bold text-slate-900">
-                                        {record.amount ? `₹${record.amount.toLocaleString()}` : "₹0"}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
-                                    <div className="flex items-center gap-3 pt-1">
-                                        <span className="text-base font-semibold">{record.probability || 0}%</span>
-                                        <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Revenue</p>
-                                    <p className="text-lg font-bold text-emerald-600">
-                                        ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
-                                    <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
-                                        {record.segment || "B2C"}
-                                    </Badge>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
-                                    <span className="text-sm font-medium pt-1 block text-slate-700">
-                                        {record.experience_name || "-"}
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
-                                    <span className="text-sm font-medium pt-1 block">
-                                        {record.travel_date ? format(new Date(record.travel_date), "PPP") : "Not Set"}
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
-                                    <span className="text-sm font-medium pt-1 block">
-                                        {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
-                                    <p className="text-sm font-semibold pt-1">{record.no_of_pax || "-"}</p>
-                                </div>
-                                {(record as any).no_of_nights > 0 && (
-                                    <div className="space-y-1">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
-                                        <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
-                                    </div>
-                                )}
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Modified</p>
-                                    <span className="text-sm font-medium pt-1 block">
-                                        {record.updated_at ? format(new Date(record.updated_at), "dd MMM yyyy | hh:mm a") : "-"}
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Source</p>
-                                    <span className="text-sm font-medium pt-1 block text-blue-600 cursor-pointer hover:underline">
-                                        {(record as any).source_name || "-"}
-                                    </span>
-                                </div>
-                                <div className="space-y-2 col-span-full mt-4">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
-                                    <div className="flex flex-wrap gap-2 pt-1">
-                                        {record.destination_names && record.destination_names.length > 0 ? (
-                                            record.destination_names.map((dest, i) => (
-                                                <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
-                                                    <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
-                                                    {dest}
+                                <div className="space-y-6">
+                                    <CollapsibleDetailSection
+                                        title="Opportunity Information"
+                                        icon={<Briefcase className="h-4 w-4" />}
+                                        defaultOpen={true}
+                                        className="border-slate-200"
+                                    >
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Name</p>
+                                                <p className="text-sm font-bold text-slate-900 pt-1">{record.name}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</p>
+                                                <p className="text-sm font-semibold text-slate-900 pt-1">{record.account_name || record.contact_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Owner</p>
+                                                <p className="text-sm font-semibold text-slate-900 pt-1">{record.owner_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stage</p>
+                                                <p className="text-sm font-semibold text-slate-900 pt-1">
+                                                    {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
+                                                <p className="text-lg font-bold text-slate-900">
+                                                    {record.amount ? `₹${record.amount.toLocaleString()}` : "₹0"}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
+                                                <div className="flex items-center gap-3 pt-1">
+                                                    <span className="text-base font-semibold">{record.probability || 0}%</span>
+                                                    <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Revenue</p>
+                                                <p className="text-lg font-bold text-emerald-600">
+                                                    ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
+                                                <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
+                                                    {record.segment || "B2C"}
                                                 </Badge>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-slate-400">No destinations specified</p>
-                                        )}
-                                    </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
+                                                <span className="text-sm font-medium pt-1 block text-slate-700">
+                                                    {record.experience_name || "-"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
+                                                <span className="text-sm font-medium pt-1 block">
+                                                    {record.travel_date ? format(new Date(record.travel_date), "PPP") : "Not Set"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
+                                                <span className="text-sm font-medium pt-1 block">
+                                                    {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
+                                                <p className="text-sm font-semibold pt-1">{record.no_of_pax || "-"}</p>
+                                            </div>
+                                            {(record as any).no_of_nights > 0 && (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
+                                                    <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Source</p>
+                                                <span className="text-sm font-medium pt-1 block text-blue-600 cursor-pointer hover:underline">
+                                                    {(record as any).source_name || "-"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-2 col-span-full mt-4">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                    {record.destination_names && record.destination_names.length > 0 ? (
+                                                        record.destination_names.map((dest, i) => (
+                                                            <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
+                                                                <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
+                                                                {dest}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-slate-400">No destinations specified</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1 col-span-full mt-2">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
+                                                <p className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">
+                                                    {record.description || "-"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CollapsibleDetailSection>
+
+                                    <CollapsibleDetailSection
+                                        title="System Information"
+                                        icon={<UserIcon className="h-4 w-4" />}
+                                        defaultOpen={false}
+                                        className="border-slate-200"
+                                    >
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Created By</p>
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{record.created_by_name || "Unknown"}</p>
+                                                    <span className="text-slate-400 text-[10px]">{format(new Date(record.created_at), "MMM d, yyyy HH:mm")}</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Modified By</p>
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{record.last_modified_by_name || record.created_by_name || "Unknown"}</p>
+                                                    <span className="text-slate-400 text-[10px]">{format(new Date(record.updated_at), "MMM d, yyyy HH:mm")}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CollapsibleDetailSection>
                                 </div>
-                                <div className="space-y-1 col-span-full mt-2">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
-                                    <p className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">
-                                        {record.description || "-"}
-                                    </p>
-                                </div>
-                            </div>
                         </TabsContent>
 
                         {/* ── ITINERARIES TAB ── */}

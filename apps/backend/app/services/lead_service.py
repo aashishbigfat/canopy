@@ -12,7 +12,7 @@ from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
 from app.models.user import User
 from app.models.lead_picklists import LeadStatus, Source
-from app.models.picklists import Industry, Rating
+from app.models.picklists import Industry
 from app.models.lead_custom_fields import UserLeadView
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.lead_repository import LeadRepository
@@ -1156,12 +1156,11 @@ class LeadService(ActivityMixin):
             Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
             User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
             Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
-            Rating.find(Rating.is_active == True).sort("+sorting").to_list(),
             Experience.find(Experience.tenant_id == tenant_id, Experience.is_active == True).sort("+sorting").to_list(),
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
-        lead_statuses, sources, users, industries, ratings, experiences = metadata_results
+        lead_statuses, sources, users, industries, experiences = metadata_results
         
         # Fetch both tenant-specific and global sales stages
         tenant_stages = await SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
@@ -1191,10 +1190,6 @@ class LeadService(ActivityMixin):
             "industries": [
                 {"id": str(i.id), "name": i.name}
                 for i in industries
-            ],
-            "ratings": [
-                {"id": str(r.id), "name": r.name}
-                for r in ratings
             ],
             "experiences": [
                 {"id": str(e.id), "name": e.name}

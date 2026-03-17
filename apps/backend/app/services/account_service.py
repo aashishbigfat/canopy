@@ -133,6 +133,10 @@ class AccountService(ActivityMixin):
         # Get owner information
         owner = await User.get(account.owner_id)
         
+        # Get creator and modifier information
+        creator = await User.get(account.created_by)
+        modifier = await User.get(account.last_modified_by_id) if account.last_modified_by_id else None
+        
         # Get related contacts
         related_contacts = []
         try:
@@ -293,6 +297,8 @@ class AccountService(ActivityMixin):
             "account_source_id": str(account.account_source_id) if account.account_source_id else None,
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
+            "created_by_name": creator.name if creator else None,
+            "last_modified_by_name": modifier.name if modifier else None,
             "related_contacts": related_contacts,
             "related_opportunities": related_opportunities,
             "related_tasks": related_tasks,

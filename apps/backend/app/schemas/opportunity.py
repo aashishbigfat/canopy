@@ -131,6 +131,8 @@ class OpportunityResponse(OpportunityBase):
     tenant_id: Annotated[str, BeforeValidator(str)]
     owner_id: Annotated[str, BeforeValidator(str)]
     created_by: Annotated[str, BeforeValidator(str)]
+    created_by_name: Optional[str] = None
+    last_modified_by_name: Optional[str] = None
     
     is_locked: bool = False
     locked_by: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None

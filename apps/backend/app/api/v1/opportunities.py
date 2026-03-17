@@ -325,6 +325,16 @@ async def get_opportunity(
                 if dest:
                     dest_names.append(dest.name)
         
+        # Resolve creator and modifier names
+        created_by_user = await UserDoc.get(opportunity.created_by)
+        created_by_name = created_by_user.name if created_by_user else "Unknown"
+        
+        last_modified_by_name = None
+        if opportunity.last_modified_by_id:
+            last_modified_by_user = await UserDoc.get(opportunity.last_modified_by_id)
+            if last_modified_by_user:
+                last_modified_by_name = last_modified_by_user.name
+        
         segment = getattr(opportunity, 'segment', None)
         if not segment or segment == "B2C":
             segment = "B2C" if is_person_account else "B2B"
@@ -345,6 +355,8 @@ async def get_opportunity(
         opp_response.contact_email = contact_email
         opp_response.contact_phone = contact_phone
         opp_response.destination_names = dest_names
+        opp_response.created_by_name = created_by_name
+        opp_response.last_modified_by_name = last_modified_by_name
         opp_response.segment = segment
         opp_response.creation_type = creation_type
             

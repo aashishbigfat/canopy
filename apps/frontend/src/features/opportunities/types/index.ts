@@ -49,6 +49,8 @@ export interface Opportunity {
     is_person_account?: boolean;
     experience_name?: string;
     sales_stage_name?: string;
+    created_by_name?: string;
+    last_modified_by_name?: string;
     tenant_id: string;
     created_by: string;
     view_count: number;

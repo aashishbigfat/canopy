@@ -110,7 +110,9 @@ class AccountResponse(AccountBase):
     owner_id: Optional[str] = None
     owner_name: Optional[str] = None
     created_by: str
+    created_by_name: Optional[str] = None
     last_modified_by_id: Optional[str] = None
+    last_modified_by_name: Optional[str] = None
     
     view_count: int = 0
     is_favorite: bool = False

@@ -40,6 +40,8 @@ export interface Account {
     parent_account_name?: string;
     rating_name?: string;
     owner_name?: string;
+    created_by_name?: string;
+    last_modified_by_name?: string;
 
     // Metadata
     view_count: number;

@@ -124,7 +124,15 @@ async def get_lead(
     # Increment view count
     await lead.increment_view_count()
     
-    return lead
+    # Resolve creator and modifier names for the response
+    creator = await User.get(lead.created_by)
+    modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
+    
+    lead_response = LeadResponse.model_validate(lead)
+    lead_response.created_by_name = creator.name if creator else "Unknown"
+    lead_response.last_modified_by_name = modifier.name if modifier else None
+    
+    return lead_response
 
 
 @router.put("/{lead_id}", response_model=LeadResponse)

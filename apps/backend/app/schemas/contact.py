@@ -89,7 +89,9 @@ class ContactResponse(ContactBase):
     tenant_id: str
     owner_id: str
     created_by: str
+    created_by_name: Optional[str] = None
     last_modified_by_id: Optional[str] = None
+    last_modified_by_name: Optional[str] = None
     
     account_name: Optional[str] = None
     

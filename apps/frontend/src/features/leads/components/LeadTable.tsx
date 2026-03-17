@@ -45,7 +45,8 @@ import { ConvertLeadDialog } from "./ConvertLeadDialog";
 export const getColumns = (
     statuses: LeadStatus[],
     sources: Source[],
-    users: User[]
+    users: User[],
+    experiences: { id: string; name: string }[]
 ): ColumnDef<Lead>[] => [
         {
             id: "select",
@@ -165,6 +166,15 @@ export const getColumns = (
             },
         },
         {
+            id: "experience",
+            header: "Experience",
+            cell: ({ row }) => {
+                const experienceId = row.original.experience_id;
+                const experience = experiences.find(e => e.id === experienceId || e.name === experienceId);
+                return <div className="text-sm text-gray-700">{experience?.name || experienceId || "-"}</div>;
+            },
+        },
+        {
             id: "segment",
             header: "Segment",
             cell: ({ row }) => {
@@ -281,7 +291,7 @@ export function LeadTable({
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
 
     const columns = React.useMemo(() => {
-        const baseColumns = getColumns(lead_statuses, sources, users);
+        const baseColumns = getColumns(lead_statuses, sources, users, experiences);
 
         if (baseColumns[0].id === "select") {
             baseColumns[0] = {

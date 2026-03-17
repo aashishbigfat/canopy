@@ -203,6 +203,10 @@ class ContactService(ActivityMixin):
             if account:
                 account_name = account.name
         
+        # Get creator and modifier information
+        creator = await User.get(contact.created_by)
+        modifier = await User.get(contact.last_modified_by_id) if contact.last_modified_by_id else None
+        
         # Get related opportunities
         related_opportunities = []
         try:
@@ -306,6 +310,8 @@ class ContactService(ActivityMixin):
             "owner_id": str(contact.owner_id),
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
+            "created_by_name": creator.name if creator else None,
+            "last_modified_by_name": modifier.name if modifier else None,
             "created_by": str(contact.created_by),
             "last_modified_by_id": str(contact.last_modified_by_id) if contact.last_modified_by_id else None,
             "view_count": contact.view_count,

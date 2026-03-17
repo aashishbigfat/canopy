@@ -111,6 +111,9 @@ class LeadResponse(BaseModel):
     tenant_id: Annotated[str, BeforeValidator(str)]
     owner_id: Annotated[str, BeforeValidator(str)]
     created_by: Annotated[str, BeforeValidator(str)]
+    created_by_name: Optional[str] = None
+    last_modified_by_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    last_modified_by_name: Optional[str] = None
 
     salutation: Optional[str] = None
     first_name: str
@@ -200,4 +203,5 @@ class LeadListResponse(BaseModel):
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     users: List[Dict[str, Any]] = Field(default_factory=list)
     industries: List[Dict[str, Any]] = Field(default_factory=list)
-    ratings: List[Dict[str, Any]] = Field(default_factory=list)
+    experiences: List[Dict[str, Any]] = Field(default_factory=list)
+    sales_stages: List[Dict[str, Any]] = Field(default_factory=list)

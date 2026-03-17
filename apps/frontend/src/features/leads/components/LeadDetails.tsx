@@ -13,7 +13,9 @@ import {
     CheckCircle2,
     Briefcase,
     ChevronLeft,
-    Trash2
+    Trash2,
+    Paperclip,
+    LucideIcon
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -22,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -32,7 +35,10 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Lead, LeadStatus, Source, User, Industry, Rating } from "../types";
+import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
+import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
+import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
+import { Lead, LeadStatus, Source, User, Industry } from "../types";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
 import { LeadFormDrawer } from "./LeadFormDrawer";
 import { leadsService } from "@/lib/api/services/leads.service";
@@ -45,7 +51,6 @@ interface LeadDetailsProps {
     sources: Source[];
     users: User[];
     industries: Industry[];
-    ratings: Rating[];
     experiences?: { id: string; name: string }[];
     sales_stages?: { id: string; name: string }[];
 }
@@ -56,7 +61,6 @@ export function LeadDetails({
     sources,
     users,
     industries,
-    ratings,
     experiences = [],
     sales_stages = []
 }: LeadDetailsProps) {
@@ -82,11 +86,10 @@ export function LeadDetails({
     const status = statuses.find(s => s.id === lead.lead_status_id);
     const source = sources.find(s => s.id === lead.source_id);
     const industry = industries.find(i => i.id === lead.industry_id);
-    const rating = ratings.find(r => r.id === lead.rating_id);
     const owner = users.find(u => u.id === lead.owner_id);
 
     return (
-        <div className="space-y-6">
+        <div className="container mx-auto px-4 py-6 max-w-7xl">
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
@@ -109,285 +112,265 @@ export function LeadDetails({
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* Header / Actions */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                    <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-                        <Link href="/leads">
-                            <ChevronLeft className="h-5 w-5" />
-                        </Link>
-                    </Button>
-                    <div>
-                        <div className="flex items-center gap-2">
-                            <h1 className="text-2xl font-bold tracking-tight">{lead.full_name}</h1>
-                            {lead.is_converted && (
-                                <Badge variant="secondary" className="bg-green-100 text-green-700 hover:bg-green-100 flex gap-1 items-center">
-                                    <CheckCircle2 className="h-3 w-3" />
-                                    Converted
-                                </Badge>
-                            )}
+            {/* High Fidelity Header */}
+            <EntityDetailHeader
+                type="Lead"
+                badge={lead.segment || "B2C"}
+                name={lead.full_name}
+                id={lead.id}
+                phone={lead.phone || lead.mobile}
+                email={lead.email}
+                ownerName={owner?.name}
+                onEdit={() => setIsEditDrawerOpen(true)}
+                onDelete={() => setIsDeleteOpen(true)}
+            />
+
+            <div className="flex flex-col lg:flex-row gap-6">
+                {/* Main Content (Left Column) */}
+                <div className="flex-1 min-w-0">
+                    <Tabs defaultValue="details" className="w-full">
+                        <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-11 p-0 gap-8">
+                            <TabsTrigger
+                                value="details"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Details
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="activity"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Activity
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="attachments"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Attachments
+                            </TabsTrigger>
+                        </TabsList>
+
+                        <div className="py-6">
+                            <TabsContent value="details" className="mt-0 space-y-6">
+                                {/* Lead Information */}
+                                <CollapsibleDetailSection
+                                    title="Lead Information"
+                                    icon={<UserIcon className="h-4 w-4" />}
+                                    defaultOpen={true}
+                                    className="border-slate-200"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salutation</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.salutation || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Name</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.full_name}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
+                                            <p className="text-sm font-medium text-blue-600 underline">{lead.email || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.phone || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.mobile || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Status</p>
+                                            <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">
+                                                {status?.name || "New"}
+                                            </Badge>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
+                                            <p className="text-sm font-medium text-slate-700">{industry?.name || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Owner</p>
+                                            <p className="text-sm font-medium text-slate-700">{owner?.name || "-"}</p>
+                                        </div>
+                                    </div>
+                                </CollapsibleDetailSection>
+
+                                {/* Company & Source */}
+                                <CollapsibleDetailSection
+                                    title="Company & Source"
+                                    icon={<Building2 className="h-4 w-4" />}
+                                    defaultOpen={true}
+                                    className="border-slate-200"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.company || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website</p>
+                                            <p className="text-sm font-medium text-blue-600 underline">{lead.website || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No of Employees</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.no_employees || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source</p>
+                                            <p className="text-sm font-medium text-slate-700">{source?.name || "Direct"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source Medium</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.source_medium || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Campaign Name</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.campaign_name || "-"}</p>
+                                        </div>
+                                    </div>
+                                </CollapsibleDetailSection>
+
+                                {/* Travel Requirements */}
+                                <CollapsibleDetailSection
+                                    title="Travel Requirements"
+                                    icon={<Calendar className="h-4 w-4" />}
+                                    defaultOpen={true}
+                                    className="border-slate-200"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Travel Date</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.travel_date || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nights</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.no_of_nights || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pax</p>
+                                            <p className="text-sm font-bold text-blue-700">{lead.no_of_pax || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fixed Departure?</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.is_fixed ? "Yes" : "No"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Experience</p>
+                                            <p className="text-sm font-medium text-slate-700">
+                                                {experiences.find((e: { id: string; name: string }) => e.id === lead.experience_id || e.name === lead.experience_id)?.name || lead.experience_id || "-"}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1 col-span-2">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Destinations</p>
+                                            <div className="flex flex-wrap gap-2 mt-1">
+                                                {lead.destinations && lead.destinations.length > 0 ? (
+                                                    lead.destinations.map((dest, i) => (
+                                                        <Badge key={i} variant="outline" className="bg-slate-50 text-xs text-slate-600 border-slate-200">
+                                                            {dest}
+                                                        </Badge>
+                                                    ))
+                                                ) : (
+                                                    <p className="text-sm text-slate-400">-</p>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </CollapsibleDetailSection>
+
+                                {/* Address Information */}
+                                <CollapsibleDetailSection
+                                    title="Address Information"
+                                    icon={<MapPin className="h-4 w-4" />}
+                                    defaultOpen={false}
+                                    className="border-slate-200"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Country</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.country || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">State/Province</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.state || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">City</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.city || "-"}</p>
+                                        </div>
+                                        <div className="space-y-1 md:col-span-2">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Street Address</p>
+                                            <p className="text-sm font-medium text-slate-700">{lead.street || "-"}</p>
+                                        </div>
+                                    </div>
+                                </CollapsibleDetailSection>
+
+                                {/* System Information */}
+                                <CollapsibleDetailSection
+                                    title="System Information"
+                                    icon={<UserIcon className="h-4 w-4" />}
+                                    defaultOpen={false}
+                                    className="border-slate-200"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Created By</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{lead.created_by_name || "Unknown"}</p>
+                                                <span className="text-slate-400 text-xs">at {new Date(lead.created_at).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Modified By</p>
+                                            <div className="flex items-center gap-2">
+                                                <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{lead.last_modified_by_name || lead.created_by_name || "Unknown"}</p>
+                                                <span className="text-slate-400 text-xs">at {new Date(lead.updated_at).toLocaleString()}</span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">View Count</p>
+                                            <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5">{lead.view_count}</Badge>
+                                        </div>
+                                    </div>
+                                </CollapsibleDetailSection>
+                            </TabsContent>
+
+                            <TabsContent value="activity" className="mt-0">
+                                {/* Standard Activity components could go here, or simple timeline */}
+                                <div className="p-4 border rounded-lg bg-slate-50/50">
+                                    <p className="text-sm text-slate-500 italic">Activity history is shown in the sidebar.</p>
+                                </div>
+                            </TabsContent>
+
+                            <TabsContent value="attachments" className="mt-0">
+                                <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50">
+                                    <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
+                                    <p className="text-slate-500">No attachments found.</p>
+                                    <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
+                                </div>
+                            </TabsContent>
                         </div>
-                        <p className="text-muted-foreground">
-                            {lead.title ? `${lead.title} at ` : ""}{lead.company || "No Company"}
-                        </p>
-                    </div>
+                    </Tabs>
                 </div>
 
-                <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setIsEditDrawerOpen(true)}>
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit
-                    </Button>
-                    <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => setIsDeleteOpen(true)}
-                    >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                    </Button>
-                    {!lead.is_converted ? (
-                        <Button
-                            className="bg-green-600 hover:bg-green-700 font-medium"
-                            size="sm"
+                {/* Sidebar (Right Column) */}
+                <div className="w-full lg:w-[380px] flex-shrink-0 space-y-6">
+                    {!lead.is_converted && (
+                         <Button
+                            className="w-full bg-green-600 hover:bg-green-700 font-bold h-11 text-sm shadow-md transition-all active:scale-95"
                             onClick={() => setIsConvertOpen(true)}
                         >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Convert Lead
-                        </Button>
-                    ) : lead.opportunity_id && (
-                        <Button variant="outline" size="sm" asChild>
-                            <Link href={`/opportunities/${lead.opportunity_id}`}>
-                                <Briefcase className="mr-2 h-4 w-4" />
-                                View Opportunity
-                            </Link>
+                            <CheckCircle2 className="mr-2 h-5 w-5" />
+                            CONVERT LEAD
                         </Button>
                     )}
-                </div>
-            </div>
 
-            <Separator />
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Main Content Area */}
-                <div className="lg:col-span-2 space-y-6">
-                    {/* Client Information */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <UserIcon className="h-5 w-5 text-blue-500" />
-                                Client Information
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Salutation</p>
-                                <p className="text-sm">{lead.salutation || "-"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Email</p>
-                                <div className="flex items-center gap-2">
-                                    <Mail className="h-3 w-3 text-slate-400" />
-                                    <span className="text-sm">{lead.email || "N/A"}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Phone</p>
-                                <div className="flex items-center gap-2">
-                                    <Phone className="h-3 w-3 text-slate-400" />
-                                    <span className="text-sm">{lead.phone || "N/A"}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Mobile</p>
-                                <div className="flex items-center gap-2">
-                                    <Phone className="h-3 w-3 text-slate-400" />
-                                    <span className="text-sm">{lead.mobile || "N/A"}</span>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Segment</p>
-                                <Badge variant="secondary" className={lead.segment === 'B2B' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}>
-                                    {lead.segment || "B2C"}
-                                </Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Company & Source */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Building2 className="h-5 w-5 text-indigo-500" />
-                                Company & Source
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Company Name</p>
-                                <p className="text-sm">{lead.company || "-"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">No of Employees</p>
-                                <p className="text-sm">{lead.no_employees || "-"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Website</p>
-                                <div className="flex items-center gap-2">
-                                    <Globe className="h-3 w-3 text-slate-400" />
-                                    <a href={lead.website?.startsWith('http') ? lead.website : `https://${lead.website}`} target="_blank" rel="noopener noreferrer" className="text-sm text-blue-600 hover:underline">
-                                        {lead.website || "N/A"}
-                                    </a>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Source</p>
-                                <p className="text-sm">{source?.name || "Direct"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Source Medium</p>
-                                <p className="text-sm">{lead.source_medium || "-"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Campaign Name</p>
-                                <p className="text-sm">{lead.campaign_name || "-"}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Location */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <MapPin className="h-5 w-5 text-red-500" />
-                                Location
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="grid md:grid-cols-2 gap-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Country</p>
-                                <p className="text-sm">{lead.country || "-"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">State</p>
-                                <p className="text-sm">{lead.state || "-"}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">City</p>
-                                <p className="text-sm">{lead.city || "-"}</p>
-                            </div>
-                            <div className="space-y-1 md:col-span-2">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Street Address</p>
-                                <p className="text-sm">{lead.street || "-"}</p>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                </div>
-
-                {/* Sidebar Column */}
-                <div className="space-y-6">
-                    {/* Travel Requirements */}
-                    <Card className="border-blue-100 bg-blue-50/30">
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Calendar className="h-5 w-5 text-blue-600" />
-                                Travel Requirements
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase">Travel Date</p>
-                                    <p className="text-sm font-semibold">{lead.travel_date || "-"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase">Nights</p>
-                                    <p className="text-sm">{lead.no_of_nights || "-"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase">Pax</p>
-                                    <p className="text-sm font-semibold text-blue-700">{lead.no_of_pax || "-"}</p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-medium text-muted-foreground uppercase">Fixed Departure?</p>
-                                    <p className="text-sm">{lead.is_fixed ? "Yes" : "No"}</p>
-                                </div>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Experience</p>
-                                <p className="text-sm font-medium">
-                                    {experiences.find(e => e.id === lead.experience_id)?.name || "-"}
-                                </p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Destinations</p>
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                    {lead.destinations && lead.destinations.length > 0 ? (
-                                        lead.destinations.map((dest, i) => (
-                                            <Badge key={i} variant="outline" className="bg-white text-xs">
-                                                {dest}
-                                            </Badge>
-                                        ))
-                                    ) : (
-                                        <p className="text-sm">-</p>
-                                    )}
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                    {/* Classification */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg">Classification</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Status</p>
-                                <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">
-                                    {status?.name || "New"}
-                                </Badge>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Industry</p>
-                                <span className="text-sm">{industry?.name || "N/A"}</span>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Rating</p>
-                                <span className="text-sm">{rating?.name || "N/A"}</span>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-xs font-medium text-muted-foreground uppercase">Lead Owner</p>
-                                <div className="flex items-center gap-2">
-                                    <div className="h-6 w-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] uppercase font-bold text-slate-600">
-                                        {owner?.name?.substring(0, 2) || "OW"}
-                                    </div>
-                                    <span className="text-sm">{owner?.name || "Unassigned"}</span>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* System Information */}
-                    <Card>
-                        <CardHeader className="pb-3">
-                            <CardTitle className="text-lg">System Information</CardTitle>
-                        </CardHeader>
-                        <CardContent className="space-y-3 text-sm">
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground text-xs uppercase">Created At</span>
-                                <span className="text-xs font-medium">{format(new Date(lead.created_at), "MMM d, yyyy HH:mm")}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground text-xs uppercase">Last Modified</span>
-                                <span className="text-xs font-medium">{format(new Date(lead.updated_at), "MMM d, yyyy HH:mm")}</span>
-                            </div>
-                            <div className="flex justify-between items-center">
-                                <span className="text-muted-foreground text-xs uppercase">View Count</span>
-                                <Badge variant="secondary" className="font-mono text-[10px] h-4 px-1.5">{lead.view_count}</Badge>
-                            </div>
-                        </CardContent>
-                    </Card>
+                    <EntityActivitySidebar
+                        entityType="Lead"
+                        entityId={lead.id}
+                        entityName={lead.full_name}
+                    />
                 </div>
             </div>
 

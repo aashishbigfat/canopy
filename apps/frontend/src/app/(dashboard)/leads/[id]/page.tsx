@@ -52,7 +52,6 @@ export default async function LeadPage(props: LeadPageProps) {
                     sources={metadataResponse.sources}
                     users={metadataResponse.users}
                     industries={metadataResponse.industries}
-                    ratings={metadataResponse.ratings}
                     experiences={metadataResponse.experiences}
                     sales_stages={metadataResponse.sales_stages}
                 />

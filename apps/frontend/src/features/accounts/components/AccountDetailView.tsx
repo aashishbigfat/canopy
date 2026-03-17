@@ -33,6 +33,7 @@ import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
+import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
 import { AccountFormDrawer } from "./AccountFormDrawer";
 import { OpportunitiesViewAllDialog } from "@/features/opportunities/components/OpportunitiesViewAllDialog";
 import { ContactsViewAllDialog } from "@/features/contacts/components/ContactsViewAllDialog";
@@ -303,14 +304,13 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                         </CardContent>
                                     </Card>
 
-                                    <Card>
-                                        <CardHeader className="pb-3 border-b bg-slate-50/50">
-                                            <CardTitle className="text-sm font-bold flex items-center gap-2">
-                                                <MapPin className="h-4 w-4 text-red-500" />
-                                                Address Information
-                                            </CardTitle>
-                                        </CardHeader>
-                                        <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                    <CollapsibleDetailSection
+                                        title="Address Information"
+                                        icon={<MapPin className="h-4 w-4" />}
+                                        defaultOpen={false}
+                                        className="border-slate-200"
+                                    >
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Street</p>
                                                 <p className="text-sm font-medium text-slate-700">{account.billing_street || "-"}</p>
@@ -331,8 +331,32 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Country</p>
                                                 <p className="text-sm font-medium text-slate-700">{account.billing_country || "-"}</p>
                                             </div>
-                                        </CardContent>
-                                    </Card>
+                                        </div>
+                                    </CollapsibleDetailSection>
+
+                                    <CollapsibleDetailSection
+                                        title="System Information"
+                                        icon={<UserIcon className="h-4 w-4" />}
+                                        defaultOpen={false}
+                                        className="border-slate-200"
+                                    >
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Created By</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{account.created_by_name || "Unknown"}</p>
+                                                    <span className="text-slate-400 text-xs">at {new Date(account.created_at).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Modified By</p>
+                                                <div className="flex items-center gap-2">
+                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{account.last_modified_by_name || account.created_by_name || "Unknown"}</p>
+                                                    <span className="text-slate-400 text-xs">at {new Date(account.updated_at).toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CollapsibleDetailSection>
                                 </div>
                             </TabsContent>
 

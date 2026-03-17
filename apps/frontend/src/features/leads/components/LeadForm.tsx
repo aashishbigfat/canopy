@@ -49,7 +49,7 @@ import { cn } from "@/lib/utils"
 import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
-import { Lead, LeadCreateData, LeadStatus, Source, Industry, Rating } from "../types";
+import { Lead, LeadCreateData, LeadStatus, Source, Industry } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
@@ -510,6 +510,16 @@ export function LeadForm({
 
         form.setValue("segment", detectedSegment);
     }, [email, form]);
+
+    // Set default experience to Luxury in create mode
+    useEffect(() => {
+        if (!initialData && experiences.length > 0 && !form.getValues("experience_id")) {
+            const luxuryExp = experiences.find(exp => exp.name.toLowerCase() === "luxury");
+            if (luxuryExp) {
+                form.setValue("experience_id", luxuryExp.id);
+            }
+        }
+    }, [experiences, initialData, form]);
 
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
@@ -1045,6 +1055,24 @@ export function LeadForm({
                                                         value={field.value}
                                                         onValueChange={field.onChange}
                                                         placeholder="Select Industry"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
+                                        name="experience_id"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={experiences.map(e => ({ label: e.name, value: e.id }))}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Experience"
                                                     />
                                                 </FormControl>
                                                 <FormMessage />
