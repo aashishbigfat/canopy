@@ -34,6 +34,7 @@ import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
 import { contactsService } from "@/lib/api/services/contacts.service";
+import { ContactFormDrawer } from "./ContactFormDrawer";
 import { toast } from "sonner";
 
 interface ContactDetailsProps {
@@ -48,6 +49,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
     const router = useRouter();
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -94,7 +96,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                 phone={contact.phone}
                 email={contact.email}
                 ownerName={contact.owner_name}
-                onEdit={() => router.push(`/contacts/${contact.id}/edit`)}
+                onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
             />
 
@@ -254,6 +256,16 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                     />
                 </div>
             </div>
+
+            <ContactFormDrawer
+                open={isEditDrawerOpen}
+                onOpenChange={(open) => {
+                    setIsEditDrawerOpen(open);
+                    if (!open) router.refresh();
+                }}
+                contactId={contact.id}
+                initialData={contact}
+            />
         </div>
     );
 }

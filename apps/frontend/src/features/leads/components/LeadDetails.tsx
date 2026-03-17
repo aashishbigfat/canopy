@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Lead, LeadStatus, Source, User, Industry, Rating } from "../types";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
+import { LeadFormDrawer } from "./LeadFormDrawer";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -63,6 +64,7 @@ export function LeadDetails({
     const [isConvertOpen, setIsConvertOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -132,11 +134,9 @@ export function LeadDetails({
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={`/leads/${lead.id}/edit`}>
+                    <Button variant="outline" size="sm" onClick={() => setIsEditDrawerOpen(true)}>
                             <Edit className="mr-2 h-4 w-4" />
                             Edit
-                        </Link>
                     </Button>
                     <Button
                         variant="destructive"
@@ -400,6 +400,22 @@ export function LeadDetails({
                 sales_stages={sales_stages}
                 onSuccess={() => {
                     router.push("/leads");
+                }}
+            />
+
+            <LeadFormDrawer
+                open={isEditDrawerOpen}
+                onOpenChange={(open) => {
+                    setIsEditDrawerOpen(open);
+                    if (!open) router.refresh();
+                }}
+                leadId={lead.id}
+                initialData={lead}
+                metadata={{
+                    statuses: statuses,
+                    sources: sources,
+                    industries: industries,
+                    experiences: experiences,
                 }}
             />
         </div>

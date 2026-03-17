@@ -56,6 +56,7 @@ class AccountBase(BaseModel):
     industry_id: Optional[str] = None
     rating_id: Optional[str] = None
     account_source_id: Optional[str] = None
+    owner_id: Optional[str] = None
 
 
 class AccountCreate(AccountBase):
@@ -97,6 +98,7 @@ class AccountUpdate(BaseModel):
     industry_id: Optional[str] = None
     rating_id: Optional[str] = None
     account_source_id: Optional[str] = None
+    owner_id: Optional[str] = None
     
     custom_fields: Optional[Dict[str, Any]] = None
 
@@ -105,15 +107,13 @@ class AccountResponse(AccountBase):
     """Schema for account response"""
     id: str
     tenant_id: str
-    owner_id: str
+    owner_id: Optional[str] = None
     owner_name: Optional[str] = None
     created_by: str
     last_modified_by_id: Optional[str] = None
     
     view_count: int = 0
     is_favorite: bool = False
-    
-    is_person_account: bool = False
     
     created_at: datetime
     updated_at: datetime
@@ -152,7 +152,6 @@ class AccountSearch(BaseModel):
 class AccountDetailResponse(AccountResponse):
     """Schema for detailed account view with related records"""
     # Owner information
-    owner_name: Optional[str] = None
     owner_email: Optional[str] = None
     
     # Related records
@@ -165,6 +164,3 @@ class AccountDetailResponse(AccountResponse):
     account_type_name: Optional[str] = None
     industry_name: Optional[str] = None
     rating_name: Optional[str] = None
-    
-    class Config:
-        from_attributes = True

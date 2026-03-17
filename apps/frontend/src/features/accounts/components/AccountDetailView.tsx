@@ -33,6 +33,11 @@ import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
+import { AccountFormDrawer } from "./AccountFormDrawer";
+import { OpportunitiesViewAllDialog } from "@/features/opportunities/components/OpportunitiesViewAllDialog";
+import { ContactsViewAllDialog } from "@/features/contacts/components/ContactsViewAllDialog";
+import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
+import { ContactFormDrawer } from "@/features/contacts/components/ContactFormDrawer";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { accountService } from "../services/accountService";
 import { toast } from "sonner";
@@ -60,6 +65,11 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
     const router = useRouter();
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+    const [isViewAllOpen, setIsViewAllOpen] = useState(false);
+    const [isContactsViewAllOpen, setIsContactsViewAllOpen] = useState(false);
+    const [isNewOppDrawerOpen, setIsNewOppDrawerOpen] = useState(false);
+    const [isNewContactDrawerOpen, setIsNewContactDrawerOpen] = useState(false);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -119,7 +129,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                 phone={account.phone}
                 email={account.email}
                 ownerName={account.owner_name}
-                onEdit={() => router.push(`/${isB2C ? 'person-accounts' : 'accounts'}/${account.id}/edit`)}
+                onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
                 onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
                 isChangingOwner={changeOwnerMutation.isPending}
@@ -155,35 +165,58 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                 {/* Related Contacts - Hidden for B2C */}
                                 {!isB2C && (
                                     <div className="space-y-4">
-                                        <div className="flex items-center justify-between">
-                                            <h2 className="text-sm font-bold flex items-center gap-2">
-                                                <div className="h-6 w-6 rounded bg-emerald-100 flex items-center justify-center text-emerald-600">
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <h2 className="text-sm text-slate-500 font-medium flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center text-white">
                                                     <UserIcon className="h-3 w-3" />
                                                 </div>
-                                                Contacts ({account.related_contacts?.length || 0})
+                                                Contact ({account.related_contacts?.length || 0})
+                                                <span 
+                                                    className="text-blue-500 text-xs hover:underline cursor-pointer ml-1"
+                                                    onClick={() => setIsContactsViewAllOpen(true)}
+                                                >
+                                                    View All
+                                                </span>
                                             </h2>
-                                            <Button variant="outline" size="sm" asChild className="h-8 text-xs font-bold">
+                                            <Button variant="default" size="sm" asChild className="h-7 text-xs bg-blue-500 hover:bg-blue-600">
                                                 <Link href={`/contacts/create?accountId=${account.id}`}>
-                                                    <Plus className="h-3 w-3 mr-1" />
                                                     New
                                                 </Link>
                                             </Button>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                             {account.related_contacts?.map((contact) => (
                                                 <Link href={`/contacts/${contact.id}`} key={contact.id} className="block">
-                                                    <Card className="hover:border-blue-300 transition-all shadow-sm h-full">
-                                                        <CardContent className="p-4 flex items-center justify-between">
-                                                            <div className="flex items-center gap-3">
-                                                                <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                                                                    <UserIcon className="h-4 w-4" />
-                                                                </div>
-                                                                <div>
-                                                                    <p className="text-sm font-bold text-blue-600">{contact.first_name} {contact.last_name}</p>
-                                                                    <p className="text-xs text-slate-500">{contact.title || "No Title"}</p>
+                                                    <Card className="hover:border-blue-300 transition-all shadow-sm h-full rounded-md border-slate-200">
+                                                        <CardContent className="p-2.5 relative">
+                                                            <div className="flex gap-2.5 items-start">
+                                                                <div className="space-y-1 w-full">
+                                                                    <p className="text-[13px] text-blue-500 hover:underline cursor-pointer font-bold leading-tight truncate">
+                                                                        {contact.first_name} {contact.last_name}
+                                                                    </p>
+                                                                    
+                                                                    <div className="flex items-center gap-1.5 text-slate-600 mt-2">
+                                                                        <div className="h-4 w-4 rounded-sm bg-slate-100 flex items-center justify-center shrink-0">
+                                                                            <UserIcon className="h-2.5 w-2.5 text-slate-500" />
+                                                                        </div>
+                                                                        <span className="text-[11px] font-bold text-slate-500 truncate">{contact.title || "No Title"}</span>
+                                                                    </div>
+                                                                    
+                                                                    <div className="flex items-center gap-1.5 text-slate-600 mt-1">
+                                                                        <div className="h-4 w-4 rounded-sm bg-slate-100 flex items-center justify-center shrink-0">
+                                                                            <svg xmlns="http://www.w3.org/2000/xyz" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail h-2.5 w-2.5 text-slate-500"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                                                                        </div>
+                                                                        <span className="text-[11px] font-bold text-slate-500 truncate">{contact.email || "No Email"}</span>
+                                                                    </div>
+                                                                    
+                                                                    <div className="flex items-center gap-1.5 text-slate-600 mt-1">
+                                                                        <div className="h-4 w-4 rounded-sm bg-slate-100 flex items-center justify-center shrink-0">
+                                                                            <svg xmlns="http://www.w3.org/2000/xyz" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-phone h-2.5 w-2.5 text-slate-500"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                                                        </div>
+                                                                        <span className="text-[11px] font-bold text-slate-500 truncate">{contact.phone || contact.mobile || "-"}</span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                            <ArrowUpRight className="h-4 w-4 text-slate-300" />
                                                         </CardContent>
                                                     </Card>
                                                 </Link>
@@ -194,20 +227,25 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
 
                                 {/* Related Opportunities */}
                                 <div className="space-y-4 pt-4 border-t">
-                                    <div className="flex items-center justify-between">
-                                        <h2 className="text-sm font-bold flex items-center gap-2">
-                                            <div className="h-6 w-6 rounded bg-orange-100 flex items-center justify-center text-orange-600">
-                                                <Briefcase className="h-3 w-3" />
-                                            </div>
-                                            Opportunities ({account.related_opportunities?.length || 0})
-                                        </h2>
-                                        <Button variant="outline" size="sm" asChild className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold">
-                                            <Link href={`/opportunities/create?accountId=${account.id}`}>
-                                                <Plus className="h-3 w-3 mr-1" />
-                                                New
-                                            </Link>
-                                        </Button>
-                                    </div>
+                                        <div className="flex items-center justify-between border-b pb-2">
+                                            <h2 className="text-sm text-slate-500 font-medium flex items-center gap-2">
+                                                <div className="h-6 w-6 rounded-full bg-orange-500 flex items-center justify-center text-white pb-[1px]">
+                                                    <Briefcase className="h-[10px] w-[10px]" />
+                                                </div>
+                                                Opportunities({account.related_opportunities?.length || 0})
+                                                <span 
+                                                    className="text-blue-500 text-xs hover:underline cursor-pointer ml-1"
+                                                    onClick={() => setIsViewAllOpen(true)}
+                                                >
+                                                    View All
+                                                </span>
+                                            </h2>
+                                            <Button variant="default" size="sm" asChild className="h-7 text-xs bg-blue-500 hover:bg-blue-600">
+                                                <Link href={`/opportunities/create?accountId=${account.id}`}>
+                                                    New
+                                                </Link>
+                                            </Button>
+                                        </div>
                                     <RelatedOpportunitiesCards
                                         opportunities={account.related_opportunities || []}
                                         accountId={account.id}
@@ -319,6 +357,49 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                     />
                 </div>
             </div>
+
+            {/* Opportunities View All Modal */}
+            <OpportunitiesViewAllDialog
+                open={isViewAllOpen}
+                onOpenChange={setIsViewAllOpen}
+                opportunities={account.related_opportunities || []}
+                accountId={account.id}
+                onNew={() => setIsNewOppDrawerOpen(true)}
+            />
+
+            {/* Contacts View All Modal */}
+            <ContactsViewAllDialog
+                open={isContactsViewAllOpen}
+                onOpenChange={setIsContactsViewAllOpen}
+                contacts={account.related_contacts || []}
+                accountId={account.id}
+                onNew={() => setIsNewContactDrawerOpen(true)}
+            />
+
+            {/* New Record Drawers */}
+            <OpportunityFormDrawer 
+                open={isNewOppDrawerOpen}
+                onOpenChange={setIsNewOppDrawerOpen}
+                initialAccountId={account.id}
+            />
+
+            <ContactFormDrawer 
+                open={isNewContactDrawerOpen}
+                onOpenChange={setIsNewContactDrawerOpen}
+                initialData={{ account_id: account.id }}
+                initialAccountName={account.name}
+            />
+
+            <AccountFormDrawer
+                open={isEditDrawerOpen}
+                onOpenChange={(open) => {
+                    setIsEditDrawerOpen(open);
+                    if (!open) router.refresh();
+                }}
+                isPersonAccount={isB2C}
+                accountId={account.id}
+                initialData={account}
+            />
         </div>
     );
 }

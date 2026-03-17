@@ -80,9 +80,15 @@ type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
 interface OpportunityFormProps {
     initialAccountId?: string;
     initialContactId?: string;
+    /** Called after successful create instead of router.push */
+    onSuccess?: () => void;
+    /** Called when cancel is clicked instead of router.push */
+    onCancel?: () => void;
+    /** When true, renders compact layout for drawer panels */
+    isDrawer?: boolean;
 }
 
-export function OpportunityForm({ initialAccountId, initialContactId }: OpportunityFormProps = {}) {
+export function OpportunityForm({ initialAccountId, initialContactId, onSuccess, onCancel, isDrawer = false }: OpportunityFormProps = {}) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const createOpportunity = useCreateOpportunity();
@@ -311,8 +317,12 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
                     const result = await createOpportunity.mutateAsync(payload);
 
                     toast.success("Opportunity created successfully");
-                    router.push(`/opportunities/${result.id}`);
-                    router.refresh();
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push(`/opportunities/${result.id}`);
+                        router.refresh();
+                    }
                 } catch (error: any) {
                     const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to create opportunity"));
                     if (!mapped) throw error;
@@ -787,14 +797,14 @@ export function OpportunityForm({ initialAccountId, initialContactId }: Opportun
 
                 <div className="flex gap-4">
                     <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                        {isLoading ? "Creating..." : "Create Opportunity"}
+                        {isLoading ? "Saving..." : "Save"}
                     </Button>
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => router.push("/opportunities")}
+                        onClick={() => onCancel ? onCancel() : router.push("/opportunities")}
                     >
-                        Cancel
+                        {isDrawer ? "Close" : "Cancel"}
                     </Button>
                 </div>
             </form>

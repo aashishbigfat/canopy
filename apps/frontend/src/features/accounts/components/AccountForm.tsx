@@ -76,6 +76,9 @@ interface AccountFormProps {
     isPersonAccount?: boolean;
     initialData?: any;
     id?: string;
+    onSuccess?: () => void;
+    onCancel?: () => void;
+    isDrawer?: boolean;
 }
 
 interface MetaData {
@@ -86,7 +89,7 @@ interface MetaData {
     users: { id: string, name: string }[];
 }
 
-export function AccountForm({ isPersonAccount = false, initialData, id }: AccountFormProps) {
+export function AccountForm({ isPersonAccount = false, initialData, id, onSuccess, onCancel, isDrawer = false }: AccountFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [metaData, setMetaData] = useState<MetaData | null>(null);
@@ -131,15 +134,6 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
         };
         fetchMetaData();
     }, []);
-
-    const copyBillingToShipping = () => {
-        const values = form.getValues();
-        form.setValue("shipping_street", values.billing_street);
-        form.setValue("shipping_city", values.billing_city);
-        form.setValue("shipping_state", values.billing_state);
-        form.setValue("shipping_zip", values.billing_zip);
-        form.setValue("shipping_country", values.billing_country);
-    };
 
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
@@ -187,8 +181,12 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                         await accountService.createAccount(payload as any);
                         toast.success("Account created successfully");
                     }
-                    router.push(isPersonAccount ? "/person-accounts" : "/accounts");
-                    router.refresh();
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push(isPersonAccount ? "/person-accounts" : "/accounts");
+                        router.refresh();
+                    }
                 } catch (error: any) {
                     const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save account"));
                     if (!mapped) throw error;
@@ -348,260 +346,153 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                     </div>
                 </div>
 
-                {!isPersonAccount && (
-                    <>
-                        <Separator />
-                        {/* Classification */}
-                        <div>
-                            <h3 className="text-lg font-medium mb-4">Classification</h3>
-                            <div className="grid gap-6 md:grid-cols-2">
-                                <FormField
-                                    control={form.control}
-                                    name="industry_id"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Industry</FormLabel>
-                                            <FormControl>
-                                                <SearchableSelect
-                                                    options={metaData?.industries.map(i => ({ label: i.name, value: i.id })) || []}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Select Industry"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="rating_id"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Rating</FormLabel>
-                                            <FormControl>
-                                                <SearchableSelect
-                                                    options={metaData?.ratings.map(r => ({ label: r.name, value: r.id })) || []}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Select Rating"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="account_source_id"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Account Source</FormLabel>
-                                            <FormControl>
-                                                <SearchableSelect
-                                                    options={metaData?.sources.map(s => ({ label: s.name, value: s.id })) || []}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Select Source"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="owner_id"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Owner</FormLabel>
-                                            <FormControl>
-                                                <SearchableSelect
-                                                    options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Select Owner"
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </div>
-                    </>
-                )}
+                <Separator />
+                {/* Classification */}
+                <div>
+                    <h3 className="text-lg font-medium mb-4">Classification</h3>
+                    <div className="grid gap-6 md:grid-cols-2">
+                        <FormField
+                            control={form.control}
+                            name="industry_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Industry</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={metaData?.industries.map(i => ({ label: i.name, value: i.id })) || []}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="Select Industry"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="account_source_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Account Source</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={metaData?.sources.map(s => ({ label: s.name, value: s.id })) || []}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="Select Source"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="owner_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Owner</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
+                                            value={field.value}
+                                            onValueChange={field.onChange}
+                                            placeholder="Select Owner"
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
 
                 <Separator />
 
                 {/* Address Information */}
                 <div>
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-medium">Address Information</h3>
-                        <Button type="button" variant="outline" size="sm" onClick={copyBillingToShipping}>
-                            Copy Billing to Shipping
-                        </Button>
-                    </div>
-
-                    <div className="grid gap-10 md:grid-cols-2">
-                        {/* Billing */}
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-semibold uppercase text-slate-500">Billing Address</h4>
+                    <h3 className="text-lg font-medium mb-4">Address Information</h3>
+                    <div className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="billing_street"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Street</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="123 Main St" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
-                                name="billing_street"
+                                name="billing_city"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Street</FormLabel>
+                                        <FormLabel>City</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="123 Main St" {...field} />
+                                            <Input placeholder="City" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="billing_city"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>City</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="City" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="billing_state"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>State</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="State" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="billing_zip"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Zip Code</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="12345" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="billing_country"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Country</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Country" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                            <FormField
+                                control={form.control}
+                                name="billing_state"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>State</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="State" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </div>
-
-                        {/* Shipping */}
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-semibold uppercase text-slate-500">Shipping Address</h4>
+                        <div className="grid grid-cols-2 gap-4">
                             <FormField
                                 control={form.control}
-                                name="shipping_street"
+                                name="billing_zip"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Street</FormLabel>
+                                        <FormLabel>Zip Code</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="123 Main St" {...field} />
+                                            <Input placeholder="12345" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_city"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>City</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="City" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_state"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>State</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="State" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_zip"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Zip Code</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="12345" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_country"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Country</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Country" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
+                            <FormField
+                                control={form.control}
+                                name="billing_country"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Country</FormLabel>
+                                        <FormControl>
+                                            <Input placeholder="Country" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         </div>
                     </div>
                 </div>
 
-
-
-                <div className="flex justify-end gap-4 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => router.back()}>
-                        Cancel
+                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10")}>
+                    <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>
+                        {isDrawer ? "Close" : "Cancel"}
                     </Button>
                     <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Account" : "Create Account")}
+                        {isLoading ? (id ? "Updating..." : "Creating...") : (isDrawer ? (id ? "Update" : "Save") : (id ? "Update Account" : "Create Account"))}
                     </Button>
                 </div>
             </form>

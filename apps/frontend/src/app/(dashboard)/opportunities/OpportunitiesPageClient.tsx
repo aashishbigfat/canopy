@@ -14,8 +14,6 @@ import {
     Lightbulb,
     ChevronDown
 } from "lucide-react";
-import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GroupedOpportunityTable } from "@/features/opportunities/components/GroupedOpportunityTable";
@@ -30,12 +28,14 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
 
 type ViewMode = "list" | "kanban";
 
 export default function OpportunitiesPageClient() {
     const [viewMode, setViewMode] = useState<ViewMode>("list");
     const [groupByOwner, setGroupByOwner] = useState(true);
+    const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
     const router = useRouter();
 
     const opportunityViews = [
@@ -113,11 +113,12 @@ export default function OpportunitiesPageClient() {
                         >
                             <LayoutGrid className="h-4 w-4" />
                         </Button>
-                        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm">
-                            <Link href="/opportunities/create">
+                        <Button 
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm"
+                            onClick={() => setIsCreateDrawerOpen(true)}
+                        >
                                 <Plus className="h-4 w-4" />
                                 New Opportunity
-                            </Link>
                         </Button>
                         <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
                             <RotateCw className="h-4 w-4 text-slate-600" />
@@ -168,6 +169,12 @@ export default function OpportunitiesPageClient() {
                     </div>
                 )}
             </div>
+
+            <OpportunityFormDrawer
+                open={isCreateDrawerOpen}
+                onOpenChange={setIsCreateDrawerOpen}
+                stages={normalizedStages}
+            />
         </div>
     );
 }

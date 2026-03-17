@@ -30,6 +30,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 
 const contactFormSchema = z.object({
     first_name: z.string().min(2, {
@@ -66,9 +67,12 @@ interface ContactFormProps {
     id?: string;
     /** Name of the current account (for the info banner) */
     initialAccountName?: string;
+    onSuccess?: () => void;
+    onCancel?: () => void;
+    isDrawer?: boolean;
 }
 
-export function ContactForm({ initialData, id, initialAccountName }: ContactFormProps) {
+export function ContactForm({ initialData, id, initialAccountName, onSuccess, onCancel, isDrawer = false }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
@@ -127,8 +131,12 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         await contactsService.createContact(data as any);
                         toast.success("Contact created successfully");
                     }
-                    router.push("/contacts");
-                    router.refresh();
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push("/contacts");
+                        router.refresh();
+                    }
                 } catch (error: any) {
                     const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save contact"));
                     if (!mapped) throw error;
@@ -264,12 +272,12 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                     />
 
                 </div>
-                <div className="flex justify-end gap-4 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => router.back()}>
-                        Cancel
+                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10")}>
+                    <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>
+                        {isDrawer ? "Close" : "Cancel"}
                     </Button>
                     <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Contact" : "Create Contact")}
+                        {isLoading ? "Saving..." : "Save"}
                     </Button>
                 </div>
             </form>

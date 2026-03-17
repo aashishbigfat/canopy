@@ -78,8 +78,8 @@ export interface AccountCreateData {
     industry_id?: string;
     rating_id?: string;
     account_source_id?: string;
-    acc_parent_id?: string;
     is_person_account?: boolean;
+    owner_id?: string;
 }
 
 export interface AccountFilters {

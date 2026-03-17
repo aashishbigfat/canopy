@@ -8,10 +8,14 @@ import {
     MapPin,
     IndianRupee,
     MoreVertical,
-    Plus
+    Plus,
+    Briefcase,
+    User,
+    Target
 } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
+import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +29,7 @@ interface Opportunity {
     no_of_nights?: number;
     travel_date?: string;
     close_date?: string;
+    owner_name?: string;
 }
 
 interface RelatedOpportunitiesCardsProps {
@@ -52,82 +57,55 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId 
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
             {opportunities.map((opp) => (
-                <Card key={opp.id} className="group hover:border-blue-300 transition-all shadow-sm overflow-hidden">
-                    <CardContent className="p-4">
-                        <div className="flex justify-between items-start mb-4">
-                            <div className="space-y-1">
-                                <Link
-                                    href={`/opportunities/${opp.id}`}
-                                    className="text-sm font-bold text-blue-600 hover:underline block truncate max-w-[200px]"
-                                >
-                                    {opp.name}
-                                </Link>
-                                <div className="flex items-center gap-1.5 text-xs text-slate-500">
-                                    <MapPin className="h-3 w-3" />
-                                    <span>Multiple Destinations</span>
-                                </div>
-                            </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400">
-                                <MoreVertical className="h-4 w-4" />
-                            </Button>
+                <Card key={opp.id} className="group hover:border-blue-300 transition-all shadow-sm overflow-hidden rounded-md border-slate-200 bg-white">
+                    <CardContent className="p-2.5">
+                        <div className="mb-0.5">
+                            <Link
+                                href={`/opportunities/${opp.id}`}
+                                className="text-[13px] text-blue-500 hover:underline block truncate font-bold leading-tight"
+                            >
+                                {opp.name}
+                            </Link>
                         </div>
-
-                        <div className="grid grid-cols-3 gap-2 mb-4">
-                            <div className="bg-slate-50 rounded p-2 text-center">
-                                <div className="flex items-center justify-center gap-1 text-slate-500 mb-1">
-                                    <Users className="h-3 w-3" />
-                                    <span className="text-[10px] uppercase font-bold tracking-wider">Pax</span>
-                                </div>
-                                <span className="text-sm font-semibold text-slate-700">{opp.no_of_pax || 0}</span>
+                        
+                        <div className="space-y-1 mt-2.5">
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <Briefcase className="h-[13px] w-[13px] shrink-0" />
+                                <span className="text-[11px] font-bold text-slate-400 truncate">{opp.name}</span>
                             </div>
-                            <div className="bg-slate-50 rounded p-2 text-center">
-                                <div className="flex items-center justify-center gap-1 text-slate-500 mb-1">
-                                    <Moon className="h-3 w-3" />
-                                    <span className="text-[10px] uppercase font-bold tracking-wider">Nights</span>
-                                </div>
-                                <span className="text-sm font-semibold text-slate-700">{opp.no_of_nights || 0}</span>
+                            
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <Users className="h-[13px] w-[13px] shrink-0" />
+                                <span className="text-[11px] font-bold text-slate-600">{opp.no_of_pax || 0}</span>
                             </div>
-                        </div>
 
-                        <div className="space-y-2 border-t pt-4">
-                            <div className="flex items-center justify-between text-[10px] text-slate-500">
-                                <div className="flex items-center gap-1.5">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>Travel: {opp.travel_date ? format(new Date(opp.travel_date), "MMM dd, yyyy") : "TBD"}</span>
-                                </div>
-                                <div className="flex items-center gap-1.5 text-right">
-                                    <Calendar className="h-3 w-3" />
-                                    <span>Close: {opp.close_date ? format(new Date(opp.close_date), "MMM dd, yyyy") : "TBD"}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="mt-4 flex items-center justify-between">
-                            <Badge variant="secondary" className="bg-blue-50 text-blue-700 hover:bg-blue-100 border-none px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
-                                {opp.sales_stage_name || "Prospecting"}
-                            </Badge>
-                            {opp.amount && (
-                                <span className="text-sm font-bold text-slate-900 flex items-center">
-                                    <IndianRupee className="h-3 w-3" />
-                                    {opp.amount.toLocaleString()}
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <Calendar className="h-[13px] w-[13px] shrink-0" />
+                                <span className="text-[11px] font-bold text-slate-600">
+                                    {opp.travel_date ? format(new Date(opp.travel_date), "dd MMM yyyy") : "TBD"}
                                 </span>
-                            )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                <Target className="h-[13px] w-[13px] shrink-0 text-slate-500" />
+                                <span className={cn(
+                                    "text-[11px] font-bold",
+                                    opp.sales_stage_name?.toLowerCase().includes('lost') ? "text-red-500" : "text-blue-500"
+                                )}>
+                                    {opp.sales_stage_name || "RECEIVED"}
+                                </span>
+                            </div>
+
+                            <div className="flex items-center gap-2 text-slate-500">
+                                <User className="h-[13px] w-[13px] shrink-0" />
+                                <span className="text-[11px] font-bold text-slate-600 truncate">{opp.owner_name || "Admin User"}</span>
+                            </div>
                         </div>
                     </CardContent>
                 </Card>
             ))}
-
-            <Link
-                href={createUrl}
-                className="flex flex-col items-center justify-center gap-2 border-2 border-dashed rounded-lg p-6 hover:bg-slate-50 hover:border-blue-300 transition-all group"
-            >
-                <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-all">
-                    <Plus className="h-5 w-5" />
-                </div>
-                <span className="text-xs font-bold text-slate-900">New</span>
-            </Link>
         </div>
     );
 }

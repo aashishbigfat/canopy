@@ -83,9 +83,15 @@ type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
 interface OpportunityEditFormProps {
     opportunity: Opportunity;
     stages: SalesStage[] | StageWithProbability[];
+    /** Called after successful update instead of router.push */
+    onSuccess?: () => void;
+    /** Called when cancel is clicked instead of router.push */
+    onCancel?: () => void;
+    /** When true, hides back button and renders compact layout */
+    isDrawer?: boolean;
 }
 
-export function OpportunityEditForm({ opportunity, stages }: OpportunityEditFormProps) {
+export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, isDrawer = false }: OpportunityEditFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const updateOpportunity = useUpdateOpportunity();
@@ -272,8 +278,12 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
                     });
 
                     toast.success("Opportunity updated successfully");
-                    router.push(`/opportunities/${opportunity.id}`);
-                    router.refresh();
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push(`/opportunities/${opportunity.id}`);
+                        router.refresh();
+                    }
                 } catch (error: any) {
                     const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to update opportunity"));
                     if (!mapped) throw error;
@@ -288,13 +298,15 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center gap-4">
-                <Button variant="ghost" size="icon" asChild className="h-8 w-8">
-                    <Link href={`/opportunities/${opportunity.id}`}>
-                        <ChevronLeft className="h-5 w-5" />
-                    </Link>
-                </Button>
-            </div>
+            {!isDrawer && (
+                <div className="flex items-center gap-4">
+                    <Button variant="ghost" size="icon" asChild className="h-8 w-8">
+                        <Link href={`/opportunities/${opportunity.id}`}>
+                            <ChevronLeft className="h-5 w-5" />
+                        </Link>
+                    </Button>
+                </div>
+            )}
 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
@@ -758,14 +770,14 @@ export function OpportunityEditForm({ opportunity, stages }: OpportunityEditForm
 
                     <div className="flex gap-4">
                         <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                            {isLoading ? "Saving..." : "Save Changes"}
+                            {isLoading ? "Saving..." : isDrawer ? "Update" : "Save Changes"}
                         </Button>
                         <Button
                             type="button"
                             variant="outline"
-                            onClick={() => router.push(`/opportunities/${opportunity.id}`)}
+                            onClick={() => onCancel ? onCancel() : router.push(`/opportunities/${opportunity.id}`)}
                         >
-                            Cancel
+                            {isDrawer ? "Close" : "Cancel"}
                         </Button>
                     </div>
                 </form>

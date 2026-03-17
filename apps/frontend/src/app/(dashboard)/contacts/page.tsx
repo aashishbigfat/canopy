@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { CreateContactButton } from "@/features/contacts/components/CreateContactButton";
 
 export const dynamic = "force-dynamic";
 
@@ -43,12 +44,7 @@ export default async function ContactsPage() {
                         Manage your key contacts and people.
                     </p>
                 </div>
-                <Button asChild>
-                    <Link href="/contacts/create">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Contact
-                    </Link>
-                </Button>
+                <CreateContactButton />
             </div>
 
             <ContactTable data={contacts.contacts} />

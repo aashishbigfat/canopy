@@ -68,6 +68,7 @@ import {
     useChangeOpportunityOwner
 } from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
+import { OpportunityFormDrawer } from "./OpportunityFormDrawer";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -88,6 +89,7 @@ export function OpportunityDetails({
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
     const { data: reactiveOpportunity } = useOpportunity(opportunity.id);
     // Use reactive data if available, fallback to initial prop
     const record = reactiveOpportunity || opportunity;
@@ -254,8 +256,8 @@ export function OpportunityDetails({
                                     <input type="checkbox" readOnly className="rounded border-slate-300" />
                                 </div>
                             </div>
-                            <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" asChild>
-                                <Link href={`/opportunities/${record.id}/edit`}>Edit</Link>
+                            <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" onClick={() => setIsEditDrawerOpen(true)}>
+                                Edit
                             </Button>
                             <Button
                                 variant="destructive"
@@ -349,9 +351,9 @@ export function OpportunityDetails({
                             <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Supplier</TabsTrigger>
                             <TabsTrigger value="attachments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Attachments</TabsTrigger>
                             <span className="flex items-center px-4 py-3">
-                                <Link href={`/opportunities/${record.id}/edit`} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
+                                <button onClick={() => setIsEditDrawerOpen(true)} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
                                     <Edit className="h-3.5 w-3.5" /> Edit
-                                </Link>
+                                </button>
                             </span>
                         </TabsList>
 
@@ -746,6 +748,17 @@ export function OpportunityDetails({
                     </Card>
                 </div>
             </div>
+
+            <OpportunityFormDrawer
+                open={isEditDrawerOpen}
+                onOpenChange={(open) => {
+                    setIsEditDrawerOpen(open);
+                    if (!open) router.refresh();
+                }}
+                opportunityId={record.id}
+                opportunity={record}
+                stages={stages}
+            />
         </div>
     );
 }

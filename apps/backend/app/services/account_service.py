@@ -1,7 +1,7 @@
 """
 Account service layer - Business logic for Account operations
 """
-from typing import List, Optional, Dict
+from typing import Optional, List, Dict, Any
 from bson import ObjectId
 from datetime import datetime
 from app.models.account import Account
@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.account import AccountCreate, AccountUpdate, AccountSearch
 from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
+import json
 
 class AccountService(ActivityMixin):
     """Service for Account business logic"""
@@ -22,15 +23,21 @@ class AccountService(ActivityMixin):
         account_data: AccountCreate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        custom_fields: list = None,
-        attachments: list = None
+        custom_fields: Optional[List[Dict[str, Any]]] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None
     ) -> Account:
         """Create a new account with custom fields and attachments"""
         
+        data = account_data.model_dump(exclude_unset=True)
+        # Use provided owner_id if available, otherwise default to current user
+        owner_id = user_id
+        if data.get("owner_id"):
+            owner_id = ObjectId(data.pop("owner_id"))
+            
         account = Account(
-            **account_data.model_dump(exclude_unset=True),
+            **data,
             tenant_id=tenant_id,
-            owner_id=user_id,
+            owner_id=owner_id,
             created_by=user_id
         )
         
@@ -167,16 +174,24 @@ class AccountService(ActivityMixin):
                 Opportunity.deleted_at == None
             ).to_list()
             
-            # --- N+1 OPTIMIZATION: Bulk fetch SalesStages ---
+            # --- N+1 OPTIMIZATION: Bulk fetch SalesStages and Owners ---
             stage_ids = list({opp.sales_stage_id for opp in opportunities if opp.sales_stage_id})
+            owner_ids = list({opp.owner_id for opp in opportunities if opp.owner_id})
+            
             stages_map = {}
             if stage_ids:
                 stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
                 stages_map = {str(stage.id): stage.name for stage in stages}
-            # ------------------------------------------------
+                
+            users_map = {}
+            if owner_ids:
+                owners = await User.find({"_id": {"$in": owner_ids}}).to_list()
+                users_map = {str(u.id): u.name for u in owners}
+            # -----------------------------------------------------------
             
             for opp in opportunities:
                 stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
+                owner_name = users_map.get(str(opp.owner_id)) if opp.owner_id else None
                 
                 related_opportunities.append({
                     "id": str(opp.id),
@@ -184,6 +199,8 @@ class AccountService(ActivityMixin):
                     "amount": opp.amount,
                     "sales_stage_id": str(opp.sales_stage_id) if opp.sales_stage_id else None,
                     "sales_stage_name": stage_name,
+                    "owner_id": str(opp.owner_id) if opp.owner_id else None,
+                    "owner_name": owner_name,
                     "close_date": opp.close_date.isoformat() if opp.close_date else None,
                     "probability": opp.probability,
                     "no_of_pax": opp.no_of_pax,

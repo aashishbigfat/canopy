@@ -5,6 +5,7 @@ import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
 
 export const dynamic = "force-dynamic";
 
@@ -43,12 +44,7 @@ export default async function PersonAccountsPage() {
                         Manage individual customers and personal accounts.
                     </p>
                 </div>
-                <Button asChild>
-                    <Link href="/accounts/create?type=person">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Person Account
-                    </Link>
-                </Button>
+                <CreateAccountButton isPerson />
             </div>
 
             <PersonAccountTable data={accounts.accounts} />
