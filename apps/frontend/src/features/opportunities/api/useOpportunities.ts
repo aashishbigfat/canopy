@@ -44,10 +44,31 @@ export const useUpdateOpportunity = () => {
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Partial<OpportunityCreateData> }) =>
             opportunitiesService.updateOpportunity(id, data),
-        onError: () => {
+        onMutate: async ({ id, data }) => {
+            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+            await queryClient.cancelQueries({ queryKey: ["opportunities", id] });
+
+            // Snapshot the previous value
+            const previousOpportunity = queryClient.getQueryData(["opportunities", id]);
+
+            // Optimistically update to the new value
+            queryClient.setQueryData(["opportunities", id], (old: any) => {
+                if (!old) return old;
+                return { ...old, ...data };
+            });
+
+            // Return a context object with the snapshotted value
+            return { previousOpportunity };
+        },
+        onError: (err, variables, context) => {
+            // If the mutation fails, use the context returned from onMutate to roll back
+            if (context?.previousOpportunity) {
+                queryClient.setQueryData(["opportunities", (context.previousOpportunity as any).id], context.previousOpportunity);
+            }
             toast.error("Failed to update opportunity");
         },
         onSettled: (data) => {
+            // Always refetch after error or success to keep server & client in sync
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             if (data) {
                 queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
