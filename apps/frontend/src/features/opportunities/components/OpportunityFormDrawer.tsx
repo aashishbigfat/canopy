@@ -71,6 +71,9 @@ export function OpportunityFormDrawer({
 
     const handleSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+        if (opportunityId) {
+            queryClient.invalidateQueries({ queryKey: ["opportunities", opportunityId] });
+        }
         onOpenChange(false);
         setEditData(undefined);
     };

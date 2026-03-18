@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Mail,
     Phone,
@@ -96,6 +96,13 @@ export function OpportunityDetails({
     const record = reactiveOpportunity || opportunity;
 
     const [selectedStageId, setSelectedStageId] = useState<string>(record.sales_stage_id);
+
+    // Sync selectedStageId when record.sales_stage_id changes (e.g. after update)
+    useEffect(() => {
+        if (record.sales_stage_id) {
+            setSelectedStageId(record.sales_stage_id);
+        }
+    }, [record.sales_stage_id]);
 
 
     const stage = stages.find(s => s.id === record.sales_stage_id);
