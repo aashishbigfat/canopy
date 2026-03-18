@@ -3,6 +3,7 @@ import { accountService } from "../../../features/accounts/services/accountServi
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import Link from "next/link";
 import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
 

@@ -1,8 +1,7 @@
-from __future__ import annotations
 """
 Opportunity service layer - Business logic for sales pipeline management
 """
-from typing import List, Optional, Dict, Tuple, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Tuple
 from bson import ObjectId
 from datetime import datetime
 from app.models.opportunity import Opportunity
@@ -13,10 +12,6 @@ from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.opportunity_repository import OpportunityRepository
-
-if TYPE_CHECKING:
-    from app.models.user import User
-    from app.models.opportunity_picklists import SalesStage
 
 class OpportunityService(ActivityMixin):
     """Service for Opportunity business logic"""
@@ -31,8 +26,8 @@ class OpportunityService(ActivityMixin):
         opp_data: OpportunityCreate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        custom_fields: Optional[List[Dict[str, Any]]] = None,
-        destination_ids: Optional[List[ObjectId]] = None
+        custom_fields: list = None,
+        destination_ids: list = None
     ) -> Opportunity:
         """Create a new opportunity"""
         
@@ -154,9 +149,9 @@ class OpportunityService(ActivityMixin):
         if opp.is_locked and opp.locked_by != user_id:
             raise ValueError("Opportunity is locked by another user")
         
-        # Track changes with explicit typing to satisfy linter
-        old_values: Dict[str, Any] = {}
-        updated_fields: Dict[str, Any] = {}
+        # Track changes
+        old_values = {}
+        updated_fields = {}
         
         # Update fields
         update_data = opp_data.model_dump(exclude_unset=True)
@@ -212,7 +207,8 @@ class OpportunityService(ActivityMixin):
     
     async def delete_opportunity(self, opp_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
         """Soft delete an opportunity and remove its history"""
-        # Note: OpportunityHistory is now imported at top-level
+        from app.models.opportunity_picklists import OpportunityHistory
+        
         opp = await self.get_opportunity(opp_id, tenant_id)
         
         if not opp:

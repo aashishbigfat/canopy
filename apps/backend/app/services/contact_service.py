@@ -1,20 +1,14 @@
-from __future__ import annotations
 """
 Contact service layer - Business logic for Contact operations
 """
-from typing import List, Optional, Dict, Any, TYPE_CHECKING
+from typing import List, Optional, Dict
 from bson import ObjectId
 from datetime import datetime
-from fastapi import HTTPException
 from app.models.contact import Contact
 from app.models.account_contact import AccountContact
 from app.schemas.contact import ContactCreate, ContactUpdate
 from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
-
-if TYPE_CHECKING:
-    from app.models.opportunity import Opportunity
-    from app.models.account import Account
 
 class ContactService(ActivityMixin):
     """Service for Contact business logic"""
@@ -87,8 +81,8 @@ class ContactService(ActivityMixin):
         contact_data: ContactCreate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        custom_fields: Optional[List[Dict[str, Any]]] = None,
-        account_ids: Optional[List[ObjectId]] = None
+        custom_fields: list = None,
+        account_ids: list = None
     ) -> Contact:
         """Create a new contact"""
         
@@ -443,9 +437,9 @@ class ContactService(ActivityMixin):
                         
                         await opp.save()
 
-        # Track changes with explicit typing to satisfy linter
-        old_values: Dict[str, Any] = {}
-        updated_fields: Dict[str, Any] = {}
+        # Track changes
+        old_values = {}
+        updated_fields = {}
 
         for field, value in update_data.items():
             old_values[field] = getattr(contact, field, None)
@@ -476,7 +470,7 @@ class ContactService(ActivityMixin):
     
     async def delete_contact(self, contact_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
         """Soft delete a contact with hierarchy checks"""
-        # Note: Internal imports moved to top-level TYPE_CHECKING and module-level where safe
+        from fastapi import HTTPException
         from app.models.opportunity import Opportunity
         
         contact = await self.get_contact(contact_id, tenant_id)

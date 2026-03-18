@@ -1,26 +1,21 @@
-from __future__ import annotations
 """
 Lead service layer - Business logic for Lead operations
 """
-from typing import List, Optional, Dict, Tuple, Any, TYPE_CHECKING
+from typing import List, Optional, Dict, Tuple
 from bson import ObjectId
 from datetime import datetime, timedelta
-
-if TYPE_CHECKING:
-    from app.models.lead import Lead
-    from app.models.destination import DestinationLead
-    from app.schemas.lead import LeadCreate, LeadUpdate, LeadConvert
-    from app.services.activity_log_service import ActivityLogService
-    from app.services.notification_service import NotificationService
-    from app.models.user import User
-    from app.models.lead_picklists import LeadStatus, Source
-    from app.models.picklists import Industry
-    from app.models.lead_custom_fields import UserLeadView
-    from app.repositories.lead_repository import LeadRepository
-
+from app.models.lead import Lead
+from app.models.destination import DestinationLead
+from app.schemas.lead import LeadCreate, LeadUpdate, LeadConvert
+from app.services.activity_log_service import ActivityLogService
 from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
+from app.models.user import User
+from app.models.lead_picklists import LeadStatus, Source
+from app.models.picklists import Industry
+from app.models.lead_custom_fields import UserLeadView
 from app.core.cache import invalidate_tenant_cache
+from app.repositories.lead_repository import LeadRepository
 
 
 class LeadService(ActivityMixin):
@@ -28,8 +23,6 @@ class LeadService(ActivityMixin):
     
     def __init__(self):
         super().__init__()
-        from app.services.activity_log_service import ActivityLogService
-        from app.repositories.lead_repository import LeadRepository
         self.activity_service = ActivityLogService()
         self.notification_service = NotificationService()
         self.repository = LeadRepository()
@@ -54,7 +47,6 @@ class LeadService(ActivityMixin):
         """Find the next user for assignment using Round-Robin (oldest last_assigned_at)"""
         # Pick a user who is active and available for assignment
         # Sort by last_assigned_at ascending to get the one who hasn't been assigned for the longest
-        from app.models.user import User
         available_users = await User.find(
             User.tenant_id == tenant_id,
             User.is_active == True,
@@ -75,9 +67,9 @@ class LeadService(ActivityMixin):
         lead_data: LeadCreate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        user_name: Optional[str] = None,
-        custom_fields: Optional[List[Dict[str, Any]]] = None,
-        destination_ids: Optional[List[ObjectId]] = None,
+        user_name: str = None,
+        custom_fields: list = None,
+        destination_ids: list = None,
         auto_assign: bool = False
     ) -> Lead:
         """Create a new lead with comprehensive activity logging and deduplication"""
@@ -101,7 +93,6 @@ class LeadService(ActivityMixin):
         # Store original data for activity logging
         original_data = lead_data.model_dump(exclude_unset=True)
         
-        from app.models.lead import Lead
         lead = Lead(
             **lead_data.model_dump(exclude_unset=True, exclude={'destination_ids'}),
             tenant_id=tenant_id,
@@ -113,7 +104,6 @@ class LeadService(ActivityMixin):
         
         # Link destinations
         if destination_ids or lead_data.destination_ids:
-            from app.models.destination import DestinationLead
             dest_ids = destination_ids or lead_data.destination_ids
             for dest_id in dest_ids:
                 pivot = DestinationLead(
@@ -168,7 +158,6 @@ class LeadService(ActivityMixin):
     async def get_lead(self, lead_id: str, tenant_id: ObjectId) -> Optional[Lead]:
         """Get lead by ID (allows soft-deleted/converted leads)"""
         # We allow converted leads here to avoid 404 errors in the UI after conversion
-        from app.models.lead import Lead
         try:
             return await Lead.find_one(
                 Lead.id == ObjectId(lead_id),
@@ -183,7 +172,7 @@ class LeadService(ActivityMixin):
         lead_data: LeadUpdate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        user_name: Optional[str] = None
+        user_name: str = None
     ) -> Optional[Lead]:
         """Update a lead with comprehensive activity logging"""
         lead = await self.get_lead(lead_id, tenant_id)
@@ -206,8 +195,8 @@ class LeadService(ActivityMixin):
                 raise ValueError(f"A lead with this contact information already exists: {duplicate.first_name} {duplicate.last_name}")
 
         # Store original values for change tracking
-        original_values: Dict[str, Any] = {}
-        updated_fields: Dict[str, Any] = {}
+        original_values = {}
+        updated_fields = {}
         
         # Update fields and track changes
         update_data = lead_data.model_dump(exclude_unset=True)
@@ -253,7 +242,7 @@ class LeadService(ActivityMixin):
         lead_id: str,
         tenant_id: ObjectId,
         user_id: ObjectId,
-        user_name: Optional[str] = None
+        user_name: str = None
     ) -> bool:
         """Soft delete a lead with comprehensive activity logging"""
         lead = await self.get_lead(lead_id, tenant_id)
@@ -1056,9 +1045,9 @@ class LeadService(ActivityMixin):
         new_owner_id: ObjectId,
         current_user_id: ObjectId,
         tenant_id: ObjectId,
-        user_name: Optional[str] = None,
-        ip_address: Optional[str] = None,
-        user_agent: Optional[str] = None
+        user_name: str = None,
+        ip_address: str = None,
+        user_agent: str = None
     ) -> Optional[Lead]:
         """Change lead owner with comprehensive activity logging"""
         lead = await self.get_lead(lead_id, tenant_id)
@@ -1160,24 +1149,18 @@ class LeadService(ActivityMixin):
         # 2. Fetch Metadata in parallel (except sales stages which need special handling)
         import asyncio
         from app.models.opportunity_picklists import Experience, SalesStage
-        from app.models.lead_picklists import LeadStatus, Source
-        from app.models.user import User
-        from app.models.picklists import Industry
         
         # Fetch regular metadata in parallel
-        metadata_results = await asyncio.gather(
+        metadata_tasks = [
             LeadStatus.find(LeadStatus.is_active == True).sort("+sorting").to_list(),
             Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
             User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
             Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
             Experience.find(Experience.tenant_id == tenant_id, Experience.is_active == True).sort("+sorting").to_list(),
-        )
+        ]
         
-        lead_statuses: List[LeadStatus] = metadata_results[0]
-        sources: List[Source] = metadata_results[1]
-        users: List[User] = metadata_results[2]
-        industries: List[Industry] = metadata_results[3]
-        experiences: List[Experience] = metadata_results[4]
+        metadata_results = await asyncio.gather(*metadata_tasks)
+        lead_statuses, sources, users, industries, experiences = metadata_results
         
         # Fetch both tenant-specific and global sales stages
         tenant_stages = await SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
