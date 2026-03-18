@@ -1,15 +1,22 @@
+from __future__ import annotations
 """
 Account service layer - Business logic for Account operations
 """
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, TYPE_CHECKING
 from bson import ObjectId
 from datetime import datetime
+from fastapi import HTTPException
 from app.models.account import Account
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountUpdate, AccountSearch
 from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
 import json
+
+if TYPE_CHECKING:
+    from app.models.contact import Contact
+    from app.models.account_contact import AccountContact
+    from app.models.opportunity import Opportunity
 
 class AccountService(ActivityMixin):
     """Service for Account business logic"""
@@ -355,7 +362,7 @@ class AccountService(ActivityMixin):
     
     async def delete_account(self, account_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
         """Soft delete an account with hierarchy checks"""
-        from fastapi import HTTPException
+        # Note: Internal imports moved to top-level TYPE_CHECKING and module-level where safe
         from app.models.contact import Contact
         from app.models.account_contact import AccountContact
         from app.models.opportunity import Opportunity

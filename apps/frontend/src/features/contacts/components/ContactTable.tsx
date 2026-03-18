@@ -13,7 +13,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { MoreHorizontal } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -109,6 +109,7 @@ export const columns: ColumnDef<Contact>[] = [
         header: "Phone",
         cell: ({ row }) => <div className="text-sm">{row.getValue("phone") || "-"}</div>,
     },
+    /* 
     {
         accessorKey: "status", // Note: Contact type doesn't have status, this might be another issue
         header: "Status",
@@ -116,6 +117,7 @@ export const columns: ColumnDef<Contact>[] = [
             <div className="capitalize text-sm">{row.getValue("status") || "Active"}</div>
         ),
     },
+    */
     {
         id: "actions",
         enableHiding: false,
