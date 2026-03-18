@@ -469,11 +469,27 @@ class ContactService(ActivityMixin):
         return contact
     
     async def delete_contact(self, contact_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
-        """Soft delete a contact"""
+        """Soft delete a contact with hierarchy checks"""
+        from fastapi import HTTPException
+        from app.models.opportunity import Opportunity
+        
         contact = await self.get_contact(contact_id, tenant_id)
         
         if not contact:
             return False
+        
+        # Check hierarchy constraints: Can't delete if active opportunities exist
+        active_opps_count = await Opportunity.find(
+            Opportunity.contact_id == contact.id,
+            Opportunity.tenant_id == tenant_id,
+            Opportunity.deleted_at == None
+        ).count()
+        
+        if active_opps_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete contact with associated opportunities. Please delete the opportunities first."
+            )
         
         await contact.soft_delete()
         

@@ -354,12 +354,71 @@ class AccountService(ActivityMixin):
         return account
     
     async def delete_account(self, account_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
-        """Soft delete an account"""
+        """Soft delete an account with hierarchy checks"""
+        from fastapi import HTTPException
+        from app.models.contact import Contact
+        from app.models.account_contact import AccountContact
+        from app.models.opportunity import Opportunity
+
         account = await self.get_account(account_id, tenant_id)
         
         if not account:
             return False
         
+        # Check hierarchy constraints
+        if account.is_person_account:
+            # Person Account: Check for active opportunities
+            active_opps_count = await Opportunity.find(
+                Opportunity.account_id == account.id,
+                Opportunity.tenant_id == tenant_id,
+                Opportunity.deleted_at == None
+            ).count()
+            
+            if active_opps_count > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot delete person account with associated opportunities. Please delete the opportunities first."
+                )
+        else:
+            # Regular Account: Check for active contacts
+            # Check primary link
+            active_contacts_count = await Contact.find(
+                Contact.account_id == account.id,
+                Contact.tenant_id == tenant_id,
+                Contact.deleted_at == None
+            ).count()
+            
+            if active_contacts_count > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot delete account with associated contacts. Please delete the contacts first."
+                )
+            
+            # Check pivot links
+            pivots_count = await AccountContact.find(
+                AccountContact.account_id == account.id,
+                AccountContact.tenant_id == tenant_id
+            ).count()
+            
+            if pivots_count > 0:
+                # Double check if any of these pivot contacts are active
+                pivots = await AccountContact.find(
+                    AccountContact.account_id == account.id,
+                    AccountContact.tenant_id == tenant_id
+                ).to_list()
+                contact_ids = [p.contact_id for p in pivots]
+                active_pivot_contacts = await Contact.find(
+                    {"_id": {"$in": contact_ids}},
+                    Contact.tenant_id == tenant_id,
+                    Contact.deleted_at == None
+                ).count()
+                
+                if active_pivot_contacts > 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot delete account with associated contacts. Please delete the contacts first."
+                    )
+
         await account.soft_delete()
         
         # Log deletion

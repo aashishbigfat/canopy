@@ -206,11 +206,18 @@ class OpportunityService(ActivityMixin):
         return opp
     
     async def delete_opportunity(self, opp_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
-        """Soft delete an opportunity"""
+        """Soft delete an opportunity and remove its history"""
+        from app.models.opportunity_picklists import OpportunityHistory
+        
         opp = await self.get_opportunity(opp_id, tenant_id)
         
         if not opp:
             return False
+            
+        # Hard delete all history records for this opportunity
+        await OpportunityHistory.find(
+            OpportunityHistory.opportunity_id == opp.id
+        ).delete()
         
         await opp.soft_delete()
         
