@@ -51,7 +51,13 @@ export interface TaskFilters {
 }
 
 export type TaskResponse = Task;
-export type TasksResponse = PaginatedResponse<Task>;
+export interface TasksResponse {
+    tasks: Task[];
+    total: number;
+    page: number;
+    per_page: number;
+    pages: number;
+}
 
 
 // --- Events ---
