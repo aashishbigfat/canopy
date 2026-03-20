@@ -1,20 +1,23 @@
 /**
  * Central env for API base URL.
  *
- * TWO backends are supported:
- *   - Local:  NEXT_PUBLIC_API_URL        (default, e.g. http://localhost:8000/api/v1)
- *   - Remote: NEXT_PUBLIC_REMOTE_API_URL (deployed, e.g. http://15.206.79.199:8000/api/v1)
+ * Server-side (SSR / NextAuth authorize):
+ *   Always uses NEXT_PUBLIC_API_URL — must be an absolute URL with a hostname.
+ *   A relative "/api/v1" is invalid for server-side fetch() calls.
  *
- * How to switch (client-side only):
- *   ?apiUrl=remote   → switches to the deployed backend and persists choice in localStorage
- *   ?apiUrl=local    → switches back to local backend
- *   No param         → uses whatever was persisted, falling back to NEXT_PUBLIC_API_URL
- *
- * Server-side (SSR) always uses NEXT_PUBLIC_API_URL (no localStorage available).
+ * Client-side:
+ *   Auto-detects between local and deployed backend based on hostname.
+ *   Can be overridden with ?apiUrl=remote|local query param.
  */
 
+// Full absolute URL to the deployed backend, read from Vercel env vars.
+// NEXT_PUBLIC_API_URL must be set in Vercel project settings to:
+//   https://tutterfly-backend.bigfat.ai/api/v1
 const LOCAL_API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-const REMOTE_API_BASE = "/api/v1";
+
+// On Vercel/production the "remote" base must also be the real absolute URL.
+// Never use a relative path like "/api/v1" — server-side fetch() needs a full hostname.
+const REMOTE_API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://tutterfly-backend.bigfat.ai/api/v1";
 
 const STORAGE_KEY = "tutterfly_api_target"; // "local" | "remote" | "auto"
 

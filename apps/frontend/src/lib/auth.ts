@@ -14,7 +14,10 @@ export const authOptions: NextAuthOptions = {
             async authorize(credentials) {
                 if (!credentials?.email || !credentials?.password) return null;
 
-                const backendUrl = `${getApiBaseUrlNoSlash()}/auth/login`;
+                // The backend has an alias for /auth/login at the root domain.
+                // We strip out the "/api/v1" suffix from the base URL so we hit the root.
+                const baseUrl = getApiBaseUrlNoSlash().replace(/\/api\/v1$/, "");
+                const backendUrl = `${baseUrl}/auth/login`;
                 console.log("[Auth] Calling backend at", backendUrl);
                 try {
                     const res = await fetch(backendUrl, {
