@@ -6,7 +6,7 @@ import { getToken } from "next-auth/jwt";
  * Protects routes that require auth (session from backend /api/v1/auth/login).
  * All API calls from the app already use NEXT_PUBLIC_API_URL (env) which includes /api/v1.
  */
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/register"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/register", "/coming-soon"];
 const AUTH_API = "/api/auth";
 
 export async function middleware(req: NextRequest) {
