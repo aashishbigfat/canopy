@@ -10,9 +10,29 @@ from datetime import datetime
 import uuid
 import json
 
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
+from fastapi.responses import JSONResponse as _JSONResponse
+import logging as _logging
+
+_logger = _logging.getLogger(__name__)
+
+def _custom_rate_limit_handler(request, exc):
+    """
+    Custom handler replacing slowapi's default.
+    slowapi can pass a redis ConnectionError here (not a RateLimitExceeded),
+    which crashes because ConnectionError has no .detail attribute.
+    We handle both cases gracefully.
+    """
+    if isinstance(exc, RateLimitExceeded):
+        return _JSONResponse(
+            status_code=429,
+            content={"error": f"Rate limit exceeded: {exc.detail}"},
+        )
+    # Redis ConnectionError or any other unexpected exception from the limiter
+    _logger.warning("Rate limiter backend error (Redis unreachable?): %s", exc)
+    # Fail open: let the request through rather than returning a 500
+    return None
 
 from app.core.config import settings
 from app.core.rate_limiter import limiter
@@ -43,7 +63,7 @@ app = FastAPI(
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
 # Attach limiter state to app for SlowAPI middleware discovery
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 # Activity logging middleware

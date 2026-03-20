@@ -1,11 +1,16 @@
 import json
+import logging
 import redis.asyncio as redis
 from fastapi.encoders import jsonable_encoder
 from fastapi_cache import FastAPICache
 from fastapi_cache.backends.redis import RedisBackend
+from fastapi_cache.backends.inmemory import InMemoryBackend
 from fastapi_cache.coder import Coder
 from app.core.config import settings
 from bson import ObjectId
+
+logger = logging.getLogger(__name__)
+
 
 class CustomJsonCoder(Coder):
     @classmethod
@@ -20,15 +25,31 @@ class CustomJsonCoder(Coder):
     def decode(cls, value):
         return json.loads(value.decode("utf-8"))
 
+
 redis_client = None
 
 async def init_cache():
-    """Initializes the Redis connection pool and FastAPI Cache."""
+    """Initializes the Redis connection pool and FastAPI Cache.
+    Falls back to in-memory cache if Redis is not available.
+    """
     global redis_client
     redis_url = settings.REDIS_URL or "redis://localhost:6379/0"
-    
-    redis_client = redis.from_url(redis_url, encoding="utf-8", decode_responses=False)
-    FastAPICache.init(RedisBackend(redis_client), prefix="tutterfly-cache", coder=CustomJsonCoder)
+
+    try:
+        client = redis.from_url(redis_url, encoding="utf-8", decode_responses=False,
+                                socket_connect_timeout=2)
+        # Verify connectivity
+        await client.ping()
+        redis_client = client
+        FastAPICache.init(RedisBackend(redis_client), prefix="tutterfly-cache", coder=CustomJsonCoder)
+        logger.info("Cache: using Redis backend at %s", redis_url)
+    except Exception as e:
+        logger.warning(
+            "Cache: Redis not available (%s). Falling back to in-memory cache. "
+            "Cache will not persist across restarts or be shared between processes.",
+            e,
+        )
+        FastAPICache.init(InMemoryBackend(), prefix="tutterfly-cache", coder=CustomJsonCoder)
 
 async def close_cache():
     """Closes the Redis connection pool."""
@@ -46,7 +67,6 @@ def custom_key_builder(func, namespace: str = "", request=None, response=None, *
     
     if not tenant_id:
         # Fallback if no tenant is provided - highly dangerous in a multi-tenant system
-        # Log a warning here in a production system.
         tenant_id = "global"
         
     base_key = f"{FastAPICache.get_prefix()}:{namespace}:{func.__module__}:{func.__name__}"
@@ -56,6 +76,7 @@ async def invalidate_tenant_cache(tenant_id: str):
     """
     Invalidates all Redis cache keys associated with a specific tenant_id.
     Useful when core entities (leads, opportunities) are modified, requiring dashboard recalculation.
+    No-op if Redis is not available (in-memory cache).
     """
     global redis_client
     if not redis_client:
