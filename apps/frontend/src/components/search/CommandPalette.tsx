@@ -12,6 +12,9 @@ import {
     Loader2,
     ArrowRight,
     Command,
+    UserCircle,
+    Truck,
+    FileText,
 } from "lucide-react";
 
 import {
@@ -27,6 +30,9 @@ const moduleIcons: Record<string, React.ReactNode> = {
     accounts: <Building2 className="h-4 w-4" />,
     contacts: <Users className="h-4 w-4" />,
     opportunities: <Briefcase className="h-4 w-4" />,
+    person_accounts: <UserCircle className="h-4 w-4" />,
+    suppliers: <Truck className="h-4 w-4" />,
+    files: <FileText className="h-4 w-4" />,
 };
 
 const moduleColors: Record<string, string> = {
@@ -34,6 +40,9 @@ const moduleColors: Record<string, string> = {
     accounts: "text-indigo-500",
     contacts: "text-emerald-500",
     opportunities: "text-amber-500",
+    person_accounts: "text-purple-500",
+    suppliers: "text-orange-500",
+    files: "text-slate-500",
 };
 
 export function CommandPalette() {
