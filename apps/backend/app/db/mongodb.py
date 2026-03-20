@@ -55,7 +55,7 @@ async def init_db():
     client = AsyncIOMotorClient(
         settings.MONGODB_URL,
         maxPoolSize=100,
-        minPoolSize=2,
+        minPoolSize=0,
         maxIdleTimeMS=60000,
         tlsAllowInvalidCertificates=True
     )
@@ -182,7 +182,7 @@ async def get_database():
     client = AsyncIOMotorClient(
         settings.MONGODB_URL,
         maxPoolSize=100,
-        minPoolSize=2,
+        minPoolSize=0,
         maxIdleTimeMS=60000,
         tlsAllowInvalidCertificates=True
     )

@@ -57,7 +57,8 @@ app = FastAPI(
     version=settings.VERSION,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
+    redirect_slashes=False,
 )
 
 # ── Rate Limiting ─────────────────────────────────────────────────────────────
