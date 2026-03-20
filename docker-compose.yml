@@ -8,12 +8,12 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017/tutterfly_crm
+      - MONGODB_URL=${MONGODB_URL}
       - REDIS_URL=redis://redis:6379/0
-      - ENVIRONMENT=development
-      - SECRET_KEY=your-secret-key-change-this-in-production
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,https://tutterfly-frontend.vercel.app,https://tutterfly-backend.bigfat.ai}
     depends_on:
-      - mongodb
       - redis
     networks:
       - tutterfly-network
@@ -24,11 +24,10 @@ services:
       dockerfile: Dockerfile
     command: celery -A app.tasks.account_tasks.celery_app worker --loglevel=info
     environment:
-      - MONGODB_URL=mongodb://mongodb:27017/tutterfly_crm
+      - MONGODB_URL=${MONGODB_URL}
       - REDIS_URL=redis://redis:6379/0
-      - SECRET_KEY=your-secret-key-change-this-in-production
+      - SECRET_KEY=${SECRET_KEY}
     depends_on:
-      - mongodb
       - redis
     networks:
       - tutterfly-network
