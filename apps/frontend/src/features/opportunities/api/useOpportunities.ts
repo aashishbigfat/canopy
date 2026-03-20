@@ -72,6 +72,7 @@ export const useUpdateOpportunity = () => {
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             if (data) {
                 queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+                queryClient.invalidateQueries({ queryKey: ["opportunities", data.id, "history"] });
             }
         },
     });

@@ -152,6 +152,7 @@ class OpportunityService(ActivityMixin):
         # Track changes
         old_values = {}
         updated_fields = {}
+        old_stage_id = opp.sales_stage_id
         
         # Update fields
         update_data = opp_data.model_dump(exclude_unset=True)
@@ -199,6 +200,19 @@ class OpportunityService(ActivityMixin):
             old_values=old_values,
             updated_fields=updated_fields
         )
+        
+        # Log stage history if changed
+        new_stage_id = getattr(opp, "sales_stage_id", None)
+        if "sales_stage_id" in update_data and new_stage_id and str(new_stage_id) != str(old_stage_id):
+            history = OpportunityHistory(
+                opportunity_id=opp.id,
+                tenant_id=tenant_id,
+                field_name="sales_stage_id",
+                old_value=str(old_stage_id) if old_stage_id else None,
+                new_value=str(new_stage_id),
+                changed_by=user_id
+            )
+            await history.insert()
         
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
