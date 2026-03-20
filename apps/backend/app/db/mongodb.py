@@ -52,12 +52,12 @@ from app.models.module_attachment import ModuleAttachment
 
 async def init_db():
     """Initialize database connection"""
-    # Enterprise scaling: 300 max concurrent connections, keep 50 alive minimum
     client = AsyncIOMotorClient(
-        settings.MONGODB_URL, 
-        maxPoolSize=300, 
-        minPoolSize=50, 
-        maxIdleTimeMS=50000
+        settings.MONGODB_URL,
+        maxPoolSize=100,
+        minPoolSize=2,
+        maxIdleTimeMS=60000,
+        tlsAllowInvalidCertificates=True
     )
     
     await init_beanie(
@@ -180,10 +180,11 @@ async def init_db():
 async def get_database():
     """Get database instance"""
     client = AsyncIOMotorClient(
-        settings.MONGODB_URL, 
-        maxPoolSize=300, 
-        minPoolSize=50, 
-        maxIdleTimeMS=50000
+        settings.MONGODB_URL,
+        maxPoolSize=100,
+        minPoolSize=2,
+        maxIdleTimeMS=60000,
+        tlsAllowInvalidCertificates=True
     )
     return client[settings.MONGODB_DB_NAME]
 
