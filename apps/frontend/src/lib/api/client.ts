@@ -36,6 +36,19 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
         config.url = config.url.substring(1);
     }
 
+    // Ensure trailing slash on the path portion of the URL.
+    // FastAPI routes are defined with trailing slashes (e.g. @router.get("/")).
+    // Without this, FastAPI issues a 307 redirect which can strip Authorization
+    // headers and downgrade HTTPS to HTTP.
+    if (config.url) {
+        const [path, query] = config.url.split('?');
+        // Add trailing slash if the path doesn't already end with one
+        // and doesn't look like a file (e.g. openapi.json)
+        if (path && !path.endsWith('/') && !path.includes('.')) {
+            config.url = query ? `${path}/?${query}` : `${path}/`;
+        }
+    }
+
     // Diagnostic log
     const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url;
     console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
