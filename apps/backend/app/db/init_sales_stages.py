@@ -75,6 +75,17 @@ async def create_sales_stages():
             "is_won": False,
             "is_lost": True,
         },
+        {
+            "name": "Refunded",
+            "description": "Deal refunded or cancelled",
+            "probability": 0,
+            "color": "#9ca3af",
+            "sorting": 60,
+            "is_active": True,
+            "is_default": False,
+            "is_won": False,
+            "is_lost": True,
+        },
     ]
     
     # Clear existing stages

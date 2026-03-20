@@ -175,22 +175,24 @@ class IncentiveService:
         from beanie import PydanticObjectId
         tenant_obj_id = PydanticObjectId(tenant_id)
         
-        # 1. Fetch Sales Stages to find won stage
+        # 1. Fetch Sales Stages to find won stage (stages are global, not tenant-specific)
         from app.models.opportunity_picklists import SalesStage
         won_stage = await SalesStage.find_one(
-            SalesStage.tenant_id == tenant_obj_id,
             SalesStage.is_won == True
         )
         
         if not won_stage:
-            # Create default won stage if it doesn't exist
-            won_stage = SalesStage(
-                name="Closed Won",
-                probability=100,
-                is_won=True,
-                tenant_id=tenant_obj_id
+            # No won stage exists in the system at all — return empty achievement
+            return IncentiveAchievement(
+                user_id=user_id,
+                period_start=period_start,
+                period_end=period_end,
+                achieved_amount=0,
+                achieved_count=0,
+                deal_ids=[],
+                incentive_results=[],
+                tenant_id=tenant_id
             )
-            await won_stage.insert()
         
         # 2. Fetch Deals (opportunities) that are won
         deals = await Opportunity.find(

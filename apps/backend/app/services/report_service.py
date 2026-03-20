@@ -513,10 +513,13 @@ class ReportService:
         opportunities_this_month = await Opportunity.find(month_query).count()
         
         # Won opportunities this month
+        from app.models.opportunity_picklists import SalesStage
+        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        won_stage_ids = [s.id for s in won_stages]
         won_query = {
             **base_query,
-            "stage": "Closed Won",
-            "closed_at": {"$gte": month_start}
+            "sales_stage_id": {"$in": won_stage_ids},
+            "close_date": {"$gte": month_start}
         }
         won_this_month = await Opportunity.find(won_query).count()
         

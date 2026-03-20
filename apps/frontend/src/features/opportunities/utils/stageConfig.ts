@@ -8,6 +8,7 @@ const STAGE_DEFINITIONS: { name: string; probability: number }[] = [
     { name: "Proposal", probability: 30 },
     { name: "Closed Won", probability: 100 },
     { name: "Closed Lost", probability: 0 },
+    { name: "Refunded", probability: 0 },
 ];
 
 export type StageWithProbability = SalesStage & { probability: number };

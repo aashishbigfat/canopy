@@ -416,18 +416,19 @@ class OpportunityService(ActivityMixin):
 
     async def seed_standard_stages(self, tenant_id: ObjectId):
         """
-        Seed/normalize sales stages for a tenant.
+        Seed/normalize sales stages.
 
-        After this runs, the tenant will only have these active stages:
+        After this runs, the system will have these active stages:
         - Received (10%)
         - Qualified (20%)
         - Proposal (30%)
         - Closed Won (100%, won)
         - Closed Lost (0%, lost)
+        - Refunded (0%, lost)
 
-        Any other existing stages for this tenant are marked inactive so they
-        no longer appear in picklists, but existing opportunities that still
-        reference them will keep working.
+        Stages are global (shared across tenants). This method will upsert
+        existing stages by name, regardless of whether they have a tenant_id
+        or not, to avoid creating duplicates.
         """
         from app.models.opportunity_picklists import SalesStage
 
@@ -437,14 +438,14 @@ class OpportunityService(ActivityMixin):
             {"name": "Proposal", "probability": 30, "sorting": 30, "is_default": False, "is_won": False, "is_lost": False},
             {"name": "Closed Won", "probability": 100, "sorting": 40, "is_default": False, "is_won": True, "is_lost": False},
             {"name": "Closed Lost", "probability": 0, "sorting": 50, "is_default": False, "is_won": False, "is_lost": True},
+            {"name": "Refunded", "probability": 0, "sorting": 60, "is_default": False, "is_won": False, "is_lost": True},
         ]
 
         desired_names = {s["name"] for s in desired_stages}
 
-        # Upsert desired stages
+        # Upsert desired stages — search by name only (stages are global)
         for stage_data in desired_stages:
             existing = await SalesStage.find_one(
-                SalesStage.tenant_id == tenant_id,
                 SalesStage.name == stage_data["name"],
             )
 
@@ -459,14 +460,12 @@ class OpportunityService(ActivityMixin):
             else:
                 stage = SalesStage(
                     **stage_data,
-                    tenant_id=tenant_id,
                     is_active=True,
                 )
                 await stage.insert()
 
-        # Deactivate any other stages for this tenant
+        # Deactivate any other stages that aren't in the desired set
         other_stages_cursor = SalesStage.find(
-            SalesStage.tenant_id == tenant_id,
             SalesStage.name.not_in(list(desired_names)),
         )
         async for stage in other_stages_cursor:
