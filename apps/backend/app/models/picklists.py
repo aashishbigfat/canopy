@@ -17,9 +17,7 @@ class AccountType(BaseDocument):
     
     class Settings:
         name = "account_types"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["tenant_id", "sorting"]
+        indexes = ["tenant_id", "sorting"]
 
 
 class Industry(BaseDocument):
@@ -32,9 +30,7 @@ class Industry(BaseDocument):
     
     class Settings:
         name = "industries"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["tenant_id", "sorting"]
+        indexes = ["tenant_id", "sorting"]
 
 
 class Rating(BaseDocument):
@@ -46,9 +42,7 @@ class Rating(BaseDocument):
     
     class Settings:
         name = "ratings"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["sorting"]
+        indexes = ["sorting"]
 
 
 class AccountSource(BaseDocument):
@@ -61,6 +55,4 @@ class AccountSource(BaseDocument):
     
     class Settings:
         name = "account_sources"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["tenant_id", "sorting"]
+        indexes = ["tenant_id", "sorting"]

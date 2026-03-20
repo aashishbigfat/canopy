@@ -8,7 +8,7 @@ import { SEARCH_MODULES, SearchModuleValue } from "@/lib/api/services/search.ser
 
 export function GlobalSearchBar() {
     const router = useRouter();
-    const [module, setModule] = useState<SearchModuleValue>("files");
+    const [module, setModule] = useState<SearchModuleValue>("accounts");
     const [query, setQuery] = useState("");
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);

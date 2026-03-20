@@ -78,6 +78,9 @@ const convertSchema = z.object({
     account_mode: z.enum(["new", "existing_only", "existing"]),
     account_id: z.string().optional(),
     account_name: z.string().optional(),
+    person_salutation: z.string().optional(),
+    person_first_name: z.string().optional(),
+    person_last_name: z.string().optional(),
     contact_id: z.string().optional(),
     contact_create: z.boolean(),
     contact_salutation: z.string().optional(),
@@ -149,6 +152,9 @@ export function ConvertLeadDialog({
             account_mode: accountMode,
             account_id: selectedAccountId,
             account_name: lead.company || lead.full_name,
+            person_salutation: lead.salutation || "",
+            person_first_name: lead.first_name || "",
+            person_last_name: lead.last_name || "",
             contact_id: selectedContactId,
             contact_create: contactMode === "new",
             contact_salutation: lead.salutation || "",
@@ -404,6 +410,9 @@ export function ConvertLeadDialog({
                         account_type: values.account_type,
                         account_id: values.account_mode !== "new" ? values.account_id : undefined,
                         account_name: values.account_mode === "new" ? values.account_name : undefined,
+                        person_salutation: values.account_mode === "new" && values.account_type === "Person Account" ? values.person_salutation : undefined,
+                        person_first_name: values.account_mode === "new" && values.account_type === "Person Account" ? values.person_first_name : undefined,
+                        person_last_name: values.account_mode === "new" && values.account_type === "Person Account" ? values.person_last_name : undefined,
                         contact_id: values.contact_id,
                         contact_create: values.contact_create,
                         contact_salutation: values.contact_salutation,
@@ -520,19 +529,63 @@ export function ConvertLeadDialog({
                                         />
 
                                         {formAccountMode === "new" ? (
-                                            <FormField
-                                                control={form.control}
-                                                name="account_name"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Account Name</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} placeholder="Account Name" className="bg-white" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                            formAccountType === "Person Account" ? (
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="person_salutation"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Salutation</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="Mr." className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="person_first_name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>First Name</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="First Name" className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="person_last_name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Last Name</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <FormField
+                                                    control={form.control}
+                                                    name="account_name"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Account Name</FormLabel>
+                                                            <FormControl>
+                                                                <Input {...field} placeholder="Account Name" className="bg-white" />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )
                                         ) : (
                                             <FormField
                                                 control={form.control}

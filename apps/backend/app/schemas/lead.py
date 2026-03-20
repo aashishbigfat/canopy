@@ -174,6 +174,9 @@ class LeadConvert(BaseModel):
     account_id: Optional[str] = None
     account_name: Optional[str] = None
     account_type: Optional[str] = "Account"  # "Account" or "Person Account"
+    person_salutation: Optional[str] = None
+    person_first_name: Optional[str] = None
+    person_last_name: Optional[str] = None
     contact_id: Optional[str] = None
     contact_create: bool = True
     create_opportunity: bool = True

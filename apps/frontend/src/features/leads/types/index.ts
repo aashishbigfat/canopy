@@ -112,6 +112,9 @@ export interface LeadConvertData {
     account_id?: string;
     account_name?: string;
     account_type?: string;
+    person_salutation?: string;
+    person_first_name?: string;
+    person_last_name?: string;
     contact_id?: string;
     contact_create?: boolean;
     contact_salutation?: string;

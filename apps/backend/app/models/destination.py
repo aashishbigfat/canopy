@@ -39,14 +39,14 @@ class Destination(BaseDocument):
     
     class Settings:
         name = "destinations"
-        # indexes = [
-        # "tenant_id",
-        # "country_id",
-        # "is_popular",
-        # [("tenant_id", 1), ("name", 1)],
-            # [(("tenant_id", 1), ("country_id", 1))],
-            # [(("tenant_id", 1), ("is_popular", 1))],
-        # ]
+        indexes = [
+            "tenant_id",
+            "country_id",
+            "is_popular",
+            [("tenant_id", 1), ("name", 1)],
+            [("tenant_id", 1), ("country_id", 1)],
+            [("tenant_id", 1), ("is_popular", 1)],
+        ]
 
 
 class DestinationOpportunity(BaseDocument):
@@ -62,11 +62,11 @@ class DestinationOpportunity(BaseDocument):
     
     class Settings:
         name = "destination_opportunities"
-        # indexes = [
-        # [(("destination_id", 1), ("opportunity_id", 1))],
-            # "tenant_id",
-            # "opportunity_id"
-        # ]
+        indexes = [
+            [("destination_id", 1), ("opportunity_id", 1)],
+            "tenant_id",
+            "opportunity_id"
+        ]
 
 
 class DestinationLead(BaseDocument):
@@ -82,8 +82,8 @@ class DestinationLead(BaseDocument):
     
     class Settings:
         name = "destination_leads"
-        # indexes = [
-        # [(("destination_id", 1), ("lead_id", 1))],
-            # "tenant_id",
-            # "lead_id"
-        # ]
+        indexes = [
+            [("destination_id", 1), ("lead_id", 1)],
+            "tenant_id",
+            "lead_id"
+        ]

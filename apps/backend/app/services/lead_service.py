@@ -430,9 +430,30 @@ class LeadService(ActivityMixin):
         else:
             # Determine account name and type
             is_person_account = conversion_data.account_type == "Person Account"
-            if not lead.company and not conversion_data.account_name:
+            
+            p_salutation = conversion_data.person_salutation if is_person_account else None
+            p_first_name = conversion_data.person_first_name if is_person_account else None
+            p_last_name = conversion_data.person_last_name if is_person_account else None
+            
+            # Fallback to lead explicit data if not provided via API
+            if is_person_account and not p_first_name and not p_last_name:
+                p_salutation = lead.salutation
+                p_first_name = lead.first_name
+                p_last_name = lead.last_name
+                
+            if is_person_account:
+                # Intelligently construct name from parts for Person Account (Fallback)
+                parts = [p for p in [p_salutation, p_first_name, p_last_name] if p]
+                account_name = " ".join(parts).strip() if parts else f"{lead.first_name} {lead.last_name}".strip()
+                # Override with explicit account_name if it was still sent
+                if conversion_data.account_name:
+                    account_name = conversion_data.account_name
+            elif not lead.company and not conversion_data.account_name:
                 is_person_account = True
                 account_name = f"{lead.first_name} {lead.last_name}".strip()
+                p_salutation = lead.salutation
+                p_first_name = lead.first_name
+                p_last_name = lead.last_name
             else:
                 account_name = conversion_data.account_name or lead.company or f"{lead.first_name} {lead.last_name}".strip()
 
@@ -460,9 +481,9 @@ class LeadService(ActivityMixin):
                     industry_id=lead.industry_id,
                     account_source_id=lead.source_id,
                     is_person_account=is_person_account,
-                    salutation=lead.salutation if is_person_account else None,
-                    first_name=lead.first_name if is_person_account else None,
-                    last_name=lead.last_name if is_person_account else None,
+                    salutation=p_salutation,
+                    first_name=p_first_name,
+                    last_name=p_last_name,
                     tenant_id=tenant_id,
                     owner_id=user_id,
                     created_by=user_id

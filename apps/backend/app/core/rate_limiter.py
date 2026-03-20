@@ -32,6 +32,6 @@ _redis_uri = settings.REDIS_URL or "redis://localhost:6379/0"
 limiter = Limiter(
     key_func=_get_client_ip,
     storage_uri=_redis_uri,
-    default_limits=["100/minute"],  # global fallback
+    default_limits=["300/minute"],  # global fallback
     headers_enabled=True,           # expose X-RateLimit-* headers
 )
