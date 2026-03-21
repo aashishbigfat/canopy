@@ -34,6 +34,26 @@ def _get_client_ip(request) -> str:
     return get_remote_address(request)
 
 
+class SafeLimiter(Limiter):
+    """
+    A Limiter subclass that gracefully handles runtime Redis connection failures.
+    If Redis goes down *after* startup, we fail open (allow the request) rather
+    than propagating the ConnectionError and crashing the application.
+    """
+    def _check_request_limit(self, request, handler, in_middleware=True):
+        try:
+            super()._check_request_limit(request, handler, in_middleware)
+        except Exception as e:
+            try:
+                import redis.exceptions
+                if isinstance(e, (redis.exceptions.ConnectionError, redis.exceptions.TimeoutError)):
+                    logger.warning("Rate limiter bypassed due to Redis connection error: %s", e)
+                    return
+            except ImportError:
+                pass
+            raise
+
+
 def _build_limiter() -> Limiter:
     """
     Try to create a Redis-backed Limiter; fall back to memory storage if Redis
@@ -54,7 +74,7 @@ def _build_limiter() -> Limiter:
         r.ping()
         r.close()
         logger.info("Rate limiter: using Redis backend at %s", redis_uri)
-        return Limiter(
+        return SafeLimiter(
             key_func=_get_client_ip,
             storage_uri=redis_uri,
             default_limits=["300/minute"],
@@ -66,7 +86,7 @@ def _build_limiter() -> Limiter:
             "Rate limits will be per-process only.",
             e,
         )
-        return Limiter(
+        return SafeLimiter(
             key_func=_get_client_ip,
             storage_uri="memory://",
             default_limits=["300/minute"],
