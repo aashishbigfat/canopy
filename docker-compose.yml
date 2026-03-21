@@ -17,6 +17,7 @@ services:
       - redis
     networks:
       - tutterfly-network
+    restart: unless-stopped
 
   worker:
     build:
@@ -31,6 +32,7 @@ services:
       - redis
     networks:
       - tutterfly-network
+    restart: unless-stopped
 
   mongodb:
     image: mongo:6.0
@@ -40,6 +42,7 @@ services:
       - mongo-data:/data/db
     networks:
       - tutterfly-network
+    restart: unless-stopped
 
   redis:
     image: redis:7.0-alpine
@@ -47,6 +50,7 @@ services:
       - "6379:6379"
     networks:
       - tutterfly-network
+    restart: unless-stopped
 
 networks:
   tutterfly-network:
