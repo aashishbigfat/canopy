@@ -445,7 +445,7 @@ export function LeadTable({
                         </div>
                     </div>
                     <div className="px-4 py-3">
-                        <div className="rounded-md border">
+                        <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
                             <Table>
                                 <TableHeader>
                                     {table.getHeaderGroups().map((headerGroup) => (
@@ -508,7 +508,9 @@ export function LeadTable({
                             onClick={() => {
                                 const params = new URLSearchParams(searchParams.toString());
                                 params.set("page", (pagination.current_page - 1).toString());
-                                router.push(`${pathname}?${params.toString()}`);
+                                startTransition(() => {
+                                    router.push(`${pathname}?${params.toString()}`);
+                                });
                             }}
                             disabled={pagination.current_page <= 1}
                         >
@@ -520,7 +522,9 @@ export function LeadTable({
                             onClick={() => {
                                 const params = new URLSearchParams(searchParams.toString());
                                 params.set("page", (pagination.current_page + 1).toString());
-                                router.push(`${pathname}?${params.toString()}`);
+                                startTransition(() => {
+                                    router.push(`${pathname}?${params.toString()}`);
+                                });
                             }}
                             disabled={pagination.current_page >= pagination.pages}
                         >

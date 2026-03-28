@@ -165,6 +165,7 @@ export function ContactTable({
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = React.useTransition();
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -207,7 +208,7 @@ export function ContactTable({
                     className="max-w-sm"
                 />
             </div>
-            <div className="rounded-md border">
+            <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -268,7 +269,9 @@ export function ContactTable({
                         onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.set("page", (pagination.current_page - 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
                         }}
                         disabled={pagination.current_page <= 1}
                     >
@@ -280,7 +283,9 @@ export function ContactTable({
                         onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.set("page", (pagination.current_page + 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
                         }}
                         disabled={pagination.current_page >= pagination.pages}
                     >

@@ -96,6 +96,7 @@ export function AccountTable({
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = React.useTransition();
 
     const table = useReactTable({
         data,
@@ -142,7 +143,7 @@ export function AccountTable({
                 </div>
             </div>
             
-            <div className="w-full overflow-x-auto">
+            <div className={`w-full overflow-x-auto transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
                 <Table>
                     <TableHeader className="bg-gray-50 text-gray-500">
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -205,7 +206,9 @@ export function AccountTable({
                         onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.set("page", (pagination.current_page - 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
                         }}
                         disabled={pagination.current_page <= 1}
                     >
@@ -217,7 +220,9 @@ export function AccountTable({
                         onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.set("page", (pagination.current_page + 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
                         }}
                         disabled={pagination.current_page >= pagination.pages}
                     >

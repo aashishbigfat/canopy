@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import {
     Table,
@@ -21,6 +21,7 @@ export function SupplierList() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const [isPending, startTransition] = useTransition();
     
     const page = parseInt(searchParams.get("page") || "1");
     const per_page = parseInt(searchParams.get("per_page") || "10");
@@ -53,7 +54,7 @@ export function SupplierList() {
     const suppliers = response?.suppliers || [];
 
     return (
-        <div className="rounded-md border">
+        <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -111,7 +112,9 @@ export function SupplierList() {
                         onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.set("page", (page - 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
                         }}
                         disabled={page <= 1}
                     >
@@ -123,7 +126,9 @@ export function SupplierList() {
                         onClick={() => {
                             const params = new URLSearchParams(searchParams.toString());
                             params.set("page", (page + 1).toString());
-                            router.push(`${pathname}?${params.toString()}`);
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
                         }}
                         disabled={!response || page >= response.pages}
                     >
