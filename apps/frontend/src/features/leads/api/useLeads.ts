@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFilters, LeadCreateData, LeadConvertData } from "../types";
 import { ErrorHandler, showSuccessToast, showWarningToast, showErrorToast } from "@/lib/error-handler";
@@ -8,6 +8,7 @@ export const useLeads = (filters: LeadFilters = { page: 1, per_page: 10 }) => {
         queryKey: ["leads", filters],
         queryFn: () => leadsService.getLeads(filters),
         staleTime: 30_000, // 30 seconds
+        placeholderData: keepPreviousData,
     });
 };
 

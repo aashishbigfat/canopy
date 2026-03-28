@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { itinerariesService } from "@/lib/api/services/itineraries.service";
 import { ItineraryFilters, ItineraryCreateData } from "../types";
 
@@ -7,6 +7,7 @@ export const useItineraries = (filters: ItineraryFilters = { page: 1, per_page: 
         queryKey: ["itineraries", filters],
         queryFn: () => itinerariesService.getItineraries(filters),
         staleTime: 30_000, // 30 seconds
+        placeholderData: keepPreviousData,
     });
 };
 

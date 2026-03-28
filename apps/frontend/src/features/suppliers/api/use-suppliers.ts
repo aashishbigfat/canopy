@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { SupplierFilters, SupplierCreateData } from "../types";
 
@@ -7,6 +7,7 @@ export const useSuppliers = (filters: SupplierFilters = { page: 1, per_page: 100
         queryKey: ["suppliers", filters],
         queryFn: () => suppliersService.getSuppliers(filters),
         staleTime: 30_000, // 30 seconds
+        placeholderData: keepPreviousData,
     });
 };
 

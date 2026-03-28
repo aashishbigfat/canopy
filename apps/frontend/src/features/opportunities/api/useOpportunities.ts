@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { OpportunityFilters, OpportunityCreateData } from "../types";
@@ -8,6 +8,7 @@ export const useOpportunities = (filters: OpportunityFilters = { page: 1, per_pa
         queryKey: ["opportunities", filters],
         queryFn: () => opportunitiesService.getOpportunities(filters),
         staleTime: 30_000, // 30 seconds – fresh enough for CRM, prevents duplicate fetches
+        placeholderData: keepPreviousData,
     });
 };
 
