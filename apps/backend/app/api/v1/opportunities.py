@@ -3,6 +3,7 @@ Opportunity API endpoints - Sales Pipeline Management
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional
+import asyncio
 from bson import ObjectId
 
 from app.models.user import User
@@ -145,8 +146,8 @@ async def get_opportunities(
         elif view == "closing_soon":
              # Closing in next 7 days
              filters["close_date"] = {
-                 "$gte": now.isoformat(),
-                 "$lte": (now + timedelta(days=7)).isoformat()
+                 "$gte": now,
+                 "$lte": now + timedelta(days=7)
              }
         elif view == "closed":
              # Handled by frontend or specific status filter usually
@@ -166,45 +167,59 @@ async def get_opportunities(
         from app.models.account import Account as AccountDoc
         from app.models.destination import Destination as DestinationDoc
         
+        # 1. Collect all IDs for batch fetching
+        sales_stage_ids = {opp.sales_stage_id for opp in opportunities if opp.sales_stage_id}
+        opportunity_type_ids = {opp.opportunity_type_id for opp in opportunities if opp.opportunity_type_id}
+        experience_ids = {opp.experience_id for opp in opportunities if opp.experience_id}
+        owner_ids = {opp.owner_id for opp in opportunities if opp.owner_id}
+        account_ids = {opp.account_id for opp in opportunities if opp.account_id}
+        all_dest_ids = set()
+        for opp in opportunities:
+            if opp.destination_ids:
+                all_dest_ids.update(opp.destination_ids)
+
+        # 2. Batch fetch related documents
+        [stages, opp_types, experiences, owners, accounts, dests] = await asyncio.gather(
+            SalesStage.find({"_id": {"$in": list(sales_stage_ids)}}).to_list(),
+            OpportunityType.find({"_id": {"$in": list(opportunity_type_ids)}}).to_list(),
+            Experience.find({"_id": {"$in": list(experience_ids)}}).to_list(),
+            UserDoc.find({"_id": {"$in": list(owner_ids)}}).to_list(),
+            AccountDoc.find({"_id": {"$in": list(account_ids)}}).to_list(),
+            DestinationDoc.find({"_id": {"$in": list(all_dest_ids)}}).to_list()
+        )
+
+        # 3. Create lookup maps
+        stage_map = {s.id: s for s in stages}
+        type_map = {t.id: t for t in opp_types}
+        exp_map = {e.id: e for e in experiences}
+        owner_map = {o.id: o for o in owners}
+        account_map = {a.id: a for a in accounts}
+        dest_map = {d.id: d for d in dests}
+
         # Convert to response format
         opportunity_responses = []
-        for opp in opportunities:
-            # Get related data
-            sales_stage = None
-            if opp.sales_stage_id:
-                sales_stage = await SalesStage.get(opp.sales_stage_id)
+        for opp in opportunities: # type: Opportunity
+            # Get related data from maps
+            sales_stage = stage_map.get(opp.sales_stage_id)
+            opportunity_type = type_map.get(opp.opportunity_type_id)
+            experience = exp_map.get(opp.experience_id)
+            owner = owner_map.get(opp.owner_id)
+            account = account_map.get(opp.account_id)
             
-            opportunity_type = None
-            if opp.opportunity_type_id:
-                opportunity_type = await OpportunityType.get(opp.opportunity_type_id)
+            experience_name = experience.name if experience else None
+            owner_name = owner.name if owner else "Unknown"
             
-            experience_name = None
-            if opp.experience_id:
-                experience = await Experience.get(opp.experience_id)
-                if experience:
-                    experience_name = experience.name
-            
-            # Fetch Owner Name
-            owner_name = "Unknown"
-            if opp.owner_id:
-                owner = await UserDoc.get(opp.owner_id)
-                if owner:
-                    owner_name = owner.name
-            
-            # Fetch Account Name
             account_name = "-"
             is_person_account = False
-            if opp.account_id:
-                account = await AccountDoc.get(opp.account_id)
-                if account:
-                    account_name = account.name
-                    is_person_account = getattr(account, 'is_person_account', False)
+            if account:
+                account_name = account.name
+                is_person_account = getattr(account, 'is_person_account', False)
             
-            # Fetch Destination Names
+            # Fetch Destination Names from map
             dest_names = []
             if opp.destination_ids:
                 for dest_id in opp.destination_ids:
-                    dest = await DestinationDoc.get(dest_id)
+                    dest = dest_map.get(dest_id)
                     if dest:
                         dest_names.append(dest.name)
 
@@ -228,6 +243,7 @@ async def get_opportunities(
             opp_response.owner_name = owner_name
             opp_response.account_name = account_name
             opp_response.is_person_account = is_person_account
+            opp_response.type = "Person Account" if is_person_account else "Account"
             opp_response.destination_names = dest_names
             opp_response.segment = segment
             opp_response.creation_type = creation_type
@@ -351,6 +367,7 @@ async def get_opportunity(
         opp_response.owner_name = owner_name
         opp_response.account_name = account_name
         opp_response.is_person_account = is_person_account
+        opp_response.type = "Person Account" if is_person_account else "Account"
         opp_response.contact_name = contact_name
         opp_response.contact_email = contact_email
         opp_response.contact_phone = contact_phone
@@ -454,6 +471,7 @@ async def update_opportunity(
             opp_response.segment = "B2C" if opp_response.is_person_account else "B2B"
             
         opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+        opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response
     
@@ -532,7 +550,60 @@ async def change_opportunity_stage(
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
-        return OpportunityResponse.from_orm(opportunity)
+        # Enrich response with related contact/account info
+        from app.models.opportunity_picklists import SalesStage as SalesStageDoc, Experience as ExperienceDoc
+        from app.models.user import User as UserDoc
+        from app.models.account import Account as AccountDoc
+        from app.models.contact import Contact as ContactDoc
+        from app.models.destination import Destination as DestinationDoc
+
+        opp_response = OpportunityResponse.from_orm(opportunity)
+
+        if opportunity.sales_stage_id:
+            stage = await SalesStageDoc.get(opportunity.sales_stage_id)
+            if stage:
+                opp_response.sales_stage_name = stage.name
+
+        if opportunity.experience_id:
+            exp = await ExperienceDoc.get(opportunity.experience_id)
+            if exp:
+                opp_response.experience_name = exp.name
+
+        if opportunity.owner_id:
+            owner = await UserDoc.get(opportunity.owner_id)
+            if owner:
+                opp_response.owner_name = owner.name
+
+        if opportunity.account_id:
+            account = await AccountDoc.get(opportunity.account_id)
+            if account:
+                opp_response.account_name = account.name
+                opp_response.is_person_account = getattr(account, 'is_person_account', False)
+
+        if opportunity.contact_id:
+            contact = await ContactDoc.get(opportunity.contact_id)
+            if contact:
+                name_parts = [p for p in [getattr(contact, 'salutation', None), getattr(contact, 'first_name', None), getattr(contact, 'last_name', None)] if p]
+                opp_response.contact_name = " ".join(name_parts) or None
+                opp_response.contact_email = getattr(contact, 'email', None)
+                opp_response.contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
+
+        dest_names = []
+        if opportunity.destination_ids:
+            for dest_id in opportunity.destination_ids:
+                dest = await DestinationDoc.get(dest_id)
+                if dest:
+                    dest_names.append(dest.name)
+        opp_response.destination_names = dest_names
+
+        opp_response.segment = getattr(opportunity, 'segment', None)
+        if not opp_response.segment or opp_response.segment == "B2C":
+            opp_response.segment = "B2C" if opp_response.is_person_account else "B2B"
+            
+        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+        opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
+
+        return opp_response
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

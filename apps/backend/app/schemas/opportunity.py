@@ -39,6 +39,10 @@ class OpportunityBase(BaseModel):
     country_of_origin: Optional[str] = Field(None, max_length=100)
     segment: Optional[str] = "B2C"
     key_deal: bool = False
+    
+    # New fields
+    inclusions: Optional[List[str]] = Field(default_factory=list)
+    close_lost_reason: Optional[str] = Field(None, max_length=2000)
 
 
 class OpportunityCreate(OpportunityBase):
@@ -90,6 +94,8 @@ class OpportunityUpdate(BaseModel):
     origin_ids: Optional[List[str]] = None
     key_deal: Optional[bool] = None
     custom_fields: Optional[Dict[str, Any]] = None
+    inclusions: Optional[List[str]] = None
+    close_lost_reason: Optional[str] = Field(None, max_length=2000)
 
 
 class OpportunityHistoryResponse(BaseModel):
@@ -154,6 +160,9 @@ class OpportunityResponse(OpportunityBase):
     segment: Optional[str] = None
     creation_type: Optional[str] = "Manual" # "Auto" or "Manual"
     is_person_account: bool = False
+    type: Optional[str] = None
+    inclusions: Optional[List[str]] = Field(default_factory=list)
+    close_lost_reason: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -207,6 +216,10 @@ class OpportunityResponse(OpportunityBase):
                 data['creation_type'] = obj.creation_type
             if hasattr(obj, 'is_person_account'):
                 data['is_person_account'] = obj.is_person_account
+                data['type'] = "Person Account" if obj.is_person_account else "Account"
+            
+            if hasattr(obj, 'type') and obj.type:
+                 data['type'] = obj.type
             
             # Ensure datetime fields are properly formatted
             if hasattr(obj, 'travel_date') and obj.travel_date:

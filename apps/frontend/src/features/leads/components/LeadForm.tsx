@@ -541,6 +541,8 @@ export function LeadForm({
 
     const onSubmit = async (data: any) => {
         setIsLoading(true);
+        const startTime = Date.now();
+        let isSuccess = false;
         try {
             const payload: LeadCreateData = {
                 salutation: data.salutation,
@@ -585,6 +587,13 @@ export function LeadForm({
                         await leadsService.createLead(payload);
                         showSuccessToast("Lead created successfully");
                     }
+                    isSuccess = true;
+                    
+                    const elapsedTime = Date.now() - startTime;
+                    if (elapsedTime < 2500) {
+                        await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                    }
+                    
                     if (onSuccess) {
                         onSuccess();
                     } else {
@@ -599,7 +608,13 @@ export function LeadForm({
         } catch (error) {
             // Error is already handled by ErrorHandler.withErrorHandling
         } finally {
-            setIsLoading(false);
+            if (!isSuccess) {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime < 2500) {
+                    await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                }
+                setIsLoading(false);
+            }
         }
     }
 
@@ -1434,7 +1449,11 @@ export function LeadForm({
                     >
                         Cancel
                     </Button>
-                    <LoadingButton type="submit" isLoading={isLoading}>
+                    <LoadingButton 
+                        type="submit" 
+                        isLoading={isLoading}
+                        loadingText={leadId ? "Updating..." : "Creating..."}
+                    >
                         {leadId ? "Update Lead" : "Create Lead"}
                     </LoadingButton>
                 </div>

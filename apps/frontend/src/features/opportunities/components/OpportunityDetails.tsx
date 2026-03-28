@@ -74,6 +74,11 @@ import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
+import { suppliersService } from "@/lib/api/services/suppliers.service";
+import { templatesService, Template } from "@/lib/api/services/templates.service";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { EmailEditor } from "@/components/shared/EmailEditor";
+import { Input } from "@/components/ui/input";
 
 interface OpportunityDetailsProps {
     opportunity: Opportunity;
@@ -86,7 +91,8 @@ export function OpportunityDetails({
 }: OpportunityDetailsProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
+    const [isCloseLostDialogOpen, setIsCloseLostDialogOpen] = useState(false);
+    const [pendingCloseLostStageId, setPendingCloseLostStageId] = useState<string>("");
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -116,16 +122,105 @@ export function OpportunityDetails({
     const { mutate: updateStage } = useUpdateOpportunityStage();
     const { mutate: changeOwner } = useChangeOpportunityOwner();
 
+    // Supplier & Email Template state
+    const [suppliers, setSuppliers] = useState<{ label: string; value: string }[]>([]);
+    const [templates, setTemplates] = useState<Template[]>([]);
+    const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const [emailSubject, setEmailSubject] = useState<string>("");
+    const [emailBody, setEmailBody] = useState<string>("");
+    const [isLoadingData, setIsLoadingData] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoadingData(true);
+            try {
+                const [suppliersRes, templatesRes, linkedSuppliersRes] = await Promise.all([
+                    suppliersService.getSuppliers({}),
+                    templatesService.getTemplates({ type: "email" }),
+                    suppliersService.getOpportunitySuppliers(opportunity.id)
+                ]);
+                
+                setSuppliers(suppliersRes.suppliers.map(s => ({ 
+                    label: s.name, 
+                    value: s.id 
+                })));
+                setTemplates(templatesRes.templates);
+
+                // Set linked supplier if exists
+                if (linkedSuppliersRes.suppliers && linkedSuppliersRes.suppliers.length > 0) {
+                    const firstLinked = linkedSuppliersRes.suppliers[0];
+                    setSelectedSupplierId(firstLinked.supplier.id);
+                    setEmailSubject(firstLinked.email_subject || "");
+                    setEmailBody(firstLinked.email_body || "");
+                }
+            } catch (error: unknown) {
+                console.error("Failed to fetch supplier data:", error);
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const handleTemplateChange = (templateId: string) => {
+        setSelectedTemplateId(templateId);
+        const template = templates.find(t => t.id === templateId);
+        if (template) {
+            setEmailSubject(template.subject || "");
+            setEmailBody(template.body || "");
+        }
+    };
+
+    const handleSaveEmail = async () => {
+        if (!selectedSupplierId) {
+            toast.error("Please select a supplier");
+            return;
+        }
+
+        try {
+            await suppliersService.linkToOpportunity(opportunity.id, {
+                supplierId: selectedSupplierId,
+                emailSubject: emailSubject,
+                emailBody: emailBody
+            });
+            toast.success("Supplier details saved successfully");
+        } catch (error: unknown) {
+            console.error("Failed to save supplier details:", error);
+            toast.error("Failed to save supplier details");
+        }
+    };
+
     // removed local changeOwnerMutation as we use useChangeOpportunityOwner hook now
 
-    const handleStageClick = (targetStageId: string, _index: number) => {
+    const handleStageClick = (targetStageId: string) => {
+        const targetStage = orderedStages.find(s => s.id === targetStageId);
+        const isLostStage = !!(targetStage as any)?.is_lost;
+
+        if (isLostStage) {
+            // Always show the Close Lost reason dialog when clicking a lost stage
+            setPendingCloseLostStageId(targetStageId);
+            setIsCloseLostDialogOpen(true);
+            return;
+        }
+
         setSelectedStageId(targetStageId);
     };
 
     const handleMarkAsCurrentStage = () => {
-        if (selectedStageId && selectedStageId !== record.sales_stage_id) {
-            updateStage({ id: record.id, stageId: selectedStageId });
+        if (!selectedStageId || selectedStageId === record.sales_stage_id) return;
+
+        const targetStage = orderedStages.find(s => s.id === selectedStageId);
+        const isLostStage = !!(targetStage as any)?.is_lost;
+
+        if (isLostStage) {
+            // Show Close Lost reason dialog instead of updating directly
+            setPendingCloseLostStageId(selectedStageId);
+            setIsCloseLostDialogOpen(true);
+            return;
         }
+
+        updateStage({ id: record.id, stageId: selectedStageId });
     };
 
     const handleDelete = async () => {
@@ -147,8 +242,13 @@ export function OpportunityDetails({
                 opportunityId={record.id}
                 currentStageId={record.sales_stage_id}
                 stages={stages}
-                isOpen={isStageDialogOpen}
-                onClose={() => setIsStageDialogOpen(false)}
+                isOpen={isCloseLostDialogOpen}
+                targetStageId={pendingCloseLostStageId}
+                currentReason={record.close_lost_reason}
+                onClose={() => {
+                    setIsCloseLostDialogOpen(false);
+                    setPendingCloseLostStageId("");
+                }}
             />
 
             {/* Delete Confirmation Dialog */}
@@ -312,7 +412,7 @@ export function OpportunityDetails({
                             return (
                                 <div
                                     key={s.id}
-                                    onClick={() => handleStageClick(s.id, index)}
+                                    onClick={() => handleStageClick(s.id)}
                                     className={cn(
                                         "relative flex-1 py-2 px-4 text-center text-xs font-medium cursor-pointer transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
                                         s.id === selectedStageId ? "bg-slate-900 border-slate-900 text-white" :
@@ -507,6 +607,14 @@ export function OpportunityDetails({
                                                     {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
                                                 </p>
                                             </div>
+                                            {record.close_lost_reason && (
+                                                <div className="space-y-1 col-span-full bg-red-50 p-2 rounded border border-red-100">
+                                                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Close Lost Reason</p>
+                                                    <p className="text-sm text-red-800 pt-1 italic">
+                                                        "{record.close_lost_reason}"
+                                                    </p>
+                                                </div>
+                                            )}
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
                                                 <p className="text-lg font-bold text-slate-900">
@@ -580,6 +688,21 @@ export function OpportunityDetails({
                                                         ))
                                                     ) : (
                                                         <p className="text-sm text-slate-400">No destinations specified</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 col-span-full mt-2">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inclusions</p>
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                    {record.inclusions && record.inclusions.length > 0 ? (
+                                                        record.inclusions.map((inclusion, i) => (
+                                                            <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 font-medium">
+                                                                <CheckCircle2 className="h-3 w-3 mr-1.5 text-emerald-600" />
+                                                                {inclusion}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-slate-400">No inclusions specified</p>
                                                     )}
                                                 </div>
                                             </div>
@@ -677,19 +800,59 @@ export function OpportunityDetails({
 
                         {/* ── SUPPLIER TAB ── */}
                         <TabsContent value="supplier" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                    <Package className="h-4 w-4 text-blue-500" />
-                                    Suppliers
-                                </h3>
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs">
-                                    + Link Supplier
-                                </Button>
-                            </div>
-                            <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Package className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No suppliers linked</p>
-                                <p className="text-slate-400 text-sm mt-1">Link suppliers to manage costs and vendor details.</p>
+                            <div className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-semibold text-slate-700">Supplier</label>
+                                        <SearchableSelect
+                                            options={suppliers}
+                                            value={selectedSupplierId}
+                                            onValueChange={setSelectedSupplierId}
+                                            placeholder="Select Supplier"
+                                            searchPlaceholder="Search suppliers..."
+                                            isLoading={isLoadingData}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-semibold text-slate-700">Email Template</label>
+                                        <SearchableSelect
+                                            options={templates.map(t => ({ label: t.name, value: t.id }))}
+                                            value={selectedTemplateId}
+                                            onValueChange={handleTemplateChange}
+                                            placeholder="Select Template"
+                                            searchPlaceholder="Search templates..."
+                                            isLoading={isLoadingData}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-semibold text-slate-700">Subject</label>
+                                        <Input
+                                            value={emailSubject}
+                                            onChange={(e) => setEmailSubject(e.target.value)}
+                                            placeholder="Enter Subject..."
+                                            className="h-10"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <EmailEditor
+                                            value={emailBody}
+                                            onChange={setEmailBody}
+                                            placeholder="Enter text here.."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end pt-4">
+                                    <Button 
+                                        onClick={handleSaveEmail}
+                                        className="bg-blue-600 hover:bg-blue-700 px-8"
+                                    >
+                                        Save
+                                    </Button>
+                                </div>
                             </div>
                         </TabsContent>
 

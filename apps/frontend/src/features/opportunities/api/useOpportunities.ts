@@ -7,7 +7,7 @@ export const useOpportunities = (filters: OpportunityFilters = { page: 1, per_pa
     return useQuery({
         queryKey: ["opportunities", filters],
         queryFn: () => opportunitiesService.getOpportunities(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds – fresh enough for CRM, prevents duplicate fetches
     });
 };
 

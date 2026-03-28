@@ -5,6 +5,7 @@ import { FormDrawer } from "@/components/shared/FormDrawer";
 import { AccountForm } from "./AccountForm";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface AccountFormDrawerProps {
     open: boolean;
@@ -25,6 +26,7 @@ export function AccountFormDrawer({
     accountId
 }: AccountFormDrawerProps) {
     const queryClient = useQueryClient();
+    const router = useRouter();
     const [editData, setEditData] = useState<any>(initialData);
     
     // We already have `AccountForm` handling its own metadata loading.
@@ -59,6 +61,7 @@ export function AccountFormDrawer({
         queryClient.invalidateQueries({ queryKey: [isPersonAccount ? "person-accounts" : "accounts"] });
         // Since opportunities might also show accounts, invalidate that too if needed
         queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+        router.refresh();
         onOpenChange(false);
         setEditData(undefined); // Reset state
     };

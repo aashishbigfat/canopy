@@ -48,7 +48,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
 import { Opportunity } from "../types";
-import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability } from "@/features/opportunities/utils/stageConfig";
+import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability, CLOSE_LOST_REASONS } from "@/features/opportunities/utils/stageConfig";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { accountsService } from "@/lib/api/services/accounts.service";
@@ -56,6 +56,13 @@ import { contactsService } from "@/lib/api/services/contacts.service";
 import { Contact } from "@/features/contacts/types";
 import { toast } from "sonner";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+
+// Travel inclusion options
+const INCLUSION_OPTIONS = [
+    "Air Ticket", "Visa", "Accommodation", "Site Seeing",
+    "Airport Transfer", "Transport", "Package", "Land Package",
+    "Meal", "Courier Charges", "Taxes", "Insurance", "Departure",
+];
 
 const opportunityFormSchema = z.object({
     name: z.string().min(2, {
@@ -76,6 +83,8 @@ const opportunityFormSchema = z.object({
     description: z.string().optional(),
     account_id: z.string().optional(),
     contact_id: z.string().optional(),
+    inclusions: z.array(z.string()).default([]),
+    close_lost_reason: z.string().optional(),
 });
 
 type OpportunityFormValues = z.infer<typeof opportunityFormSchema>;
@@ -101,6 +110,8 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
     const [destinationOpen, setDestinationOpen] = useState(false);
     const [destSearch, setDestSearch] = useState("");
+    const [inclusionOpen, setInclusionOpen] = useState(false);
+    const [inclusionSearch, setInclusionSearch] = useState("");
 
     // Account & Contact state
     const [accountOptions, setAccountOptions] = useState<{ id: string; name: string; is_person_account?: boolean }[]>([]);
@@ -171,7 +182,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     };
 
     const form = useForm<OpportunityFormValues>({
-        resolver: zodResolver(opportunityFormSchema),
+        resolver: zodResolver(opportunityFormSchema) as any,
         defaultValues: {
             name: opportunity.name || "",
             amount: opportunity.amount?.toString() || "0",
@@ -189,10 +200,15 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
             description: opportunity.description || "",
             account_id: opportunity.account_id || "",
             contact_id: opportunity.contact_id || "",
-        },
+            inclusions: (opportunity.inclusions as string[]) || [],
+            close_lost_reason: opportunity.close_lost_reason || "",
+        } as OpportunityFormValues,
     });
 
     const selectedStageId = form.watch("sales_stage_id");
+    // Check if the selected stage is a 'Close Lost' stage
+    const selectedStageObj = normalizedStages.find(s => s.id === selectedStageId) as any;
+    const isCloseLostStage = !!(selectedStageObj?.is_lost);
 
     // Auto-set probability when sales stage changes
     useEffect(() => {
@@ -200,6 +216,11 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
         const stageProbability = getProbabilityForStageId(selectedStageId, normalizedStages);
         if (typeof stageProbability === "number") {
             form.setValue("probability", stageProbability.toString());
+        }
+        // Clear close_lost_reason when switching away from Close Lost
+        const stageObj = normalizedStages.find(s => s.id === selectedStageId) as any;
+        if (!stageObj?.is_lost) {
+            form.setValue("close_lost_reason", "");
         }
     }, [selectedStageId, normalizedStages, form]);
 
@@ -236,6 +257,16 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     };
 
     async function onSubmit(data: OpportunityFormValues) {
+        // Validate close_lost_reason if stage is Close Lost
+        const stageObj = normalizedStages.find(s => s.id === data.sales_stage_id) as any;
+        if (stageObj?.is_lost && !data.close_lost_reason?.trim()) {
+            form.setError("close_lost_reason", {
+                type: "manual",
+                message: "Close Lost Reason is required when stage is Close Lost.",
+            });
+            return;
+        }
+
         setIsLoading(true);
         try {
             await ErrorHandler.withErrorHandling(async () => {
@@ -271,6 +302,9 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                     if (data.description) payload.description = data.description;
                     if (data.account_id !== undefined) payload.account_id = data.account_id || null;
                     if (data.contact_id !== undefined) payload.contact_id = data.contact_id || null;
+                    payload.inclusions = data.inclusions || [];
+                    // Always send close_lost_reason (empty string clears it on backend)
+                    payload.close_lost_reason = data.close_lost_reason || "";
 
                     await updateOpportunity.mutateAsync({
                         id: opportunity.id,
@@ -767,6 +801,131 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             </FormItem>
                         )}
                     />
+
+                    {/* Inclusions Multi-Select */}
+                    <FormField
+                        control={form.control as any}
+                        name="inclusions"
+                        render={({ field }) => {
+                            const selected: string[] = field.value || [];
+                            return (
+                                <FormItem>
+                                    <FormLabel>Inclusion(s)</FormLabel>
+                                    <Popover open={inclusionOpen} onOpenChange={setInclusionOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "min-h-[36px] h-auto w-full justify-between bg-white px-3 py-1",
+                                                        selected.length === 0 && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selected.length > 0 ? (
+                                                            selected.map((item) => (
+                                                                <Badge
+                                                                    key={item}
+                                                                    variant="secondary"
+                                                                    className="rounded-sm px-1 font-normal text-[10px]"
+                                                                >
+                                                                    {item}
+                                                                    <span
+                                                                        className="ml-1 cursor-pointer"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            field.onChange(selected.filter((i) => i !== item));
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
+                                                                    </span>
+                                                                </Badge>
+                                                            ))
+                                                        ) : (
+                                                            "Select Inclusions"
+                                                        )}
+                                                    </div>
+                                                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0 md:w-[500px]" align="start" onPointerDownOutside={(e) => e.stopPropagation()}>
+                                            <Command>
+                                                <CommandInput
+                                                    placeholder="Search inclusions..."
+                                                    className="h-8"
+                                                    value={inclusionSearch}
+                                                    onValueChange={setInclusionSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No inclusions found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {INCLUSION_OPTIONS
+                                                            .filter((opt) => opt.toLowerCase().includes(inclusionSearch.toLowerCase()))
+                                                            .map((opt) => {
+                                                                const isSelected = selected.includes(opt);
+                                                                return (
+                                                                    <CommandItem
+                                                                        key={opt}
+                                                                        value={opt}
+                                                                        onSelect={() => {
+                                                                            if (isSelected) {
+                                                                                field.onChange(selected.filter((i) => i !== opt));
+                                                                            } else {
+                                                                                field.onChange([...selected, opt]);
+                                                                            }
+                                                                            setInclusionSearch("");
+                                                                        }}
+                                                                    >
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                isSelected ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {opt}
+                                                                    </CommandItem>
+                                                                );
+                                                            })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            );
+                        }}
+                    />
+
+                    {/* Close Lost Reason — only visible when stage is_lost */}
+                    {isCloseLostStage && (
+                        <FormField
+                            control={form.control}
+                            name="close_lost_reason"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-red-600 font-semibold">Close Lost Reason *</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                                        <FormControl>
+                                            <SelectTrigger className="border-red-200 focus:ring-red-500">
+                                                <SelectValue placeholder="Select reason" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {CLOSE_LOST_REASONS.map((reason) => (
+                                                <SelectItem key={reason} value={reason}>
+                                                    {reason}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
 
                     <div className="flex gap-4">
                         <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">

@@ -10,6 +10,12 @@ export interface Supplier {
     phone?: string;
     mobile?: string;
     website?: string;
+    
+    // Service Areas
+    services?: string[];
+    countries?: string[];
+    states?: string[];
+    destinations?: string[];
 
     // Address
     street?: string;
@@ -42,6 +48,7 @@ export interface Supplier {
 export interface SupplierCreateData {
     name: string;
     supplier_type: string;
+    owner_id?: string;
     email?: string;
     phone?: string;
     // ... other optional fields matching SupplierBase
@@ -56,5 +63,10 @@ export interface SupplierFilters {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
 }
-
-export type SupplierResponse = PaginatedResponse<Supplier>;
+export type SupplierResponse = {
+    suppliers: Supplier[];
+    total: number;
+    page: number;
+    per_page: number;
+    pages: number;
+};

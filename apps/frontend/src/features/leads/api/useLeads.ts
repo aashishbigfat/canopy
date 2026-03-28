@@ -7,7 +7,7 @@ export const useLeads = (filters: LeadFilters = { page: 1, per_page: 10 }) => {
     return useQuery({
         queryKey: ["leads", filters],
         queryFn: () => leadsService.getLeads(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
     });
 };
 

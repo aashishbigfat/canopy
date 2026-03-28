@@ -8,6 +8,7 @@ import { FormDrawer } from "@/components/shared/FormDrawer";
 import { LeadForm } from "./LeadForm";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { Lead } from "../types";
+import { useRouter } from "next/navigation";
 
 interface LeadFormDrawerProps {
     open: boolean;
@@ -33,6 +34,7 @@ export function LeadFormDrawer({
     metadata,
 }: LeadFormDrawerProps) {
     const queryClient = useQueryClient();
+    const router = useRouter();
     const [metadataState, setMetadataState] = useState(metadata || null);
     const [loading, setLoading] = useState(false);
     const [editData, setEditData] = useState<Lead | undefined>(initialData);
@@ -93,6 +95,7 @@ export function LeadFormDrawer({
 
     const handleSuccess = () => {
         queryClient.invalidateQueries({ queryKey: ["leads"] });
+        router.refresh();
         onOpenChange(false);
         // Reset edit data for next use
         setEditData(undefined);

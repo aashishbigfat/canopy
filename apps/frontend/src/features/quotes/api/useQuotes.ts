@@ -6,7 +6,7 @@ export const useQuotes = (filters: QuoteFilters = { page: 1, per_page: 10 }) => 
     return useQuery({
         queryKey: ["quotes", filters],
         queryFn: () => quotesService.getQuotes(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
     });
 };
 

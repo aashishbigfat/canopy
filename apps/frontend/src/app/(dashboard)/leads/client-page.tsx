@@ -44,7 +44,7 @@ export default function LeadsClientPage() {
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
     const page = parseInt(searchParams.get("page") || "1");
-    const per_page = parseInt(searchParams.get("per_page") || "10");
+    const per_page = parseInt(searchParams.get("per_page") || "100");
     const search = searchParams.get("search") || undefined;
     const view = searchParams.get("view") || undefined;
 

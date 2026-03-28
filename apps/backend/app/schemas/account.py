@@ -1,11 +1,14 @@
 """
 Pydantic schemas for Account API requests and responses
 """
-from pydantic import BaseModel, EmailStr, Field, HttpUrl, validator, BeforeValidator
+from pydantic import BaseModel, EmailStr, Field, HttpUrl, validator, BeforeValidator, model_validator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
 import re
+
+NUMERIC_ZIP_REGEX = r"^\d{3,10}$"
+NUMERIC_ZIP_REGEX_MESSAGE = "Invalid Zip/Postal code format. Must be numeric."
 
 def safe_phone_validator(v: Any) -> Optional[str]:
     if not v:
@@ -17,16 +20,15 @@ def safe_phone_validator(v: Any) -> Optional[str]:
 def safe_zip_validator(v: Any) -> Optional[str]:
     if not v:
         return None
-    if not re.match(ZIP_REGEX, str(v)):
+    if not re.match(NUMERIC_ZIP_REGEX, str(v)):
         return None
     return str(v)
 
 class AccountBase(BaseModel):
     """Base schema for Account"""
     name: str = Field(..., min_length=2, max_length=255)
-    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    email: EmailStr = Field(...)
+    phone: Annotated[str, BeforeValidator(safe_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
     description: Optional[str] = None
     is_person_account: bool = False
@@ -39,15 +41,15 @@ class AccountBase(BaseModel):
     # Billing Address
     billing_street: Optional[str] = None
     billing_city: Optional[str] = None
-    billing_state: Optional[str] = None
-    billing_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
-    billing_country: Optional[str] = None
+    billing_state: str = Field(...)
+    billing_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=NUMERIC_ZIP_REGEX, description=NUMERIC_ZIP_REGEX_MESSAGE)
+    billing_country: str = Field(...)
     
     # Shipping Address
     shipping_street: Optional[str] = None
     shipping_city: Optional[str] = None
     shipping_state: Optional[str] = None
-    shipping_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
+    shipping_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=NUMERIC_ZIP_REGEX, description=NUMERIC_ZIP_REGEX_MESSAGE)
     shipping_country: Optional[str] = None
     
     # Classification
@@ -55,8 +57,15 @@ class AccountBase(BaseModel):
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
     rating_id: Optional[str] = None
-    account_source_id: Optional[str] = None
-    owner_id: Optional[str] = None
+
+    @model_validator(mode='after')
+    def validate_classification(self) -> 'AccountBase':
+        if not self.is_person_account:
+            if not self.acc_type_id:
+                raise ValueError("acc_type_id is required for company accounts")
+            if not self.industry_id:
+                raise ValueError("industry_id is required for company accounts")
+        return self
 
 
 class AccountCreate(AccountBase):
@@ -69,7 +78,6 @@ class AccountUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
     phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
     description: Optional[str] = None
     
@@ -82,14 +90,14 @@ class AccountUpdate(BaseModel):
     billing_street: Optional[str] = None
     billing_city: Optional[str] = None
     billing_state: Optional[str] = None
-    billing_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
+    billing_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=NUMERIC_ZIP_REGEX, description=NUMERIC_ZIP_REGEX_MESSAGE)
     billing_country: Optional[str] = None
     
     # Shipping Address
     shipping_street: Optional[str] = None
     shipping_city: Optional[str] = None
     shipping_state: Optional[str] = None
-    shipping_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
+    shipping_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=NUMERIC_ZIP_REGEX, description=NUMERIC_ZIP_REGEX_MESSAGE)
     shipping_country: Optional[str] = None
     
     # Classification
@@ -97,8 +105,6 @@ class AccountUpdate(BaseModel):
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
     rating_id: Optional[str] = None
-    account_source_id: Optional[str] = None
-    owner_id: Optional[str] = None
     
     custom_fields: Optional[Dict[str, Any]] = None
 
@@ -113,6 +119,7 @@ class AccountResponse(AccountBase):
     created_by_name: Optional[str] = None
     last_modified_by_id: Optional[str] = None
     last_modified_by_name: Optional[str] = None
+    account_type_name: Optional[str] = None
     
     view_count: int = 0
     is_favorite: bool = False

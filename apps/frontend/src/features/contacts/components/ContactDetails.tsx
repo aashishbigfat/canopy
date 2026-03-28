@@ -36,6 +36,7 @@ import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunit
 import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { ContactFormDrawer } from "./ContactFormDrawer";
+import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
 import { toast } from "sonner";
 
 interface ContactDetailsProps {
@@ -51,6 +52,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+    const [isNewOppDrawerOpen, setIsNewOppDrawerOpen] = useState(false);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -135,16 +137,20 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         </div>
                                         Opportunities ({contact.related_opportunities?.length || 0})
                                     </h2>
-                                    <Button variant="outline" size="sm" asChild className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold">
-                                        <Link href={`/opportunities/create?contactId=${contact.id}${contact.account_id ? `&accountId=${contact.account_id}` : ''}`}>
-                                            <Plus className="h-3 w-3 mr-1" />
-                                            New
-                                        </Link>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        onClick={() => setIsNewOppDrawerOpen(true)}
+                                        className="bg-blue-600 hover:bg-blue-700 text-white border-none h-8 px-4 text-xs font-bold"
+                                    >
+                                        <Plus className="h-3 w-3 mr-1" />
+                                        New
                                     </Button>
                                 </div>
                                 <RelatedOpportunitiesCards
                                     opportunities={contact.related_opportunities || []}
                                     contactId={contact.id}
+                                    onNewClick={() => setIsNewOppDrawerOpen(true)}
                                 />
                             </TabsContent>
 
@@ -283,12 +289,19 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
 
             <ContactFormDrawer
                 open={isEditDrawerOpen}
-                onOpenChange={(open) => {
+                onOpenChange={(open: boolean) => {
                     setIsEditDrawerOpen(open);
                     if (!open) router.refresh();
                 }}
                 contactId={contact.id}
                 initialData={contact}
+            />
+
+            <OpportunityFormDrawer 
+                open={isNewOppDrawerOpen}
+                onOpenChange={setIsNewOppDrawerOpen}
+                initialContactId={contact.id}
+                initialAccountId={contact.account_id}
             />
         </div>
     );

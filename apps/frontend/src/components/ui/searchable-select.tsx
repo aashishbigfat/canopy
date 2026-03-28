@@ -119,7 +119,7 @@ export function SearchableSelect({
                             <>
                                 <CommandEmpty>{emptyMessage}</CommandEmpty>
                                 <CommandGroup className="max-h-64 overflow-auto p-1">
-                                    {options.map((option) => (
+                                    {Array.from(new Map(options.map(o => [o.value, o])).values()).map((option) => (
                                         <CommandItem
                                             key={option.value}
                                             value={option.value} // Use value for selection

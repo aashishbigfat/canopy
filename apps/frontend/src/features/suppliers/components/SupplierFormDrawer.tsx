@@ -2,58 +2,56 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { FormDrawer } from "@/components/shared/FormDrawer";
-import { ContactForm } from "./ContactForm";
+import { SupplierForm } from "./supplier-form";
 import { useState, useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import { Supplier } from "../types";
 import { useRouter } from "next/navigation";
 
-interface ContactFormDrawerProps {
+interface SupplierFormDrawerProps {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    /** Optional data indicating edit mode */
-    initialData?: any;
-    /** Contact ID for edit mode */
-    contactId?: string;
-    /** Initial Account string for display logic */
-    initialAccountName?: string;
+    initialData?: Supplier;
+    supplierId?: string;
+    onSuccess?: () => void;
 }
 
-export function ContactFormDrawer({
+export function SupplierFormDrawer({
     open,
     onOpenChange,
     initialData,
-    contactId,
-    initialAccountName
-}: ContactFormDrawerProps) {
+    supplierId,
+    onSuccess
+}: SupplierFormDrawerProps) {
     const queryClient = useQueryClient();
     const router = useRouter();
-    const [editData, setEditData] = useState<any>(initialData);
+    const [editData, setEditData] = useState<Supplier | undefined>(initialData);
     const [loading, setLoading] = useState(false);
     
     useEffect(() => {
-        if (!open || !contactId || editData) return;
+        if (!open || !supplierId || editData) return;
         
         let cancelled = false;
-        const fetchContact = async () => {
+        // In this implementation, the parent list component usually provides initialData.
+        // We leave this structure matching the AccountFormDrawer for future direct ID fetching.
+        const fetchSupplier = async () => {
             setLoading(true);
             try {
-                // If we didn't get initialData but have a contactId, we should ideally fetch it.
-                // In the current uses, initialData is usually passed from the detail or list view.
+                // Fetch logic would go here if not provided initialData
             } catch (error) {
-                console.error("Failed to load contact:", error);
+                console.error("Failed to load supplier:", error);
             } finally {
                 if (!cancelled) setLoading(false);
             }
         };
-        fetchContact();
+        fetchSupplier();
         return () => { cancelled = true; };
-    }, [open, contactId, editData]);
+    }, [open, supplierId, editData]);
 
     const handleSuccess = () => {
-        queryClient.invalidateQueries({ queryKey: ["contacts"] });
-        // Might also affect account details if they show related contacts
-        queryClient.invalidateQueries({ queryKey: ["accounts"] });
+        queryClient.invalidateQueries({ queryKey: ["suppliers"] });
         router.refresh();
+        if (onSuccess) onSuccess();
         onOpenChange(false);
         setEditData(undefined);
     };
@@ -63,15 +61,15 @@ export function ContactFormDrawer({
         setEditData(undefined);
     };
 
-    const titleMode = contactId ? "Edit" : "Create";
-    const title = `${titleMode} Contact${editData?.first_name ? ` — ${editData.first_name} ${editData.last_name || ""}` : ""}`;
+    const titleMode = supplierId ? "Edit" : "Create";
+    const title = `${titleMode} Supplier${editData?.name ? ` — ${editData.name}` : ""}`;
 
     return (
         <FormDrawer
             open={open}
             onOpenChange={handleClose}
             title={title}
-            subtitle={contactId ? "Update the details of this contact" : "Enter details for a new contact"}
+            subtitle={supplierId ? "Update the details of this supplier" : "Enter details for a new supplier"}
         >
             {loading ? (
                 <div className="flex items-center justify-center h-64">
@@ -80,11 +78,9 @@ export function ContactFormDrawer({
                 </div>
             ) : (
                 <div className="p-5 overflow-x-hidden">
-                    <ContactForm
-                        key={contactId || "new"}
+                    <SupplierForm
+                        key={supplierId || "new"}
                         initialData={editData || initialData}
-                        id={contactId}
-                        initialAccountName={initialAccountName}
                         onSuccess={handleSuccess}
                         onCancel={handleClose}
                         isDrawer

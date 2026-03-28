@@ -9,6 +9,7 @@ import { OpportunityForm } from "./OpportunityForm";
 import { OpportunityEditForm } from "./OpportunityEditForm";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { Opportunity } from "../types";
+import { useRouter } from "next/navigation";
 
 interface OpportunityFormDrawerProps {
     open: boolean;
@@ -33,29 +34,25 @@ export function OpportunityFormDrawer({
     initialContactId,
 }: OpportunityFormDrawerProps) {
     const queryClient = useQueryClient();
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [editData, setEditData] = useState<Opportunity | undefined>(opportunity);
     const [editStages, setEditStages] = useState<any[] | undefined>(stages);
 
     const isEdit = !!opportunityId;
 
-    // Fetch opportunity + stages for edit mode if not pre-loaded
+    // Fetch opportunity + stages for edit mode whenever drawer opens
     useEffect(() => {
         if (!open || !isEdit) return;
-        if (editData && editStages) return;
 
         let cancelled = false;
         const fetchData = async () => {
             setLoading(true);
             try {
-                const promises: Promise<any>[] = [];
-                promises.push(
-                    editData ? Promise.resolve(null) : opportunitiesService.getOpportunity(opportunityId)
-                );
-                promises.push(
-                    editStages ? Promise.resolve(null) : opportunitiesService.getSalesStages()
-                );
-                const [oppResponse, stagesResponse] = await Promise.all(promises);
+                const [oppResponse, stagesResponse] = await Promise.all([
+                    opportunitiesService.getOpportunity(opportunityId),
+                    editStages ? Promise.resolve(null) : opportunitiesService.getSalesStages(),
+                ]);
                 if (cancelled) return;
                 if (oppResponse) setEditData(oppResponse);
                 if (stagesResponse) setEditStages(stagesResponse);
@@ -74,6 +71,7 @@ export function OpportunityFormDrawer({
         if (opportunityId) {
             queryClient.invalidateQueries({ queryKey: ["opportunities", opportunityId] });
         }
+        router.refresh();
         onOpenChange(false);
         setEditData(undefined);
     };

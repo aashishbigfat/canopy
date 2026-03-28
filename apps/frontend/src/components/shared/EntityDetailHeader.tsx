@@ -24,7 +24,7 @@ import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
 import { useState } from "react";
 
 interface EntityDetailHeaderProps {
-    type: "Contact" | "Account" | "Person Account" | "Lead";
+    type: "Contact" | "Account" | "Person Account" | "Lead" | "Supplier";
     customLabel?: string;
     badge?: string;
     name: string;

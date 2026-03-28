@@ -6,7 +6,7 @@ export const useContacts = (filters: ContactFilters = { page: 1, per_page: 10 })
     return useQuery({
         queryKey: ["contacts", filters],
         queryFn: () => contactsService.getContacts(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
     });
 };
 

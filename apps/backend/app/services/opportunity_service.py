@@ -327,32 +327,36 @@ class OpportunityService(ActivityMixin):
         old_stage_id = opp.sales_stage_id
         new_stage_id = ObjectId(stage_change.new_stage_id)
         
-        # Guard: Only change if stage is different
-        if old_stage_id == new_stage_id:
+        # Guard: Only skip if stage is same AND reason is same
+        if old_stage_id == new_stage_id and opp.close_lost_reason == stage_change.reason:
             return opp
 
         # Update stage
         opp.sales_stage_id = new_stage_id
         opp.last_modified_by_id = user_id
         
-        # Update probability based on stage
+        # Update probability and close lost reason based on stage
         from app.models.opportunity_picklists import SalesStage
         new_stage = await SalesStage.get(new_stage_id)
         if new_stage:
             opp.probability = new_stage.probability
+            # If moving to a lost stage, store the reason in close_lost_reason
+            if getattr(new_stage, 'is_lost', False) and stage_change.reason:
+                opp.close_lost_reason = stage_change.reason
         
         await opp.save()
         
-        # Log history
-        history = OpportunityHistory(
-            opportunity_id=opp.id,
-            tenant_id=tenant_id,
-            field_name="sales_stage_id",
-            old_value=str(old_stage_id),
-            new_value=str(new_stage_id),
-            changed_by=user_id
-        )
-        await history.insert()
+        # Log history only if stage ID actually changed
+        if str(old_stage_id) != str(new_stage_id):
+            history = OpportunityHistory(
+                opportunity_id=opp.id,
+                tenant_id=tenant_id,
+                field_name="sales_stage_id",
+                old_value=str(old_stage_id),
+                new_value=str(new_stage_id),
+                changed_by=user_id
+            )
+            await history.insert()
         
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))

@@ -1,8 +1,13 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from beanie import init_beanie
 from app.core.config import settings
+import certifi
+import logging
 
-# Import all models here
+logger = logging.getLogger(__name__)
+
+# Global database client singleton
+mongodb_client = None
 from app.models.user import User
 from app.models.tenant import Tenant
 from app.models.account import Account
@@ -46,22 +51,38 @@ from app.models.user_contact_view import UserContactView, ContactCustomField
 from app.models.account_views import AccountView, AccountColumn, AccountPinView
 from app.models.account_contact import AccountContact
 from app.models.contact_views import ContactView, ContactColumn, AdditionalFieldContact
-from app.models.picklists import Industry, Rating
+from app.models.picklists import Industry, Rating, AccountType, AccountSource, SupplierService as SupplierServicePicklist
 from app.models.custom_fields import AccountCustomField
 from app.models.module_attachment import ModuleAttachment
 
 async def init_db():
     """Initialize database connection"""
-    client = AsyncIOMotorClient(
-        settings.MONGODB_URL,
-        maxPoolSize=100,
-        minPoolSize=0,
-        maxIdleTimeMS=60000,
-        tlsAllowInvalidCertificates=True
-    )
+    global mongodb_client
+    
+    if mongodb_client is None:
+        mongodb_client = AsyncIOMotorClient(
+            settings.MONGODB_URL,
+            ssl=True,
+            tls=True,
+            tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=False,
+            maxPoolSize=50,
+            minPoolSize=5,
+            maxIdleTimeMS=60000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=45000,
+            serverSelectionTimeoutMS=5000
+        )
+    
+    try:
+        await mongodb_client.admin.command('ismaster')
+        logger.info(f"✅ Connected to MongoDB Atlas: {settings.MONGODB_DB_NAME}")
+        print("mongodb is connected")
+    except Exception as e:
+        logger.error(f"❌ Initial connection test failed: {e}")
     
     await init_beanie(
-        database=client[settings.MONGODB_DB_NAME],
+        database=mongodb_client[settings.MONGODB_DB_NAME],
         document_models=[
             # Core
             User,
@@ -167,24 +188,36 @@ async def init_db():
             AdditionalFieldContact,
             Industry,
             Rating,
+            AccountType,
+            AccountSource,
+            SupplierServicePicklist,
             AccountCustomField,
             ModuleAttachment,
         ],
         recreate_views=False,
-        allow_index_dropping=True,
+        allow_index_dropping=False,
     )
     
-    print(f"✅ Connected to MongoDB: {settings.MONGODB_DB_NAME}")
+    logger.info(f"✅ Database ODM mapped and ready: {settings.MONGODB_DB_NAME}")
 
 
 async def get_database():
-    """Get database instance"""
-    client = AsyncIOMotorClient(
-        settings.MONGODB_URL,
-        maxPoolSize=100,
-        minPoolSize=0,
-        maxIdleTimeMS=60000,
-        tlsAllowInvalidCertificates=True
-    )
-    return client[settings.MONGODB_DB_NAME]
+    """Get database instance via singleton"""
+    global mongodb_client
+    if mongodb_client is None:
+        logger.warning("Database client requested before init_db, initializing now...")
+        mongodb_client = AsyncIOMotorClient(
+            settings.MONGODB_URL,
+            ssl=True,
+            tls=True,
+            tlsCAFile=certifi.where(),
+            tlsAllowInvalidCertificates=False,
+            maxPoolSize=50,
+            minPoolSize=5,
+            maxIdleTimeMS=60000,
+            connectTimeoutMS=10000,
+            socketTimeoutMS=45000,
+            serverSelectionTimeoutMS=5000
+        )
+    return mongodb_client[settings.MONGODB_DB_NAME]
 

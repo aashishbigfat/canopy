@@ -62,14 +62,12 @@ class Contact(BaseDocument):
     
     class Settings:
         name = "contacts"
-        # indexes = [
-        # "tenant_id",
-        # "owner_id",
-        # "email",
-        # "account_id",
-        # [("tenant_id", 1), ("first_name", 1), ("last_name", 1)],
-            # [("tenant_id", 1), ("owner_id", 1)],
-        # ]
+        indexes = [
+            [("tenant_id", 1), ("deleted_at", 1), ("updated_at", -1)],
+            [("tenant_id", 1), ("owner_id", 1)],
+            [("tenant_id", 1), ("account_id", 1)],
+        ]
+
     
     @property
     def full_name(self) -> str:

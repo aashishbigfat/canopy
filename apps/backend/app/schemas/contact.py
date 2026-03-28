@@ -58,6 +58,9 @@ class ContactBase(BaseModel):
 
 class ContactCreate(ContactBase):
     """Schema for creating a contact"""
+    email: EmailStr = Field(...)
+    mobile: Annotated[str, BeforeValidator(safe_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    account_id: str = Field(...)
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 

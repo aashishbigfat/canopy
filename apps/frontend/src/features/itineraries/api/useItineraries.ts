@@ -6,7 +6,7 @@ export const useItineraries = (filters: ItineraryFilters = { page: 1, per_page: 
     return useQuery({
         queryKey: ["itineraries", filters],
         queryFn: () => itinerariesService.getItineraries(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
     });
 };
 

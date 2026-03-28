@@ -56,6 +56,8 @@ export interface Opportunity {
     view_count: number;
     created_at: string;
     updated_at: string;
+    inclusions?: string[];
+    close_lost_reason?: string;
 }
 
 export interface OpportunityCreateData {
@@ -91,6 +93,8 @@ export interface OpportunityCreateData {
     source_url?: string;
 
     key_deal?: boolean;
+    inclusions?: string[];
+    close_lost_reason?: string;
 }
 
 export interface OpportunityFilters {

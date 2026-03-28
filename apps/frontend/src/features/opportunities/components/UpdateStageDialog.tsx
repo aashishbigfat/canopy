@@ -1,22 +1,7 @@
 "use client";
 
-import React, { useState } from "react";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter,
-} from "@/components/ui/dialog";
-import {
-    Form,
-    FormControl,
-    FormField,
-    FormItem,
-    FormLabel,
-    FormMessage,
-} from "@/components/ui/form";
+import React, { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
 import {
     Select,
     SelectContent,
@@ -24,29 +9,27 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
-import { useRouter } from "next/navigation";
-import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { useQueryClient } from "@tanstack/react-query";
+import { CLOSE_LOST_REASONS } from "@/features/opportunities/utils/stageConfig";
+import { X } from "lucide-react";
 
-const stageUpdateSchema = z.object({
-    new_stage_id: z.string().min(1, "Please select a stage"),
-    reason: z.string().optional(),
-});
-
-type StageUpdateValues = z.infer<typeof stageUpdateSchema>;
+interface StageOption {
+    id: string;
+    name: string;
+    is_lost?: boolean;
+}
 
 interface UpdateStageDialogProps {
     opportunityId: string;
     currentStageId: string;
-    stages: { id: string; name: string }[];
+    stages: StageOption[];
     isOpen: boolean;
+    /** Pre-selected target stage (Close Lost stage ID) */
+    targetStageId?: string;
+    /** Existing reason if any */
+    currentReason?: string;
     onClose: () => void;
 }
 
@@ -55,123 +38,129 @@ export function UpdateStageDialog({
     currentStageId,
     stages,
     isOpen,
+    targetStageId,
+    currentReason,
     onClose,
 }: UpdateStageDialogProps) {
     const [isLoading, setIsLoading] = useState(false);
-    const router = useRouter();
+    const [selectedReason, setSelectedReason] = useState("");
+    const [reasonError, setReasonError] = useState("");
+    const queryClient = useQueryClient();
 
-    const form = useForm<StageUpdateValues>({
-        resolver: zodResolver(stageUpdateSchema),
-        defaultValues: {
-            new_stage_id: currentStageId,
-            reason: "",
-        },
-    });
-
-    const handleBackendErrors = (error: any) => {
-        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
-            const details = error.details.detail;
-            details.forEach((err: any) => {
-                const field = err.loc[err.loc.length - 1];
-                form.setError(field as any, {
-                    type: "manual",
-                    message: err.msg,
-                });
-            });
-            return true;
+    // Initialize state when dialog opens
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedReason(currentReason || "");
+            setReasonError("");
         }
-        return false;
-    };
+    }, [isOpen, currentReason]);
 
-    async function onSubmit(data: StageUpdateValues) {
-        if (data.new_stage_id === currentStageId) {
-            onClose();
+    const stageId = targetStageId || stages.find(s => s.is_lost)?.id || "";
+
+    async function handleUpdateStage() {
+        if (!selectedReason.trim()) {
+            setReasonError("Please select a reason for closing this opportunity.");
+            return;
+        }
+
+        if (!stageId) {
+            toast.error("No Close Lost stage found");
             return;
         }
 
         setIsLoading(true);
         try {
-            await ErrorHandler.withErrorHandling(async () => {
-                try {
-                    await opportunitiesService.updateStage(opportunityId, data.new_stage_id, data.reason);
-                    toast.success("Opportunity stage updated successfully");
-                    onClose();
-                    router.refresh();
-                } catch (error: any) {
-                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to update stage"));
-                    if (!mapped) throw error;
-                }
-            }, "Failed to update stage");
-        } catch (error) {
-            // Handled
+            await opportunitiesService.updateStage(
+                opportunityId,
+                stageId,
+                selectedReason
+            );
+            toast.success("Opportunity marked as Close Lost");
+            // Invalidate queries to refresh data
+            queryClient.invalidateQueries({ queryKey: ["opportunities", opportunityId] });
+            queryClient.invalidateQueries({ queryKey: ["opportunities", opportunityId, "history"] });
+            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+            onClose();
+        } catch (error: any) {
+            console.error("Failed to update stage:", error);
+            toast.error(error?.response?.data?.detail || "Failed to update stage");
         } finally {
             setIsLoading(false);
         }
     }
 
+    if (!isOpen) return null;
+
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
-            <DialogContent className="sm:max-w-[425px]">
-                <DialogHeader>
-                    <DialogTitle>Update Sales Stage</DialogTitle>
-                    <DialogDescription>
-                        Change the current stage of this opportunity in the sales pipeline.
-                    </DialogDescription>
-                </DialogHeader>
+        <div className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh]">
+            {/* Backdrop */}
+            <div className="fixed inset-0 bg-black/50" onClick={onClose} />
 
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                        <FormField
-                            control={form.control}
-                            name="new_stage_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>New Stage</FormLabel>
-                                    <FormControl>
-                                        <SearchableSelect
-                                            options={stages.map((stage) => ({
-                                                label: stage.name,
-                                                value: stage.id
-                                            }))}
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                            placeholder="Select a stage"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+            {/* Dialog */}
+            <div className="relative bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden">
+                {/* Red Header */}
+                <div className="bg-red-500 text-white px-6 py-4 flex items-center justify-between">
+                    <h2 className="text-base font-semibold leading-tight">
+                        Are you sure want to lost this<br />Opportunity?
+                    </h2>
+                    <button
+                        onClick={onClose}
+                        className="text-white/80 hover:text-white transition-colors ml-4 flex-shrink-0"
+                    >
+                        <X className="h-5 w-5" />
+                    </button>
+                </div>
 
-                        <FormField
-                            control={form.control}
-                            name="reason"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Reason (Optional)</FormLabel>
-                                    <FormControl>
-                                        <Textarea
-                                            placeholder="Why is this stage being changed?"
-                                            className="resize-none"
-                                            {...field}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                {/* Body */}
+                <div className="px-6 py-5 space-y-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium text-slate-700">
+                            Reason - Lost Opportunity<span className="text-red-500">*</span>
+                        </label>
+                        <Select
+                            value={selectedReason}
+                            onValueChange={(val) => {
+                                setSelectedReason(val);
+                                setReasonError("");
+                            }}
+                        >
+                            <SelectTrigger className={reasonError ? "border-red-400 focus:ring-red-500" : ""}>
+                                <SelectValue placeholder="Select reason" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {CLOSE_LOST_REASONS.map((reason) => (
+                                    <SelectItem key={reason} value={reason}>
+                                        {reason}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        {reasonError && (
+                            <p className="text-xs text-red-500">{reasonError}</p>
+                        )}
+                    </div>
+                </div>
 
-                        <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={onClose} disabled={isLoading}>
-                                Cancel
-                            </Button>
-                            <Button type="submit" className="bg-blue-600 hover:bg-blue-700" disabled={isLoading}>
-                                {isLoading ? "Updating..." : "Update Stage"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
-            </DialogContent>
-        </Dialog>
+                {/* Footer */}
+                <div className="px-6 py-4 bg-slate-50 border-t flex justify-end gap-3">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={onClose}
+                        disabled={isLoading}
+                    >
+                        Close
+                    </Button>
+                    <Button
+                        type="button"
+                        className="bg-blue-600 hover:bg-blue-700"
+                        onClick={handleUpdateStage}
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Updating..." : "Update Stage"}
+                    </Button>
+                </div>
+            </div>
+        </div>
     );
 }

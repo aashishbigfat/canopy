@@ -26,5 +26,25 @@ export const suppliersService = {
 
     deleteSupplier: async (id: string): Promise<void> => {
         await apiClient.delete(`${BASE_URL}/${id}`);
+    },
+
+    getFormData: async () => {
+        const response = await apiClient.get(`${BASE_URL}/form-data`);
+        return response.data;
+    },
+
+    linkToOpportunity: async (opportunityId: string, data: { supplierId: string; emailSubject?: string; emailBody?: string }): Promise<void> => {
+        await apiClient.post(`${BASE_URL}/opportunity/${opportunityId}/link`, null, {
+            params: {
+                supplier_id: data.supplierId,
+                email_subject: data.emailSubject,
+                email_body: data.emailBody
+            }
+        });
+    },
+
+    getOpportunitySuppliers: async (opportunityId: string): Promise<{ suppliers: { supplier: Supplier; email_subject?: string; email_body?: string }[] }> => {
+        const response = await apiClient.get(`${BASE_URL}/opportunity/${opportunityId}`);
+        return response.data;
     }
 };

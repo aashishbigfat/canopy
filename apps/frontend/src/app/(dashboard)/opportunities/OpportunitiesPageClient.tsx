@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     Plus,
     LayoutGrid,
@@ -37,6 +37,9 @@ export default function OpportunitiesPageClient() {
     const [groupByOwner, setGroupByOwner] = useState(true);
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    const page = parseInt(searchParams.get("page") || "1");
 
     const opportunityViews = [
         { label: "Today Opportunities", value: "today" },
@@ -48,7 +51,7 @@ export default function OpportunitiesPageClient() {
     const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || "Today Opportunities";
 
     const { data: opportunitiesData, isLoading: isLoadingOpportunities } = useOpportunities({
-        page: 1,
+        page: page,
         per_page: 100, // Get more for kanban view
         view: currentView
     });
@@ -166,6 +169,40 @@ export default function OpportunitiesPageClient() {
                             onOpportunityClick={handleOpportunityClick}
                             groupByOwner={groupByOwner}
                         />
+                        
+                        <div className="flex items-center justify-between space-x-2 py-4 px-6 bg-slate-50 border-t">
+                            <div className="text-sm text-slate-500 font-medium">
+                                Showing {opportunities.length} of {opportunitiesData?.total || 0} records
+                            </div>
+                            <div className="space-x-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-3 border-slate-200 text-slate-600 font-medium"
+                                    onClick={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set("page", (page - 1).toString());
+                                        router.push(`${window.location.pathname}?${params.toString()}`);
+                                    }}
+                                    disabled={page <= 1}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-3 border-slate-200 text-slate-600 font-medium"
+                                    onClick={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set("page", (page + 1).toString());
+                                        router.push(`${window.location.pathname}?${params.toString()}`);
+                                    }}
+                                    disabled={!opportunitiesData || page >= opportunitiesData.pages}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

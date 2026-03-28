@@ -80,16 +80,13 @@ class Lead(BaseDocument):
     
     class Settings:
         name = "leads"
-        # indexes = [
-        # "tenant_id",
-        # "owner_id",
-        # "email",
-        # "lead_status_id",
-        # "is_converted",
-        # [("tenant_id", 1), ("first_name", 1), ("last_name", 1)],
-            # [("tenant_id", 1), ("owner_id", 1)],
-            # [("tenant_id", 1), ("is_converted", 1)],
-        # ]
+        indexes = [
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("owner_id", 1)],
+            [("tenant_id", 1), ("is_converted", 1)],
+            [("tenant_id", 1), ("lead_status_id", 1)],
+        ]
+
     
     @property
     def full_name(self) -> str:

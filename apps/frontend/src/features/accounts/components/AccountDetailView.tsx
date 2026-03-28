@@ -179,10 +179,13 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                     View All
                                                 </span>
                                             </h2>
-                                            <Button variant="default" size="sm" asChild className="h-7 text-xs bg-blue-500 hover:bg-blue-600">
-                                                <Link href={`/contacts/create?accountId=${account.id}`}>
-                                                    New
-                                                </Link>
+                                            <Button 
+                                                variant="default" 
+                                                size="sm" 
+                                                onClick={() => setIsNewContactDrawerOpen(true)}
+                                                className="h-7 text-xs bg-blue-500 hover:bg-blue-600"
+                                            >
+                                                New
                                             </Button>
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -241,15 +244,19 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                     View All
                                                 </span>
                                             </h2>
-                                            <Button variant="default" size="sm" asChild className="h-7 text-xs bg-blue-500 hover:bg-blue-600">
-                                                <Link href={`/opportunities/create?accountId=${account.id}`}>
-                                                    New
-                                                </Link>
+                                            <Button 
+                                                variant="default" 
+                                                size="sm" 
+                                                onClick={() => setIsNewOppDrawerOpen(true)}
+                                                className="h-7 text-xs bg-blue-500 hover:bg-blue-600"
+                                            >
+                                                New
                                             </Button>
                                         </div>
                                     <RelatedOpportunitiesCards
                                         opportunities={account.related_opportunities || []}
                                         accountId={account.id}
+                                        onNewClick={() => setIsNewOppDrawerOpen(true)}
                                     />
                                 </div>
                             </TabsContent>

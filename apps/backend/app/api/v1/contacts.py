@@ -85,14 +85,38 @@ async def create_contact(
     current_user: User = Depends(check_permission("create_contact"))
 ):
     """Create a new contact"""
-    service = ContactService()
-    contact = await service.create_contact(
-        contact_data,
-        current_user.id,
-        current_user.tenant_id
-    )
-    
-    return contact_to_response(contact)
+    import logging
+    from app.models.account import Account
+    from bson.errors import InvalidId
+    logger = logging.getLogger(__name__)
+
+    try:
+        # Validate account_id resolves to a valid account
+        try:
+            acc_id = ObjectId(contact_data.account_id)
+        except InvalidId:
+            raise HTTPException(status_code=422, detail="Invalid account_id format")
+
+        account = await Account.get(acc_id)
+        if not account or account.tenant_id != current_user.tenant_id or account.deleted_at:
+            raise HTTPException(status_code=422, detail="account_id does not resolve to a valid account")
+
+        service = ContactService()
+        contact = await service.create_contact(
+            contact_data,
+            current_user.id,
+            current_user.tenant_id
+        )
+        
+        from app.core.cache import invalidate_tenant_cache
+        await invalidate_tenant_cache(str(current_user.tenant_id))
+        
+        return contact_to_response(contact)
+    except Exception as e:
+        if isinstance(e, HTTPException):
+            raise e
+        logger.error(f"Error creating contact: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating contact: {str(e)}")
 
 
 @router.get("/", response_model=dict)
@@ -103,9 +127,10 @@ async def get_contacts(
     current_user: User = Depends(get_current_user)
 ):
     """Get all contacts with pagination"""
+    import asyncio
+    import logging
+    logger = logging.getLogger(__name__)
     try:
-        # print("DEBUG: Entering get_contacts")
-        
         service = ContactService()
         
         # Build query
@@ -116,33 +141,29 @@ async def get_contacts(
         if owner_id:
             query["owner_id"] = ObjectId(owner_id)
 
-        # Count total
-        total = await Contact.find(query).count()
-        
-        # Pagination
+        # Run count and paginated fetch in parallel
         skip = (page - 1) * per_page
+
+        total, contacts, users = await asyncio.gather(
+            Contact.find(query).count(),
+            Contact.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list(),
+            User.find(
+                User.tenant_id == current_user.tenant_id,
+                User.is_active == True
+            ).sort("+name").to_list(),
+        )
+
         pages = (total + per_page - 1) // per_page
         
-        # Fetch contacts
-        contacts = await Contact.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list()
-        
-        # Collect account IDs
-        account_ids = [c.account_id for c in contacts if c.account_id]
-        
-        # Fetch accounts
+        # Batch fetch accounts for the page of contacts
         from app.models.account import Account
+        account_ids = [c.account_id for c in contacts if c.account_id]
         accounts = []
         if account_ids:
             accounts = await Account.find({"_id": {"$in": account_ids}}).to_list()
         
         # Map account ID to name
         account_map = {a.id: a.name for a in accounts}
-        
-        # Get users for owner selection (optional, can be optimized)
-        users = await User.find(
-            User.tenant_id == current_user.tenant_id,
-            User.is_active == True
-        ).sort("+name").to_list()
         
         # Prepare response
         contact_responses = []
@@ -166,10 +187,9 @@ async def get_contacts(
             ]
         }
     except Exception as e:
-        import traceback
-        print(f"Error in get_contacts: {str(e)}")
-        print(traceback.format_exc())
+        logger.error(f"Error fetching contacts: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error fetching contacts: {str(e)}")
+
 
 
 @router.get("/search")
@@ -243,6 +263,9 @@ async def update_contact(
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     
+    from app.core.cache import invalidate_tenant_cache
+    await invalidate_tenant_cache(str(current_user.tenant_id))
+    
     return contact_to_response(contact)
 
 
@@ -257,6 +280,9 @@ async def delete_contact(
     
     if not success:
         raise HTTPException(status_code=404, detail="Contact not found")
+    
+    from app.core.cache import invalidate_tenant_cache
+    await invalidate_tenant_cache(str(current_user.tenant_id))
     
     return {
         "error": False,

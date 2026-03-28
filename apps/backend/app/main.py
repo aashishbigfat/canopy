@@ -149,6 +149,20 @@ async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
 
+@app.get("/health/redis")
+async def redis_health_check():
+    """Check Redis connectivity and cache backend status"""
+    from app.core.cache import get_cache_status
+    try:
+        status = await get_cache_status()
+        return {"status": "healthy", **status}
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "error": str(e)}
+        )
+
+
 @app.get("/debug/cors")
 async def debug_cors():
     """Debug endpoint to check CORS configuration"""

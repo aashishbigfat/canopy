@@ -52,6 +52,10 @@ class Opportunity(BaseDocument):
     origin_ids: List[PydanticObjectId] = Field(default_factory=list)
     country_ids: List[PydanticObjectId] = Field(default_factory=list)
     
+    # Inclusions & Close Lost Reason
+    inclusions: List[str] = Field(default_factory=list)  # e.g. ["Air Ticket", "Visa"]
+    close_lost_reason: Optional[str] = None
+    
     # Team & Operations
     owner_id: Indexed(PydanticObjectId)
     operation_user_id: Optional[PydanticObjectId] = None
@@ -87,18 +91,14 @@ class Opportunity(BaseDocument):
     
     class Settings:
         name = "opportunities"
-        # indexes = [
-        # "tenant_id",
-        # "owner_id",
-        # "sales_stage_id",
-        # "account_id",
-        # "contact_id",
-        # "lead_id",
-        # "is_locked",
-        # [("tenant_id", 1), ("owner_id", 1)],
-            # [("tenant_id", 1), ("sales_stage_id", 1)],
-            # [("tenant_id", 1), ("close_date", 1)],
-        # ]
+        indexes = [
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("owner_id", 1)],
+            [("tenant_id", 1), ("sales_stage_id", 1)],
+            [("tenant_id", 1), ("close_date", 1)],
+            [("tenant_id", 1), ("account_id", 1)],
+        ]
+
     
     async def get_owner(self):
         # """Get opportunity owner"""

@@ -29,17 +29,15 @@ class AccountService(ActivityMixin):
         """Create a new account with custom fields and attachments"""
         
         data = account_data.model_dump(exclude_unset=True)
-        # Use provided owner_id if available, otherwise default to current user
-        owner_id = user_id
-        if data.get("owner_id"):
-            owner_id = ObjectId(data.pop("owner_id"))
+        # Always default owner_id to current user upon creation, ignore payload
+        data.pop("owner_id", None)
+        
+        # Inject overrides directly to prevent multiple kwargs errors during unpacking
+        data["tenant_id"] = tenant_id
+        data["owner_id"] = user_id
+        data["created_by"] = user_id
             
-        account = Account(
-            **data,
-            tenant_id=tenant_id,
-            owner_id=owner_id,
-            created_by=user_id
-        )
+        account = Account(**data)
         
         await account.insert()
         
@@ -102,9 +100,13 @@ class AccountService(ActivityMixin):
                 await attachment.insert()
         
         # Dispatch background jobs
-        from app.tasks.account_tasks import track_user_view, add_record_id
-        track_user_view.delay(str(user_id), str(account.id), str(tenant_id))
-        add_record_id.delay("Account", str(account.id))
+        try:
+            from app.tasks.account_tasks import track_user_view, add_record_id
+            track_user_view.delay(str(user_id), str(account.id), str(tenant_id))
+            add_record_id.delay("Account", str(account.id))
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery tasks: %s", e)
         
         # Track user view
         await self._track_user_view(user_id, account.id, tenant_id)
@@ -294,7 +296,7 @@ class AccountService(ActivityMixin):
             "acc_parent_id": str(account.acc_parent_id) if account.acc_parent_id else None,
             "industry_id": str(account.industry_id) if account.industry_id else None,
             "rating_id": str(account.rating_id) if account.rating_id else None,
-            "account_source_id": str(account.account_source_id) if account.account_source_id else None,
+            "account_source_id": str(getattr(account, 'account_source_id', '')) if getattr(account, 'account_source_id', None) else None,
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
             "created_by_name": creator.name if creator else None,

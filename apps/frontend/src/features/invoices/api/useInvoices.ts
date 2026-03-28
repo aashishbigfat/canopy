@@ -6,7 +6,7 @@ export const useInvoices = (filters: InvoiceFilters = { page: 1, per_page: 10 })
     return useQuery({
         queryKey: ["invoices", filters],
         queryFn: () => invoicesService.getInvoices(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
     });
 };
 

@@ -33,26 +33,26 @@ import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const contactFormSchema = z.object({
-    first_name: z.string().min(2, {
-        message: "First name must be at least 2 characters.",
-    }).max(100),
+    salutation: z.string().optional(),
+    first_name: z.string().max(100).optional(),
     last_name: z.string().min(2, {
         message: "Last name must be at least 2 characters.",
     }).max(100),
-    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
+    email: z.string().min(1, { message: "Email is required." }).email({ message: "Invalid email address." }),
     phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
         message: "Please select a country code and enter exactly a 10-digit number.",
     }),
-    mobile: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+    mobile: z.string().min(1, { message: "Mobile is required." }).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
         message: "Please select a country code and enter exactly a 10-digit number.",
     }),
     title: z.string().optional(),
-    account_id: z.string().optional(),
+    account_id: z.string().min(1, { message: "Account is required." }),
 });
 
 type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 const defaultValues: Partial<ContactFormValues> = {
+    salutation: "",
     first_name: "",
     last_name: "",
     email: "",
@@ -121,6 +121,8 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
 
     async function onSubmit(data: ContactFormValues) {
         setIsLoading(true);
+        const startTime = Date.now();
+        let isSuccess = false;
         try {
             await ErrorHandler.withErrorHandling(async () => {
                 try {
@@ -131,6 +133,13 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         await contactsService.createContact(data as any);
                         toast.success("Contact created successfully");
                     }
+                    isSuccess = true;
+                    
+                    const elapsedTime = Date.now() - startTime;
+                    if (elapsedTime < 2500) {
+                        await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                    }
+                    
                     if (onSuccess) {
                         onSuccess();
                     } else {
@@ -145,7 +154,13 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
         } catch (error) {
             // Error is already handled
         } finally {
-            setIsLoading(false);
+            if (!isSuccess) {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime < 2500) {
+                    await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                }
+                setIsLoading(false);
+            }
         }
     }
 
@@ -156,6 +171,30 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                 className="space-y-8"
             >
                 <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="salutation"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Salutation</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Mr.">Mr.</SelectItem>
+                                        <SelectItem value="Ms.">Ms.</SelectItem>
+                                        <SelectItem value="Mrs.">Mrs.</SelectItem>
+                                        <SelectItem value="Dr.">Dr.</SelectItem>
+                                        <SelectItem value="Prof.">Prof.</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <FormField
                         control={form.control}
                         name="first_name"
@@ -174,7 +213,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         name="last_name"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Last Name</FormLabel>
+                                <FormLabel>Last Name *</FormLabel>
                                 <FormControl>
                                     <Input placeholder="Doe" {...field} />
                                 </FormControl>
@@ -187,7 +226,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         name="email"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Email</FormLabel>
+                                <FormLabel>Email *</FormLabel>
                                 <FormControl>
                                     <Input
                                         placeholder="john@example.com"
@@ -216,7 +255,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         name="mobile"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Mobile</FormLabel>
+                                <FormLabel>Mobile *</FormLabel>
                                 <FormControl>
                                     <PhoneInput {...field} placeholder="Mobile number" />
                                 </FormControl>
@@ -243,7 +282,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         name="account_id"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Account</FormLabel>
+                                <FormLabel>Account *</FormLabel>
                                 <FormControl>
                                     <SearchableSelect
                                         options={accounts.map(acc => ({ label: acc.name, value: acc.id }))}
@@ -277,7 +316,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         {isDrawer ? "Close" : "Cancel"}
                     </Button>
                     <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                        {isLoading ? "Saving..." : "Save"}
+                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update" : "Save")}
                     </Button>
                 </div>
             </form>

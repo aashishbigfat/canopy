@@ -36,9 +36,10 @@ interface RelatedOpportunitiesCardsProps {
     opportunities: Opportunity[];
     accountId?: string;
     contactId?: string;
+    onNewClick?: () => void;
 }
 
-export function RelatedOpportunitiesCards({ opportunities, accountId, contactId }: RelatedOpportunitiesCardsProps) {
+export function RelatedOpportunitiesCards({ opportunities, accountId, contactId, onNewClick }: RelatedOpportunitiesCardsProps) {
     const createUrl = accountId
         ? `/opportunities/create?accountId=${accountId}`
         : contactId
@@ -49,8 +50,18 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId 
         return (
             <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50 flex flex-col items-center justify-center space-y-4">
                 <p className="text-slate-500 font-medium">No opportunities associated yet.</p>
-                <Button variant="outline" size="sm" asChild className="font-bold border-slate-200">
-                    <Link href={createUrl}>Create Opportunity</Link>
+                <Button 
+                    variant="outline" 
+                    size="sm" 
+                    asChild={!onNewClick} 
+                    onClick={onNewClick}
+                    className="font-bold border-slate-200"
+                >
+                    {onNewClick ? (
+                        <span>Create Opportunity</span>
+                    ) : (
+                        <Link href={createUrl}>Create Opportunity</Link>
+                    )}
                 </Button>
             </div>
         );

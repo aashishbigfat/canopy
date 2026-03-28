@@ -45,3 +45,16 @@ export function getProbabilityForStageId(
     return stage?.probability;
 }
 
+
+export const CLOSE_LOST_REASONS = [
+    "Too late to respond",
+    "Client changed the destination",
+    "Offered rates did not match client's expectations",
+    "Client not responding",
+    "Travel Plan Cancelled",
+    "Travel Plan Postponed",
+    "Booked with other Travel Agent",
+    "Did not inquire",
+    "Duplicate Query",
+    "Information Required"
+];

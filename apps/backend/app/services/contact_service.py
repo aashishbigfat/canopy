@@ -86,12 +86,14 @@ class ContactService(ActivityMixin):
     ) -> Contact:
         """Create a new contact"""
         
-        contact = Contact(
-            **contact_data.model_dump(exclude_unset=True, exclude={'account_id'}),
-            tenant_id=tenant_id,
-            owner_id=user_id,
-            created_by=user_id
-        )
+        data = contact_data.model_dump(exclude_unset=True, exclude={'account_id'})
+        data.pop("owner_id", None)
+        
+        data["tenant_id"] = tenant_id
+        data["owner_id"] = user_id
+        data["created_by"] = user_id
+        
+        contact = Contact(**data)
         
         # Set primary account if provided
         if contact_data.account_id:
@@ -594,15 +596,19 @@ class ContactService(ActivityMixin):
         await contact.save()
         
         # Send email notification
-        from app.tasks.account_tasks import send_owner_change_email
-        send_owner_change_email.delay(
-            "Contact",
-            str(new_owner_id),
-            contact.full_name,
-            "contactDetails",
-            str(tenant_id),
-            str(contact.id)
-        )
+        try:
+            from app.tasks.account_tasks import send_owner_change_email
+            send_owner_change_email.delay(
+                "Contact",
+                str(new_owner_id),
+                contact.full_name,
+                "contactDetails",
+                str(tenant_id),
+                str(contact.id)
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery tasks: %s", e)
         
         return contact
     

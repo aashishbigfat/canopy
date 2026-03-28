@@ -11,7 +11,6 @@ class Account(BaseDocument):
     name: Indexed(str)
     email: Optional[Indexed(EmailStr)] = None
     phone: Optional[str] = None
-    mobile: Optional[str] = None  # For Person Accounts
     website: Optional[str] = None
     description: Optional[str] = None
     is_person_account: bool = False
@@ -46,7 +45,6 @@ class Account(BaseDocument):
     acc_parent_id: Optional[PydanticObjectId] = None  # For parent-child accounts
     industry_id: Optional[PydanticObjectId] = None
     rating_id: Optional[PydanticObjectId] = None
-    account_source_id: Optional[PydanticObjectId] = None
     
     # Custom Fields (flexible schema for MongoDB)
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
@@ -61,7 +59,7 @@ class Account(BaseDocument):
     
     @field_validator(
         "acc_type_id", "acc_parent_id", "industry_id", "rating_id", 
-        "account_source_id", "territory_state_id", "territory_country_id",
+        "territory_state_id", "territory_country_id",
         "last_modified_by_id",
         mode="before"
     )
@@ -73,20 +71,13 @@ class Account(BaseDocument):
     
     class Settings:
         name = "accounts"
-        # Indexes temporarily disabled
-        # indexes = [
-        #     "tenant_id",
-        #     "owner_id",
-        #     "email",
-        #     "name",
-        #     "acc_type_id",
-        #     "acc_parent_id",
-        #     "billing_country",
-        #     "billing_state",
-        #     [("tenant_id", 1), ("name", 1)],
-        #     [("tenant_id", 1), ("owner_id", 1)],
-        #     [("tenant_id", 1), ("created_at", -1)],
-        # ]
+        indexes = [
+            [("tenant_id", 1), ("deleted_at", 1), ("updated_at", -1)],
+            [("tenant_id", 1), ("owner_id", 1)],
+            [("tenant_id", 1), ("is_person_account", 1), ("deleted_at", 1)],
+            [("tenant_id", 1), ("name", 1)],
+        ]
+
     
     class Config:
         json_schema_extra = {
