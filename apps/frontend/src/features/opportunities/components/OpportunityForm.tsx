@@ -70,13 +70,13 @@ const opportunityFormSchema = z.object({
     probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
     close_date: z.string().optional(),
     travel_date: z.string().min(1, "Travel date is required."),
-    experience_id: z.string().optional(),
+    experience_id: z.string().min(1, "Experience is required.").refine((val) => val !== "none", "Experience is required."),
     no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
     no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
     no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_nights: z.string().refine((val) => !val || Number(val) > 0, "Number of nights must be at least 1").optional(),
-    destinations: z.string().optional(),
+    destinations: z.string().min(1, "Destination is required."),
     description: z.string().optional(),
     account_id: z.string().optional(),
     contact_id: z.string().optional(),
@@ -523,7 +523,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                         name="experience_id"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Experience</FormLabel>
+                                <FormLabel>Experience *</FormLabel>
                                 <FormControl>
                                     <SearchableSelect
                                         options={[
@@ -815,7 +815,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                     render={({ field }) => (
                         <FormItem className="col-span-full">
                             <FormLabel>
-                                Destinations
+                                Destinations *
                             </FormLabel>
                             <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
                                 <PopoverTrigger asChild>

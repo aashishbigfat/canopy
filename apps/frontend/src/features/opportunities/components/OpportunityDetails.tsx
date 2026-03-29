@@ -58,6 +58,7 @@ import { Opportunity } from "../types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { UpdateStageDialog } from "./UpdateStageDialog";
+import { FinancialTab } from "./financial/FinancialTab";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
 import {
     useOpportunity,
@@ -760,42 +761,8 @@ export function OpportunityDetails({
                         </TabsContent>
 
                         {/* ── FINANCIAL TAB ── */}
-                        <TabsContent value="financial" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                    <Receipt className="h-4 w-4 text-blue-500" />
-                                    Financial Summary
-                                </h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                <Card className="border-slate-200">
-                                    <CardContent className="p-4">
-                                        <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Deal Amount</p>
-                                        <p className="text-2xl font-bold text-slate-900">
-                                            ₹{(record.amount || 0).toLocaleString()}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="border-slate-200">
-                                    <CardContent className="p-4">
-                                        <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Probability</p>
-                                        <p className="text-2xl font-bold text-blue-600">{record.probability || 0}%</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="border-slate-200">
-                                    <CardContent className="p-4">
-                                        <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Expected Revenue</p>
-                                        <p className="text-2xl font-bold text-emerald-600">
-                                            ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                            <div className="text-center py-10 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Receipt className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No financial details yet</p>
-                                <p className="text-slate-400 text-sm mt-1">Add invoices or payment details to track financials.</p>
-                            </div>
+                        <TabsContent value="financial" className="p-0 focus-visible:outline-none focus-visible:ring-0 bg-white rounded-b-xl overflow-hidden">
+                            <FinancialTab opportunity={record} />
                         </TabsContent>
 
                         {/* ── SUPPLIER TAB ── */}

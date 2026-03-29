@@ -54,6 +54,7 @@ from app.models.contact_views import ContactView, ContactColumn, AdditionalField
 from app.models.picklists import Industry, Rating, AccountType, AccountSource, SupplierService as SupplierServicePicklist
 from app.models.custom_fields import AccountCustomField
 from app.models.module_attachment import ModuleAttachment
+from app.models.opportunity_financial import OpportunityCosting, PaymentScheduleItem
 
 async def init_db():
     """Initialize database connection"""
@@ -193,6 +194,9 @@ async def init_db():
             SupplierServicePicklist,
             AccountCustomField,
             ModuleAttachment,
+            # Opportunity Financial
+            OpportunityCosting,
+            PaymentScheduleItem,
         ],
         recreate_views=False,
         allow_index_dropping=False,

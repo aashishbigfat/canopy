@@ -275,6 +275,7 @@ export function LeadTable({
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [isPending, startTransition] = React.useTransition();
 
     const rowSelection = React.useMemo(() => {
         const selection: Record<string, boolean> = {};

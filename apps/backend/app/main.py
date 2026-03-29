@@ -93,7 +93,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # Include routers
-from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search
+from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
 
@@ -104,6 +104,7 @@ app.include_router(contacts_extra.router, prefix="/api/v1/contacts", tags=["Cont
 app.include_router(contacts.router, prefix="/api/v1/contacts", tags=["Contacts"])
 app.include_router(leads.router, prefix="/api/v1/leads", tags=["Leads"])
 app.include_router(opportunities.router, prefix="/api/v1/opportunities", tags=["Opportunities"])
+app.include_router(opportunity_financial.router, prefix="/api/v1/opportunities", tags=["Opportunity Financial"])
 app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["Tasks"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
 app.include_router(notes.router, prefix="/api/v1/notes", tags=["Notes"])
