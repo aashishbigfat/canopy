@@ -61,7 +61,8 @@ async def get_supplier_form_data(current_user: User = Depends(get_current_user))
 
     return {
         "users": [{"id": str(u.id), "name": u.name} for u in users],
-        "services": [{"id": str(s.id), "name": s.name} for s in services]
+        "services": [{"id": str(s.id), "name": s.name} for s in services],
+        "current_user_name": current_user.name
     }
 
 @router.post("/", response_model=SupplierResponse, status_code=201)

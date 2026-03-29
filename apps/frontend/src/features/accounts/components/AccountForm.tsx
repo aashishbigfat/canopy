@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 
 import { Button } from "@/components/ui/button";
@@ -396,6 +397,7 @@ function BillingLocationFields({ form, children }: { form: any, children?: React
 
 export function AccountForm({ isPersonAccount = false, initialData, id, onSuccess, onCancel, isDrawer = false }: AccountFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [metaData, setMetaData] = useState<MetaData | null>(null);
 
@@ -659,8 +661,8 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                     <div className="grid gap-6 md:grid-cols-2">
                         <div className="flex flex-col space-y-2 mt-2">
                             <FormLabel>Owner</FormLabel>
-                            <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500">
-                                {initialData?.owner_name || metaData?.current_user_name || "Automatically assigned to you"}
+                            <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                {initialData?.owner_name || session?.user?.name || "Automatically assigned to you"}
                             </p>
                         </div>
                     </div>

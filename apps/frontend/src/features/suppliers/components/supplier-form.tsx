@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import {
     Form,
@@ -55,10 +56,9 @@ const leadPhoneRegex = /^\+?\d{1,4}\s\d{10}$/;
 const supplierFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
     supplier_type: z.string().min(1, "Supplier type is required."),
-    owner_id: z.string().min(1, "Owner must be selected."),
     contact_person_name: z.string().optional(),
-    phone: z.string().optional().or(z.literal(""))
-        .refine(val => !val || leadPhoneRegex.test(val), {
+    phone: z.string().min(1, "Phone is required.")
+        .refine(val => leadPhoneRegex.test(val), {
             message: "Please select a country code and enter exactly a 10-digit number.",
         }),
     mobile: z.string().optional().or(z.literal(""))
@@ -104,13 +104,15 @@ const locationCache = {
 
 export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = false }: SupplierFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const { toast } = useToast();
     const createSupplier = useCreateSupplier();
     const updateSupplier = useUpdateSupplier();
     const [isLoading, setIsLoading] = useState(false);
     const [metaData, setMetaData] = useState<{ 
         users: { id: string; name: string }[],
-        services?: { id: string; name: string }[]
+        services?: { id: string; name: string }[],
+        current_user_name?: string
     } | null>(null);
 
     // States for Address Locations
@@ -140,7 +142,6 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
         defaultValues: {
             name: initialData?.name || "",
             supplier_type: initialData?.supplier_type || "",
-            owner_id: initialData?.owner_id || "",
             contact_person_name: initialData?.contact_person_name || "",
             phone: initialData?.phone || "",
             mobile: initialData?.mobile || "",
@@ -446,24 +447,12 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                             )}
                         />
                         
-                        <FormField
-                            control={form.control}
-                            name="owner_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Supplier Owner <span className="text-red-500">*</span></FormLabel>
-                                    <FormControl>
-                                        <SearchableSelect
-                                            options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
-                                            value={field.value}
-                                            onValueChange={field.onChange}
-                                            placeholder="Select Owner"
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                        <div className="flex flex-col space-y-2 mt-2">
+                            <FormLabel>Supplier Owner</FormLabel>
+                            <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                {initialData?.owner_id && metaData?.users ? (metaData.users.find((u: any) => u.id === initialData.owner_id)?.name || "Automatically assigned to you") : (session?.user?.name || "Automatically assigned to you")}
+                            </p>
+                        </div>
 
                         <FormField
                             control={form.control}
@@ -513,9 +502,9 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                             name="phone"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Phone</FormLabel>
+                                    <FormLabel>Phone <span className="text-red-500">*</span></FormLabel>
                                     <FormControl>
-                                        <PhoneInput placeholder="e.g. +6014 9009 032" {...field} />
+                                        <PhoneInput placeholder="Phone number" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -529,7 +518,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                                 <FormItem>
                                     <FormLabel>Mobile</FormLabel>
                                     <FormControl>
-                                        <PhoneInput placeholder="e.g. +60 39772 8518" {...field} />
+                                        <PhoneInput placeholder="Mobile number" {...field} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
