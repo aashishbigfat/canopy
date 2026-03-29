@@ -61,15 +61,16 @@ export function SupplierFormDrawer({
         setEditData(undefined);
     };
 
-    const titleMode = supplierId ? "Edit" : "Create";
-    const title = `${titleMode} Supplier${editData?.name ? ` — ${editData.name}` : ""}`;
+    const isEditMode = !!supplierId || !!initialData || !!editData;
+    const titleMode = isEditMode ? "Edit" : "Create";
+    const title = `${titleMode} Supplier${(editData?.name || initialData?.name) ? ` — ${editData?.name || initialData?.name}` : ""}`;
 
     return (
         <FormDrawer
             open={open}
             onOpenChange={handleClose}
             title={title}
-            subtitle={supplierId ? "Update the details of this supplier" : "Enter details for a new supplier"}
+            subtitle={isEditMode ? "Update the details of this supplier" : "Enter details for a new supplier"}
         >
             {loading ? (
                 <div className="flex items-center justify-center h-64">

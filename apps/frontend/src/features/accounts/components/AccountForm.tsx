@@ -61,6 +61,7 @@ const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
     shipping_state: z.string().optional(),
     shipping_zip: z.string().regex(/^\d{3,10}$/, "Invalid Zip/Postal code format. Must be numeric.").optional().or(z.literal("")),
     shipping_country: z.string().optional(),
+    owner_id: z.string().optional(),
 });
 
 type AccountFormValues = z.infer<ReturnType<typeof getAccountFormSchema>>;
@@ -424,6 +425,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             shipping_state: initialData?.shipping_state || "",
             shipping_zip: initialData?.shipping_zip || "",
             shipping_country: initialData?.shipping_country || "",
+            owner_id: initialData?.owner_id || "",
         },
     });
 
@@ -659,12 +661,33 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                 <div>
                     <h3 className="text-lg font-medium mb-4">System Information</h3>
                     <div className="grid gap-6 md:grid-cols-2">
-                        <div className="flex flex-col space-y-2 mt-2">
-                            <FormLabel>Owner</FormLabel>
-                            <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
-                                {initialData?.owner_name || session?.user?.name || "Automatically assigned to you"}
-                            </p>
-                        </div>
+                        {initialData || id ? (
+                            <FormField
+                                control={form.control}
+                                name="owner_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Account Owner</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select Owner"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ) : (
+                            <div className="flex flex-col space-y-2 mt-2">
+                                <FormLabel>Owner</FormLabel>
+                                <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                    {session?.user?.name || "Automatically assigned to you"}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
 

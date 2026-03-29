@@ -56,6 +56,7 @@ const leadPhoneRegex = /^\+?\d{1,4}\s\d{10}$/;
 const supplierFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
     supplier_type: z.string().min(1, "Supplier type is required."),
+    owner_id: z.string().optional(),
     contact_person_name: z.string().optional(),
     phone: z.string().min(1, "Phone is required.")
         .refine(val => leadPhoneRegex.test(val), {
@@ -142,6 +143,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
         defaultValues: {
             name: initialData?.name || "",
             supplier_type: initialData?.supplier_type || "",
+            owner_id: initialData?.owner_id || "",
             contact_person_name: initialData?.contact_person_name || "",
             phone: initialData?.phone || "",
             mobile: initialData?.mobile || "",
@@ -447,12 +449,33 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                             )}
                         />
                         
-                        <div className="flex flex-col space-y-2 mt-2">
-                            <FormLabel>Supplier Owner</FormLabel>
-                            <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
-                                {initialData?.owner_id && metaData?.users ? (metaData.users.find((u: any) => u.id === initialData.owner_id)?.name || "Automatically assigned to you") : (session?.user?.name || "Automatically assigned to you")}
-                            </p>
-                        </div>
+                        {initialData ? (
+                            <FormField
+                                control={form.control}
+                                name="owner_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Supplier Owner</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select Owner"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ) : (
+                            <div className="flex flex-col space-y-2 mt-2">
+                                <FormLabel>Supplier Owner</FormLabel>
+                                <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                    {session?.user?.name || "Automatically assigned to you"}
+                                </p>
+                            </div>
+                        )}
 
                         <FormField
                             control={form.control}
