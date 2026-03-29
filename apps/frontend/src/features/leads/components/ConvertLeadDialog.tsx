@@ -172,7 +172,7 @@ export function ConvertLeadDialog({
             description: "",
             destination_ids: lead.destination_ids || [],
             opportunity_close_date: new Date(),
-            sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'receive')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
+            sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'received')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
             experience_id: lead.experience_id || undefined,
         },
     });
@@ -220,7 +220,7 @@ export function ConvertLeadDialog({
                     if (Array.isArray(res.data) && res.data.length > 0) {
                         setLocalSalesStages(res.data);
                         // Update form default stage to the fetched default
-                        const receiveStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.name.toLowerCase() === 'receive');
+                        const receiveStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.name.toLowerCase() === 'received');
                         const defaultStage = receiveStage || res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.is_default) || res.data[0];
                         if (defaultStage) {
                             form.setValue("sales_stage_id", defaultStage.id);

@@ -237,7 +237,8 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     // Set default sales stage when stages are loaded
     useEffect(() => {
         if (normalizedStages.length > 0 && !form.getValues("sales_stage_id")) {
-            const defaultStage = normalizedStages.find(s => s.is_default) || normalizedStages[0];
+            const receivedStage = normalizedStages.find(s => s.name === "Received" || s.name.toLowerCase() === "received");
+            const defaultStage = receivedStage || normalizedStages.find(s => s.is_default) || normalizedStages[0];
             if (defaultStage) {
                 form.setValue("sales_stage_id", defaultStage.id);
                 form.setValue("probability", (defaultStage.probability ?? 10).toString());
