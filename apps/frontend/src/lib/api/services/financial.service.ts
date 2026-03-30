@@ -72,11 +72,18 @@ export const financialService = {
         return res.data;
     },
 
-    getCostingItemTypes: async (opportunityId: string): Promise<string[]> => {
-        const res = await apiClient.get<{ item_types: string[] }>(
+    getCostingItemTypes: async (opportunityId: string): Promise<{ item_types: string[]; fixed_item_types: string[] }> => {
+        const res = await apiClient.get<{ item_types: string[]; fixed_item_types: string[] }>(
             `${BASE}/${opportunityId}/costing/item-types`
         );
-        return res.data.item_types;
+        return res.data;
+    },
+
+    getCostingDestinations: async (opportunityId: string): Promise<{ id: string; name: string }[]> => {
+        const res = await apiClient.get<{ destinations: { id: string; name: string }[] }>(
+            `${BASE}/${opportunityId}/costing/destinations`
+        );
+        return res.data.destinations;
     },
 
     // ── Payment Schedule ─────────────────────────────────────────────────────

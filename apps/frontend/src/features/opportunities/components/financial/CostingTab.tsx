@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, X, Loader2, TrendingUp, DollarSign, ShoppingCart, Percent } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,20 +8,11 @@ import { Badge } from "@/components/ui/badge";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCosting, useUpsertCosting } from "../../api/useOpportunityFinancial";
 import { suppliersService } from "@/lib/api/services/suppliers.service";
-import { CostingLineItem } from "@/lib/api/services/financial.service";
+import { financialService, CostingLineItem } from "@/lib/api/services/financial.service";
+import { toast } from "sonner";
 
-// All item types available to add
-const ALL_ITEM_TYPES = [
-    "Package",
-    "Land Package",
-    "Meal",
-    "Courier Charges",
-    "Taxes",
-    "Insurance",
-    "Departure",
-    "Visa",
-    "Miscellaneous",
-];
+// Fixed supplier for Tax and Miscellaneous rows
+const FIXED_SUPPLIER_NAME = "Dook Travels Pvt Ltd";
 
 interface DestinationOption {
     label: string;
@@ -37,10 +28,53 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     const { data: costing, isLoading } = useCosting(opportunityId);
     const { mutate: saveCosting, isPending: isSaving } = useUpsertCosting(opportunityId);
 
+    // Dynamic item types (user-selectable, not Tax/Misc)
+    const [allItemTypes, setAllItemTypes] = useState<string[]>([]);
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [items, setItems] = useState<CostingLineItem[]>([]);
+
+    // Fixed rows state (Tax & Miscellaneous)
+    const [taxItem, setTaxItem] = useState<CostingLineItem>({
+        item_type: "Tax",
+        supplier_id: undefined,
+        supplier_name: FIXED_SUPPLIER_NAME,
+        destination_ids: [],
+        destination_names: [],
+        amount: 0,
+        cost_amount: 0,
+    });
+    const [miscItem, setMiscItem] = useState<CostingLineItem>({
+        item_type: "Miscellaneous",
+        supplier_id: undefined,
+        supplier_name: FIXED_SUPPLIER_NAME,
+        destination_ids: [],
+        destination_names: [],
+        amount: 0,
+        cost_amount: 0,
+    });
+
     const [supplierOptions, setSupplierOptions] = useState<{ label: string; value: string }[]>([]);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setIsTypeDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
+
+    // Load available item types from backend
+    useEffect(() => {
+        financialService.getCostingItemTypes(opportunityId).then((res) => {
+            setAllItemTypes(res.item_types || []);
+        }).catch(() => {});
+    }, [opportunityId]);
 
     // Load suppliers once
     useEffect(() => {
@@ -52,23 +86,31 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     // Populate from saved costing
     useEffect(() => {
         if (costing) {
+            const savedItems = (costing.items || []).map((i) => ({
+                ...i,
+                destination_ids: i.destination_ids || [],
+                destination_names: i.destination_names || [],
+            }));
+
+            // Separate fixed rows from dynamic
+            const taxSaved = savedItems.find((i) => i.item_type === "Tax");
+            const miscSaved = savedItems.find((i) => i.item_type === "Miscellaneous");
+            const dynamicItems = savedItems.filter((i) => i.item_type !== "Tax" && i.item_type !== "Miscellaneous");
+
+            if (taxSaved) setTaxItem(taxSaved);
+            if (miscSaved) setMiscItem(miscSaved);
+
             setSelectedTypes(costing.selected_item_types || []);
-            setItems(
-                (costing.items || []).map((i) => ({
-                    ...i,
-                    destination_ids: i.destination_ids || [],
-                    destination_names: i.destination_names || [],
-                }))
-            );
+            setItems(dynamicItems);
         }
     }, [costing]);
 
-    // Add item type pill
+    // ── Item type management ──────────────────────────────────────────────────
+
     const addItemType = (type: string) => {
         if (selectedTypes.includes(type)) return;
         const newTypes = [...selectedTypes, type];
         setSelectedTypes(newTypes);
-        // Add a new line item for the type
         setItems((prev) => [
             ...prev,
             {
@@ -84,13 +126,19 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
         setIsTypeDropdownOpen(false);
     };
 
-    // Remove item type pill + its line
     const removeItemType = (type: string) => {
         setSelectedTypes((prev) => prev.filter((t) => t !== type));
         setItems((prev) => prev.filter((i) => i.item_type !== type));
+        // Clear validation error for this type
+        setValidationErrors((prev) => {
+            const next = { ...prev };
+            delete next[type];
+            return next;
+        });
     };
 
-    // Update a field in a line item
+    // ── Row field updates ─────────────────────────────────────────────────────
+
     const updateItem = (index: number, field: keyof CostingLineItem, value: any) => {
         setItems((prev) => {
             const next = [...prev];
@@ -99,7 +147,6 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
         });
     };
 
-    // Update supplier for a line item
     const updateSupplier = (index: number, supplierId: string) => {
         const supplier = supplierOptions.find((s) => s.value === supplierId);
         setItems((prev) => {
@@ -111,51 +158,100 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
             };
             return next;
         });
+        // Clear validation error when supplier selected
+        const itemType = items[index]?.item_type;
+        if (itemType && validationErrors[itemType]) {
+            setValidationErrors((prev) => {
+                const next = { ...prev };
+                delete next[itemType];
+                return next;
+            });
+        }
     };
 
-    // Toggle destination for a line item
-    const toggleDestination = (index: number, destId: string, destName: string) => {
+    const clearSupplier = (index: number) => {
         setItems((prev) => {
             const next = [...prev];
-            const item = next[index];
-            const has = item.destination_ids.includes(destId);
-            next[index] = {
-                ...item,
-                destination_ids: has
-                    ? item.destination_ids.filter((d) => d !== destId)
-                    : [...item.destination_ids, destId],
-                destination_names: has
-                    ? item.destination_names.filter((n) => n !== destName)
-                    : [...item.destination_names, destName],
-            };
+            next[index] = { ...next[index], supplier_id: undefined, supplier_name: undefined };
             return next;
         });
     };
 
-    // Remove a destination tag from a line item
-    const removeDestination = (index: number, destId: string) => {
-        setItems((prev) => {
-            const next = [...prev];
-            const item = next[index];
+    // ── Destination management ────────────────────────────────────────────────
+
+    const toggleDestination = (index: number, destId: string, destName: string, isFixed?: "tax" | "misc") => {
+        const updater = (item: CostingLineItem): CostingLineItem => {
+            const has = item.destination_ids.includes(destId);
+            return {
+                ...item,
+                destination_ids: has ? item.destination_ids.filter((d) => d !== destId) : [...item.destination_ids, destId],
+                destination_names: has ? item.destination_names.filter((n) => n !== destName) : [...item.destination_names, destName],
+            };
+        };
+
+        if (isFixed === "misc") {
+            setMiscItem((prev) => updater(prev));
+        } else {
+            setItems((prev) => {
+                const next = [...prev];
+                next[index] = updater(next[index]);
+                return next;
+            });
+        }
+    };
+
+    const removeDestination = (index: number, destId: string, isFixed?: "tax" | "misc") => {
+        const updater = (item: CostingLineItem): CostingLineItem => {
             const destIndex = item.destination_ids.indexOf(destId);
-            next[index] = {
+            return {
                 ...item,
                 destination_ids: item.destination_ids.filter((d) => d !== destId),
                 destination_names: item.destination_names.filter((_, i) => i !== destIndex),
             };
-            return next;
-        });
+        };
+
+        if (isFixed === "misc") {
+            setMiscItem((prev) => updater(prev));
+        } else {
+            setItems((prev) => {
+                const next = [...prev];
+                next[index] = updater(next[index]);
+                return next;
+            });
+        }
     };
 
-    // Computed totals
-    const totalAmount = items.reduce((s, i) => s + (i.amount || 0), 0);
-    const totalCost = items.reduce((s, i) => s + (i.cost_amount || 0), 0);
+    // ── Computed totals (live on every keystroke) ─────────────────────────────
+
+    const allItems = [...items, taxItem, miscItem];
+    const totalAmount = allItems.reduce((s, i) => s + (i.amount || 0), 0);
+    const totalCost = allItems.reduce((s, i) => s + (i.cost_amount || 0), 0);
     const profit = totalAmount - totalCost;
     const profitPct = totalAmount > 0 ? (profit / totalAmount) * 100 : 0;
 
+    // ── Validation & Save ─────────────────────────────────────────────────────
+
     const handleSave = () => {
-        saveCosting({ selected_item_types: selectedTypes, items });
+        // Validate: non-fixed rows with amount > 0 must have a supplier
+        const errors: Record<string, string> = {};
+        items.forEach((item) => {
+            if ((item.amount || 0) > 0 && !item.supplier_id) {
+                errors[item.item_type] = "Supplier is required when amount > 0";
+            }
+        });
+
+        if (Object.keys(errors).length > 0) {
+            setValidationErrors(errors);
+            toast.error("Please select a supplier for all items with an amount");
+            return;
+        }
+
+        setValidationErrors({});
+        const allItemsToSave = [...items, taxItem, miscItem];
+        saveCosting({ selected_item_types: selectedTypes, items: allItemsToSave });
     };
+
+    // ── Loading State ─────────────────────────────────────────────────────────
 
     if (isLoading) {
         return (
@@ -170,48 +266,48 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
         <div className="space-y-4">
             {/* ── Summary Bar ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
-                <div className="bg-blue-50 border border-blue-100 rounded-lg p-3 flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                        <DollarSign className="h-4 w-4 text-blue-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-blue-500 font-semibold uppercase tracking-wide">Total Amount</p>
-                        <p className="text-base font-bold text-blue-700">₹{totalAmount.toLocaleString("en-IN")}</p>
-                    </div>
-                </div>
-                <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
-                        <ShoppingCart className="h-4 w-4 text-slate-600" />
-                    </div>
-                    <div>
-                        <p className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Total Cost</p>
-                        <p className="text-base font-bold text-slate-700">₹{totalCost.toLocaleString("en-IN")}</p>
-                    </div>
-                </div>
-                <div className={`border rounded-lg p-3 flex items-center gap-3 ${profit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}`}>
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${profit >= 0 ? "bg-emerald-100" : "bg-red-100"}`}>
-                        <TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600" : "text-red-600"}`} />
-                    </div>
-                    <div>
-                        <p className={`text-[10px] font-semibold uppercase tracking-wide ${profit >= 0 ? "text-emerald-500" : "text-red-500"}`}>Profit</p>
-                        <p className={`text-base font-bold ${profit >= 0 ? "text-emerald-700" : "text-red-700"}`}>₹{profit.toLocaleString("en-IN")}</p>
-                    </div>
-                </div>
-                <div className={`border rounded-lg p-3 flex items-center gap-3 ${profitPct >= 0 ? "bg-purple-50 border-purple-100" : "bg-red-50 border-red-100"}`}>
-                    <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${profitPct >= 0 ? "bg-purple-100" : "bg-red-100"}`}>
-                        <Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-600" : "text-red-600"}`} />
-                    </div>
-                    <div>
-                        <p className={`text-[10px] font-semibold uppercase tracking-wide ${profitPct >= 0 ? "text-purple-500" : "text-red-500"}`}>Profit %</p>
-                        <p className={`text-base font-bold ${profitPct >= 0 ? "text-purple-700" : "text-red-700"}`}>{profitPct.toFixed(1)}%</p>
-                    </div>
-                </div>
+                <SummaryCard
+                    icon={<DollarSign className="h-4 w-4 text-blue-600" />}
+                    label="Total Amount"
+                    value={`₹${totalAmount.toLocaleString("en-IN")}`}
+                    bg="bg-blue-50 border-blue-100"
+                    iconBg="bg-blue-100"
+                    labelColor="text-blue-500"
+                    valueColor="text-blue-700"
+                />
+                <SummaryCard
+                    icon={<ShoppingCart className="h-4 w-4 text-slate-600" />}
+                    label="Total Cost"
+                    value={`₹${totalCost.toLocaleString("en-IN")}`}
+                    bg="bg-slate-50 border-slate-200"
+                    iconBg="bg-slate-100"
+                    labelColor="text-slate-500"
+                    valueColor="text-slate-700"
+                />
+                <SummaryCard
+                    icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600" : "text-red-600"}`} />}
+                    label="Profit"
+                    value={`₹${profit.toLocaleString("en-IN")}`}
+                    bg={profit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}
+                    iconBg={profit >= 0 ? "bg-emerald-100" : "bg-red-100"}
+                    labelColor={profit >= 0 ? "text-emerald-500" : "text-red-500"}
+                    valueColor={profit >= 0 ? "text-emerald-700" : "text-red-700"}
+                />
+                <SummaryCard
+                    icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-600" : "text-red-600"}`} />}
+                    label="Profit %"
+                    value={`${profitPct.toFixed(2)}%`}
+                    bg={profitPct >= 0 ? "bg-purple-50 border-purple-100" : "bg-red-50 border-red-100"}
+                    iconBg={profitPct >= 0 ? "bg-purple-100" : "bg-red-100"}
+                    labelColor={profitPct >= 0 ? "text-purple-500" : "text-red-500"}
+                    valueColor={profitPct >= 0 ? "text-purple-700" : "text-red-700"}
+                />
             </div>
 
             {/* ── Add Items Multi-Select ── */}
-            <div className="space-y-2">
+            <div className="space-y-1">
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Add Item&apos;s</p>
-                <div className="relative">
+                <div className="relative" ref={dropdownRef}>
                     <div
                         className="flex flex-wrap items-center gap-1.5 min-h-[38px] border border-slate-200 rounded-md px-2 py-1.5 bg-white cursor-pointer focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100"
                         onClick={() => setIsTypeDropdownOpen((v) => !v)}
@@ -230,25 +326,38 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                         {selectedTypes.length === 0 && (
                             <span className="text-slate-400 text-xs pl-1">Select items to add to costing...</span>
                         )}
-                        <div className="ml-auto">
+                        <div className="ml-auto flex items-center gap-1">
+                            <X
+                                className="h-4 w-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                onClick={(e) => { e.stopPropagation(); }}
+                            />
+                            <div className="w-px h-4 bg-slate-200" />
                             <Plus className="h-4 w-4 text-slate-400" />
                         </div>
                     </div>
 
                     {/* Dropdown list */}
                     {isTypeDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-md shadow-lg overflow-hidden">
-                            {ALL_ITEM_TYPES.filter((t) => !selectedTypes.includes(t)).map((type) => (
-                                <div
-                                    key={type}
-                                    className="px-3 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer transition-colors"
-                                    onClick={() => addItemType(type)}
-                                >
-                                    {type}
-                                </div>
-                            ))}
-                            {ALL_ITEM_TYPES.every((t) => selectedTypes.includes(t)) && (
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-md shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+                            {allItemTypes.filter((t) => !selectedTypes.includes(t)).length === 0 ? (
                                 <div className="px-3 py-2 text-sm text-slate-400 italic">All item types added</div>
+                            ) : (
+                                allItemTypes.map((type) => {
+                                    const isSelected = selectedTypes.includes(type);
+                                    return (
+                                        <div
+                                            key={type}
+                                            className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                                isSelected
+                                                    ? "text-blue-700 font-semibold bg-blue-50"
+                                                    : "text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                                            }`}
+                                            onClick={() => !isSelected && addItemType(type)}
+                                        >
+                                            {type}
+                                        </div>
+                                    );
+                                })
                             )}
                         </div>
                     )}
@@ -256,82 +365,149 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
             </div>
 
             {/* ── Line Items Table ── */}
-            {items.length > 0 && (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">Item&apos;s</th>
-                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Supplier</th>
-                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Destinations</th>
-                                <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-36">Amount (₹)</th>
-                                <th className="w-8"></th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {items.map((item, idx) => (
-                                <tr key={item.item_type} className="hover:bg-slate-50/60 transition-colors">
-                                    {/* Item Name */}
-                                    <td className="px-3 py-2.5">
-                                        <span className="text-blue-600 font-medium text-xs">{item.item_type}</span>
-                                    </td>
-
-                                    {/* Supplier Dropdown */}
-                                    <td className="px-3 py-2">
+            <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-sm">
+                    <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">Item&apos;s</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Supplier</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Destinations</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">Amount</th>
+                            <th className="w-8"></th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {/* Dynamic rows */}
+                        {items.map((item, idx) => (
+                            <tr key={item.item_type} className="hover:bg-slate-50/60 transition-colors">
+                                <td className="px-3 py-2.5">
+                                    <span className="text-blue-600 font-medium text-xs">{item.item_type}</span>
+                                </td>
+                                <td className="px-3 py-2">
+                                    {item.supplier_id ? (
+                                        <div className="flex items-center gap-1">
+                                            <Badge variant="secondary" className="bg-slate-100 text-slate-700 flex items-center gap-1 text-xs h-7 px-2 max-w-[200px]">
+                                                <span className="truncate">{item.supplier_name}</span>
+                                                <X
+                                                    className="h-3 w-3 cursor-pointer hover:text-red-500 flex-shrink-0"
+                                                    onClick={() => clearSupplier(idx)}
+                                                />
+                                            </Badge>
+                                        </div>
+                                    ) : (
                                         <SearchableSelect
                                             options={supplierOptions}
-                                            value={item.supplier_id || ""}
-                                            onChange={(val) => updateSupplier(idx, val)}
+                                            value=""
+                                            onValueChange={(val) => updateSupplier(idx, val)}
                                             placeholder="Select supplier..."
-                                            className="w-full"
+                                            className={`w-full ${validationErrors[item.item_type] ? "border-red-400" : ""}`}
                                         />
-                                    </td>
+                                    )}
+                                    {validationErrors[item.item_type] && (
+                                        <p className="text-red-500 text-[10px] mt-0.5">{validationErrors[item.item_type]}</p>
+                                    )}
+                                </td>
+                                <td className="px-3 py-2">
+                                    <DestinationMultiSelect
+                                        options={destinationOptions}
+                                        selected={item.destination_ids}
+                                        selectedNames={item.destination_names}
+                                        onToggle={(id, name) => toggleDestination(idx, id, name)}
+                                        onRemove={(id) => removeDestination(idx, id)}
+                                    />
+                                </td>
+                                <td className="px-3 py-2">
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        step="0.01"
+                                        value={item.amount || ""}
+                                        onChange={(e) => updateItem(idx, "amount", parseFloat(e.target.value) || 0)}
+                                        className="h-8 text-sm text-right"
+                                        placeholder="0.00"
+                                    />
+                                </td>
+                                <td className="px-2 py-2">
+                                    <button
+                                        onClick={() => removeItemType(item.item_type)}
+                                        className="h-6 w-6 rounded hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
+                                        title="Remove item"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </td>
+                            </tr>
+                        ))}
 
-                                    {/* Destinations Multi-Select */}
-                                    <td className="px-3 py-2">
-                                        <DestinationMultiSelect
-                                            options={destinationOptions}
-                                            selected={item.destination_ids}
-                                            selectedNames={item.destination_names}
-                                            onToggle={(id, name) => toggleDestination(idx, id, name)}
-                                            onRemove={(id) => removeDestination(idx, id)}
-                                        />
-                                    </td>
+                        {/* ── Fixed: Tax Row ── */}
+                        <tr className="bg-amber-50/30 hover:bg-amber-50/60 transition-colors">
+                            <td className="px-3 py-2.5">
+                                <span className="text-amber-700 font-medium text-xs">Tax</span>
+                            </td>
+                            <td className="px-3 py-2">
+                                <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 h-8 flex items-center">
+                                    {FIXED_SUPPLIER_NAME}
+                                </div>
+                            </td>
+                            <td className="px-3 py-2">
+                                <div className="text-xs text-slate-400 italic py-1.5"></div>
+                            </td>
+                            <td className="px-3 py-2">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={taxItem.amount || ""}
+                                    onChange={(e) => setTaxItem((prev) => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                                    className="h-8 text-sm text-right"
+                                    placeholder="0.00"
+                                />
+                            </td>
+                            <td className="px-2 py-2"></td>
+                        </tr>
 
-                                    {/* Amount */}
-                                    <td className="px-3 py-2">
-                                        <Input
-                                            type="number"
-                                            min={0}
-                                            value={item.amount || ""}
-                                            onChange={(e) => updateItem(idx, "amount", parseFloat(e.target.value) || 0)}
-                                            className="h-8 text-sm text-right"
-                                            placeholder="0.00"
-                                        />
-                                    </td>
+                        {/* ── Fixed: Miscellaneous Row ── */}
+                        <tr className="bg-amber-50/30 hover:bg-amber-50/60 transition-colors">
+                            <td className="px-3 py-2.5">
+                                <span className="text-amber-700 font-medium text-xs">Miscellaneous</span>
+                            </td>
+                            <td className="px-3 py-2">
+                                <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 h-8 flex items-center">
+                                    {FIXED_SUPPLIER_NAME}
+                                </div>
+                            </td>
+                            <td className="px-3 py-2">
+                                <DestinationMultiSelect
+                                    options={destinationOptions}
+                                    selected={miscItem.destination_ids}
+                                    selectedNames={miscItem.destination_names}
+                                    onToggle={(id, name) => toggleDestination(0, id, name, "misc")}
+                                    onRemove={(id) => removeDestination(0, id, "misc")}
+                                />
+                            </td>
+                            <td className="px-3 py-2">
+                                <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={miscItem.amount || ""}
+                                    onChange={(e) => setMiscItem((prev) => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                                    className="h-8 text-sm text-right"
+                                    placeholder="0.00"
+                                />
+                            </td>
+                            <td className="px-2 py-2"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
 
-                                    {/* Remove */}
-                                    <td className="px-2 py-2">
-                                        <button
-                                            onClick={() => removeItemType(item.item_type)}
-                                            className="h-6 w-6 rounded hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-
-            {/* ── Empty State ── */}
-            {items.length === 0 && (
-                <div className="text-center py-10 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                    <ShoppingCart className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                    <p className="text-slate-500 font-medium text-sm">No items added yet</p>
-                    <p className="text-slate-400 text-xs mt-1">Use the "Add Item's" picker above to add costing items</p>
+            {/* ── Empty State (only when no dynamic items AND no amounts in fixed rows) ── */}
+            {items.length === 0 && !taxItem.amount && !miscItem.amount && (
+                <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
+                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-slate-300" />
+                    <p className="text-slate-500 font-medium text-sm">No costing items added yet</p>
+                    <p className="text-slate-400 text-xs mt-1">Use the &quot;Add Item&apos;s&quot; picker above to add costing items</p>
                 </div>
             )}
 
@@ -356,6 +532,32 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     );
 }
 
+
+// ── Summary Card Component ───────────────────────────────────────────────────
+
+function SummaryCard({ icon, label, value, bg, iconBg, labelColor, valueColor }: {
+    icon: React.ReactNode;
+    label: string;
+    value: string;
+    bg: string;
+    iconBg: string;
+    labelColor: string;
+    valueColor: string;
+}) {
+    return (
+        <div className={`border rounded-lg p-3 flex items-center gap-3 ${bg}`}>
+            <div className={`h-8 w-8 rounded-full flex items-center justify-center flex-shrink-0 ${iconBg}`}>
+                {icon}
+            </div>
+            <div>
+                <p className={`text-[10px] font-semibold uppercase tracking-wide ${labelColor}`}>{label}</p>
+                <p className={`text-base font-bold ${valueColor}`}>{value}</p>
+            </div>
+        </div>
+    );
+}
+
+
 // ── Inline Destination Multi-Select ──────────────────────────────────────────
 
 function DestinationMultiSelect({
@@ -373,6 +575,18 @@ function DestinationMultiSelect({
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const ref = useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    useEffect(() => {
+        const handleClick = (e: MouseEvent) => {
+            if (ref.current && !ref.current.contains(e.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClick);
+        return () => document.removeEventListener("mousedown", handleClick);
+    }, []);
 
     const filtered = options.filter(
         (o) =>
@@ -381,7 +595,7 @@ function DestinationMultiSelect({
     );
 
     return (
-        <div className="relative">
+        <div className="relative" ref={ref}>
             <div
                 className="flex flex-wrap items-center gap-1 min-h-[32px] border border-slate-200 rounded-md px-2 py-1 bg-white cursor-pointer hover:border-blue-300 transition-colors"
                 onClick={() => setOpen((v) => !v)}
@@ -415,8 +629,10 @@ function DestinationMultiSelect({
                         />
                     </div>
                     <div className="max-h-40 overflow-y-auto">
-                        {filtered.length === 0 ? (
-                            <div className="px-3 py-2 text-xs text-slate-400 italic">No destinations found</div>
+                        {options.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-slate-400 italic">No destinations selected on this opportunity</div>
+                        ) : filtered.length === 0 ? (
+                            <div className="px-3 py-2 text-xs text-slate-400 italic">No more destinations available</div>
                         ) : (
                             filtered.map((o) => (
                                 <div

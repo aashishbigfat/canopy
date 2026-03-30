@@ -8,7 +8,7 @@ from bson import ObjectId
 
 from app.models.user import User
 from app.models.opportunity import Opportunity
-from app.models.opportunity_financial import OpportunityCosting, PaymentScheduleItem, COSTING_ITEM_TYPES
+from app.models.opportunity_financial import OpportunityCosting, PaymentScheduleItem, COSTING_ITEM_TYPES, FIXED_ITEM_TYPES
 from app.models.supplier import Supplier
 from app.models.destination import Destination
 from app.schemas.opportunity_financial import (
@@ -40,8 +40,27 @@ async def get_costing_item_types(
     opportunity_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Return the available item types for costing"""
-    return {"item_types": COSTING_ITEM_TYPES}
+    """Return the available and fixed item types for costing"""
+    return {"item_types": COSTING_ITEM_TYPES, "fixed_item_types": FIXED_ITEM_TYPES}
+
+
+@router.get("/{opportunity_id}/costing/destinations")
+async def get_costing_destinations(
+    opportunity_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """Return ONLY the destinations selected on this opportunity (scoped)"""
+    opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
+
+    result = []
+    for did in (opp.destination_ids or []):
+        try:
+            dest = await Destination.get(did)
+            if dest:
+                result.append({"id": str(dest.id), "name": dest.name})
+        except Exception:
+            pass
+    return {"destinations": result}
 
 
 # ─────────────────────────── COSTING CRUD ─────────────────────────────────────

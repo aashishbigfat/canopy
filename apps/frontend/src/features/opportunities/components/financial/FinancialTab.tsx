@@ -7,7 +7,7 @@ import { ProformaInvoiceTab } from "./ProformaInvoiceTab";
 import { TransactionTab } from "./TransactionTab";
 import { Opportunity } from "../../types";
 import { cn } from "@/lib/utils";
-import { destinationsService } from "@/lib/api/services/destinations.service";
+import { financialService } from "@/lib/api/services/financial.service";
 
 const SUB_TABS = [
     { id: "costing", label: "Costing" },
@@ -26,17 +26,27 @@ export function FinancialTab({ opportunity }: Props) {
     const [activeTab, setActiveTab] = useState<SubTabId>("costing");
     const [destOptions, setDestOptions] = useState<{ label: string; value: string }[]>([]);
 
-    // Pre-fetch destinations once for the costing tab
+    // Fetch SCOPED destinations from the opportunity (not global!)
     useEffect(() => {
-        destinationsService
-            .getDestinations({ limit: 500 })
-            .then((res) => {
+        financialService
+            .getCostingDestinations(opportunity.id)
+            .then((destinations) => {
                 setDestOptions(
-                    (res.destinations ?? []).map((d) => ({ label: d.name, value: d.id }))
+                    destinations.map((d) => ({ label: d.name, value: d.id }))
                 );
             })
-            .catch(() => {});
-    }, []);
+            .catch(() => {
+                // Fallback: use opportunity.destination_names if API fails
+                if (opportunity.destination_names && opportunity.destination_names.length > 0) {
+                    setDestOptions(
+                        opportunity.destination_names.map((name, i) => ({
+                            label: name,
+                            value: name, // Use name as value fallback
+                        }))
+                    );
+                }
+            });
+    }, [opportunity.id, opportunity.destination_names]);
 
     return (
         <div className="space-y-0">

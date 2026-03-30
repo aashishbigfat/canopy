@@ -46,17 +46,24 @@ class OpportunityCosting(BaseDocument):
 
 
 # Available item types for costing
+# Tax and Miscellaneous are fixed rows (always present, not user-removable)
 COSTING_ITEM_TYPES = [
+    "Air Ticket",
+    "Visa",
+    "Accommodation",
+    "Site Seeing",
+    "Airport Transfer",
+    "Transport",
     "Package",
     "Land Package",
     "Meal",
     "Courier Charges",
-    "Taxes",
     "Insurance",
     "Departure",
-    "Visa",
-    "Miscellaneous",
 ]
+
+# Fixed row types (always present, cannot be added/removed by user)
+FIXED_ITEM_TYPES = ["Tax", "Miscellaneous"]
 
 
 class PaymentScheduleItem(BaseDocument):
