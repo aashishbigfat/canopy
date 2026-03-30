@@ -74,10 +74,14 @@ export function FinancialTab({ opportunity }: Props) {
                     <CostingTab
                         opportunityId={opportunity.id}
                         destinationOptions={destOptions}
+                        opportunityAmount={opportunity.amount ?? 0}
                     />
                 )}
                 {activeTab === "payment-schedule" && (
-                    <PaymentScheduleTab opportunityId={opportunity.id} />
+                    <PaymentScheduleTab 
+                        opportunityId={opportunity.id} 
+                        opportunityAmount={opportunity.amount ?? 0}
+                    />
                 )}
                 {activeTab === "proforma-invoice" && (
                     <ProformaInvoiceTab

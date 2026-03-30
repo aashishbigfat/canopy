@@ -852,13 +852,56 @@ export function OpportunityDetails({
                         <CardContent className="p-0">
                             <ScrollArea className="h-[400px]">
                                 {(() => {
-                                    const stageHistory = history.filter(h => h.field_name === "sales_stage_id");
-                                    // Deduplicate: filter out entries where stage didn't actually change (redundant logs)
-                                    const uniqueHistory = stageHistory.filter(h =>
-                                        h.old_value !== h.new_value || h.old_value === null
-                                    );
+                                    // Start with the current state of the opportunity
+                                    let runningAmount = record.amount || 0;
+                                    let runningStageName = stages.find(s => s.id === record.sales_stage_id)?.name || "Unknown";
+                                    let runningProb = record.probability || 0;
 
-                                    if (uniqueHistory.length === 0) {
+                                    const tableRows = [];
+
+                                    // History is retrieved newest-first. We walk backward through time.
+                                    for (const h of history) {
+                                        if (h.field_name === "sales_stage_id") {
+                                            if (h.old_value === h.new_value && h.old_value !== null) continue;
+
+                                            // What happened AT this exact event?
+                                            // The stage changed to the new stage. The amount was whatever runningAmount we reconstructed for this time.
+                                            const displayAmount = h.amount_at_change != null ? h.amount_at_change : runningAmount;
+                                            const displayProb = h.probability_at_change != null ? h.probability_at_change : runningProb;
+                                            const displayStage = h.new_stage_name || h.new_value;
+
+                                            tableRows.push({
+                                                ...h,
+                                                displayStage,
+                                                displayAmount,
+                                                displayProb,
+                                                isStageChange: true
+                                            });
+
+                                            // Revert the state for events that happened *before* this one
+                                            runningStageName = h.old_stage_name || h.old_value || runningStageName;
+                                        }
+                                        else if (h.field_name === "amount") {
+                                            if (h.old_value === h.new_value) continue;
+
+                                            // What happened AT this exact event?
+                                            // The amount changed. The stage was whatever runningStageName it was at that time.
+                                            const displayAmount = parseFloat(h.new_value || "0");
+
+                                            tableRows.push({
+                                                ...h,
+                                                displayStage: runningStageName,
+                                                displayAmount,
+                                                displayProb: runningProb,
+                                                isAmountChange: true
+                                            });
+
+                                            // Revert the state for events that happened *before* this one
+                                            runningAmount = parseFloat(h.old_value || "0");
+                                        }
+                                    }
+
+                                    if (tableRows.length === 0) {
                                         return (
                                             <div className="text-center py-10">
                                                 <p className="text-sm text-slate-400 italic">No stage history recorded yet</p>
@@ -877,28 +920,35 @@ export function OpportunityDetails({
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {uniqueHistory.map((historyRecord, i) => (
-                                                    <TableRow key={historyRecord.id || i} className="hover:bg-slate-50/50">
+                                                {tableRows.map((row: any, i) => (
+                                                    <TableRow key={row.id || i} className="hover:bg-slate-50/50">
                                                         <TableCell className="py-2">
-                                                            <p className="text-xs font-semibold text-blue-600 truncate max-w-[80px]" title={historyRecord.new_stage_name || historyRecord.new_value}>
-                                                                {historyRecord.new_stage_name || historyRecord.new_value}
-                                                            </p>
-                                                        </TableCell>
-                                                        <TableCell className="py-2">
-                                                            <p className="text-xs text-slate-600">₹{record.amount?.toLocaleString()}</p>
+                                                            <div className="flex flex-col">
+                                                                <p className={`text-xs font-semibold truncate max-w-[80px] ${row.isStageChange ? 'text-blue-600' : 'text-slate-700'}`} title={row.displayStage}>
+                                                                    {row.displayStage}
+                                                                </p>
+                                                                {row.isAmountChange && (
+                                                                    <span className="text-[9px] text-amber-600 font-medium">Amount Updated</span>
+                                                                )}
+                                                            </div>
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <p className="text-xs text-slate-600">
-                                                                {stages.find(s => s.id === historyRecord.new_value)?.probability ?? record.probability}%
+                                                                ₹{row.displayAmount.toLocaleString()}
+                                                            </p>
+                                                        </TableCell>
+                                                        <TableCell className="py-2">
+                                                            <p className="text-xs text-slate-600">
+                                                                {row.displayProb}%
                                                             </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
-                                                                <span className="text-[10px] font-medium text-slate-900 truncate max-w-[70px]" title={historyRecord.user_name || "System"}>
-                                                                    {historyRecord.user_name || "System"}
+                                                                <span className="text-[10px] font-medium text-slate-900 truncate max-w-[70px]" title={row.user_name || "System"}>
+                                                                    {row.user_name || "System"}
                                                                 </span>
                                                                 <span className="text-[9px] text-slate-400 capitalize">
-                                                                    {format(new Date(historyRecord.changed_at), "dd MMM yyyy, hh:mm a")}
+                                                                    {format(new Date(row.changed_at), "dd MMM yyyy, hh:mm a")}
                                                                 </span>
                                                             </div>
                                                         </TableCell>

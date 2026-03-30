@@ -35,13 +35,56 @@ async def get_opportunity_or_404(opportunity_id: str, tenant_id):
 
 # ─────────────────────────── COSTING ITEM TYPES ───────────────────────────────
 
+@router.get("/financial-config")
+async def get_financial_config(
+    current_user: User = Depends(get_current_user),
+):
+    """Return tenant-specific financial configuration (e.g. default supplier for Tax/Misc rows)"""
+    from app.models.settings import TenantSettings
+    from app.models.tenant import Tenant
+
+    supplier_name = None
+
+    # Try TenantSettings first
+    try:
+        settings = await TenantSettings.find_one(
+            TenantSettings.tenant_id == current_user.tenant_id
+        )
+        if settings:
+            supplier_name = getattr(settings, 'default_tax_misc_supplier', None) or getattr(settings, 'company_name', None)
+    except Exception:
+        pass
+
+    # Fallback to Tenant.company_name
+    if not supplier_name:
+        try:
+            tenant = await Tenant.find_one(Tenant.id == current_user.tenant_id)
+            if tenant and tenant.company_name:
+                supplier_name = tenant.company_name
+        except Exception:
+            pass
+
+    if not supplier_name:
+        supplier_name = "Your Company"
+
+    return {"default_tax_misc_supplier": supplier_name}
+
+
 @router.get("/{opportunity_id}/costing/item-types")
 async def get_costing_item_types(
     opportunity_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Return the available and fixed item types for costing"""
-    return {"item_types": COSTING_ITEM_TYPES, "fixed_item_types": FIXED_ITEM_TYPES}
+    """Return available item types merged with opportunity inclusions"""
+    opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
+
+    # Merge: global selectable types + opportunity-specific inclusions, deduplicated, preserve order
+    merged = list(COSTING_ITEM_TYPES)  # start with global list
+    for inclusion in (opp.inclusions or []):
+        if inclusion and inclusion not in merged and inclusion not in FIXED_ITEM_TYPES:
+            merged.append(inclusion)
+
+    return {"item_types": merged, "fixed_item_types": FIXED_ITEM_TYPES}
 
 
 @router.get("/{opportunity_id}/costing/destinations")
@@ -175,6 +218,12 @@ async def upsert_costing(
             profit_percent=profit_percent,
         )
         await costing.insert()
+
+    # BI-DIRECTIONAL SYNC: Immediately push selected_item_types back up to Opportunity record
+    opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
+    if set(opp.inclusions or []) != set(data.selected_item_types):
+        opp.inclusions = data.selected_item_types
+        await opp.save()
 
     return CostingResponse(
         id=str(costing.id),

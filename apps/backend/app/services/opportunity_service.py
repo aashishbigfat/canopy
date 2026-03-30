@@ -210,9 +210,54 @@ class OpportunityService(ActivityMixin):
                 field_name="sales_stage_id",
                 old_value=str(old_stage_id) if old_stage_id else None,
                 new_value=str(new_stage_id),
-                changed_by=user_id
+                changed_by=user_id,
+                amount_at_change=opp.amount,
+                probability_at_change=opp.probability,
             )
             await history.insert()
+        
+        # Log history if amount changed (separate from stage changes)
+        if "amount" in update_data and old_values.get("amount") != opp.amount:
+            amount_history = OpportunityHistory(
+                opportunity_id=opp.id,
+                tenant_id=tenant_id,
+                field_name="amount",
+                old_value=str(old_values.get("amount") or 0),
+                new_value=str(opp.amount or 0),
+                changed_by=user_id,
+                amount_at_change=opp.amount,
+                probability_at_change=opp.probability,
+            )
+            await amount_history.insert()
+            
+        # Bi-directional sync: If inclusions change, immediately reflect it in the Costing module
+        if "inclusions" in update_data and old_values.get("inclusions") != opp.inclusions:
+            from app.models.opportunity_financial import OpportunityCosting
+            costing = await OpportunityCosting.find_one(
+                OpportunityCosting.opportunity_id == opp.id,
+                OpportunityCosting.tenant_id == tenant_id
+            )
+            if costing:
+                new_inclusions = opp.inclusions or []
+                costing.selected_item_types = new_inclusions
+                
+                # Filter out line items that are no longer in inclusions (but keep Tax and Misc)
+                valid_items = []
+                for item in costing.items:
+                    if item.item_type in ["Tax", "Miscellaneous"] or item.item_type in new_inclusions:
+                        valid_items.append(item)
+                
+                costing.items = valid_items
+                
+                # Since items may have been removed, mathematically recalculate totals
+                costing.total_amount = sum(i.amount for i in costing.items)
+                costing.total_cost = sum(i.cost_amount for i in costing.items)
+                costing.profit = costing.total_amount - costing.total_cost
+                costing.profit_percent = round((costing.profit / costing.total_amount * 100), 2) if costing.total_amount > 0 else 0.0
+                
+                from datetime import datetime
+                costing.updated_at = datetime.utcnow()
+                await costing.save()
         
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
@@ -354,7 +399,9 @@ class OpportunityService(ActivityMixin):
                 field_name="sales_stage_id",
                 old_value=str(old_stage_id),
                 new_value=str(new_stage_id),
-                changed_by=user_id
+                changed_by=user_id,
+                amount_at_change=opp.amount,
+                probability_at_change=opp.probability,
             )
             await history.insert()
         

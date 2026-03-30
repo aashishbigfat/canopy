@@ -11,8 +11,8 @@ import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { financialService, CostingLineItem } from "@/lib/api/services/financial.service";
 import { toast } from "sonner";
 
-// Fixed supplier for Tax and Miscellaneous rows
-const FIXED_SUPPLIER_NAME = "Dook Travels Pvt Ltd";
+// Fallback fixed supplier name (overridden by tenant config on mount)
+const DEFAULT_SUPPLIER_FALLBACK = "Your Company";
 
 interface DestinationOption {
     label: string;
@@ -22,9 +22,11 @@ interface DestinationOption {
 interface Props {
     opportunityId: string;
     destinationOptions: DestinationOption[];
+    // Bug 3: opportunity amount passed in so profit = opportunityAmount - totalCost
+    opportunityAmount: number;
 }
 
-export function CostingTab({ opportunityId, destinationOptions }: Props) {
+export function CostingTab({ opportunityId, destinationOptions, opportunityAmount }: Props) {
     const { data: costing, isLoading } = useCosting(opportunityId);
     const { mutate: saveCosting, isPending: isSaving } = useUpsertCosting(opportunityId);
 
@@ -33,11 +35,14 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
     const [items, setItems] = useState<CostingLineItem[]>([]);
 
+    // Bug 4: Tenant-specific supplier name for Tax & Miscellaneous rows
+    const [fixedSupplierName, setFixedSupplierName] = useState<string>(DEFAULT_SUPPLIER_FALLBACK);
+
     // Fixed rows state (Tax & Miscellaneous)
     const [taxItem, setTaxItem] = useState<CostingLineItem>({
         item_type: "Tax",
         supplier_id: undefined,
-        supplier_name: FIXED_SUPPLIER_NAME,
+        supplier_name: DEFAULT_SUPPLIER_FALLBACK,
         destination_ids: [],
         destination_names: [],
         amount: 0,
@@ -46,7 +51,7 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     const [miscItem, setMiscItem] = useState<CostingLineItem>({
         item_type: "Miscellaneous",
         supplier_id: undefined,
-        supplier_name: FIXED_SUPPLIER_NAME,
+        supplier_name: DEFAULT_SUPPLIER_FALLBACK,
         destination_ids: [],
         destination_names: [],
         amount: 0,
@@ -69,7 +74,20 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
         return () => document.removeEventListener("mousedown", handleClick);
     }, []);
 
-    // Load available item types from backend
+    // Bug 4: Load tenant financial config to get the correct fixed supplier name
+    useEffect(() => {
+        financialService.getFinancialConfig().then((config) => {
+            const supplierName = config.default_tax_misc_supplier || DEFAULT_SUPPLIER_FALLBACK;
+            setFixedSupplierName(supplierName);
+            // Update fixed row display names
+            setTaxItem((prev) => ({ ...prev, supplier_name: supplierName }));
+            setMiscItem((prev) => ({ ...prev, supplier_name: supplierName }));
+        }).catch(() => {
+            // Silently keep the fallback
+        });
+    }, []);
+
+    // Bug 1: Load available item types — now includes opportunity inclusions via backend merge
     useEffect(() => {
         financialService.getCostingItemTypes(opportunityId).then((res) => {
             setAllItemTypes(res.item_types || []);
@@ -97,11 +115,30 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
             const miscSaved = savedItems.find((i) => i.item_type === "Miscellaneous");
             const dynamicItems = savedItems.filter((i) => i.item_type !== "Tax" && i.item_type !== "Miscellaneous");
 
-            if (taxSaved) setTaxItem(taxSaved);
-            if (miscSaved) setMiscItem(miscSaved);
+            if (taxSaved) setTaxItem((prev) => ({ ...taxSaved, supplier_name: taxSaved.supplier_name || prev.supplier_name }));
+            if (miscSaved) setMiscItem((prev) => ({ ...miscSaved, supplier_name: miscSaved.supplier_name || prev.supplier_name }));
 
-            setSelectedTypes(costing.selected_item_types || []);
-            setItems(dynamicItems);
+            // Bug 1: Restore selectedTypes from saved costing
+            const savedTypes = costing.selected_item_types || [];
+            setSelectedTypes(savedTypes);
+
+            // Bug 1: Ensure items array matches selectedTypes — fill in any missing rows
+            const existingTypes = new Set(dynamicItems.map((i) => i.item_type));
+            const restoredItems = [...dynamicItems];
+            for (const type of savedTypes) {
+                if (!existingTypes.has(type)) {
+                    restoredItems.push({
+                        item_type: type,
+                        supplier_id: undefined,
+                        supplier_name: undefined,
+                        destination_ids: [],
+                        destination_names: [],
+                        amount: 0,
+                        cost_amount: 0,
+                    });
+                }
+            }
+            setItems(restoredItems);
         }
     }, [costing]);
 
@@ -129,7 +166,6 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     const removeItemType = (type: string) => {
         setSelectedTypes((prev) => prev.filter((t) => t !== type));
         setItems((prev) => prev.filter((i) => i.item_type !== type));
-        // Clear validation error for this type
         setValidationErrors((prev) => {
             const next = { ...prev };
             delete next[type];
@@ -138,6 +174,9 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
     };
 
     // ── Row field updates ─────────────────────────────────────────────────────
+
+    // Bug 2: Clamp amount to >= 0
+    const clampAmount = (val: string): number => Math.max(0, parseFloat(val) || 0);
 
     const updateItem = (index: number, field: keyof CostingLineItem, value: any) => {
         setItems((prev) => {
@@ -158,7 +197,6 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
             };
             return next;
         });
-        // Clear validation error when supplier selected
         const itemType = items[index]?.item_type;
         if (itemType && validationErrors[itemType]) {
             setValidationErrors((prev) => {
@@ -221,18 +259,20 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
         }
     };
 
-    // ── Computed totals (live on every keystroke) ─────────────────────────────
+    // ── Computed totals ───────────────────────────────────────────────────────
 
     const allItems = [...items, taxItem, miscItem];
-    const totalAmount = allItems.reduce((s, i) => s + (i.amount || 0), 0);
-    const totalCost = allItems.reduce((s, i) => s + (i.cost_amount || 0), 0);
-    const profit = totalAmount - totalCost;
-    const profitPct = totalAmount > 0 ? (profit / totalAmount) * 100 : 0;
+    
+    // The UI input field is bound to `item.amount`. So Total Cost should sum `i.amount`.
+    const totalCost = allItems.reduce((s, i) => s + (i.amount || 0), 0);
+
+    // Profit = Opportunity Amount - Total Cost
+    const profit = opportunityAmount - totalCost;
+    const profitPct = opportunityAmount > 0 ? (profit / opportunityAmount) * 100 : 0;
 
     // ── Validation & Save ─────────────────────────────────────────────────────
 
     const handleSave = () => {
-        // Validate: non-fixed rows with amount > 0 must have a supplier
         const errors: Record<string, string> = {};
         items.forEach((item) => {
             if ((item.amount || 0) > 0 && !item.supplier_id) {
@@ -247,7 +287,10 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
         }
 
         setValidationErrors({});
-        const allItemsToSave = [...items, taxItem, miscItem];
+        // Ensure fixed rows carry the correct tenant supplier name
+        const taxToSave = { ...taxItem, supplier_name: fixedSupplierName };
+        const miscToSave = { ...miscItem, supplier_name: fixedSupplierName };
+        const allItemsToSave = [...items, taxToSave, miscToSave];
         saveCosting({ selected_item_types: selectedTypes, items: allItemsToSave });
     };
 
@@ -264,12 +307,12 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
 
     return (
         <div className="space-y-4">
-            {/* ── Summary Bar ── */}
+            {/* ── Summary Bar — Bug 3 fix: Opp. Amount | Total Cost | Profit | Profit % ── */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
                 <SummaryCard
                     icon={<DollarSign className="h-4 w-4 text-blue-600" />}
-                    label="Total Amount"
-                    value={`₹${totalAmount.toLocaleString("en-IN")}`}
+                    label="Opp. Amount"
+                    value={`₹${opportunityAmount.toLocaleString("en-IN")}`}
                     bg="bg-blue-50 border-blue-100"
                     iconBg="bg-blue-100"
                     labelColor="text-blue-500"
@@ -286,7 +329,7 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                 />
                 <SummaryCard
                     icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600" : "text-red-600"}`} />}
-                    label="Profit"
+                    label={profit >= 0 ? "Profit" : "Loss"}
                     value={`₹${profit.toLocaleString("en-IN")}`}
                     bg={profit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}
                     iconBg={profit >= 0 ? "bg-emerald-100" : "bg-red-100"}
@@ -295,7 +338,7 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                 />
                 <SummaryCard
                     icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-600" : "text-red-600"}`} />}
-                    label="Profit %"
+                    label={profitPct >= 0 ? "Profit %" : "Loss %"}
                     value={`${profitPct.toFixed(2)}%`}
                     bg={profitPct >= 0 ? "bg-purple-50 border-purple-100" : "bg-red-50 border-red-100"}
                     iconBg={profitPct >= 0 ? "bg-purple-100" : "bg-red-100"}
@@ -417,14 +460,15 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                                     />
                                 </td>
                                 <td className="px-3 py-2">
+                                    {/* Bug 2: clamp to >= 0 */}
                                     <Input
                                         type="number"
                                         min={0}
                                         step="0.01"
-                                        value={item.amount || ""}
-                                        onChange={(e) => updateItem(idx, "amount", parseFloat(e.target.value) || 0)}
+                                        value={item.amount != null ? item.amount : 0}
+                                        onChange={(e) => updateItem(idx, "amount", clampAmount(e.target.value))}
                                         className="h-8 text-sm text-right"
-                                        placeholder="0.00"
+                                        placeholder="0"
                                     />
                                 </td>
                                 <td className="px-2 py-2">
@@ -445,22 +489,24 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                                 <span className="text-amber-700 font-medium text-xs">Tax</span>
                             </td>
                             <td className="px-3 py-2">
+                                {/* Bug 4: tenant-specific supplier name */}
                                 <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 h-8 flex items-center">
-                                    {FIXED_SUPPLIER_NAME}
+                                    {fixedSupplierName}
                                 </div>
                             </td>
                             <td className="px-3 py-2">
                                 <div className="text-xs text-slate-400 italic py-1.5"></div>
                             </td>
                             <td className="px-3 py-2">
+                                {/* Bug 2: clamp to >= 0 */}
                                 <Input
                                     type="number"
                                     min={0}
                                     step="0.01"
-                                    value={taxItem.amount || ""}
-                                    onChange={(e) => setTaxItem((prev) => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                                    value={taxItem.amount != null ? taxItem.amount : 0}
+                                    onChange={(e) => setTaxItem((prev) => ({ ...prev, amount: clampAmount(e.target.value) }))}
                                     className="h-8 text-sm text-right"
-                                    placeholder="0.00"
+                                    placeholder="0"
                                 />
                             </td>
                             <td className="px-2 py-2"></td>
@@ -472,8 +518,9 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                                 <span className="text-amber-700 font-medium text-xs">Miscellaneous</span>
                             </td>
                             <td className="px-3 py-2">
+                                {/* Bug 4: tenant-specific supplier name */}
                                 <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 h-8 flex items-center">
-                                    {FIXED_SUPPLIER_NAME}
+                                    {fixedSupplierName}
                                 </div>
                             </td>
                             <td className="px-3 py-2">
@@ -486,14 +533,15 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                                 />
                             </td>
                             <td className="px-3 py-2">
+                                {/* Bug 2: clamp to >= 0 */}
                                 <Input
                                     type="number"
                                     min={0}
                                     step="0.01"
-                                    value={miscItem.amount || ""}
-                                    onChange={(e) => setMiscItem((prev) => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
+                                    value={miscItem.amount != null ? miscItem.amount : 0}
+                                    onChange={(e) => setMiscItem((prev) => ({ ...prev, amount: clampAmount(e.target.value) }))}
                                     className="h-8 text-sm text-right"
-                                    placeholder="0.00"
+                                    placeholder="0"
                                 />
                             </td>
                             <td className="px-2 py-2"></td>
@@ -502,7 +550,7 @@ export function CostingTab({ opportunityId, destinationOptions }: Props) {
                 </table>
             </div>
 
-            {/* ── Empty State (only when no dynamic items AND no amounts in fixed rows) ── */}
+            {/* ── Empty State ── */}
             {items.length === 0 && !taxItem.amount && !miscItem.amount && (
                 <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
                     <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-slate-300" />
@@ -577,7 +625,6 @@ function DestinationMultiSelect({
     const [search, setSearch] = useState("");
     const ref = useRef<HTMLDivElement>(null);
 
-    // Close on outside click
     useEffect(() => {
         const handleClick = (e: MouseEvent) => {
             if (ref.current && !ref.current.contains(e.target as Node)) {

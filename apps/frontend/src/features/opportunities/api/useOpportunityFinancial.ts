@@ -27,6 +27,10 @@ export const useUpsertCosting = (opportunityId: string) => {
             queryClient.invalidateQueries({
                 queryKey: ["opportunities", opportunityId, "costing"],
             });
+            // Immediately sync visually with the Opportunity form's inclusions
+            queryClient.invalidateQueries({
+                queryKey: ["opportunities", opportunityId],
+            });
             toast.success("Costing saved successfully");
         },
         onError: () => {

@@ -765,6 +765,8 @@ async def get_opportunity_history(
         for record in history_records:
             resp = OpportunityHistoryResponse.from_orm(record)
             resp.user_name = user_map.get(record.changed_by, "Unknown User")
+            resp.amount_at_change = record.amount_at_change
+            resp.probability_at_change = record.probability_at_change
             
             if record.field_name == "sales_stage_id":
                 if record.old_value:

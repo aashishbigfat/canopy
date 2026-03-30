@@ -112,6 +112,9 @@ class OpportunityHistoryResponse(BaseModel):
     user_name: Optional[str] = None
     old_stage_name: Optional[str] = None
     new_stage_name: Optional[str] = None
+    # Historical financial snapshot at time of stage change
+    amount_at_change: Optional[float] = None
+    probability_at_change: Optional[int] = None
 
     class Config:
         from_attributes = True

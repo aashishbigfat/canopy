@@ -15,8 +15,8 @@ class CostingLineItemSchema(BaseModel):
     supplier_name: Optional[str] = None
     destination_ids: List[str] = Field(default_factory=list)
     destination_names: List[str] = Field(default_factory=list)
-    amount: float = 0.0
-    cost_amount: float = 0.0
+    amount: float = Field(default=0.0, ge=0)
+    cost_amount: float = Field(default=0.0, ge=0)
 
 
 class CostingCreateUpdate(BaseModel):
@@ -60,7 +60,7 @@ class PaymentScheduleItemUpdate(BaseModel):
     """Schema for updating a payment schedule item"""
     description: Optional[str] = None
     due_date: Optional[datetime] = None
-    amount: Optional[float] = None
+    amount: Optional[float] = Field(None, ge=0)
     status: Optional[str] = None
     payment_method: Optional[str] = None
     reference_number: Optional[str] = None

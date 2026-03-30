@@ -91,6 +91,8 @@ export interface OpportunityHistoryRecord {
     user_name?: string;
     old_stage_name?: string;
     new_stage_name?: string;
+    amount_at_change?: number;
+    probability_at_change?: number;
 }
 
 export interface OpportunityTask {

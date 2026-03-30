@@ -53,6 +53,14 @@ export interface PaymentScheduleItemCreate {
 }
 
 export const financialService = {
+    // ── Tenant Financial Config ───────────────────────────────────────────────
+    getFinancialConfig: async (): Promise<{ default_tax_misc_supplier: string }> => {
+        const res = await apiClient.get<{ default_tax_misc_supplier: string }>(
+            `/opportunities/financial-config`
+        );
+        return res.data;
+    },
+
     // ── Costing ──────────────────────────────────────────────────────────────
     getCosting: async (opportunityId: string): Promise<CostingData> => {
         const res = await apiClient.get<CostingData>(
