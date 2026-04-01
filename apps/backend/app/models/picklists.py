@@ -17,9 +17,7 @@ class AccountType(BaseDocument):
     
     class Settings:
         name = "account_types"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["tenant_id", "sorting"]
+        indexes = ["tenant_id", "sorting"]
 
 
 class Industry(BaseDocument):
@@ -32,9 +30,7 @@ class Industry(BaseDocument):
     
     class Settings:
         name = "industries"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["tenant_id", "sorting"]
+        indexes = ["tenant_id", "sorting"]
 
 
 class Rating(BaseDocument):
@@ -46,9 +42,7 @@ class Rating(BaseDocument):
     
     class Settings:
         name = "ratings"
-        # Temporarily disabled to fix startup
-
-        # indexes = ["sorting"]
+        indexes = ["sorting"]
 
 
 class AccountSource(BaseDocument):
@@ -61,6 +55,16 @@ class AccountSource(BaseDocument):
     
     class Settings:
         name = "account_sources"
-        # Temporarily disabled to fix startup
+        indexes = ["tenant_id", "sorting"]
 
-        # indexes = ["tenant_id", "sorting"]
+class SupplierService(BaseDocument):
+    """Supplier Service Types picklist"""
+    name: Indexed(str)
+    description: Optional[str] = None
+    tenant_id: Indexed(PydanticObjectId)
+    sorting: int = 0
+    is_active: bool = True
+    
+    class Settings:
+        name = "supplier_services"
+        indexes = ["tenant_id", "sorting"]

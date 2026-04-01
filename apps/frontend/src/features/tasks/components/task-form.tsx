@@ -15,10 +15,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCreateTask, useUpdateTask } from "@/features/tasks/api/use-tasks";
 import { Task } from "@/features/tasks/types";
 import { useGetUsers } from "@/features/admin/api/use-users";
 import { User } from "@/features/admin/types";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const taskFormSchema = z.object({
     name: z.string().min(2, "Subject is required"),
@@ -53,17 +55,39 @@ export function TaskForm({ initialData }: TaskFormProps) {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     const onSubmit = async (data: TaskFormValues) => {
         try {
-            if (initialData) {
-                await updateTask.mutateAsync({ id: initialData.id, data });
-            } else {
-                await createTask.mutateAsync(data);
-            }
-            router.push("/tasks");
-            router.refresh();
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (initialData) {
+                        await updateTask.mutateAsync({ id: initialData.id, data });
+                    } else {
+                        await createTask.mutateAsync(data);
+                    }
+                    router.push("/tasks");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save task"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save task");
         } catch (error) {
-            console.error("Failed to save task", error);
+            // Handled
         }
     };
 
@@ -105,18 +129,14 @@ export function TaskForm({ initialData }: TaskFormProps) {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Assigned To</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select User" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {users.map((u: User) => (
-                                            <SelectItem key={u._id} value={u._id}>{u.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <SearchableSelect
+                                        options={users.map((u: User) => ({ label: u.name, value: u._id }))}
+                                        value={field.value}
+                                        onValueChange={field.onChange}
+                                        placeholder="Select User"
+                                    />
+                                </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}

@@ -19,6 +19,7 @@ import { useCreateRole, useUpdateRole, useGetAllPermissions } from "@/features/a
 import { Role } from "@/features/admin/types/roles";
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const roleFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -61,17 +62,39 @@ export function RoleForm({ initialData }: RoleFormProps) {
         return groups;
     }, [allPermissions]);
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     const onSubmit = async (data: RoleFormValues) => {
         try {
-            if (initialData) {
-                await updateRole.mutateAsync({ id: initialData._id, data });
-            } else {
-                await createRole.mutateAsync(data);
-            }
-            router.push("/admin/roles");
-            router.refresh();
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (initialData) {
+                        await updateRole.mutateAsync({ id: initialData._id, data });
+                    } else {
+                        await createRole.mutateAsync(data);
+                    }
+                    router.push("/admin/roles");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save role"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save role");
         } catch (error) {
-            console.error("Failed to save role", error);
+            // Handled
         }
     };
 

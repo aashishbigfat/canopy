@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { accountsService } from "@/lib/api/services/accounts.service";
 import { AccountFilters, AccountCreateData } from "../types";
 
@@ -6,7 +6,8 @@ export const useAccounts = (filters: AccountFilters = { page: 1, per_page: 10 })
     return useQuery({
         queryKey: ["accounts", filters],
         queryFn: () => accountsService.getAccounts(filters),
-        staleTime: 0, // 5 minutes
+        staleTime: 30_000, // 30 seconds
+        placeholderData: keepPreviousData,
     });
 };
 

@@ -1,7 +1,7 @@
 """
 Authentication API endpoints
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 
 from app.schemas.auth import (
@@ -12,11 +12,13 @@ from app.services.auth_service import AuthService
 from app.models.user import User
 from app.api.deps import get_current_user
 from app.core.config import settings
+from app.core.rate_limiter import limiter
 
 router = APIRouter()
 
 @router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
-async def register(user_data: UserRegister):
+@limiter.limit("5/minute")
+async def register(request: Request, response: Response, user_data: UserRegister):
     """Register a new user"""
     service = AuthService()
     
@@ -40,7 +42,8 @@ async def register(user_data: UserRegister):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(login_data: UserLogin):
+@limiter.limit("5/minute")
+async def login(request: Request, response: Response, login_data: UserLogin):
     """Login user and return access token"""
     service = AuthService()
     
@@ -68,7 +71,8 @@ async def login(login_data: UserLogin):
 
 
 @router.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+@limiter.limit("5/minute")
+async def login_for_access_token(request: Request, response: Response, form_data: OAuth2PasswordRequestForm = Depends()):
     """OAuth2 compatible token endpoint"""
     service = AuthService()
     
@@ -94,7 +98,8 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
 
 
 @router.post("/refresh")
-async def refresh_token(token_data: RefreshToken):
+@limiter.limit("10/minute")
+async def refresh_token(request: Request, response: Response, token_data: RefreshToken):
     """Refresh access token"""
     service = AuthService()
     
@@ -154,7 +159,8 @@ async def change_password(
 
 
 @router.post("/password-reset")
-async def request_password_reset(reset_data: PasswordReset):
+@limiter.limit("3/minute")
+async def request_password_reset(request: Request, response: Response, reset_data: PasswordReset):
     """Request password reset"""
     service = AuthService()
     
@@ -167,7 +173,8 @@ async def request_password_reset(reset_data: PasswordReset):
 
 
 @router.post("/password-reset/confirm")
-async def confirm_password_reset(reset_data: PasswordResetConfirm):
+@limiter.limit("3/minute")
+async def confirm_password_reset(request: Request, response: Response, reset_data: PasswordResetConfirm):
     """Confirm password reset with token"""
     service = AuthService()
     

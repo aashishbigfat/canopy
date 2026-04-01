@@ -18,6 +18,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
     Select,
     SelectContent,
@@ -25,29 +26,38 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { contactsService } from "@/lib/api/services/contacts.service";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { useEffect, useRef } from "react";
+import { cn } from "@/lib/utils";
 
 const contactFormSchema = z.object({
-    first_name: z.string().min(2, {
-        message: "First name must be at least 2 characters.",
-    }),
+    salutation: z.string().optional(),
+    first_name: z.string().max(100).optional(),
     last_name: z.string().min(2, {
         message: "Last name must be at least 2 characters.",
+    }).max(100),
+    email: z.string().min(1, { message: "Email is required." }).email({ message: "Invalid email address." }),
+    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number.",
     }),
-    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
-    phone: z.string().optional().or(z.literal("")),
+    mobile: z.string().min(1, { message: "Mobile is required." }).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number.",
+    }),
     title: z.string().optional(),
-    account_id: z.string().optional(),
+    account_id: z.string().min(1, { message: "Account is required." }),
 });
 
 type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 const defaultValues: Partial<ContactFormValues> = {
+    salutation: "",
     first_name: "",
     last_name: "",
     email: "",
     phone: "",
+    mobile: "",
     title: "",
     account_id: "",
 };
@@ -57,26 +67,12 @@ interface ContactFormProps {
     id?: string;
     /** Name of the current account (for the info banner) */
     initialAccountName?: string;
+    onSuccess?: () => void;
+    onCancel?: () => void;
+    isDrawer?: boolean;
 }
 
-/** 
- * Helper to extract domain from a string (email or website)
- * e.g. "john@big.com" -> "big.com", "https://www.big.com/test" -> "big.com"
- */
-function extractDomain(input: string): string {
-    if (!input) return "";
-    let domain = input.toLowerCase();
-    if (domain.includes("@")) {
-        domain = domain.split("@")[1];
-    }
-    return domain
-        .replace(/https?:\/\//, "")
-        .replace(/^www\./, "")
-        .split("/")[0]
-        .split("?")[0];
-}
-
-export function ContactForm({ initialData, id, initialAccountName }: ContactFormProps) {
+export function ContactForm({ initialData, id, initialAccountName, onSuccess, onCancel, isDrawer = false }: ContactFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
@@ -86,7 +82,7 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
-        defaultValues: initialData || defaultValues,
+        defaultValues: { ...defaultValues, ...(initialData || {}) },
     });
 
     // Watch account_id to show info banner
@@ -108,31 +104,97 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
         fetchMetaData();
     }, []);
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     async function onSubmit(data: ContactFormValues) {
         setIsLoading(true);
+        const startTime = Date.now();
+        let isSuccess = false;
         try {
-            if (id) {
-                await contactsService.updateContact(id, data);
-            } else {
-                await contactsService.createContact(data as any);
-            }
-            router.push("/contacts");
-            router.refresh();
-        } catch (error: any) {
-            const message =
-                error?.response?.data?.detail ??
-                `Failed to ${id ? "update" : "create"} contact`;
-            toast.error(message);
-            console.error(message, error);
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (id) {
+                        await contactsService.updateContact(id, data);
+                        toast.success("Contact updated successfully");
+                    } else {
+                        await contactsService.createContact(data as any);
+                        toast.success("Contact created successfully");
+                    }
+                    isSuccess = true;
+                    
+                    const elapsedTime = Date.now() - startTime;
+                    if (elapsedTime < 2500) {
+                        await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                    }
+                    
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push("/contacts");
+                        router.refresh();
+                    }
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save contact"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save contact");
+        } catch (error) {
+            // Error is already handled
         } finally {
-            setIsLoading(false);
+            if (!isSuccess) {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime < 2500) {
+                    await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                }
+                setIsLoading(false);
+            }
         }
     }
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-8"
+            >
                 <div className="grid gap-4 md:grid-cols-2">
+                    <FormField
+                        control={form.control}
+                        name="salutation"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Salutation</FormLabel>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Mr.">Mr.</SelectItem>
+                                        <SelectItem value="Ms.">Ms.</SelectItem>
+                                        <SelectItem value="Mrs.">Mrs.</SelectItem>
+                                        <SelectItem value="Dr.">Dr.</SelectItem>
+                                        <SelectItem value="Prof.">Prof.</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <FormField
                         control={form.control}
                         name="first_name"
@@ -151,7 +213,7 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         name="last_name"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Last Name</FormLabel>
+                                <FormLabel>Last Name *</FormLabel>
                                 <FormControl>
                                     <Input placeholder="Doe" {...field} />
                                 </FormControl>
@@ -164,38 +226,11 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         name="email"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Email</FormLabel>
+                                <FormLabel>Email *</FormLabel>
                                 <FormControl>
                                     <Input
                                         placeholder="john@example.com"
                                         {...field}
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            field.onChange(value);
-
-                                            // Auto-select account based on email domain
-                                            if (value.includes("@")) {
-                                                const emailDomain = extractDomain(value);
-                                                if (emailDomain) {
-                                                    // Try to match by website OR by account name matching the domain
-                                                    const matchingAccount = accounts.find(acc => {
-                                                        const websiteMatch = acc.website && extractDomain(acc.website) === emailDomain;
-
-                                                        // Extract just the name part from domain (e.g. "bigfatailabs" from "bigfatailabs.com")
-                                                        const rawDomainName = emailDomain.split('.')[0];
-                                                        const nameMatch = acc.name.toLowerCase().replace(/\s+/g, '') === rawDomainName;
-
-                                                        return websiteMatch || nameMatch;
-                                                    });
-
-                                                    if (matchingAccount) {
-                                                        form.setValue("account_id", matchingAccount.id, { shouldValidate: true, shouldDirty: true });
-                                                    } else {
-                                                        form.setValue("account_id", "", { shouldValidate: true, shouldDirty: true });
-                                                    }
-                                                }
-                                            }
-                                        }}
                                     />
                                 </FormControl>
                                 <FormMessage />
@@ -209,7 +244,20 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                             <FormItem>
                                 <FormLabel>Phone</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="+1 555-000-0000" {...field} />
+                                    <PhoneInput {...field} placeholder="Phone number" />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="mobile"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Mobile *</FormLabel>
+                                <FormControl>
+                                    <PhoneInput {...field} placeholder="Mobile number" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -234,40 +282,15 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                         name="account_id"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Account</FormLabel>
-                                <Select
-                                    onValueChange={(val) => {
-                                        field.onChange(val);
-                                        // Auto-update email domain based on selected account
-                                        const selectedAccount = accounts.find(a => a.id === val);
-                                        if (selectedAccount) {
-                                            const currentEmail = form.getValues("email") || "";
-                                            // Fallback to account name if website is missing
-                                            const accountDomain = selectedAccount.website ? extractDomain(selectedAccount.website) : `${selectedAccount.name.toLowerCase().replace(/\s+/g, '')}.com`;
-
-                                            if (currentEmail.includes("@") && accountDomain) {
-                                                const [localPart] = currentEmail.split("@");
-                                                form.setValue("email", `${localPart}@${accountDomain}`, { shouldValidate: true, shouldDirty: true });
-                                            } else if (!currentEmail && accountDomain) {
-                                                form.setValue("email", `info@${accountDomain}`, { shouldValidate: true, shouldDirty: true });
-                                            }
-                                        }
-                                    }}
-                                    value={field.value || ""}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select an account" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {accounts.map(account => (
-                                            <SelectItem key={account.id} value={account.id}>
-                                                {account.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormLabel>Account *</FormLabel>
+                                <FormControl>
+                                    <SearchableSelect
+                                        options={accounts.map(acc => ({ label: acc.name, value: acc.id }))}
+                                        value={field.value || ""}
+                                        onValueChange={field.onChange}
+                                        placeholder="Select an account"
+                                    />
+                                </FormControl>
                                 <FormDescription>
                                     {/* Tier 2: Info banner when account changes in edit mode */}
                                     {accountChanged && (
@@ -288,12 +311,12 @@ export function ContactForm({ initialData, id, initialAccountName }: ContactForm
                     />
 
                 </div>
-                <div className="flex justify-end gap-4 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => router.back()}>
-                        Cancel
+                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10")}>
+                    <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>
+                        {isDrawer ? "Close" : "Cancel"}
                     </Button>
                     <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Contact" : "Create Contact")}
+                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update" : "Save")}
                     </Button>
                 </div>
             </form>

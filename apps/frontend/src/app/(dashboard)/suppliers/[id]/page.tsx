@@ -1,43 +1,60 @@
 "use client";
 
-import { use } from "react";
-import { SupplierForm } from "@/features/suppliers/components/supplier-form";
+import { use, useEffect, useState } from "react";
+import { SupplierDetails } from "@/features/suppliers/components/SupplierDetails";
 import { useSupplier } from "@/features/suppliers/api/use-suppliers";
+import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { ChevronLeft, Loader2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
-interface EditSupplierPageProps {
+interface SupplierDetailsPageProps {
     params: Promise<{ id: string }>;
 }
 
-export default function EditSupplierPage({ params }: EditSupplierPageProps) {
+export default function SupplierDetailsPage({ params }: SupplierDetailsPageProps) {
     const { id } = use(params);
+    const router = useRouter();
+    
     const { data: supplier, isLoading, isError } = useSupplier(id);
+    const [users, setUsers] = useState<{ id: string; name: string }[]>([]);
+    const [loadingMeta, setLoadingMeta] = useState(true);
 
-    if (isLoading) {
-        return <div className="p-8">Loading supplier details...</div>;
+    useEffect(() => {
+        const fetchMeta = async () => {
+            try {
+                const data = await suppliersService.getFormData();
+                if (data && data.users) {
+                    setUsers(data.users);
+                }
+            } catch (err) {
+                console.error("Failed to fetch metadata", err);
+            } finally {
+                setLoadingMeta(false);
+            }
+        };
+        fetchMeta();
+    }, []);
+
+    if (isLoading || loadingMeta) {
+        return (
+            <div className="flex h-[600px] w-full items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+            </div>
+        );
     }
 
     if (isError || !supplier) {
-        return <div className="p-8 text-red-500">Error loading supplier or supplier not found.</div>;
+        return (
+            <div className="flex h-[600px] w-full flex-col items-center justify-center gap-4">
+                <p className="text-xl font-semibold text-slate-900">Supplier not found</p>
+                <Button variant="outline" onClick={() => router.push("/suppliers")}>
+                    <ChevronLeft className="mr-2 h-4 w-4" />
+                    Back to Suppliers
+                </Button>
+            </div>
+        );
     }
 
-    return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center space-x-2">
-                <Link href="/suppliers">
-                    <Button variant="ghost" size="icon">
-                        <ArrowLeft className="h-4 w-4" />
-                    </Button>
-                </Link>
-                <h2 className="text-3xl font-bold tracking-tight">Edit Supplier</h2>
-            </div>
-            <div className="rounded-md border p-4 max-w-2xl">
-                <SupplierForm initialData={supplier} onSuccess={() => {
-                    // Can add more logic here if needed
-                }} />
-            </div>
-        </div>
-    );
+    return <SupplierDetails supplier={supplier} users={users} />;
 }

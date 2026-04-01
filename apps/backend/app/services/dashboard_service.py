@@ -672,12 +672,14 @@ class DashboardService:
         from app.models.opportunity_picklists import SalesStage
         
         won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        lost_stages = await SalesStage.find(SalesStage.is_lost == True).to_list()
         won_stage_ids = [s.id for s in won_stages]
+        lost_stage_ids = [s.id for s in lost_stages]
         
         tenant_obj_id = PydanticObjectId(tenant_id)
         query = {
             "tenant_id": tenant_obj_id,
-            "sales_stage_id": {"$nin": won_stage_ids},  # Open deals
+            "sales_stage_id": {"$nin": won_stage_ids + lost_stage_ids},  # Open deals only
         }
         if user_id:
             query["owner_id"] = PydanticObjectId(user_id)

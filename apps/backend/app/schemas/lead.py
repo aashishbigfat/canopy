@@ -4,22 +4,31 @@ Pydantic schemas for Lead API
 from pydantic import BaseModel, EmailStr, Field, BeforeValidator
 from typing import Optional, Dict, List, Any, Union, Annotated
 from datetime import datetime, date
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE
+import re
+
+def safe_phone_validator(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    if not re.match(PHONE_REGEX, str(v)):
+        return None
+    return str(v)
 
 class LeadBase(BaseModel):
     """Base schema for Lead"""
     salutation: Optional[str] = None
-    first_name: str
+    first_name: str = Field(..., max_length=100)
     middle_name: Optional[str] = None
-    last_name: str
+    last_name: str = Field(..., min_length=1, max_length=100)
     
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     
-    company: Optional[str] = None
-    title: Optional[str] = None
-    no_employees: Optional[int] = None
-    website: Optional[str] = None
+    company: Optional[str] = Field(None, max_length=255)
+    title: Optional[str] = Field(None, max_length=100)
+    no_employees: Optional[int] = Field(None, ge=1)
+    website: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
     street: Optional[str] = None
     city: Optional[str] = None
@@ -36,7 +45,7 @@ class LeadBase(BaseModel):
     # New Fields
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
-    travel_date: Optional[str] = None
+    travel_date: str = Field(..., description="Travel date is required")
     no_of_nights: Optional[int] = Field(None, ge=1)
     no_of_adults: Optional[int] = Field(None, ge=1)
     no_of_pax: Optional[int] = Field(None, ge=1)
@@ -58,16 +67,16 @@ class LeadCreate(LeadBase):
 class LeadUpdate(BaseModel):
     """Schema for updating a lead"""
     salutation: Optional[str] = None
-    first_name: Optional[str] = None
+    first_name: Optional[str] = Field(None, max_length=100)
     middle_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
-    company: Optional[str] = None
-    title: Optional[str] = None
-    no_employees: Optional[int] = None
-    website: Optional[str] = None
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    company: Optional[str] = Field(None, max_length=255)
+    title: Optional[str] = Field(None, max_length=100)
+    no_employees: Optional[int] = Field(None, ge=1)
+    website: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     street: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
@@ -102,6 +111,9 @@ class LeadResponse(BaseModel):
     tenant_id: Annotated[str, BeforeValidator(str)]
     owner_id: Annotated[str, BeforeValidator(str)]
     created_by: Annotated[str, BeforeValidator(str)]
+    created_by_name: Optional[str] = None
+    last_modified_by_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    last_modified_by_name: Optional[str] = None
 
     salutation: Optional[str] = None
     first_name: str
@@ -162,6 +174,9 @@ class LeadConvert(BaseModel):
     account_id: Optional[str] = None
     account_name: Optional[str] = None
     account_type: Optional[str] = "Account"  # "Account" or "Person Account"
+    person_salutation: Optional[str] = None
+    person_first_name: Optional[str] = None
+    person_last_name: Optional[str] = None
     contact_id: Optional[str] = None
     contact_create: bool = True
     create_opportunity: bool = True
@@ -173,12 +188,12 @@ class LeadConvert(BaseModel):
     travel_date: Optional[Union[datetime, date]] = None
     destination_ids: Optional[List[str]] = Field(default_factory=list)
     experience_id: Optional[str] = None
-    no_of_adults: Optional[int] = None
-    no_of_childs: Optional[int] = None
-    no_of_infants: Optional[int] = None
-    no_of_pax: Optional[int] = None
+    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
+    no_of_pax: Optional[int] = Field(None, ge=1)
     sales_stage_id: Optional[str] = None
-    no_of_nights: Optional[int] = None
+    no_of_nights: Optional[int] = Field(None, ge=0)
     description: Optional[str] = None
     opportunity_owner_id: Optional[str] = None
 
@@ -191,4 +206,5 @@ class LeadListResponse(BaseModel):
     sources: List[Dict[str, Any]] = Field(default_factory=list)
     users: List[Dict[str, Any]] = Field(default_factory=list)
     industries: List[Dict[str, Any]] = Field(default_factory=list)
-    ratings: List[Dict[str, Any]] = Field(default_factory=list)
+    experiences: List[Dict[str, Any]] = Field(default_factory=list)
+    sales_stages: List[Dict[str, Any]] = Field(default_factory=list)

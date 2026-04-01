@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Mail,
     Phone,
@@ -14,7 +14,7 @@ import {
     Briefcase,
     ChevronLeft,
     TrendingUp,
-    DollarSign,
+
     Target,
     Map,
     MessageSquare,
@@ -44,6 +44,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
 import {
     Table,
     TableBody,
@@ -57,6 +58,7 @@ import { Opportunity } from "../types";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { UpdateStageDialog } from "./UpdateStageDialog";
+import { FinancialTab } from "./financial/FinancialTab";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
 import {
     useOpportunity,
@@ -68,10 +70,16 @@ import {
     useChangeOpportunityOwner
 } from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
+import { OpportunityFormDrawer } from "./OpportunityFormDrawer";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
+import { suppliersService } from "@/lib/api/services/suppliers.service";
+import { templatesService, Template } from "@/lib/api/services/templates.service";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { EmailEditor } from "@/components/shared/EmailEditor";
+import { Input } from "@/components/ui/input";
 
 interface OpportunityDetailsProps {
     opportunity: Opportunity;
@@ -84,15 +92,24 @@ export function OpportunityDetails({
 }: OpportunityDetailsProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
-    const [isStageDialogOpen, setIsStageDialogOpen] = useState(false);
+    const [isCloseLostDialogOpen, setIsCloseLostDialogOpen] = useState(false);
+    const [pendingCloseLostStageId, setPendingCloseLostStageId] = useState<string>("");
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
     const { data: reactiveOpportunity } = useOpportunity(opportunity.id);
     // Use reactive data if available, fallback to initial prop
     const record = reactiveOpportunity || opportunity;
 
     const [selectedStageId, setSelectedStageId] = useState<string>(record.sales_stage_id);
+
+    // Sync selectedStageId when record.sales_stage_id changes (e.g. after update)
+    useEffect(() => {
+        if (record.sales_stage_id) {
+            setSelectedStageId(record.sales_stage_id);
+        }
+    }, [record.sales_stage_id]);
 
 
     const stage = stages.find(s => s.id === record.sales_stage_id);
@@ -106,16 +123,105 @@ export function OpportunityDetails({
     const { mutate: updateStage } = useUpdateOpportunityStage();
     const { mutate: changeOwner } = useChangeOpportunityOwner();
 
+    // Supplier & Email Template state
+    const [suppliers, setSuppliers] = useState<{ label: string; value: string }[]>([]);
+    const [templates, setTemplates] = useState<Template[]>([]);
+    const [selectedSupplierId, setSelectedSupplierId] = useState<string>("");
+    const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+    const [emailSubject, setEmailSubject] = useState<string>("");
+    const [emailBody, setEmailBody] = useState<string>("");
+    const [isLoadingData, setIsLoadingData] = useState(false);
+
+    useEffect(() => {
+        const fetchData = async () => {
+            setIsLoadingData(true);
+            try {
+                const [suppliersRes, templatesRes, linkedSuppliersRes] = await Promise.all([
+                    suppliersService.getSuppliers({}),
+                    templatesService.getTemplates({ type: "email" }),
+                    suppliersService.getOpportunitySuppliers(opportunity.id)
+                ]);
+                
+                setSuppliers(suppliersRes.suppliers.map(s => ({ 
+                    label: s.name, 
+                    value: s.id 
+                })));
+                setTemplates(templatesRes.templates);
+
+                // Set linked supplier if exists
+                if (linkedSuppliersRes.suppliers && linkedSuppliersRes.suppliers.length > 0) {
+                    const firstLinked = linkedSuppliersRes.suppliers[0];
+                    setSelectedSupplierId(firstLinked.supplier.id);
+                    setEmailSubject(firstLinked.email_subject || "");
+                    setEmailBody(firstLinked.email_body || "");
+                }
+            } catch (error: unknown) {
+                console.error("Failed to fetch supplier data:", error);
+            } finally {
+                setIsLoadingData(false);
+            }
+        };
+        fetchData();
+    }, []);
+
+    const handleTemplateChange = (templateId: string) => {
+        setSelectedTemplateId(templateId);
+        const template = templates.find(t => t.id === templateId);
+        if (template) {
+            setEmailSubject(template.subject || "");
+            setEmailBody(template.body || "");
+        }
+    };
+
+    const handleSaveEmail = async () => {
+        if (!selectedSupplierId) {
+            toast.error("Please select a supplier");
+            return;
+        }
+
+        try {
+            await suppliersService.linkToOpportunity(opportunity.id, {
+                supplierId: selectedSupplierId,
+                emailSubject: emailSubject,
+                emailBody: emailBody
+            });
+            toast.success("Supplier details saved successfully");
+        } catch (error: unknown) {
+            console.error("Failed to save supplier details:", error);
+            toast.error("Failed to save supplier details");
+        }
+    };
+
     // removed local changeOwnerMutation as we use useChangeOpportunityOwner hook now
 
-    const handleStageClick = (targetStageId: string, _index: number) => {
+    const handleStageClick = (targetStageId: string) => {
+        const targetStage = orderedStages.find(s => s.id === targetStageId);
+        const isLostStage = !!(targetStage as any)?.is_lost;
+
+        if (isLostStage) {
+            // Always show the Close Lost reason dialog when clicking a lost stage
+            setPendingCloseLostStageId(targetStageId);
+            setIsCloseLostDialogOpen(true);
+            return;
+        }
+
         setSelectedStageId(targetStageId);
     };
 
     const handleMarkAsCurrentStage = () => {
-        if (selectedStageId && selectedStageId !== record.sales_stage_id) {
-            updateStage({ id: record.id, stageId: selectedStageId });
+        if (!selectedStageId || selectedStageId === record.sales_stage_id) return;
+
+        const targetStage = orderedStages.find(s => s.id === selectedStageId);
+        const isLostStage = !!(targetStage as any)?.is_lost;
+
+        if (isLostStage) {
+            // Show Close Lost reason dialog instead of updating directly
+            setPendingCloseLostStageId(selectedStageId);
+            setIsCloseLostDialogOpen(true);
+            return;
         }
+
+        updateStage({ id: record.id, stageId: selectedStageId });
     };
 
     const handleDelete = async () => {
@@ -137,8 +243,13 @@ export function OpportunityDetails({
                 opportunityId={record.id}
                 currentStageId={record.sales_stage_id}
                 stages={stages}
-                isOpen={isStageDialogOpen}
-                onClose={() => setIsStageDialogOpen(false)}
+                isOpen={isCloseLostDialogOpen}
+                targetStageId={pendingCloseLostStageId}
+                currentReason={record.close_lost_reason}
+                onClose={() => {
+                    setIsCloseLostDialogOpen(false);
+                    setPendingCloseLostStageId("");
+                }}
             />
 
             {/* Delete Confirmation Dialog */}
@@ -195,12 +306,34 @@ export function OpportunityDetails({
                             <h2 className="text-lg font-medium">{record.name}</h2>
                             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 pt-1">
                                 <div className="space-y-1">
+                                    {!record.is_person_account && record.account_name && (
+                                        <div className="mb-2">
+                                            <Link href={`/accounts/${record.account_id}`} className="font-medium text-blue-500 hover:underline cursor-pointer">
+                                                {record.account_name}
+                                            </Link>
+                                        </div>
+                                    )}
                                     <p className="text-xs text-slate-400">Name</p>
-                                    <p className="font-medium text-blue-500 hover:underline cursor-pointer">
-                                        <Link href={record.is_person_account ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
-                                            {record.contact_name || record.account_name || "-"}
-                                        </Link>
-                                    </p>
+                                    {record.is_person_account ? (
+                                        <p className="font-medium text-blue-500 hover:underline cursor-pointer mt-0.5">
+                                            <Link href={`/person-accounts/${record.account_id}`}>
+                                                {record.contact_name || record.account_name || "-"}
+                                            </Link>
+                                        </p>
+                                    ) : (
+                                        <div className="flex flex-col items-start leading-tight mt-0.5">
+                                            {record.contact_name ? (
+                                                <Link 
+                                                    href={record.contact_id ? `/contacts/${record.contact_id}` : "#"} 
+                                                    className="font-medium text-slate-700 hover:text-blue-500 hover:underline cursor-pointer"
+                                                >
+                                                    {record.contact_name}
+                                                </Link>
+                                            ) : (
+                                                <span className="font-medium text-slate-700">-</span>
+                                            )}
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-xs text-slate-400">Email | Mobile</p>
@@ -232,8 +365,8 @@ export function OpportunityDetails({
                                     <input type="checkbox" readOnly className="rounded border-slate-300" />
                                 </div>
                             </div>
-                            <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" asChild>
-                                <Link href={`/opportunities/${record.id}/edit`}>Edit</Link>
+                            <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" onClick={() => setIsEditDrawerOpen(true)}>
+                                Edit
                             </Button>
                             <Button
                                 variant="destructive"
@@ -280,7 +413,7 @@ export function OpportunityDetails({
                             return (
                                 <div
                                     key={s.id}
-                                    onClick={() => handleStageClick(s.id, index)}
+                                    onClick={() => handleStageClick(s.id)}
                                     className={cn(
                                         "relative flex-1 py-2 px-4 text-center text-xs font-medium cursor-pointer transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
                                         s.id === selectedStageId ? "bg-slate-900 border-slate-900 text-white" :
@@ -327,9 +460,9 @@ export function OpportunityDetails({
                             <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Supplier</TabsTrigger>
                             <TabsTrigger value="attachments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Attachments</TabsTrigger>
                             <span className="flex items-center px-4 py-3">
-                                <Link href={`/opportunities/${record.id}/edit`} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
+                                <button onClick={() => setIsEditDrawerOpen(true)} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
                                     <Edit className="h-3.5 w-3.5" /> Edit
-                                </Link>
+                                </button>
                             </span>
                         </TabsList>
 
@@ -449,62 +582,164 @@ export function OpportunityDetails({
 
                         {/* ── DETAILS TAB ── */}
                         <TabsContent value="details" className="p-6">
-                            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
-                                    <p className="text-lg font-bold text-slate-900">
-                                        {record.amount ? `$${record.amount.toLocaleString()}` : "$0"}
-                                    </p>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
-                                    <div className="flex items-center gap-3">
-                                        <span className="text-base font-semibold">{record.probability || 0}%</span>
-                                        <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
-                                            <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
-                                        </div>
-                                    </div>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
-                                    <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
-                                        {record.segment || "B2C"}
-                                    </Badge>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
-                                    <span className="text-sm font-medium pt-1 block text-slate-700">
-                                        {record.experience_name || "-"}
-                                    </span>
-                                </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
-                                    <span className="text-sm font-medium pt-1 block">
-                                        {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
-                                    </span>
-                                </div>
-                                {(record as any).no_of_nights && (
-                                    <div className="space-y-1">
-                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
-                                        <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
-                                    </div>
-                                )}
-                                <div className="space-y-2 col-span-full mt-4">
-                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
-                                    <div className="flex flex-wrap gap-2 pt-1">
-                                        {record.destination_names && record.destination_names.length > 0 ? (
-                                            record.destination_names.map((dest, i) => (
-                                                <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
-                                                    <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
-                                                    {dest}
+                                <div className="space-y-6">
+                                    <CollapsibleDetailSection
+                                        title="Opportunity Information"
+                                        icon={<Briefcase className="h-4 w-4" />}
+                                        defaultOpen={true}
+                                        className="border-slate-200"
+                                    >
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Name</p>
+                                                <p className="text-sm font-bold text-slate-900 pt-1">{record.name}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</p>
+                                                <p className="text-sm font-semibold text-slate-900 pt-1">{record.account_name || record.contact_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Owner</p>
+                                                <p className="text-sm font-semibold text-slate-900 pt-1">{record.owner_name || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stage</p>
+                                                <p className="text-sm font-semibold text-slate-900 pt-1">
+                                                    {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
+                                                </p>
+                                            </div>
+                                            {record.close_lost_reason && (
+                                                <div className="space-y-1 col-span-full bg-red-50 p-2 rounded border border-red-100">
+                                                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Close Lost Reason</p>
+                                                    <p className="text-sm text-red-800 pt-1 italic">
+                                                        "{record.close_lost_reason}"
+                                                    </p>
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
+                                                <p className="text-lg font-bold text-slate-900">
+                                                    {record.amount ? `₹${record.amount.toLocaleString()}` : "₹0"}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
+                                                <div className="flex items-center gap-3 pt-1">
+                                                    <span className="text-base font-semibold">{record.probability || 0}%</span>
+                                                    <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Revenue</p>
+                                                <p className="text-lg font-bold text-emerald-600">
+                                                    ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
+                                                <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
+                                                    {record.segment || "B2C"}
                                                 </Badge>
-                                            ))
-                                        ) : (
-                                            <p className="text-sm text-slate-400">No destinations specified</p>
-                                        )}
-                                    </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
+                                                <span className="text-sm font-medium pt-1 block text-slate-700">
+                                                    {record.experience_name || "-"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
+                                                <span className="text-sm font-medium pt-1 block">
+                                                    {record.travel_date ? format(new Date(record.travel_date), "PPP") : "Not Set"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
+                                                <span className="text-sm font-medium pt-1 block">
+                                                    {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
+                                                <p className="text-sm font-semibold pt-1">{record.no_of_pax || "-"}</p>
+                                            </div>
+                                            {(record as any).no_of_nights > 0 && (
+                                                <div className="space-y-1">
+                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
+                                                    <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
+                                                </div>
+                                            )}
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Source</p>
+                                                <span className="text-sm font-medium pt-1 block text-blue-600 cursor-pointer hover:underline">
+                                                    {(record as any).source_name || "-"}
+                                                </span>
+                                            </div>
+                                            <div className="space-y-2 col-span-full mt-4">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                    {record.destination_names && record.destination_names.length > 0 ? (
+                                                        record.destination_names.map((dest, i) => (
+                                                            <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
+                                                                <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
+                                                                {dest}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-slate-400">No destinations specified</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-2 col-span-full mt-2">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inclusions</p>
+                                                <div className="flex flex-wrap gap-2 pt-1">
+                                                    {record.inclusions && record.inclusions.length > 0 ? (
+                                                        record.inclusions.map((inclusion, i) => (
+                                                            <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 font-medium">
+                                                                <CheckCircle2 className="h-3 w-3 mr-1.5 text-emerald-600" />
+                                                                {inclusion}
+                                                            </Badge>
+                                                        ))
+                                                    ) : (
+                                                        <p className="text-sm text-slate-400">No inclusions specified</p>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1 col-span-full mt-2">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
+                                                <p className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">
+                                                    {record.description || "-"}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </CollapsibleDetailSection>
+
+                                    <CollapsibleDetailSection
+                                        title="System Information"
+                                        icon={<UserIcon className="h-4 w-4" />}
+                                        defaultOpen={false}
+                                        className="border-slate-200"
+                                    >
+                                        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Created By</p>
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{record.created_by_name || "Unknown"}</p>
+                                                    <span className="text-slate-400 text-[10px]">{format(new Date(record.created_at), "MMM d, yyyy HH:mm")}</span>
+                                                </div>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Modified By</p>
+                                                <div className="flex items-center gap-2 pt-1">
+                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{record.last_modified_by_name || record.created_by_name || "Unknown"}</p>
+                                                    <span className="text-slate-400 text-[10px]">{format(new Date(record.updated_at), "MMM d, yyyy HH:mm")}</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CollapsibleDetailSection>
                                 </div>
-                            </div>
                         </TabsContent>
 
                         {/* ── ITINERARIES TAB ── */}
@@ -526,59 +761,65 @@ export function OpportunityDetails({
                         </TabsContent>
 
                         {/* ── FINANCIAL TAB ── */}
-                        <TabsContent value="financial" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                    <Receipt className="h-4 w-4 text-blue-500" />
-                                    Financial Summary
-                                </h3>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                                <Card className="border-slate-200">
-                                    <CardContent className="p-4">
-                                        <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Deal Amount</p>
-                                        <p className="text-2xl font-bold text-slate-900">
-                                            ₹{(record.amount || 0).toLocaleString()}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="border-slate-200">
-                                    <CardContent className="p-4">
-                                        <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Probability</p>
-                                        <p className="text-2xl font-bold text-blue-600">{record.probability || 0}%</p>
-                                    </CardContent>
-                                </Card>
-                                <Card className="border-slate-200">
-                                    <CardContent className="p-4">
-                                        <p className="text-xs text-slate-500 uppercase font-semibold mb-1">Expected Revenue</p>
-                                        <p className="text-2xl font-bold text-emerald-600">
-                                            ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
-                                        </p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                            <div className="text-center py-10 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Receipt className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No financial details yet</p>
-                                <p className="text-slate-400 text-sm mt-1">Add invoices or payment details to track financials.</p>
-                            </div>
+                        <TabsContent value="financial" className="p-0 focus-visible:outline-none focus-visible:ring-0 bg-white rounded-b-xl overflow-hidden">
+                            <FinancialTab opportunity={record} />
                         </TabsContent>
 
                         {/* ── SUPPLIER TAB ── */}
                         <TabsContent value="supplier" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                    <Package className="h-4 w-4 text-blue-500" />
-                                    Suppliers
-                                </h3>
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs">
-                                    + Link Supplier
-                                </Button>
-                            </div>
-                            <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Package className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No suppliers linked</p>
-                                <p className="text-slate-400 text-sm mt-1">Link suppliers to manage costs and vendor details.</p>
+                            <div className="space-y-6">
+                                <div className="space-y-4">
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-semibold text-slate-700">Supplier</label>
+                                        <SearchableSelect
+                                            options={suppliers}
+                                            value={selectedSupplierId}
+                                            onValueChange={setSelectedSupplierId}
+                                            placeholder="Select Supplier"
+                                            searchPlaceholder="Search suppliers..."
+                                            isLoading={isLoadingData}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-semibold text-slate-700">Email Template</label>
+                                        <SearchableSelect
+                                            options={templates.map(t => ({ label: t.name, value: t.id }))}
+                                            value={selectedTemplateId}
+                                            onValueChange={handleTemplateChange}
+                                            placeholder="Select Template"
+                                            searchPlaceholder="Search templates..."
+                                            isLoading={isLoadingData}
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-sm font-semibold text-slate-700">Subject</label>
+                                        <Input
+                                            value={emailSubject}
+                                            onChange={(e) => setEmailSubject(e.target.value)}
+                                            placeholder="Enter Subject..."
+                                            className="h-10"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <EmailEditor
+                                            value={emailBody}
+                                            onChange={setEmailBody}
+                                            placeholder="Enter text here.."
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-end pt-4">
+                                    <Button 
+                                        onClick={handleSaveEmail}
+                                        className="bg-blue-600 hover:bg-blue-700 px-8"
+                                    >
+                                        Save
+                                    </Button>
+                                </div>
                             </div>
                         </TabsContent>
 
@@ -611,13 +852,56 @@ export function OpportunityDetails({
                         <CardContent className="p-0">
                             <ScrollArea className="h-[400px]">
                                 {(() => {
-                                    const stageHistory = history.filter(h => h.field_name === "sales_stage_id");
-                                    // Deduplicate: filter out entries where stage didn't actually change (redundant logs)
-                                    const uniqueHistory = stageHistory.filter(h =>
-                                        h.old_value !== h.new_value || h.old_value === null
-                                    );
+                                    // Start with the current state of the opportunity
+                                    let runningAmount = record.amount || 0;
+                                    let runningStageName = stages.find(s => s.id === record.sales_stage_id)?.name || "Unknown";
+                                    let runningProb = record.probability || 0;
 
-                                    if (uniqueHistory.length === 0) {
+                                    const tableRows = [];
+
+                                    // History is retrieved newest-first. We walk backward through time.
+                                    for (const h of history) {
+                                        if (h.field_name === "sales_stage_id") {
+                                            if (h.old_value === h.new_value && h.old_value !== null) continue;
+
+                                            // What happened AT this exact event?
+                                            // The stage changed to the new stage. The amount was whatever runningAmount we reconstructed for this time.
+                                            const displayAmount = h.amount_at_change != null ? h.amount_at_change : runningAmount;
+                                            const displayProb = h.probability_at_change != null ? h.probability_at_change : runningProb;
+                                            const displayStage = h.new_stage_name || h.new_value;
+
+                                            tableRows.push({
+                                                ...h,
+                                                displayStage,
+                                                displayAmount,
+                                                displayProb,
+                                                isStageChange: true
+                                            });
+
+                                            // Revert the state for events that happened *before* this one
+                                            runningStageName = h.old_stage_name || h.old_value || runningStageName;
+                                        }
+                                        else if (h.field_name === "amount") {
+                                            if (h.old_value === h.new_value) continue;
+
+                                            // What happened AT this exact event?
+                                            // The amount changed. The stage was whatever runningStageName it was at that time.
+                                            const displayAmount = parseFloat(h.new_value || "0");
+
+                                            tableRows.push({
+                                                ...h,
+                                                displayStage: runningStageName,
+                                                displayAmount,
+                                                displayProb: runningProb,
+                                                isAmountChange: true
+                                            });
+
+                                            // Revert the state for events that happened *before* this one
+                                            runningAmount = parseFloat(h.old_value || "0");
+                                        }
+                                    }
+
+                                    if (tableRows.length === 0) {
                                         return (
                                             <div className="text-center py-10">
                                                 <p className="text-sm text-slate-400 italic">No stage history recorded yet</p>
@@ -636,26 +920,35 @@ export function OpportunityDetails({
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
-                                                {uniqueHistory.map((historyRecord, i) => (
-                                                    <TableRow key={historyRecord.id || i} className="hover:bg-slate-50/50">
+                                                {tableRows.map((row: any, i) => (
+                                                    <TableRow key={row.id || i} className="hover:bg-slate-50/50">
                                                         <TableCell className="py-2">
-                                                            <p className="text-xs font-semibold text-blue-600 truncate max-w-[80px]" title={historyRecord.new_stage_name || historyRecord.new_value}>
-                                                                {historyRecord.new_stage_name || historyRecord.new_value}
+                                                            <div className="flex flex-col">
+                                                                <p className={`text-xs font-semibold truncate max-w-[80px] ${row.isStageChange ? 'text-blue-600' : 'text-slate-700'}`} title={row.displayStage}>
+                                                                    {row.displayStage}
+                                                                </p>
+                                                                {row.isAmountChange && (
+                                                                    <span className="text-[9px] text-amber-600 font-medium">Amount Updated</span>
+                                                                )}
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="py-2">
+                                                            <p className="text-xs text-slate-600">
+                                                                ₹{row.displayAmount.toLocaleString()}
                                                             </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
-                                                            <p className="text-xs text-slate-600">₹{record.amount?.toLocaleString()}</p>
-                                                        </TableCell>
-                                                        <TableCell className="py-2">
-                                                            <p className="text-xs text-slate-600">{record.probability}%</p>
+                                                            <p className="text-xs text-slate-600">
+                                                                {row.displayProb}%
+                                                            </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
-                                                                <span className="text-[10px] font-medium text-slate-900 truncate max-w-[70px]" title={historyRecord.user_name || "System"}>
-                                                                    {historyRecord.user_name || "System"}
+                                                                <span className="text-[10px] font-medium text-slate-900 truncate max-w-[70px]" title={row.user_name || "System"}>
+                                                                    {row.user_name || "System"}
                                                                 </span>
                                                                 <span className="text-[9px] text-slate-400 capitalize">
-                                                                    {format(new Date(historyRecord.changed_at), "dd MMM yyyy, hh:mm a")}
+                                                                    {format(new Date(row.changed_at), "dd MMM yyyy, hh:mm a")}
                                                                 </span>
                                                             </div>
                                                         </TableCell>
@@ -670,6 +963,17 @@ export function OpportunityDetails({
                     </Card>
                 </div>
             </div>
+
+            <OpportunityFormDrawer
+                open={isEditDrawerOpen}
+                onOpenChange={(open) => {
+                    setIsEditDrawerOpen(open);
+                    if (!open) router.refresh();
+                }}
+                opportunityId={record.id}
+                opportunity={record}
+                stages={stages}
+            />
         </div>
     );
 }

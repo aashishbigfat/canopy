@@ -78,12 +78,12 @@ export const columns: ColumnDef<Opportunity>[] = [
         accessorKey: "amount",
         header: "Value",
         cell: ({ row }) => {
-            const amount = row.getValue("amount") as number;
-            const formatted = new Intl.NumberFormat("en-US", {
+            const amount = parseFloat(row.getValue("amount") || "0");
+            const formatted = new Intl.NumberFormat("en-IN", {
                 style: "currency",
-                currency: "USD",
-            }).format(amount || 0);
-            return <div className="font-medium text-slate-700">{formatted}</div>;
+                currency: "INR",
+            }).format(amount);
+            return <div className="font-medium">{formatted}</div>;
         },
     },
     {

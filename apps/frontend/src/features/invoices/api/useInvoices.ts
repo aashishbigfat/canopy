@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { invoicesService } from "@/lib/api/services/invoices.service";
 import { InvoiceFilters, InvoiceCreateData, Payment } from "../types";
 
@@ -6,7 +6,8 @@ export const useInvoices = (filters: InvoiceFilters = { page: 1, per_page: 10 })
     return useQuery({
         queryKey: ["invoices", filters],
         queryFn: () => invoicesService.getInvoices(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
+        placeholderData: keepPreviousData,
     });
 };
 

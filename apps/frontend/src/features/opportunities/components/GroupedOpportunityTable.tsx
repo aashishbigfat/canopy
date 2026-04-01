@@ -125,7 +125,7 @@ function OppRow({
             {/* Amount */}
             <TableCell className="py-2.5 text-right">
                 <span className="text-xs font-semibold tabular-nums text-slate-700">
-                    {opp.amount ? `$${opp.amount.toLocaleString()}` : <span className="text-slate-400">—</span>}
+                    {opp.amount ? `₹${opp.amount.toLocaleString()}` : <span className="text-slate-400">—</span>}
                 </span>
             </TableCell>
 

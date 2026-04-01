@@ -30,6 +30,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -45,6 +46,7 @@ import { useCreateEvent, useUpdateEvent } from "@/features/events/api/use-events
 import { useGetUsers } from "@/features/admin/api/use-users";
 import { Event } from "@/features/events/types";
 import { User } from "@/features/admin/types";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const eventFormSchema = z.object({
     name: z.string().min(2, "Subject is required."),
@@ -90,23 +92,45 @@ export function EventForm({ initialData }: EventFormProps) {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     const onSubmit = async (data: EventFormValues) => {
         try {
-            const formattedData = {
-                ...data,
-                start_datetime: data.start_datetime.toISOString(),
-                end_datetime: data.end_datetime.toISOString(),
-            };
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    const formattedData = {
+                        ...data,
+                        start_datetime: data.start_datetime.toISOString(),
+                        end_datetime: data.end_datetime.toISOString(),
+                    };
 
-            if (initialData) {
-                await updateEvent.mutateAsync({ id: initialData.id, data: formattedData });
-            } else {
-                await createEvent.mutateAsync(formattedData);
-            }
-            router.push("/events");
-            router.refresh();
+                    if (initialData) {
+                        await updateEvent.mutateAsync({ id: initialData.id, data: formattedData });
+                    } else {
+                        await createEvent.mutateAsync(formattedData);
+                    }
+                    router.push("/events");
+                    router.refresh();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save event"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save event");
         } catch (error) {
-            console.error("Failed to save event", error);
+            // Handled
         }
     };
 
@@ -316,22 +340,20 @@ export function EventForm({ initialData }: EventFormProps) {
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Assigned To</FormLabel>
-                                <Select
-                                    onValueChange={(value) => field.onChange([...(field.value || []), value])}
-                                >
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select users" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        {users.map((user: User) => (
-                                            <SelectItem key={user._id} value={user._id}>
-                                                {user.name}
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                <FormControl>
+                                    <SearchableSelect
+                                        options={users.map((user: User) => ({
+                                            label: user.name,
+                                            value: user._id
+                                        }))}
+                                        onValueChange={(value) => {
+                                            if (value && !field.value?.includes(value)) {
+                                                field.onChange([...(field.value || []), value]);
+                                            }
+                                        }}
+                                        placeholder="Select users"
+                                    />
+                                </FormControl>
                                 <div className="flex flex-wrap gap-2 mt-2">
                                     {(field.value || []).map((userId: string) => {
                                         const user = users.find((u: User) => u._id === userId);

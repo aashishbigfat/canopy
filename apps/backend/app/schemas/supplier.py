@@ -1,9 +1,10 @@
 """
 Pydantic schemas for Supplier API
 """
-from pydantic import BaseModel, EmailStr
-from typing import Optional
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator
+from typing import Optional, Annotated, List
 from datetime import datetime
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
 
 class SupplierBase(BaseModel):
     """Base schema for Supplier"""
@@ -11,20 +12,27 @@ class SupplierBase(BaseModel):
     company_name: Optional[str] = None
     supplier_type: str
     
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
-    mobile: Optional[str] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
     website: Optional[str] = None
+    
+    # Multi-select fields
+    services: List[str] = Field(default_factory=list)
+    countries: List[str] = Field(default_factory=list)
+    states: List[str] = Field(default_factory=list)
+    service_cities: List[str] = Field(default_factory=list)
+    destinations: List[str] = Field(default_factory=list)
     
     street: Optional[str] = None
     city: Optional[str] = None
     state: Optional[str] = None
-    zip: Optional[str] = None
+    zip: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
     country: Optional[str] = None
     
     contact_person_name: Optional[str] = None
-    contact_person_email: Optional[EmailStr] = None
-    contact_person_phone: Optional[str] = None
+    contact_person_email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    contact_person_phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
     
     payment_terms: Optional[str] = None
     credit_limit: Optional[float] = None
@@ -42,12 +50,42 @@ class SupplierCreate(SupplierBase):
 class SupplierUpdate(BaseModel):
     """Schema for updating a supplier"""
     name: Optional[str] = None
+    company_name: Optional[str] = None
     supplier_type: Optional[str] = None
-    email: Optional[EmailStr] = None
-    phone: Optional[str] = None
+    
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    website: Optional[str] = None
+    
+    # Multi-select fields
+    services: Optional[List[str]] = None
+    countries: Optional[List[str]] = None
+    states: Optional[List[str]] = None
+    service_cities: Optional[List[str]] = None
+    destinations: Optional[List[str]] = None
+    
+    # Address fields
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    country: Optional[str] = None
+    
+    # Contact person
+    contact_person_name: Optional[str] = None
+    contact_person_email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    contact_person_phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    
+    # Finance
+    payment_terms: Optional[str] = None
+    credit_limit: Optional[float] = None
+    
     is_active: Optional[bool] = None
     is_preferred: Optional[bool] = None
     rating: Optional[int] = None
+    notes: Optional[str] = None
+    owner_id: Optional[str] = None
 
 
 class SupplierResponse(SupplierBase):

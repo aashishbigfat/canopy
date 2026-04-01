@@ -49,11 +49,15 @@ export interface Opportunity {
     is_person_account?: boolean;
     experience_name?: string;
     sales_stage_name?: string;
+    created_by_name?: string;
+    last_modified_by_name?: string;
     tenant_id: string;
     created_by: string;
     view_count: number;
     created_at: string;
     updated_at: string;
+    inclusions?: string[];
+    close_lost_reason?: string;
 }
 
 export interface OpportunityCreateData {
@@ -89,6 +93,8 @@ export interface OpportunityCreateData {
     source_url?: string;
 
     key_deal?: boolean;
+    inclusions?: string[];
+    close_lost_reason?: string;
 }
 
 export interface OpportunityFilters {

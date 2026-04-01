@@ -14,6 +14,57 @@ from app.api.deps import get_current_user, check_permission
 
 router = APIRouter()
 
+@router.get("/form-data")
+async def get_supplier_form_data(current_user: User = Depends(get_current_user)):
+    """Get metadata for supplier creation/editing forms"""
+    import logging
+    logger = logging.getLogger(__name__)
+    # Use alias to avoid shadowing the SupplierService class imported from services
+    from app.models.picklists import SupplierService as SupplierServicePicklist
+
+    # Auto-seed logic for dynamic picklists based on screenshot requirements
+    service_count = await SupplierServicePicklist.find({"tenant_id": current_user.tenant_id}).count()
+    if service_count == 0:
+        DEFAULT_SERVICES = [
+            "Accommodation", "Air Tickets", "Amusement Park", "Angling", "Biking", "Bungee Jumping",
+            "Camping", "Casino", "Chopper Ride", "Currency Exchange", "Cycling",
+            "Desert Safari", "Escorting", "Event Management", "Fixed Departures",
+            "Food and Beverages", "Golf", "Guiding", "Hiking", "Horse Riding",
+            "Hot Air Ballooning", "Kayaking", "Marketing and Promotion", "Microlight Flying",
+            "Mountaineering", "Packaged Tours", "Paragliding", "Paramotoring", "Parasailing",
+            "Pilgrimage", "Rafting", "Sea Plane", "Self Drive", "Sim Cards", "Skiing",
+            "Skydiving", "Snorkeling and Scuba Diving", "Souvenirs", "Surfing",
+            "Transportation", "Travel Accessories", "Travel Insurance", "Travel Publication",
+            "Travel Technology", "Trekking", "Visa", "Wild Life Safari", "Zip-lining", "Yacht Rental"
+        ]
+        services_to_insert = [
+            SupplierServicePicklist(
+                name=service,
+                tenant_id=current_user.tenant_id,
+                sorting=i
+            ) for i, service in enumerate(DEFAULT_SERVICES)
+        ]
+        try:
+            await SupplierServicePicklist.insert_many(services_to_insert)
+        except Exception as e:
+            logger.error("Error seeding supplier services: %s", e)
+
+    users = await User.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+name").to_list()
+
+    services = await SupplierServicePicklist.find({
+        "tenant_id": current_user.tenant_id,
+        "is_active": True
+    }).sort("+sorting").to_list()
+
+    return {
+        "users": [{"id": str(u.id), "name": u.name} for u in users],
+        "services": [{"id": str(s.id), "name": s.name} for s in services],
+        "current_user_name": current_user.name
+    }
+
 @router.post("/", response_model=SupplierResponse, status_code=201)
 async def create_supplier(
     supplier_data: SupplierCreate,
@@ -145,6 +196,8 @@ async def link_supplier_to_opportunity(
     supplier_id: str = Query(...),
     cost: Optional[float] = None,
     notes: Optional[str] = None,
+    email_subject: Optional[str] = None,
+    email_body: Optional[str] = None,
     current_user: User = Depends(check_permission("edit_opportunity"))
 ):
     """Link supplier to opportunity"""
@@ -155,7 +208,9 @@ async def link_supplier_to_opportunity(
         supplier_id,
         current_user.tenant_id,
         cost=cost,
-        notes=notes
+        notes=notes,
+        email_subject=email_subject,
+        email_body=email_body
     )
     
     return {
@@ -202,7 +257,9 @@ async def get_opportunity_suppliers(
             {
                 "supplier": SupplierResponse.from_orm(s["supplier"]),
                 "cost": s["cost"],
-                "notes": s["notes"]
+                "notes": s["notes"],
+                "email_subject": s.get("email_subject"),
+                "email_body": s.get("email_body")
             }
             for s in suppliers
         ],

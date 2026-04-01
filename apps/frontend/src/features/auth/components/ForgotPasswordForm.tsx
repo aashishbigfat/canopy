@@ -19,6 +19,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { authService } from "@/lib/api/services/auth.service";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const forgotPasswordSchema = z.object({
     email: z.string().email("Invalid email address"),
@@ -37,19 +38,39 @@ export function ForgotPasswordForm() {
         },
     });
 
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
     async function onSubmit(data: ForgotPasswordValues) {
         setIsLoading(true);
 
         try {
-            await authService.forgotPassword({ email: data.email });
-            setIsSuccess(true);
-            toast.success("Reset link sent", {
-                description: "If an account exists with this email, you will receive a password reset link.",
-            });
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    await authService.forgotPassword({ email: data.email });
+                    setIsSuccess(true);
+                    toast.success("Reset link sent", {
+                        description: "If an account exists with this email, you will receive a password reset link.",
+                    });
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to send reset link"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to send reset link");
         } catch (error) {
-            toast.error("Error", {
-                description: "Something went wrong. Please try again.",
-            });
+            // Error handled
         } finally {
             setIsLoading(false);
         }

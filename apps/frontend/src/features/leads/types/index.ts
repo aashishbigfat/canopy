@@ -26,7 +26,6 @@ export interface Lead {
 
     // Dropdowns / FKs
     lead_status_id?: string;
-    rating_id?: string;
     industry_id?: string;
     source_id?: string;
     source_medium?: string; // Changed from source_medium_id as per requirement (seems to be a string field "Facebook", "Google" etc)
@@ -57,7 +56,9 @@ export interface Lead {
     owner_id: string;
     tenant_id: string;
     created_by: string;
+    created_by_name?: string;
     last_modified_by_id?: string;
+    last_modified_by_name?: string;
     view_count: number;
     is_favorite: boolean;
     destination_ids?: string[];
@@ -85,7 +86,6 @@ export interface LeadCreateData {
     zip?: string;
     country?: string;
     lead_status_id?: string;
-    rating_id?: string;
     industry_id?: string;
     source_id?: string;
     source_medium?: string;
@@ -112,6 +112,9 @@ export interface LeadConvertData {
     account_id?: string;
     account_name?: string;
     account_type?: string;
+    person_salutation?: string;
+    person_first_name?: string;
+    person_last_name?: string;
     contact_id?: string;
     contact_create?: boolean;
     contact_salutation?: string;
@@ -161,11 +164,6 @@ export interface Source {
 }
 
 export interface Industry {
-    id: string;
-    name: string;
-}
-
-export interface Rating {
     id: string;
     name: string;
 }
@@ -224,7 +222,6 @@ export interface LeadResponse {
     sources: Source[];
     users: User[];
     industries: Industry[];
-    ratings: Rating[];
     experiences: { id: string; name: string }[];
     sales_stages: { id: string; name: string }[];
 }

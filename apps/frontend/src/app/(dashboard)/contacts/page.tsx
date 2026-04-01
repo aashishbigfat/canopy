@@ -5,11 +5,19 @@ import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { CreateContactButton } from "@/features/contacts/components/CreateContactButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function ContactsPage() {
+export default async function ContactsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ page?: string; per_page?: string }>;
+}) {
     const session = await getServerSession(authOptions);
+    const resolvedParams = await searchParams;
+    const page = parseInt(resolvedParams.page || "1");
+    const per_page = parseInt(resolvedParams.per_page || "10");
 
     // Redirect to login if no session
     if (!session?.accessToken) {
@@ -28,11 +36,14 @@ export default async function ContactsPage() {
         );
     }
 
-    const contacts = await contactsService.getContacts({}, {
-        headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-        },
-    });
+    const contactsData = await contactsService.getContacts(
+        { page, per_page },
+        {
+            headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+            },
+        }
+    );
 
     return (
         <div className="space-y-6">
@@ -43,15 +54,13 @@ export default async function ContactsPage() {
                         Manage your key contacts and people.
                     </p>
                 </div>
-                <Button asChild>
-                    <Link href="/contacts/create">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Contact
-                    </Link>
-                </Button>
+                <CreateContactButton />
             </div>
 
-            <ContactTable data={contacts.contacts} />
+            <ContactTable 
+                data={contactsData.contacts} 
+                pagination={contactsData.pagination} 
+            />
         </div>
     );
 }

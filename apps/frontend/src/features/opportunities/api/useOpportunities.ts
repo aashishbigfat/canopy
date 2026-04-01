@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { OpportunityFilters, OpportunityCreateData } from "../types";
@@ -7,7 +7,8 @@ export const useOpportunities = (filters: OpportunityFilters = { page: 1, per_pa
     return useQuery({
         queryKey: ["opportunities", filters],
         queryFn: () => opportunitiesService.getOpportunities(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds – fresh enough for CRM, prevents duplicate fetches
+        placeholderData: keepPreviousData,
     });
 };
 
@@ -44,43 +45,36 @@ export const useUpdateOpportunity = () => {
     return useMutation({
         mutationFn: ({ id, data }: { id: string; data: Partial<OpportunityCreateData> }) =>
             opportunitiesService.updateOpportunity(id, data),
-        onMutate: async (newOpportunity) => {
-            await queryClient.cancelQueries({ queryKey: ["opportunities"] });
-            const previousQueries = queryClient.getQueriesData({ queryKey: ["opportunities"] });
+        onMutate: async ({ id, data }) => {
+            // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
+            await queryClient.cancelQueries({ queryKey: ["opportunities", id] });
 
-            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
+            // Snapshot the previous value
+            const previousOpportunity = queryClient.getQueryData(["opportunities", id]);
+
+            // Optimistically update to the new value
+            queryClient.setQueryData(["opportunities", id], (old: any) => {
                 if (!old) return old;
-
-                // Handle List Response
-                if (old.opportunities && Array.isArray(old.opportunities)) {
-                    return {
-                        ...old,
-                        opportunities: old.opportunities.map((opp: any) =>
-                            opp.id === newOpportunity.id ? { ...opp, ...newOpportunity.data } : opp
-                        ),
-                    };
-                }
-
-                // Handle Single Record Response
-                if (old.id === newOpportunity.id) {
-                    return { ...old, ...newOpportunity.data };
-                }
-
-                return old;
+                return { ...old, ...data };
             });
 
-            return { previousQueries };
+            // Return a context object with the snapshotted value
+            return { previousOpportunity };
         },
-        onError: (err, newOpportunity, context) => {
-            context?.previousQueries.forEach(([queryKey, previousData]) => {
-                queryClient.setQueryData(queryKey, previousData);
-            });
+        onError: (err, variables, context) => {
+            // If the mutation fails, use the context returned from onMutate to roll back
+            if (context?.previousOpportunity) {
+                queryClient.setQueryData(["opportunities", (context.previousOpportunity as any).id], context.previousOpportunity);
+            }
             toast.error("Failed to update opportunity");
         },
         onSettled: (data) => {
+            // Always refetch after error or success to keep server & client in sync
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             if (data) {
                 queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+                queryClient.invalidateQueries({ queryKey: ["opportunities", data.id, "history"] });
+                queryClient.invalidateQueries({ queryKey: ["opportunities", data.id, "costing"] });
             }
         },
     });
@@ -120,6 +114,24 @@ export const useUpdateOpportunityStage = () => {
 
             return { previousQueries };
         },
+        onSuccess: (data) => {
+            queryClient.setQueryData(["opportunities", data.id], data);
+            
+            // Also update it in the list view cache
+            queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
+                if (!old) return old;
+                if (old.opportunities && Array.isArray(old.opportunities)) {
+                    return {
+                        ...old,
+                        opportunities: old.opportunities.map((opp: any) =>
+                            opp.id === data.id ? data : opp
+                        ),
+                    };
+                }
+                return old;
+            });
+            toast.success("Stage updated successfully");
+        },
         onError: (err, newOpportunity, context) => {
             context?.previousQueries.forEach(([queryKey, previousData]) => {
                 queryClient.setQueryData(queryKey, previousData);
@@ -127,7 +139,6 @@ export const useUpdateOpportunityStage = () => {
             toast.error("Failed to update stage — please try again");
         },
         onSettled: (data) => {
-            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
             if (data) {
                 queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
             }

@@ -1,10 +1,14 @@
 "use client";
 
+import axios from "axios";
+
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
+import { ErrorType } from "@/lib/error-handler";
+import { toast } from "sonner";
 import { format } from "date-fns";
 import { CalendarIcon, Check, ChevronsUpDown, User, Building2, Globe, MapPin, Activity, Info, Tag, Layers, Share2 } from "lucide-react";
 import { Calendar as DayPicker } from "@/components/ui/calendar";
@@ -19,6 +23,7 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { PhoneInput } from "@/components/ui/phone-input";
 import {
     Select,
     SelectContent,
@@ -26,6 +31,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import {
     Command,
     CommandEmpty,
@@ -43,7 +49,7 @@ import { cn } from "@/lib/utils"
 import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
-import { Lead, LeadCreateData, LeadStatus, Source, Industry, Rating } from "../types";
+import { Lead, LeadCreateData, LeadStatus, Source, Industry } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
@@ -58,6 +64,13 @@ import {
 } from "@/components/ui/card";
 
 
+const searchCache = {
+    countries: new Map<string, any>(),
+    states: new Map<string, any>(),
+    cities: new Map<string, any>(),
+    destinations: new Map<string, any>(),
+};
+
 function LocationFields({ form }: { form: any }) {
     const [countries, setCountries] = useState<Country[]>([]);
     const [states, setStates] = useState<State[]>([]);
@@ -67,62 +80,155 @@ function LocationFields({ form }: { form: any }) {
     const [loadingStates, setLoadingStates] = useState(false);
     const [loadingCities, setLoadingCities] = useState(false);
 
-    const [countryOpen, setCountryOpen] = useState(false);
-    const [stateOpen, setStateOpen] = useState(false);
-    const [cityOpen, setCityOpen] = useState(false);
-
-    const [searchTermCountry, setSearchTermCountry] = useState("");
-    const [searchTermState, setSearchTermState] = useState("");
-    const [searchTermCity, setSearchTermCity] = useState("");
-
-    // Initial load and edit mode support
+    // Initial load for popular countries or current value
     useEffect(() => {
         const init = async () => {
-            setLoadingCountries(true);
-            try {
-                const res = await locationService.getCountries();
-                if (res && res.countries) {
-                    setCountries(res.countries);
-                    const currentCountryName = form.getValues("country");
-                    const currentStateName = form.getValues("state");
+            const currentCountryName = form.getValues("country");
+            const currentStateName = form.getValues("state");
+            const currentCityName = form.getValues("city");
 
-                    if (currentCountryName) {
-                        const country = res.countries.find((c: Country) => c.name === currentCountryName);
-                        if (country) {
-                            const statesRes = await locationService.getStates(country.id);
-                            if (statesRes && statesRes.states) {
-                                setStates(statesRes.states);
-                                if (currentStateName) {
-                                    const state = statesRes.states.find((s: State) => s.name === currentStateName);
-                                    if (state) {
-                                        const citiesRes = await locationService.getCitiesByState(state.id);
-                                        if (citiesRes && citiesRes.cities) {
-                                            setCities(citiesRes.cities);
-                                        }
-                                    }
-                                }
-                            }
+            if (currentCountryName) {
+                setLoadingCountries(true);
+                try {
+                    const res = await locationService.searchCountries(currentCountryName);
+                    setCountries(res.countries);
+                    const country = res.countries.find(c => c.name === currentCountryName);
+                    
+                    if (country && currentStateName) {
+                        setLoadingStates(true);
+                        const sRes = await locationService.searchStates(currentStateName, country.id);
+                        setStates(sRes.states);
+                        const state = sRes.states.find(s => s.name === currentStateName);
+                        
+                        if (state && currentCityName) {
+                            setLoadingCities(true);
+                            const cRes = await locationService.searchCities(currentCityName, country.id, state.id);
+                            setCities(cRes.cities);
+                            setLoadingCities(false);
                         }
+                        setLoadingStates(false);
                     }
+                } catch (err) {
+                    console.error("Location init error", err);
+                } finally {
+                    setLoadingCountries(false);
                 }
-            } catch (err) {
-                console.error("Location initialization failed", err);
-            } finally {
-                setLoadingCountries(false);
+            } else {
+                // Load popular countries as default options
+                const cacheKey = "popular";
+                if (searchCache.countries.has(cacheKey)) {
+                    setCountries(searchCache.countries.get(cacheKey));
+                } else {
+                    setLoadingCountries(true);
+                    locationService.getCountries(true).then(r => {
+                        searchCache.countries.set(cacheKey, r.countries);
+                        setCountries(r.countries);
+                        setLoadingCountries(false);
+                    });
+                }
             }
         };
         init();
-    }, []); // Run only once
+    }, []);
 
-    const filteredCountries = countries.filter((c: Country) =>
-        c.name.toLowerCase().includes(searchTermCountry.toLowerCase())
-    );
-    const filteredStates = states.filter((s: State) =>
-        s.name.toLowerCase().includes(searchTermState.toLowerCase())
-    );
-    const filteredCities = cities.filter((c: City) =>
-        c.name.toLowerCase().includes(searchTermCity.toLowerCase())
-    );
+    const handleCountrySearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        try {
+            if (!query) {
+                const cacheKey = "popular";
+                if (searchCache.countries.has(cacheKey)) {
+                    setCountries(searchCache.countries.get(cacheKey));
+                    return;
+                }
+                const res = await locationService.getCountries(true, signal);
+                searchCache.countries.set(cacheKey, res.countries);
+                setCountries(res.countries);
+                return;
+            }
+
+            if (searchCache.countries.has(query)) {
+                setCountries(searchCache.countries.get(query));
+                return;
+            }
+
+            setLoadingCountries(true);
+            const res = await locationService.searchCountries(query, signal);
+            searchCache.countries.set(query, res.countries);
+            setCountries(res.countries);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("Country search error", error);
+            }
+        } finally {
+            setLoadingCountries(false);
+        }
+    }, []);
+
+    const handleStateSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        const countryName = form.getValues("country");
+        const country = countries.find(c => c.name === countryName);
+        if (!country) return;
+
+        try {
+            const cacheKey = `${country.id}:${query || "all"}`;
+            if (searchCache.states.has(cacheKey)) {
+                setStates(searchCache.states.get(cacheKey));
+                return;
+            }
+
+            if (!query) {
+                const res = await locationService.getStates(country.id, signal);
+                searchCache.states.set(cacheKey, res.states);
+                setStates(res.states);
+                return;
+            }
+
+            setLoadingStates(true);
+            const res = await locationService.searchStates(query, country.id, signal);
+            searchCache.states.set(cacheKey, res.states);
+            setStates(res.states);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("State search error", error);
+            }
+        } finally {
+            setLoadingStates(false);
+        }
+    }, [countries, form]);
+
+    const handleCitySearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        const countryName = form.getValues("country");
+        const stateName = form.getValues("state");
+        const country = countries.find(c => c.name === countryName);
+        const state = states.find(s => s.name === stateName);
+        
+        if (!state) return;
+
+        try {
+            const cacheKey = `${state.id}:${query || "all"}`;
+            if (searchCache.cities.has(cacheKey)) {
+                setCities(searchCache.cities.get(cacheKey));
+                return;
+            }
+
+            if (!query) {
+                const res = await locationService.getCitiesByState(state.id, signal);
+                searchCache.cities.set(cacheKey, res.cities);
+                setCities(res.cities);
+                return;
+            }
+
+            setLoadingCities(true);
+            const res = await locationService.searchCities(query, country?.id, state.id, signal);
+            searchCache.cities.set(cacheKey, res.cities);
+            setCities(res.cities);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("City search error", error);
+            }
+        } finally {
+            setLoadingCities(false);
+        }
+    }, [countries, states, form]);
 
     return (
         <>
@@ -131,64 +237,34 @@ function LocationFields({ form }: { form: any }) {
                 name="country"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>Country *</FormLabel>
-                        <Popover open={countryOpen} onOpenChange={setCountryOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        className={cn(
-                                            "w-full justify-between",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {field.value
-                                            ? countries.find((c: Country) => c.name === field.value)?.name || field.value
-                                            : "Select country"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command shouldFilter={false}>
-                                    <CommandInput
-                                        placeholder="Search country..."
-                                        onValueChange={setSearchTermCountry}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No country found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredCountries.map((country) => (
-                                                <CommandItem
-                                                    value={country.name}
-                                                    key={country.id}
-                                                    onSelect={() => {
-                                                        const prev = field.value;
-                                                        field.onChange(country.name);
-                                                        if (prev !== country.name) {
-                                                            form.setValue("state", "");
-                                                            form.setValue("city", "");
-                                                            setStates([]);
-                                                            setCities([]);
-                                                            setLoadingStates(true);
-                                                            locationService.getStates(country.id).then(r => {
-                                                                setStates(r?.states || []);
-                                                                setLoadingStates(false);
-                                                            });
-                                                        }
-                                                        setCountryOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", country.name === field.value ? "opacity-100" : "opacity-0")} />
-                                                    {country.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Country *</FormLabel>
+                        <FormControl>
+                            <SearchableSelect
+                                options={countries.map(c => ({ label: c.name, value: c.name }))}
+                                value={field.value}
+                                onSearch={handleCountrySearch}
+                                isLoading={loadingCountries}
+                                onValueChange={(val) => {
+                                    const prev = field.value;
+                                    field.onChange(val);
+                                    if (prev !== val) {
+                                        const country = countries.find(c => c.name === val);
+                                        form.setValue("state", "");
+                                        form.setValue("city", "");
+                                        setStates([]);
+                                        setCities([]);
+                                        if (country) {
+                                            setLoadingStates(true);
+                                            locationService.getStates(country.id).then(r => {
+                                                setStates(r?.states || []);
+                                                setLoadingStates(false);
+                                            });
+                                        }
+                                    }
+                                }}
+                                placeholder="Select country"
+                            />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -199,63 +275,33 @@ function LocationFields({ form }: { form: any }) {
                 name="state"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>State *</FormLabel>
-                        <Popover open={stateOpen} onOpenChange={setStateOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        disabled={!form.watch("country") || loadingStates}
-                                        className={cn(
-                                            "w-full justify-between",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {field.value
-                                            ? states.find((s) => s.name === field.value)?.name || field.value
-                                            : "Select state"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command shouldFilter={false}>
-                                    <CommandInput
-                                        placeholder="Search state..."
-                                        onValueChange={setSearchTermState}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No state found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredStates.map((state) => (
-                                                <CommandItem
-                                                    value={state.name}
-                                                    key={state.id}
-                                                    onSelect={() => {
-                                                        const prev = field.value;
-                                                        field.onChange(state.name);
-                                                        if (prev !== state.name) {
-                                                            form.setValue("city", "");
-                                                            setCities([]);
-                                                            setLoadingCities(true);
-                                                            locationService.getCitiesByState(state.id).then(r => {
-                                                                setCities(r?.cities || []);
-                                                                setLoadingCities(false);
-                                                            });
-                                                        }
-                                                        setStateOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", state.name === field.value ? "opacity-100" : "opacity-0")} />
-                                                    {state.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">State *</FormLabel>
+                        <FormControl>
+                            <SearchableSelect
+                                options={states.map(s => ({ label: s.name, value: s.name }))}
+                                value={field.value}
+                                onValueChange={(val) => {
+                                    const prev = field.value;
+                                    field.onChange(val);
+                                    if (prev !== val) {
+                                        const state = states.find(s => s.name === val);
+                                        form.setValue("city", "");
+                                        setCities([]);
+                                        if (state) {
+                                            setLoadingCities(true);
+                                            locationService.getCitiesByState(state.id).then(r => {
+                                                setCities(r?.cities || []);
+                                                setLoadingCities(false);
+                                            });
+                                        }
+                                    }
+                                }}
+                                onSearch={handleStateSearch}
+                                disabled={!form.watch("country")}
+                                isLoading={loadingStates}
+                                placeholder="Select state"
+                            />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -266,53 +312,18 @@ function LocationFields({ form }: { form: any }) {
                 name="city"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel>City *</FormLabel>
-                        <Popover open={cityOpen} onOpenChange={setCityOpen}>
-                            <PopoverTrigger asChild>
-                                <FormControl>
-                                    <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        disabled={!form.watch("state") || loadingCities}
-                                        className={cn(
-                                            "w-full justify-between",
-                                            !field.value && "text-muted-foreground"
-                                        )}
-                                    >
-                                        {field.value
-                                            ? cities.find((c) => c.name === field.value)?.name || field.value
-                                            : "Select city"}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[200px] p-0">
-                                <Command shouldFilter={false}>
-                                    <CommandInput
-                                        placeholder="Search city..."
-                                        onValueChange={setSearchTermCity}
-                                    />
-                                    <CommandList>
-                                        <CommandEmpty>No city found.</CommandEmpty>
-                                        <CommandGroup>
-                                            {filteredCities.map((city) => (
-                                                <CommandItem
-                                                    value={city.name}
-                                                    key={city.id}
-                                                    onSelect={() => {
-                                                        field.onChange(city.name);
-                                                        setCityOpen(false);
-                                                    }}
-                                                >
-                                                    <Check className={cn("mr-2 h-4 w-4", city.name === field.value ? "opacity-100" : "opacity-0")} />
-                                                    {city.name}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">City *</FormLabel>
+                        <FormControl>
+                            <SearchableSelect
+                                options={cities.map(c => ({ label: c.name, value: c.name }))}
+                                value={field.value}
+                                onValueChange={field.onChange}
+                                onSearch={handleCitySearch}
+                                disabled={!form.watch("state")}
+                                isLoading={loadingCities}
+                                placeholder="Select city"
+                            />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                 )}
@@ -327,19 +338,21 @@ const leadFormSchema = z.object({
     first_name: z.string().optional(),
     last_name: z.string().min(1, { message: "Last name is required." }),
     company: z.string().optional(),
-    email: z.string().email({ message: "Invalid email address." }).or(z.literal("")).optional(),
+    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
     phone: z.string()
-        .min(1, { message: "Phone is required." })
-        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
-            message: "Please enter a valid phone number (e.g. +91 9876543210).",
+        .optional()
+        .or(z.literal(""))
+        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+            message: "Please select a country code and enter exactly a 10-digit number.",
         }),
     mobile: z.string()
-        .min(1, { message: "Mobile is required." })
-        .regex(/^[+]?[(]?[0-9]{1,4}[)]?[-\s.]?[(]?[0-9]{1,4}[)]?[-\s.]?[0-9]{1,4}[-\s.]?[0-9]{1,9}$/, {
-            message: "Please enter a valid mobile number (e.g. +91 9876543210).",
+        .optional()
+        .or(z.literal(""))
+        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+            message: "Please select a country code and enter exactly a 10-digit number.",
         }),
     no_employees: z.string().optional(),
-    website: z.string().optional(),
+    website: z.string().url({ message: "Please enter a valid URL (e.g. https://example.com)" }).optional().or(z.literal("")),
     title: z.string().optional(),
     lead_status_id: z.string().optional(),
     source_id: z.string().optional(),
@@ -349,15 +362,17 @@ const leadFormSchema = z.object({
     street: z.string().optional(),
     city: z.string().min(1, { message: "City is required." }),
     state: z.string().min(1, { message: "State is required." }),
-    zip: z.string().optional(),
+    zip: z.string().optional().or(z.literal("")).refine(val => !val || /^[A-Za-z0-9\s-]{3,10}$/.test(val), {
+        message: "Invalid Zip/Postal code format.",
+    }),
     country: z.string().min(1, { message: "Country is required." }),
     campaign_name: z.string().optional(),
     travel_date: z.string().min(1, { message: "Travel date is required." }),
-    no_of_nights: z.coerce.number().int().min(1, { message: "Number of nights must be at least 1." }),
-    no_of_adults: z.coerce.number().int().min(1, { message: "Number of adults must be at least 1." }),
-    no_of_pax: z.coerce.number().int().min(1, { message: "Number of pax must be at least 1." }),
-    no_of_childs: z.coerce.number().int().min(0).optional(),
-    no_of_infants: z.coerce.number().int().min(0).optional(),
+    no_of_nights: z.string().refine((val) => !val || Number(val) > 0, "Number of nights must be at least 1"),
+    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1"),
+    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1"),
+    no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     is_fixed: z.boolean().default(false).optional(),
     destinations: z.string().min(1, { message: "Destinations are required." }),
     segment: z.string().optional(),
@@ -374,6 +389,12 @@ interface LeadFormProps {
     sources?: Source[];
     industries?: Industry[];
     experiences?: { id: string; name: string }[];
+    /** Called after successful create/update instead of router.push */
+    onSuccess?: () => void;
+    /** Called when cancel is clicked instead of router.back */
+    onCancel?: () => void;
+    /** When true, renders a compact single-column layout for drawer panels */
+    isDrawer?: boolean;
 }
 
 const PUBLIC_EMAIL_DOMAINS = [
@@ -388,17 +409,43 @@ export function LeadForm({
     sources = [],
     industries = [],
     experiences = [],
+    onSuccess,
+    onCancel,
+    isDrawer = false,
 }: LeadFormProps) {
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
-    const [destinationOpen, setDestinationOpen] = useState(false);
-    const [destSearch, setDestSearch] = useState("");
+
+    const [loadingDestinations, setLoadingDestinations] = useState(false);
 
     useEffect(() => {
-        destinationsService.getDestinations({ limit: 1000 }).then(res => {
+        setLoadingDestinations(true);
+        destinationsService.getDestinations({ limit: 20 }).then(res => {
             setAvailableDestinations(res.destinations);
-        }).catch(err => console.error("Failed to fetch destinations", err));
+        }).catch(err => console.error("Failed to fetch destinations", err))
+          .finally(() => setLoadingDestinations(false));
+    }, []);
+
+    const handleDestinationSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        try {
+            const cacheKey = query || "all";
+            if (searchCache.destinations.has(cacheKey)) {
+                setAvailableDestinations(searchCache.destinations.get(cacheKey));
+                return;
+            }
+
+            setLoadingDestinations(true);
+            const res = await destinationsService.getDestinations({ search: query, limit: 50 }, signal);
+            searchCache.destinations.set(cacheKey, res.destinations);
+            setAvailableDestinations(res.destinations);
+        } catch (error) {
+            if (!axios.isCancel(error)) {
+                console.error("Destination search error", error);
+            }
+        } finally {
+            setLoadingDestinations(false);
+        }
     }, []);
 
     const form = useForm<LeadFormValues>({
@@ -448,7 +495,7 @@ export function LeadForm({
     useEffect(() => {
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         if (total > 0) {
-            form.setValue("no_of_pax", total as any);
+            form.setValue("no_of_pax", total.toString() as any);
         }
     }, [adults, childs, infants, form]);
 
@@ -464,9 +511,38 @@ export function LeadForm({
         form.setValue("segment", detectedSegment);
     }, [email, form]);
 
+    // Set default experience to Luxury in create mode
+    useEffect(() => {
+        if (!initialData && experiences.length > 0 && !form.getValues("experience_id")) {
+            const luxuryExp = experiences.find(exp => exp.name.toLowerCase() === "luxury");
+            if (luxuryExp) {
+                form.setValue("experience_id", luxuryExp.id);
+            }
+        }
+    }, [experiences, initialData, form]);
+
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                // loc is usually ["body", "field_name"] or ["query", "field_name"]
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
+    };
+
+
 
     const onSubmit = async (data: any) => {
         setIsLoading(true);
+        const startTime = Date.now();
+        let isSuccess = false;
         try {
             const payload: LeadCreateData = {
                 salutation: data.salutation,
@@ -503,22 +579,310 @@ export function LeadForm({
             };
 
             await ErrorHandler.withErrorHandling(async () => {
-                if (leadId) {
-                    await leadsService.updateLead(leadId, payload);
-                    showSuccessToast("Lead updated successfully");
-                } else {
-                    await leadsService.createLead(payload);
-                    showSuccessToast("Lead created successfully");
+                try {
+                    if (leadId) {
+                        await leadsService.updateLead(leadId, payload);
+                        showSuccessToast("Lead updated successfully");
+                    } else {
+                        await leadsService.createLead(payload);
+                        showSuccessToast("Lead created successfully");
+                    }
+                    isSuccess = true;
+                    
+                    const elapsedTime = Date.now() - startTime;
+                    if (elapsedTime < 2500) {
+                        await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                    }
+                    
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push("/leads");
+                        router.refresh();
+                    }
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save lead"));
+                    if (!mapped) throw error;
                 }
             }, "Failed to save lead");
-
-            router.push("/leads");
-            router.refresh();
         } catch (error) {
             // Error is already handled by ErrorHandler.withErrorHandling
         } finally {
-            setIsLoading(false);
+            if (!isSuccess) {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime < 2500) {
+                    await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                }
+                setIsLoading(false);
+            }
         }
+    }
+
+    if (isDrawer) {
+        return (
+            <Form {...(form as any)} className="w-full">
+                <form
+                    onSubmit={form.handleSubmit(onSubmit as any)}
+                    className="w-full"
+                >
+                    <div className="px-5 py-4 space-y-5">
+                        {/* Section: Client Information */}
+                        <div>
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+                                <User className="h-4 w-4 text-blue-600" />
+                                <h3 className="text-sm font-semibold text-slate-700">Client Information</h3>
+                            </div>
+                            <div className="grid gap-3 grid-cols-2">
+                                <FormField control={form.control as any} name="salutation" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Salutation</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl><SelectTrigger className="h-8 bg-white text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="Mr.">Mr.</SelectItem>
+                                                <SelectItem value="Mrs.">Mrs.</SelectItem>
+                                                <SelectItem value="Ms.">Ms.</SelectItem>
+                                                <SelectItem value="Dr.">Dr.</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="segment" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Segment</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger className="h-8 bg-white text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="B2C">B2C (Individual)</SelectItem>
+                                                <SelectItem value="B2B">B2B (Corporate)</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="first_name" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">First Name</FormLabel>
+                                        <FormControl><Input placeholder="John" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="last_name" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Last Name <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><Input placeholder="Doe" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="email" render={({ field }) => (
+                                    <FormItem className="col-span-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Email <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><Input type="email" placeholder="john@example.com" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="phone" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Phone <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><PhoneInput {...field} placeholder="Phone" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="mobile" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Mobile <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><PhoneInput {...field} placeholder="Mobile" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
+
+                        {/* Section: Company & Source */}
+                        <div>
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+                                <Building2 className="h-4 w-4 text-blue-600" />
+                                <h3 className="text-sm font-semibold text-slate-700">Company & Source</h3>
+                            </div>
+                            <div className="grid gap-3 grid-cols-2">
+                                <FormField control={form.control as any} name="lead_status_id" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Lead Status</FormLabel>
+                                        <FormControl><SearchableSelect options={statuses.map(s => ({ label: s.name, value: s.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select Status" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="combined_source" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Source Medium <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><SearchableSelect options={[{ label: "Manual", value: "manual" }, { label: "Auto", value: "auto" }, ...sources.map(s => ({ label: s.name, value: s.id }))]} value={field.value} onValueChange={field.onChange} placeholder="Select Source" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="industry_id" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Industry</FormLabel>
+                                        <FormControl><SearchableSelect options={industries.map(i => ({ label: i.name, value: i.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="experience_id" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
+                                        <FormControl><SearchableSelect options={experiences.map(e => ({ label: e.name, value: e.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select" /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="company" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Company</FormLabel>
+                                        <FormControl><Input placeholder="Acme Inc." className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="title" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Job Title</FormLabel>
+                                        <FormControl><Input placeholder="Manager" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="website" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Website</FormLabel>
+                                        <FormControl><Input placeholder="https://..." className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="campaign_name" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Campaign</FormLabel>
+                                        <FormControl><Input placeholder="Summer Sale" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
+
+                        {/* Section: Location */}
+                        <div>
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+                                <MapPin className="h-4 w-4 text-blue-600" />
+                                <h3 className="text-sm font-semibold text-slate-700">Location</h3>
+                            </div>
+                            <div className="grid gap-3 grid-cols-1">
+                                <LocationFields form={form} />
+                                <FormField control={form.control as any} name="street" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Street Address</FormLabel>
+                                        <FormControl><Input placeholder="123 Main St" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
+
+                        {/* Section: Travel Requirements */}
+                        <div>
+                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
+                                <Globe className="h-4 w-4 text-blue-600" />
+                                <h3 className="text-sm font-semibold text-slate-700">Travel Requirements</h3>
+                            </div>
+                            <div className="grid gap-3 grid-cols-2">
+                                <FormField control={form.control as any} name="travel_date" render={({ field }) => (
+                                    <FormItem className="flex flex-col col-span-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Travel Date <span className="text-red-500">*</span></FormLabel>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant="outline" className={cn("h-8 pl-3 text-left font-normal bg-white text-xs", !field.value && "text-muted-foreground")}>
+                                                        {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
+                                                        <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <DayPicker mode="single" captionLayout="dropdown" startMonth={new Date(1900, 0)} endMonth={new Date(2100, 11)} selected={field.value ? new Date(field.value) : undefined} onSelect={(date) => { if (!date) return field.onChange(undefined); const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const d = String(date.getDate()).padStart(2, '0'); field.onChange(`${y}-${m}-${d}`); }} disabled={(date) => { const today = new Date(); today.setHours(0,0,0,0); return date < today; }} initialFocus />
+                                            </PopoverContent>
+                                        </Popover>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="no_of_nights" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Nights <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><Input type="number" placeholder="4" min={1} className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="no_of_adults" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Adults <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><Input type="number" placeholder="2" min={1} className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="no_of_pax" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Total Pax</FormLabel>
+                                        <FormControl><Input type="number" placeholder="2" min={1} className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="no_of_childs" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Childs</FormLabel>
+                                        <FormControl><Input type="number" placeholder="0" min={0} className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="no_of_infants" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Infants</FormLabel>
+                                        <FormControl><Input type="number" placeholder="0" min={0} className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="is_fixed" render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-2 bg-slate-50/50 h-8 col-span-2">
+                                        <FormControl><Input type="checkbox" className="h-3 w-3" checked={field.value} onChange={field.onChange} /></FormControl>
+                                        <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">Fixed Departure?</FormLabel>
+                                    </FormItem>
+                                )} />
+                                <FormField control={form.control as any} name="destinations" render={({ field }) => (
+                                    <FormItem className="col-span-2">
+                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Destinations <span className="text-red-500">*</span></FormLabel>
+                                        <SearchableSelect options={availableDestinations.map(d => ({ label: d.name, value: d.name }))} value="" onValueChange={(val) => { if (!val) return; const current = field.value ? field.value.split(", ") : []; if (!current.includes(val)) { field.onChange([...current, val].join(", ")); } }} onSearch={handleDestinationSearch} placeholder="Add destination..." isLoading={loadingDestinations} />
+                                        <div className="flex flex-wrap gap-1 mt-1">
+                                            {field.value ? field.value.split(", ").map((dest: string) => (
+                                                <Badge key={dest} variant="secondary" className="rounded-sm px-1 font-normal text-[10px]">
+                                                    {dest}
+                                                    <span className="ml-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); field.onChange(field.value.split(", ").filter((d: string) => d !== dest).join(", ")); }}>
+                                                        <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
+                                                    </span>
+                                                </Badge>
+                                            )) : null}
+                                        </div>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sticky footer */}
+                    <div className="sticky bottom-0 bg-white border-t border-slate-200 px-5 py-3 flex justify-end gap-3">
+                        <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isLoading}>
+                            Close
+                        </Button>
+                        <LoadingButton type="submit" isLoading={isLoading} className="bg-blue-600 hover:bg-blue-700 h-8 px-3 text-sm">
+                            {leadId ? "Update" : "Save"}
+                        </LoadingButton>
+                    </div>
+                </form>
+            </Form>
+        );
     }
 
     return (
@@ -617,7 +981,7 @@ export function LeadForm({
                                                     Phone <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="+1 234..." className="h-9 bg-white" {...field} />
+                                                    <PhoneInput {...field} placeholder="Phone number" />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -632,7 +996,7 @@ export function LeadForm({
                                                     Mobile <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="+1 234..." className="h-9 bg-white" {...field} />
+                                                    <PhoneInput {...field} placeholder="Mobile number" />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -682,20 +1046,14 @@ export function LeadForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Lead Status</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select Status" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {statuses.map((status) => (
-                                                            <SelectItem key={status.id} value={status.id}>
-                                                                {status.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={statuses.map(s => ({ label: s.name, value: s.id }))}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Status"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -706,20 +1064,32 @@ export function LeadForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Industry</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select Industry" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        {industries.map((industry) => (
-                                                            <SelectItem key={industry.id} value={industry.id}>
-                                                                {industry.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={industries.map(i => ({ label: i.name, value: i.id }))}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Industry"
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control as any}
+                                        name="experience_id"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={experiences.map(e => ({ label: e.name, value: e.id }))}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Experience"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -729,7 +1099,9 @@ export function LeadForm({
                                         name="company"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Company Name</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                    Company Name
+                                                </FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Acme Inc." className="h-9 bg-white" {...field} />
                                                 </FormControl>
@@ -758,22 +1130,18 @@ export function LeadForm({
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
                                                     Source Medium <span className="text-red-500">*</span>
                                                 </FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
-                                                            <SelectValue placeholder="Select" />
-                                                        </SelectTrigger>
-                                                    </FormControl>
-                                                    <SelectContent>
-                                                        <SelectItem value="manual">Manual</SelectItem>
-                                                        <SelectItem value="auto">Auto</SelectItem>
-                                                        {sources.map((source) => (
-                                                            <SelectItem key={source.id} value={source.id}>
-                                                                {source.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                    </SelectContent>
-                                                </Select>
+                                                <FormControl>
+                                                    <SearchableSelect
+                                                        options={[
+                                                            { label: "Manual", value: "manual" },
+                                                            { label: "Auto", value: "auto" },
+                                                            ...sources.map(s => ({ label: s.name, value: s.id }))
+                                                        ]}
+                                                        value={field.value}
+                                                        onValueChange={field.onChange}
+                                                        placeholder="Select Source"
+                                                    />
+                                                </FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -961,7 +1329,7 @@ export function LeadForm({
                                                     Total Pax
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="2" readOnly className="h-9 bg-slate-50 cursor-not-allowed" {...field} />
+                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1011,7 +1379,7 @@ export function LeadForm({
                                                     />
                                                 </FormControl>
                                                 <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">
-                                                    Fixed Package?
+                                                    Fixed Departure?
                                                 </FormLabel>
                                             </FormItem>
                                         )}
@@ -1024,87 +1392,44 @@ export function LeadForm({
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
                                                     Destinations <span className="text-red-500">*</span>
                                                 </FormLabel>
-                                                <Popover open={destinationOpen} onOpenChange={setDestinationOpen}>
-                                                    <PopoverTrigger asChild>
-                                                        <FormControl>
-                                                            <Button
-                                                                variant="outline"
-                                                                role="combobox"
-                                                                className={cn(
-                                                                    "min-h-[36px] h-auto w-full justify-between bg-white px-3 py-1",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
+                                                <SearchableSelect
+                                                    options={availableDestinations.map(d => ({ label: d.name, value: d.name }))}
+                                                    value=""
+                                                    onValueChange={(val) => {
+                                                        if (!val) return;
+                                                        const current = field.value ? field.value.split(", ") : [];
+                                                        if (!current.includes(val)) {
+                                                            field.onChange([...current, val].join(", "));
+                                                        }
+                                                    }}
+                                                    onSearch={handleDestinationSearch}
+                                                    placeholder="Add destination..."
+                                                    isLoading={loadingDestinations}
+                                                    className="border-none shadow-none focus-visible:ring-0 p-0 h-auto"
+                                                />
+                                                <div className="flex flex-wrap gap-1 mt-2">
+                                                    {field.value ? (
+                                                        field.value.split(", ").map((dest: string) => (
+                                                            <Badge
+                                                                key={dest}
+                                                                variant="secondary"
+                                                                className="rounded-sm px-1 font-normal text-[10px]"
                                                             >
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {field.value ? (
-                                                                        field.value.split(", ").map((dest: string) => (
-                                                                            <Badge
-                                                                                key={dest}
-                                                                                variant="secondary"
-                                                                                className="rounded-sm px-1 font-normal text-[10px]"
-                                                                            >
-                                                                                {dest}
-                                                                                <span
-                                                                                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                                                                    onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        const current = field.value.split(", ").filter((d: string) => d !== dest);
-                                                                                        field.onChange(current.join(", "));
-                                                                                    }}
-                                                                                >
-                                                                                    <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
-                                                                                </span>
-                                                                            </Badge>
-                                                                        ))
-                                                                    ) : (
-                                                                        "Select..."
-                                                                    )}
-                                                                </div>
-                                                                <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
-                                                            </Button>
-                                                        </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-full p-0 md:w-[500px]" align="start">
-                                                        <Command>
-                                                            <CommandInput
-                                                                placeholder="Search..."
-                                                                className="h-8"
-                                                                value={destSearch}
-                                                                onValueChange={setDestSearch}
-                                                            />
-                                                            <CommandList>
-                                                                <CommandEmpty>No results.</CommandEmpty>
-                                                                <CommandGroup className="max-h-48 overflow-auto">
-                                                                    {availableDestinations.map((dest) => {
-                                                                        const current = field.value ? field.value.split(", ") : [];
-                                                                        const isSelected = current.includes(dest.name);
-                                                                        return (
-                                                                            <CommandItem
-                                                                                key={dest.id}
-                                                                                className="text-sm py-1"
-                                                                                onSelect={() => {
-                                                                                    if (isSelected) {
-                                                                                        field.onChange(current.filter((d: string) => d !== dest.name).join(", "));
-                                                                                    } else {
-                                                                                        field.onChange([...current, dest.name].join(", "));
-                                                                                    }
-                                                                                }}
-                                                                            >
-                                                                                <Check
-                                                                                    className={cn(
-                                                                                        "mr-2 h-3 w-3",
-                                                                                        isSelected ? "opacity-100" : "opacity-0"
-                                                                                    )}
-                                                                                />
-                                                                                {dest.name}
-                                                                            </CommandItem>
-                                                                        );
-                                                                    })}
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
-                                                    </PopoverContent>
-                                                </Popover>
+                                                                {dest}
+                                                                <span
+                                                                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const current = field.value.split(", ").filter((d: string) => d !== dest);
+                                                                        field.onChange(current.join(", "));
+                                                                    }}
+                                                                >
+                                                                    <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
+                                                                </span>
+                                                            </Badge>
+                                                        ))
+                                                    ) : null}
+                                                </div>
                                                 <FormMessage />
                                             </FormItem>
                                         )}
@@ -1119,12 +1444,16 @@ export function LeadForm({
                     <Button
                         type="button"
                         variant="outline"
-                        onClick={() => router.back()}
+                        onClick={() => onCancel ? onCancel() : router.back()}
                         disabled={isLoading}
                     >
                         Cancel
                     </Button>
-                    <LoadingButton type="submit" isLoading={isLoading}>
+                    <LoadingButton 
+                        type="submit" 
+                        isLoading={isLoading}
+                        loadingText={leadId ? "Updating..." : "Creating..."}
+                    >
                         {leadId ? "Update Lead" : "Create Lead"}
                     </LoadingButton>
                 </div>

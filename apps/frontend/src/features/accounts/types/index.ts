@@ -40,6 +40,8 @@ export interface Account {
     parent_account_name?: string;
     rating_name?: string;
     owner_name?: string;
+    created_by_name?: string;
+    last_modified_by_name?: string;
 
     // Metadata
     view_count: number;
@@ -78,8 +80,8 @@ export interface AccountCreateData {
     industry_id?: string;
     rating_id?: string;
     account_source_id?: string;
-    acc_parent_id?: string;
     is_person_account?: boolean;
+    owner_id?: string;
 }
 
 export interface AccountFilters {

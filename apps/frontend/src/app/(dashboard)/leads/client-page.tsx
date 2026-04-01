@@ -2,7 +2,6 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import Link from "next/link";
 import { useState } from "react";
 import {
     Plus,
@@ -23,17 +22,16 @@ import {
     DialogTrigger,
 } from "@/components/ui/dialog";
 import {
-    Select,
-    SelectContent,
-    SelectItem,
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 
 import { LeadTable } from "@/features/leads/components/LeadTable";
 import { useLeads } from "@/features/leads/api/useLeads";
 import { leadsService } from "@/lib/api/services/leads.service";
+import { LeadFormDrawer } from "@/features/leads/components/LeadFormDrawer";
 
 export default function LeadsClientPage() {
     const searchParams = useSearchParams();
@@ -43,9 +41,10 @@ export default function LeadsClientPage() {
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
     const [isBulkChangeOwnerOpen, setIsBulkChangeOwnerOpen] = useState(false);
     const [selectedNewOwner, setSelectedNewOwner] = useState<string>("");
+    const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
     const page = parseInt(searchParams.get("page") || "1");
-    const per_page = parseInt(searchParams.get("per_page") || "10");
+    const per_page = parseInt(searchParams.get("per_page") || "100");
     const search = searchParams.get("search") || undefined;
     const view = searchParams.get("view") || undefined;
 
@@ -125,11 +124,9 @@ export default function LeadsClientPage() {
                             Track and manage your potential business opportunities.
                         </p>
                     </div>
-                    <Button asChild>
-                        <Link href="/leads/create">
+                    <Button onClick={() => setIsCreateDrawerOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
                             Create Lead
-                        </Link>
                     </Button>
                 </div>
                 <div className="p-8 text-center text-red-600">
@@ -193,21 +190,15 @@ export default function LeadsClientPage() {
                                     </DialogHeader>
                                     <div className="py-4">
                                         <Label htmlFor="new-owner">New Owner</Label>
-                                        <Select
+                                        <SearchableSelect
+                                            options={response.users.map((user) => ({
+                                                label: user.name,
+                                                value: user.id
+                                            }))}
                                             value={selectedNewOwner}
                                             onValueChange={setSelectedNewOwner}
-                                        >
-                                            <SelectTrigger id="new-owner">
-                                                <SelectValue placeholder="Select user..." />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                {response.users.map((user) => (
-                                                    <SelectItem key={user.id} value={user.id}>
-                                                        {user.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            placeholder="Select user..."
+                                        />
                                     </div>
                                     <DialogFooter>
                                         <Button
@@ -246,11 +237,9 @@ export default function LeadsClientPage() {
                         </div>
                     )}
 
-                    <Button asChild>
-                        <Link href="/leads/create">
+                    <Button onClick={() => setIsCreateDrawerOpen(true)}>
                             <Plus className="mr-2 h-4 w-4" />
                             Create Lead
-                        </Link>
                     </Button>
                 </div>
             </div>
@@ -267,6 +256,17 @@ export default function LeadsClientPage() {
                 selectedIds={selectedLeads}
                 onSelectOne={handleSelectLead}
                 onSelectAll={handleSelectAll}
+            />
+
+            <LeadFormDrawer
+                open={isCreateDrawerOpen}
+                onOpenChange={setIsCreateDrawerOpen}
+                metadata={response ? {
+                    statuses: response.lead_statuses || [],
+                    sources: response.sources || [],
+                    industries: response.industries || [],
+                    experiences: response.experiences || [],
+                } : undefined}
             />
         </div>
     );

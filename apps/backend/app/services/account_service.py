@@ -1,36 +1,43 @@
 """
 Account service layer - Business logic for Account operations
 """
-from typing import List, Optional, Dict
+from typing import Optional, List, Dict, Any
 from bson import ObjectId
 from datetime import datetime
 from app.models.account import Account
 from app.models.user import User
 from app.schemas.account import AccountCreate, AccountUpdate, AccountSearch
 from app.mixins.activity_mixin import ActivityMixin
+from app.services.notification_service import NotificationService
+import json
 
 class AccountService(ActivityMixin):
     """Service for Account business logic"""
     
     def __init__(self):
         super().__init__()
+        self.notification_service = NotificationService()
     
     async def create_account(
         self,
         account_data: AccountCreate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        custom_fields: list = None,
-        attachments: list = None
+        custom_fields: Optional[List[Dict[str, Any]]] = None,
+        attachments: Optional[List[Dict[str, Any]]] = None
     ) -> Account:
         """Create a new account with custom fields and attachments"""
         
-        account = Account(
-            **account_data.model_dump(exclude_unset=True),
-            tenant_id=tenant_id,
-            owner_id=user_id,
-            created_by=user_id
-        )
+        data = account_data.model_dump(exclude_unset=True)
+        # Always default owner_id to current user upon creation, ignore payload
+        data.pop("owner_id", None)
+        
+        # Inject overrides directly to prevent multiple kwargs errors during unpacking
+        data["tenant_id"] = tenant_id
+        data["owner_id"] = user_id
+        data["created_by"] = user_id
+            
+        account = Account(**data)
         
         await account.insert()
         
@@ -44,6 +51,18 @@ class AccountService(ActivityMixin):
                 "website": account.website,
                 "email": account.email
             }
+        )
+        
+        # Create notification for account creation
+        await self.notification_service.notify_user(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            title="New Account Created",
+            message=f"Account '{account.name}' has been created",
+            type="account",
+            entity_type="account",
+            entity_id=account.id,
+            action_url=f"/accounts/{account.id}"
         )
         
         # Save custom fields
@@ -81,9 +100,13 @@ class AccountService(ActivityMixin):
                 await attachment.insert()
         
         # Dispatch background jobs
-        from app.tasks.account_tasks import track_user_view, add_record_id
-        track_user_view.delay(str(user_id), str(account.id), str(tenant_id))
-        add_record_id.delay("Account", str(account.id))
+        try:
+            from app.tasks.account_tasks import track_user_view, add_record_id
+            track_user_view.delay(str(user_id), str(account.id), str(tenant_id))
+            add_record_id.delay("Account", str(account.id))
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery tasks: %s", e)
         
         # Track user view
         await self._track_user_view(user_id, account.id, tenant_id)
@@ -111,6 +134,10 @@ class AccountService(ActivityMixin):
         
         # Get owner information
         owner = await User.get(account.owner_id)
+        
+        # Get creator and modifier information
+        creator = await User.get(account.created_by)
+        modifier = await User.get(account.last_modified_by_id) if account.last_modified_by_id else None
         
         # Get related contacts
         related_contacts = []
@@ -153,16 +180,24 @@ class AccountService(ActivityMixin):
                 Opportunity.deleted_at == None
             ).to_list()
             
-            # --- N+1 OPTIMIZATION: Bulk fetch SalesStages ---
+            # --- N+1 OPTIMIZATION: Bulk fetch SalesStages and Owners ---
             stage_ids = list({opp.sales_stage_id for opp in opportunities if opp.sales_stage_id})
+            owner_ids = list({opp.owner_id for opp in opportunities if opp.owner_id})
+            
             stages_map = {}
             if stage_ids:
                 stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
                 stages_map = {str(stage.id): stage.name for stage in stages}
-            # ------------------------------------------------
+                
+            users_map = {}
+            if owner_ids:
+                owners = await User.find({"_id": {"$in": owner_ids}}).to_list()
+                users_map = {str(u.id): u.name for u in owners}
+            # -----------------------------------------------------------
             
             for opp in opportunities:
                 stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
+                owner_name = users_map.get(str(opp.owner_id)) if opp.owner_id else None
                 
                 related_opportunities.append({
                     "id": str(opp.id),
@@ -170,6 +205,8 @@ class AccountService(ActivityMixin):
                     "amount": opp.amount,
                     "sales_stage_id": str(opp.sales_stage_id) if opp.sales_stage_id else None,
                     "sales_stage_name": stage_name,
+                    "owner_id": str(opp.owner_id) if opp.owner_id else None,
+                    "owner_name": owner_name,
                     "close_date": opp.close_date.isoformat() if opp.close_date else None,
                     "probability": opp.probability,
                     "no_of_pax": opp.no_of_pax,
@@ -259,9 +296,11 @@ class AccountService(ActivityMixin):
             "acc_parent_id": str(account.acc_parent_id) if account.acc_parent_id else None,
             "industry_id": str(account.industry_id) if account.industry_id else None,
             "rating_id": str(account.rating_id) if account.rating_id else None,
-            "account_source_id": str(account.account_source_id) if account.account_source_id else None,
+            "account_source_id": str(getattr(account, 'account_source_id', '')) if getattr(account, 'account_source_id', None) else None,
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
+            "created_by_name": creator.name if creator else None,
+            "last_modified_by_name": modifier.name if modifier else None,
             "related_contacts": related_contacts,
             "related_opportunities": related_opportunities,
             "related_tasks": related_tasks,
@@ -317,12 +356,71 @@ class AccountService(ActivityMixin):
         return account
     
     async def delete_account(self, account_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
-        """Soft delete an account"""
+        """Soft delete an account with hierarchy checks"""
+        from fastapi import HTTPException
+        from app.models.contact import Contact
+        from app.models.account_contact import AccountContact
+        from app.models.opportunity import Opportunity
+
         account = await self.get_account(account_id, tenant_id)
         
         if not account:
             return False
         
+        # Check hierarchy constraints
+        if account.is_person_account:
+            # Person Account: Check for active opportunities
+            active_opps_count = await Opportunity.find(
+                Opportunity.account_id == account.id,
+                Opportunity.tenant_id == tenant_id,
+                Opportunity.deleted_at == None
+            ).count()
+            
+            if active_opps_count > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot delete person account with associated opportunities. Please delete the opportunities first."
+                )
+        else:
+            # Regular Account: Check for active contacts
+            # Check primary link
+            active_contacts_count = await Contact.find(
+                Contact.account_id == account.id,
+                Contact.tenant_id == tenant_id,
+                Contact.deleted_at == None
+            ).count()
+            
+            if active_contacts_count > 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Cannot delete account with associated contacts. Please delete the contacts first."
+                )
+            
+            # Check pivot links
+            pivots_count = await AccountContact.find(
+                AccountContact.account_id == account.id,
+                AccountContact.tenant_id == tenant_id
+            ).count()
+            
+            if pivots_count > 0:
+                # Double check if any of these pivot contacts are active
+                pivots = await AccountContact.find(
+                    AccountContact.account_id == account.id,
+                    AccountContact.tenant_id == tenant_id
+                ).to_list()
+                contact_ids = [p.contact_id for p in pivots]
+                active_pivot_contacts = await Contact.find(
+                    {"_id": {"$in": contact_ids}},
+                    Contact.tenant_id == tenant_id,
+                    Contact.deleted_at == None
+                ).count()
+                
+                if active_pivot_contacts > 0:
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Cannot delete account with associated contacts. Please delete the contacts first."
+                    )
+
         await account.soft_delete()
         
         # Log deletion

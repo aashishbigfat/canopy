@@ -8,21 +8,21 @@ from datetime import datetime
 class OpportunityBase(BaseModel):
     """Base schema for Opportunity"""
     name: str = Field(..., min_length=1, max_length=255)
-    amount: Optional[float] = Field(None)
+    amount: Optional[float] = Field(None, ge=0.0)
     description: Optional[str] = Field(None, max_length=1000)
     
     # Travel-specific fields
-    no_of_pax: Optional[int] = Field(None)
-    no_of_nights: Optional[int] = Field(None)
-    no_of_adults: Optional[int] = Field(None)
-    no_of_childs: Optional[int] = Field(None)
-    no_of_infants: Optional[int] = Field(None)
-    travel_date: Optional[datetime] = None
+    no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_nights: Optional[int] = Field(None, ge=0)
+    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
+    travel_date: datetime = Field(..., description="Travel date is required")
     close_date: Optional[datetime] = None
     
     # Sales information
     sales_stage_id: Annotated[str, BeforeValidator(str)]
-    probability: Optional[int] = Field(0)
+    probability: Optional[int] = Field(0, ge=0, le=100)
     
     # Relationships
     account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
@@ -37,7 +37,12 @@ class OpportunityBase(BaseModel):
     
     # Additional fields
     country_of_origin: Optional[str] = Field(None, max_length=100)
+    segment: Optional[str] = "B2C"
     key_deal: bool = False
+    
+    # New fields
+    inclusions: Optional[List[str]] = Field(default_factory=list)
+    close_lost_reason: Optional[str] = Field(None, max_length=2000)
 
 
 class OpportunityCreate(OpportunityBase):
@@ -67,18 +72,18 @@ def parse_date(v):
 class OpportunityUpdate(BaseModel):
     """Schema for updating an opportunity"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
-    amount: Optional[float] = Field(None)
+    amount: Optional[float] = Field(None, ge=0.0)
     description: Optional[str] = Field(None, max_length=1000)
     sales_stage_id: Optional[str] = Field(None, min_length=1)
-    probability: Optional[int] = Field(None)
+    probability: Optional[int] = Field(None, ge=0, le=100)
 
     close_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
     travel_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
-    no_of_pax: Optional[int] = Field(None)
-    no_of_adults: Optional[int] = Field(None)
-    no_of_childs: Optional[int] = Field(None)
-    no_of_infants: Optional[int] = Field(None)
-    no_of_nights: Optional[int] = Field(None)
+    no_of_pax: Optional[int] = Field(None, ge=1)
+    no_of_adults: Optional[int] = Field(None, ge=1)
+    no_of_childs: Optional[int] = Field(None, ge=0)
+    no_of_infants: Optional[int] = Field(None, ge=0)
+    no_of_nights: Optional[int] = Field(None, ge=0)
     experience_id: Optional[str] = None
     account_id: Optional[str] = None
     contact_id: Optional[str] = None
@@ -89,6 +94,8 @@ class OpportunityUpdate(BaseModel):
     origin_ids: Optional[List[str]] = None
     key_deal: Optional[bool] = None
     custom_fields: Optional[Dict[str, Any]] = None
+    inclusions: Optional[List[str]] = None
+    close_lost_reason: Optional[str] = Field(None, max_length=2000)
 
 
 class OpportunityHistoryResponse(BaseModel):
@@ -105,6 +112,9 @@ class OpportunityHistoryResponse(BaseModel):
     user_name: Optional[str] = None
     old_stage_name: Optional[str] = None
     new_stage_name: Optional[str] = None
+    # Historical financial snapshot at time of stage change
+    amount_at_change: Optional[float] = None
+    probability_at_change: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -130,6 +140,8 @@ class OpportunityResponse(OpportunityBase):
     tenant_id: Annotated[str, BeforeValidator(str)]
     owner_id: Annotated[str, BeforeValidator(str)]
     created_by: Annotated[str, BeforeValidator(str)]
+    created_by_name: Optional[str] = None
+    last_modified_by_name: Optional[str] = None
     
     is_locked: bool = False
     locked_by: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
@@ -151,6 +163,9 @@ class OpportunityResponse(OpportunityBase):
     segment: Optional[str] = None
     creation_type: Optional[str] = "Manual" # "Auto" or "Manual"
     is_person_account: bool = False
+    type: Optional[str] = None
+    inclusions: Optional[List[str]] = Field(default_factory=list)
+    close_lost_reason: Optional[str] = None
     
     class Config:
         from_attributes = True
@@ -204,6 +219,10 @@ class OpportunityResponse(OpportunityBase):
                 data['creation_type'] = obj.creation_type
             if hasattr(obj, 'is_person_account'):
                 data['is_person_account'] = obj.is_person_account
+                data['type'] = "Person Account" if obj.is_person_account else "Account"
+            
+            if hasattr(obj, 'type') and obj.type:
+                 data['type'] = obj.type
             
             # Ensure datetime fields are properly formatted
             if hasattr(obj, 'travel_date') and obj.travel_date:

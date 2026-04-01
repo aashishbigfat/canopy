@@ -8,6 +8,7 @@ const STAGE_DEFINITIONS: { name: string; probability: number }[] = [
     { name: "Proposal", probability: 30 },
     { name: "Closed Won", probability: 100 },
     { name: "Closed Lost", probability: 0 },
+    { name: "Refunded", probability: 0 },
 ];
 
 export type StageWithProbability = SalesStage & { probability: number };
@@ -44,3 +45,16 @@ export function getProbabilityForStageId(
     return stage?.probability;
 }
 
+
+export const CLOSE_LOST_REASONS = [
+    "Too late to respond",
+    "Client changed the destination",
+    "Offered rates did not match client's expectations",
+    "Client not responding",
+    "Travel Plan Cancelled",
+    "Travel Plan Postponed",
+    "Booked with other Travel Agent",
+    "Did not inquire",
+    "Duplicate Query",
+    "Information Required"
+];

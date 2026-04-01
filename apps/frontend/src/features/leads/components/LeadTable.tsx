@@ -45,7 +45,8 @@ import { ConvertLeadDialog } from "./ConvertLeadDialog";
 export const getColumns = (
     statuses: LeadStatus[],
     sources: Source[],
-    users: User[]
+    users: User[],
+    experiences: { id: string; name: string }[]
 ): ColumnDef<Lead>[] => [
         {
             id: "select",
@@ -165,6 +166,15 @@ export const getColumns = (
             },
         },
         {
+            id: "experience",
+            header: "Experience",
+            cell: ({ row }) => {
+                const experienceId = row.original.experience_id;
+                const experience = experiences.find(e => e.id === experienceId || e.name === experienceId);
+                return <div className="text-sm text-gray-700">{experience?.name || experienceId || "-"}</div>;
+            },
+        },
+        {
             id: "segment",
             header: "Segment",
             cell: ({ row }) => {
@@ -265,6 +275,7 @@ export function LeadTable({
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+    const [isPending, startTransition] = React.useTransition();
 
     const rowSelection = React.useMemo(() => {
         const selection: Record<string, boolean> = {};
@@ -281,7 +292,7 @@ export function LeadTable({
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
 
     const columns = React.useMemo(() => {
-        const baseColumns = getColumns(lead_statuses, sources, users);
+        const baseColumns = getColumns(lead_statuses, sources, users, experiences);
 
         if (baseColumns[0].id === "select") {
             baseColumns[0] = {
@@ -435,7 +446,7 @@ export function LeadTable({
                         </div>
                     </div>
                     <div className="px-4 py-3">
-                        <div className="rounded-md border">
+                        <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
                             <Table>
                                 <TableHeader>
                                     {table.getHeaderGroups().map((headerGroup) => (
@@ -498,7 +509,9 @@ export function LeadTable({
                             onClick={() => {
                                 const params = new URLSearchParams(searchParams.toString());
                                 params.set("page", (pagination.current_page - 1).toString());
-                                router.push(`${pathname}?${params.toString()}`);
+                                startTransition(() => {
+                                    router.push(`${pathname}?${params.toString()}`);
+                                });
                             }}
                             disabled={pagination.current_page <= 1}
                         >
@@ -510,7 +523,9 @@ export function LeadTable({
                             onClick={() => {
                                 const params = new URLSearchParams(searchParams.toString());
                                 params.set("page", (pagination.current_page + 1).toString());
-                                router.push(`${pathname}?${params.toString()}`);
+                                startTransition(() => {
+                                    router.push(`${pathname}?${params.toString()}`);
+                                });
                             }}
                             disabled={pagination.current_page >= pagination.pages}
                         >

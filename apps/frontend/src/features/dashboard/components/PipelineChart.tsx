@@ -30,10 +30,11 @@ const STAGE_COLORS = [
 ];
 
 const formatCurrency = (v: number) => {
-    if (v >= 10_000_000) return `₹${(v / 10_000_000).toFixed(1)}Cr`;
-    if (v >= 100_000) return `₹${(v / 100_000).toFixed(1)}L`;
-    if (v >= 1_000) return `₹${(v / 1_000).toFixed(0)}K`;
-    return `₹${v}`;
+    return new Intl.NumberFormat("en-IN", {
+        style: "currency",
+        currency: "INR",
+        maximumFractionDigits: 0,
+    }).format(v);
 };
 
 /* eslint-disable @typescript-eslint/no-explicit-any */

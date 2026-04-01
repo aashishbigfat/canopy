@@ -37,16 +37,22 @@ async def create_lead(
     # Set request context for activity logging
     service.set_request_context(request, current_user)
     
-    lead = await service.create_lead(
-        lead_data=lead_data,
-        user_id=current_user.id,
-        tenant_id=current_user.tenant_id,
-        user_name=current_user.name or current_user.email,
-        custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None,
-        destination_ids=lead_data.destination_ids if hasattr(lead_data, 'destination_ids') else None
-    )
-    
-    return lead
+    try:
+        lead = await service.create_lead(
+            lead_data=lead_data,
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            user_name=current_user.name or current_user.email,
+            custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None,
+            destination_ids=lead_data.destination_ids if hasattr(lead_data, 'destination_ids') else None
+        )
+        return lead
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Unexpected error during lead creation: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/", response_model=LeadListResponse)
@@ -118,7 +124,15 @@ async def get_lead(
     # Increment view count
     await lead.increment_view_count()
     
-    return lead
+    # Resolve creator and modifier names for the response
+    creator = await User.get(lead.created_by)
+    modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
+    
+    lead_response = LeadResponse.model_validate(lead)
+    lead_response.created_by_name = creator.name if creator else "Unknown"
+    lead_response.last_modified_by_name = modifier.name if modifier else None
+    
+    return lead_response
 
 
 @router.put("/{lead_id}", response_model=LeadResponse)
@@ -133,13 +147,20 @@ async def update_lead(
     # Set request context for activity logging
     service.set_request_context(request, current_user)
     
-    lead = await service.update_lead(
-        lead_id=lead_id,
-        lead_data=lead_data,
-        user_id=current_user.id,
-        tenant_id=current_user.tenant_id,
-        user_name=current_user.name.strip() or current_user.email
-    )
+    try:
+        lead = await service.update_lead(
+            lead_id=lead_id,
+            lead_data=lead_data,
+            user_id=current_user.id,
+            tenant_id=current_user.tenant_id,
+            user_name=current_user.name.strip() or current_user.email
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f"Unexpected error during lead update: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")

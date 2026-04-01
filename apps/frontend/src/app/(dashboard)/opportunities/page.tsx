@@ -5,7 +5,12 @@ import OpportunitiesPageClient from "./OpportunitiesPageClient";
 
 export const dynamic = "force-dynamic";
 
-export default async function OpportunitiesPage() {
+export default async function OpportunitiesPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+    await searchParams;
     const session = await getServerSession(authOptions);
 
     if (!session) {

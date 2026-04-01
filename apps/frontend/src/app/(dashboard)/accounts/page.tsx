@@ -5,11 +5,19 @@ import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function AccountsPage() {
+export default async function AccountsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ page?: string; per_page?: string }>;
+}) {
     const session = await getServerSession(authOptions);
+    const resolvedParams = await searchParams;
+    const page = parseInt(resolvedParams.page || "1");
+    const per_page = parseInt(resolvedParams.per_page || "10");
 
     // Redirect to login if no session
     if (!session?.accessToken) {
@@ -28,30 +36,29 @@ export default async function AccountsPage() {
         );
     }
 
-    const accounts = await accountService.getAccounts({ is_person_account: false }, {
-        headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-        },
-    });
+    const accountsData = await accountService.getAccounts(
+        { is_person_account: false, page, per_page },
+        {
+            headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+            },
+        }
+    );
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Accounts</h1>
-                    <p className="text-muted-foreground">
-                        Manage your customer accounts and companies.
-                    </p>
+                    <h1 className="text-xl font-bold tracking-tight text-gray-800">Account</h1>
                 </div>
-                <Button asChild>
-                    <Link href="/accounts/create">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Account
-                    </Link>
-                </Button>
             </div>
 
-            <AccountTable data={accounts.accounts} />
+            <div className="bg-white rounded-md shadow-sm border border-gray-200">
+                <AccountTable 
+                    data={accountsData.accounts} 
+                    pagination={accountsData.pagination} 
+                />
+            </div>
         </div>
     );
 }

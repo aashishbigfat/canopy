@@ -28,6 +28,13 @@ class Supplier(BaseDocument):
     zip: Optional[str] = None
     country: Optional[str] = None
     
+    # Service Areas (Multi-select support)
+    services: List[str] = Field(default_factory=list)
+    countries: List[str] = Field(default_factory=list)
+    states: List[str] = Field(default_factory=list)
+    service_cities: List[str] = Field(default_factory=list)
+    destinations: List[str] = Field(default_factory=list)
+    
     # Business Details
     tax_id: Optional[str] = None
     registration_number: Optional[str] = None
@@ -78,6 +85,8 @@ class OpportunitySupplier(BaseDocument):
     # Supplier-specific details for this opportunity
     cost: Optional[float] = None
     notes: Optional[str] = None
+    email_subject: Optional[str] = None
+    email_body: Optional[str] = None
     
     class Settings:
         name = "opp_suppliers"

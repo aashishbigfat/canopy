@@ -1,0 +1,8 @@
+{
+  "rewrites": [
+    {
+      "source": "/api/v1/:path*",
+      "destination": "https://tutterfly-backend.bigfat.ai/api/v1/:path*"
+    }
+  ]
+}

@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     }
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,https://tutterfly-frontend.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,http://15.206.79.199:3000,https://tutterfly-frontend.vercel.app"
     
     @property
     def cors_origins_list(self) -> list[str]:

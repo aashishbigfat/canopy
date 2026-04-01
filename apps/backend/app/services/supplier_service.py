@@ -148,7 +148,9 @@ class SupplierService:
         supplier_id: str,
         tenant_id: ObjectId,
         cost: Optional[float] = None,
-        notes: Optional[str] = None
+        notes: Optional[str] = None,
+        email_subject: Optional[str] = None,
+        email_body: Optional[str] = None
     ) -> OpportunitySupplier:
         """Link supplier to opportunity"""
         
@@ -165,6 +167,10 @@ class SupplierService:
                 existing.cost = cost
             if notes:
                 existing.notes = notes
+            if email_subject:
+                existing.email_subject = email_subject
+            if email_body:
+                existing.email_body = email_body
             await existing.save()
             return existing
         
@@ -174,7 +180,9 @@ class SupplierService:
             supplier_id=ObjectId(supplier_id),
             tenant_id=tenant_id,
             cost=cost,
-            notes=notes
+            notes=notes,
+            email_subject=email_subject,
+            email_body=email_body
         )
         
         await link.insert()
@@ -217,7 +225,9 @@ class SupplierService:
                 result.append({
                     "supplier": supplier,
                     "cost": link.cost,
-                    "notes": link.notes
+                    "notes": link.notes,
+                    "email_subject": link.email_subject,
+                    "email_body": link.email_body
                 })
         
         return result

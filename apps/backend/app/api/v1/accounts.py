@@ -24,7 +24,6 @@ def account_to_response(account: Account) -> AccountResponse:
         name=account.name,
         email=account.email,
         phone=account.phone,
-        mobile=account.mobile,
         website=account.website,
         description=account.description,
         is_person_account=account.is_person_account,
@@ -42,14 +41,16 @@ def account_to_response(account: Account) -> AccountResponse:
         shipping_zip=account.shipping_zip,
         shipping_country=account.shipping_country,
         acc_type_id=str(account.acc_type_id) if account.acc_type_id else None,
+        account_type_name=getattr(account, 'account_type_name', None),
         acc_parent_id=str(account.acc_parent_id) if account.acc_parent_id else None,
         industry_id=str(account.industry_id) if account.industry_id else None,
         rating_id=str(account.rating_id) if account.rating_id else None,
-        account_source_id=str(account.account_source_id) if account.account_source_id else None,
         tenant_id=str(account.tenant_id),
         owner_id=str(account.owner_id),
         created_by=str(account.created_by),
+        created_by_name=getattr(account, 'created_by_name', None),
         last_modified_by_id=str(account.last_modified_by_id) if account.last_modified_by_id else None,
+        last_modified_by_name=getattr(account, 'last_modified_by_name', None),
         view_count=account.view_count,
         is_favorite=account.is_favorite,
         created_at=account.created_at,
@@ -60,7 +61,7 @@ def account_to_response(account: Account) -> AccountResponse:
 @router.get("/form-data")
 async def get_account_form_data(current_user: User = Depends(get_current_user)):
     """Get metadata for account creation/editing forms"""
-    from app.models.picklists import Industry, Rating, AccountType, AccountSource
+    from app.models.picklists import Industry, Rating, AccountType
     
     industries = await Industry.find({
         "tenant_id": current_user.tenant_id,
@@ -72,11 +73,6 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
     }).sort("+sorting").to_list()
     
     acc_types = await AccountType.find({
-        "tenant_id": current_user.tenant_id,
-        "is_active": True
-    }).sort("+sorting").to_list()
-    
-    sources = await AccountSource.find({
         "tenant_id": current_user.tenant_id,
         "is_active": True
     }).sort("+sorting").to_list()
@@ -96,11 +92,14 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
         "industries": [{"id": str(i.id), "name": i.name} for i in industries],
         "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
         "account_types": [{"id": str(t.id), "name": t.name} for t in acc_types],
-        "sources": [{"id": str(s.id), "name": s.name} for s in sources],
         "users": [{"id": str(u.id), "name": u.name} for u in users],
-        "parent_accounts": [{"id": str(a.id), "name": a.name} for a in parent_accounts]
+        "parent_accounts": [{"id": str(a.id), "name": a.name} for a in parent_accounts],
+        "current_user_name": current_user.name
     }
 
+
+import logging
+logger = logging.getLogger(__name__)
 
 @router.post("/", response_model=AccountResponse, status_code=201)
 async def create_account(
@@ -108,14 +107,21 @@ async def create_account(
     current_user: User = Depends(check_permission("create_account"))
 ):
     """Create a new account"""
-    service = AccountService()
-    account = await service.create_account(
-        account_data,
-        current_user.id,
-        current_user.tenant_id
-    )
-    
-    return account_to_response(account)
+    try:
+        service = AccountService()
+        account = await service.create_account(
+            account_data,
+            current_user.id,
+            current_user.tenant_id
+        )
+        
+        from app.core.cache import invalidate_tenant_cache
+        await invalidate_tenant_cache(str(current_user.tenant_id))
+        
+        return account_to_response(account)
+    except Exception as e:
+        logger.error(f"Error creating account: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating account: {str(e)}")
 
 
 @router.get("/", response_model=dict)
@@ -128,12 +134,11 @@ async def get_accounts(
 ):
     """Get all accounts with pagination, views, and columns"""
     try:
+        import asyncio
         from app.models.user_account_view import UserAccountView
         from app.models.account_views import AccountView, AccountColumn, AccountPinView
-        from app.models.picklists import Industry, Rating
+        from app.models.picklists import Industry, Rating, AccountType
         
-        service = AccountService()
-    
         # Base query
         query = {
             "tenant_id": current_user.tenant_id,
@@ -143,70 +148,60 @@ async def get_accounts(
         if is_person_account is not None:
             query["is_person_account"] = is_person_account
 
-        # Get recently viewed accounts first
-        recent_views = await UserAccountView.find({
-            "user_id": current_user.id
-        }).sort("-updated_at").to_list()
-        
-        recent_account_ids = [v.account_id for v in recent_views]
-        
-        # Get recently viewed accounts
-        recent_accounts = []
-        if recent_account_ids:
-            recent_query = {
-                **query,
-                "_id": {"$in": recent_account_ids}
-            }
-            recent_accounts = await Account.find(recent_query).to_list()
-        
-        # Get other accounts (not in recent views)
-        other_query = query.copy()
-        if recent_account_ids:
-            other_query["_id"] = {"$nin": recent_account_ids}
-            
-        other_accounts = await Account.find(other_query).sort("-updated_at").to_list()
-        
-        # Merge: recent first, then others
-        all_accounts = recent_accounts + other_accounts
-        
-        # Paginate
-        total = len(all_accounts)
+        # --- Server-side pagination (no full-collection load) ---
         skip = (page - 1) * per_page
-        accounts = all_accounts[skip:skip + per_page]
+
+        # Run total count, paginated accounts fetch, and all metadata queries in parallel
+        (
+            total,
+            accounts,
+            account_views,
+            users,
+            industries,
+            ratings,
+            acc_types,
+        ) = await asyncio.gather(
+            # 1. Total count
+            Account.find(query).count(),
+            # 2. Paginated accounts (sorted by most-recently-updated)
+            Account.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list(),
+            # 3. Account views
+            AccountView.find({
+                "tenant_id": current_user.tenant_id,
+                "$or": [
+                    {"created_by": current_user.id},
+                    {"public_view": True}
+                ]
+            }).to_list(),
+            # 4. Users for owner selection
+            User.find({
+                "tenant_id": current_user.tenant_id,
+                "is_active": True
+            }).sort("+name").to_list(),
+            # 5. Industries
+            Industry.find({
+                "tenant_id": current_user.tenant_id,
+                "is_active": True
+            }).sort("+sorting").to_list(),
+            # 6. Ratings
+            Rating.find({
+                "is_active": True
+            }).sort("+sorting").to_list(),
+            # 7. Account types
+            AccountType.find({
+                "tenant_id": current_user.tenant_id,
+                "is_active": True
+            }).sort("+sorting").to_list(),
+        )
+
         pages = (total + per_page - 1) // per_page
         
-        # Get account views
-        account_views = await AccountView.find({
-            "tenant_id": current_user.tenant_id,
-            "$or": [
-                {"created_by": current_user.id},
-                {"public_view": True}
-            ]
-        }).to_list()
+        # Build lookup maps
+        user_map = {str(u.id): u.name for u in users}
+        acc_type_map = {str(t.id): t.name for t in acc_types}
         
         # Get default columns - temporarily return empty list to avoid ObjectId/int mismatch
-        # TODO: Fix this to use proper ObjectId references or a different approach
         display_columns = []
-        
-        # Get users for owner selection
-        users = await User.find({
-            "tenant_id": current_user.tenant_id,
-            "is_active": True
-        }).sort("+name").to_list()
-        
-        # Get industries
-        industries = await Industry.find({
-            "tenant_id": current_user.tenant_id,
-            "is_active": True
-        }).sort("+sorting").to_list()
-        
-        # Get ratings
-        ratings = await Rating.find({
-            "is_active": True
-        }).sort("+sorting").to_list()
-        
-        # Build user map for owner_names
-        user_map = {str(u.id): u.name for u in users}
         
         return {
             "accounts": [
@@ -215,7 +210,6 @@ async def get_accounts(
                     "name": acc.name,
                     "email": acc.email,
                     "phone": acc.phone,
-                    "mobile": acc.mobile,
                     "salutation": acc.salutation,
                     "first_name": acc.first_name,
                     "last_name": acc.last_name,
@@ -233,10 +227,10 @@ async def get_accounts(
                     "shipping_zip": acc.shipping_zip,
                     "shipping_country": acc.shipping_country,
                     "acc_type_id": str(acc.acc_type_id) if acc.acc_type_id else None,
+                    "account_type_name": acc_type_map.get(str(acc.acc_type_id)) if acc.acc_type_id else None,
                     "acc_parent_id": str(acc.acc_parent_id) if acc.acc_parent_id else None,
                     "industry_id": str(acc.industry_id) if acc.industry_id else None,
                     "rating_id": str(acc.rating_id) if acc.rating_id else None,
-                    "account_source_id": str(acc.account_source_id) if acc.account_source_id else None,
                     "tenant_id": str(acc.tenant_id),
                     "owner_id": str(acc.owner_id),
                     "owner_name": user_map.get(str(acc.owner_id)),
@@ -287,9 +281,11 @@ async def get_accounts(
         }
     except Exception as e:
         import traceback
-        print(f"Error in get_accounts: {str(e)}")
-        print(traceback.format_exc())
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"Error in get_accounts: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error fetching accounts: {str(e)}")
+
 
 
 @router.get("/search", response_model=List[AccountResponse])
@@ -353,19 +349,24 @@ async def search_account_by_email(
 @router.get("/search-account")
 async def search_account_autocomplete(
     s: str = Query(..., description="Search term"),
+    is_person_account: Optional[bool] = Query(None, description="Filter by person account status"),
     current_user: User = Depends(get_current_user)
 ):
     """Search accounts by name (autocomplete)"""
-    accounts = await Account.find({
+    query: dict = {
         "tenant_id": current_user.tenant_id,
         "name": {"$regex": s, "$options": "i"},
         "deleted_at": None
-    }).limit(10).to_list()
+    }
+    if is_person_account is not None:
+        query["is_person_account"] = is_person_account
+        
+    accounts = await Account.find(query).limit(10).to_list()
     
     return {
         "error": False,
         "accounts": [
-            {"id": str(acc.id), "name": acc.name}
+            {"id": str(acc.id), "name": acc.name, "is_person_account": acc.is_person_account}
             for acc in accounts
         ]
     }
@@ -476,6 +477,9 @@ async def update_account(
         if not account:
             raise HTTPException(status_code=404, detail="Account not found")
         
+        from app.core.cache import invalidate_tenant_cache
+        await invalidate_tenant_cache(str(current_user.tenant_id))
+        
         return account_to_response(account)
     
     except ValueError as e:
@@ -493,6 +497,9 @@ async def delete_account(
     
     if not success:
         raise HTTPException(status_code=404, detail="Account not found")
+    
+    from app.core.cache import invalidate_tenant_cache
+    await invalidate_tenant_cache(str(current_user.tenant_id))
     
     return {
         "error": False,

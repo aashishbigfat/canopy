@@ -24,7 +24,7 @@ import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
 import { useState } from "react";
 
 interface EntityDetailHeaderProps {
-    type: "Contact" | "Account" | "Person Account";
+    type: "Contact" | "Account" | "Person Account" | "Lead" | "Supplier";
     customLabel?: string;
     badge?: string;
     name: string;
@@ -64,7 +64,7 @@ export function EntityDetailHeader({
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
                         <div className="mt-1 h-12 w-12 rounded bg-blue-600 flex items-center justify-center text-white">
-                            {type === "Contact" ? <User size={24} /> : <Building2 size={24} />}
+                            {type === "Contact" ? <User size={24} /> : type === "Lead" ? <User size={24} /> : <Building2 size={24} />}
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">

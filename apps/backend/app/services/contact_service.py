@@ -8,6 +8,7 @@ from app.models.contact import Contact
 from app.models.account_contact import AccountContact
 from app.schemas.contact import ContactCreate, ContactUpdate
 from app.mixins.activity_mixin import ActivityMixin
+from app.services.notification_service import NotificationService
 
 class ContactService(ActivityMixin):
     """Service for Contact business logic"""
@@ -19,6 +20,7 @@ class ContactService(ActivityMixin):
 
     def __init__(self):
         super().__init__()
+        self.notification_service = NotificationService()
 
     def _extract_domain(self, email: str) -> Optional[str]:
         if not email or "@" not in email:
@@ -84,12 +86,14 @@ class ContactService(ActivityMixin):
     ) -> Contact:
         """Create a new contact"""
         
-        contact = Contact(
-            **contact_data.model_dump(exclude_unset=True, exclude={'account_id'}),
-            tenant_id=tenant_id,
-            owner_id=user_id,
-            created_by=user_id
-        )
+        data = contact_data.model_dump(exclude_unset=True, exclude={'account_id'})
+        data.pop("owner_id", None)
+        
+        data["tenant_id"] = tenant_id
+        data["owner_id"] = user_id
+        data["created_by"] = user_id
+        
+        contact = Contact(**data)
         
         # Set primary account if provided
         if contact_data.account_id:
@@ -110,11 +114,38 @@ class ContactService(ActivityMixin):
             }
         )
         
+        # Create notification for contact creation
+        await self.notification_service.notify_user(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            title="New Contact Created",
+            message=f"Contact '{contact.full_name}' has been created",
+            type="contact",
+            entity_type="contact",
+            entity_id=contact.id,
+            action_url=f"/contacts/{contact.id}"
+        )
+        
         # Link to accounts (many-to-many)
         if account_ids:
             for acc_id in account_ids:
                 pivot = AccountContact(
                     account_id=ObjectId(acc_id),
+                    contact_id=contact.id,
+                    tenant_id=tenant_id
+                )
+                await pivot.insert()
+                
+        # Handle primary account linkage if not present in account_ids
+        if contact_data.account_id and not (account_ids and contact_data.account_id in [str(a) for a in account_ids]):
+            exist_pivot = await AccountContact.find_one(
+                AccountContact.contact_id == contact.id,
+                AccountContact.account_id == ObjectId(contact_data.account_id),
+                AccountContact.tenant_id == tenant_id
+            )
+            if not exist_pivot:
+                pivot = AccountContact(
+                    account_id=ObjectId(contact_data.account_id),
                     contact_id=contact.id,
                     tenant_id=tenant_id
                 )
@@ -173,6 +204,10 @@ class ContactService(ActivityMixin):
             account = await Account.get(contact.account_id)
             if account:
                 account_name = account.name
+        
+        # Get creator and modifier information
+        creator = await User.get(contact.created_by)
+        modifier = await User.get(contact.last_modified_by_id) if contact.last_modified_by_id else None
         
         # Get related opportunities
         related_opportunities = []
@@ -277,6 +312,8 @@ class ContactService(ActivityMixin):
             "owner_id": str(contact.owner_id),
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
+            "created_by_name": creator.name if creator else None,
+            "last_modified_by_name": modifier.name if modifier else None,
             "created_by": str(contact.created_by),
             "last_modified_by_id": str(contact.last_modified_by_id) if contact.last_modified_by_id else None,
             "view_count": contact.view_count,
@@ -434,11 +471,27 @@ class ContactService(ActivityMixin):
         return contact
     
     async def delete_contact(self, contact_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
-        """Soft delete a contact"""
+        """Soft delete a contact with hierarchy checks"""
+        from fastapi import HTTPException
+        from app.models.opportunity import Opportunity
+        
         contact = await self.get_contact(contact_id, tenant_id)
         
         if not contact:
             return False
+        
+        # Check hierarchy constraints: Can't delete if active opportunities exist
+        active_opps_count = await Opportunity.find(
+            Opportunity.contact_id == contact.id,
+            Opportunity.tenant_id == tenant_id,
+            Opportunity.deleted_at == None
+        ).count()
+        
+        if active_opps_count > 0:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot delete contact with associated opportunities. Please delete the opportunities first."
+            )
         
         await contact.soft_delete()
         
@@ -543,15 +596,19 @@ class ContactService(ActivityMixin):
         await contact.save()
         
         # Send email notification
-        from app.tasks.account_tasks import send_owner_change_email
-        send_owner_change_email.delay(
-            "Contact",
-            str(new_owner_id),
-            contact.full_name,
-            "contactDetails",
-            str(tenant_id),
-            str(contact.id)
-        )
+        try:
+            from app.tasks.account_tasks import send_owner_change_email
+            send_owner_change_email.delay(
+                "Contact",
+                str(new_owner_id),
+                contact.full_name,
+                "contactDetails",
+                str(tenant_id),
+                str(contact.id)
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery tasks: %s", e)
         
         return contact
     

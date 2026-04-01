@@ -5,11 +5,19 @@ import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
+import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
 
 export const dynamic = "force-dynamic";
 
-export default async function PersonAccountsPage() {
+export default async function PersonAccountsPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ page?: string; per_page?: string }>;
+}) {
     const session = await getServerSession(authOptions);
+    const resolvedParams = await searchParams;
+    const page = parseInt(resolvedParams.page || "1");
+    const per_page = parseInt(resolvedParams.per_page || "10");
 
     // Redirect to login if no session
     if (!session?.accessToken) {
@@ -28,11 +36,14 @@ export default async function PersonAccountsPage() {
         );
     }
 
-    const accounts = await accountService.getAccounts({ is_person_account: true }, {
-        headers: {
-            Authorization: `Bearer ${session.accessToken}`,
-        },
-    });
+    const accountsData = await accountService.getAccounts(
+        { is_person_account: true, page, per_page },
+        {
+            headers: {
+                Authorization: `Bearer ${session.accessToken}`,
+            },
+        }
+    );
 
     return (
         <div className="space-y-6">
@@ -43,15 +54,13 @@ export default async function PersonAccountsPage() {
                         Manage individual customers and personal accounts.
                     </p>
                 </div>
-                <Button asChild>
-                    <Link href="/accounts/create?type=person">
-                        <Plus className="mr-2 h-4 w-4" />
-                        Create Person Account
-                    </Link>
-                </Button>
+                <CreateAccountButton isPerson />
             </div>
 
-            <PersonAccountTable data={accounts.accounts} />
+            <PersonAccountTable 
+                data={accountsData.accounts} 
+                pagination={accountsData.pagination} 
+            />
         </div>
     );
 }

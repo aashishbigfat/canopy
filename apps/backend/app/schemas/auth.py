@@ -3,6 +3,7 @@ Authentication schemas for login, registration, and password management
 """
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional
+from app.core.validators import validate_password_complexity
 
 class UserLogin(BaseModel):
     """Schema for user login"""
@@ -19,6 +20,10 @@ class UserRegister(BaseModel):
     confirm_password: str
     tenant_id: Optional[str] = None
     
+    @validator('password')
+    def validate_complexity(cls, v):
+        return validate_password_complexity(v)
+    
     @validator('confirm_password')
     def passwords_match(cls, v, values):
         if 'password' in values and v != values['password']:
@@ -31,6 +36,10 @@ class PasswordChange(BaseModel):
     current_password: str
     new_password: str = Field(..., min_length=8)
     confirm_password: str
+    
+    @validator('new_password')
+    def validate_complexity(cls, v):
+        return validate_password_complexity(v)
     
     @validator('confirm_password')
     def passwords_match(cls, v, values):
@@ -48,6 +57,10 @@ class PasswordResetConfirm(BaseModel):
     """Schema for confirming password reset"""
     token: str
     new_password: str = Field(..., min_length=8)
+
+    @validator('new_password')
+    def validate_complexity(cls, v):
+        return validate_password_complexity(v)
 
 
 class TokenResponse(BaseModel):

@@ -96,7 +96,7 @@ class OpportunityService(ActivityMixin):
                 user_id=user_id,
                 tenant_id=tenant_id,
                 title="New Opportunity Created",
-                message=f"Opportunity '{opportunity.name}' worth ${opportunity.amount:,.2f} has been created",
+                message=f"Opportunity '{opportunity.name}' worth ₹{opportunity.amount:,.2f} has been created",
                 type="opportunity",
                 entity_type="opportunity",
                 entity_id=opportunity.id,
@@ -152,6 +152,7 @@ class OpportunityService(ActivityMixin):
         # Track changes
         old_values = {}
         updated_fields = {}
+        old_stage_id = opp.sales_stage_id
         
         # Update fields
         update_data = opp_data.model_dump(exclude_unset=True)
@@ -200,17 +201,82 @@ class OpportunityService(ActivityMixin):
             updated_fields=updated_fields
         )
         
+        # Log stage history if changed
+        new_stage_id = getattr(opp, "sales_stage_id", None)
+        if "sales_stage_id" in update_data and new_stage_id and str(new_stage_id) != str(old_stage_id):
+            history = OpportunityHistory(
+                opportunity_id=opp.id,
+                tenant_id=tenant_id,
+                field_name="sales_stage_id",
+                old_value=str(old_stage_id) if old_stage_id else None,
+                new_value=str(new_stage_id),
+                changed_by=user_id,
+                amount_at_change=opp.amount,
+                probability_at_change=opp.probability,
+            )
+            await history.insert()
+        
+        # Log history if amount changed (separate from stage changes)
+        if "amount" in update_data and old_values.get("amount") != opp.amount:
+            amount_history = OpportunityHistory(
+                opportunity_id=opp.id,
+                tenant_id=tenant_id,
+                field_name="amount",
+                old_value=str(old_values.get("amount") or 0),
+                new_value=str(opp.amount or 0),
+                changed_by=user_id,
+                amount_at_change=opp.amount,
+                probability_at_change=opp.probability,
+            )
+            await amount_history.insert()
+            
+        # Bi-directional sync: If inclusions change, immediately reflect it in the Costing module
+        if "inclusions" in update_data and old_values.get("inclusions") != opp.inclusions:
+            from app.models.opportunity_financial import OpportunityCosting
+            costing = await OpportunityCosting.find_one(
+                OpportunityCosting.opportunity_id == opp.id,
+                OpportunityCosting.tenant_id == tenant_id
+            )
+            if costing:
+                new_inclusions = opp.inclusions or []
+                costing.selected_item_types = new_inclusions
+                
+                # Filter out line items that are no longer in inclusions (but keep Tax and Misc)
+                valid_items = []
+                for item in costing.items:
+                    if item.item_type in ["Tax", "Miscellaneous"] or item.item_type in new_inclusions:
+                        valid_items.append(item)
+                
+                costing.items = valid_items
+                
+                # Since items may have been removed, mathematically recalculate totals
+                costing.total_amount = sum(i.amount for i in costing.items)
+                costing.total_cost = sum(i.cost_amount for i in costing.items)
+                costing.profit = costing.total_amount - costing.total_cost
+                costing.profit_percent = round((costing.profit / costing.total_amount * 100), 2) if costing.total_amount > 0 else 0.0
+                
+                from datetime import datetime
+                costing.updated_at = datetime.utcnow()
+                await costing.save()
+        
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
         
         return opp
     
     async def delete_opportunity(self, opp_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
-        """Soft delete an opportunity"""
+        """Soft delete an opportunity and remove its history"""
+        from app.models.opportunity_picklists import OpportunityHistory
+        
         opp = await self.get_opportunity(opp_id, tenant_id)
         
         if not opp:
             return False
+            
+        # Hard delete all history records for this opportunity
+        await OpportunityHistory.find(
+            OpportunityHistory.opportunity_id == opp.id
+        ).delete()
         
         await opp.soft_delete()
         
@@ -306,32 +372,38 @@ class OpportunityService(ActivityMixin):
         old_stage_id = opp.sales_stage_id
         new_stage_id = ObjectId(stage_change.new_stage_id)
         
-        # Guard: Only change if stage is different
-        if old_stage_id == new_stage_id:
+        # Guard: Only skip if stage is same AND reason is same
+        if old_stage_id == new_stage_id and opp.close_lost_reason == stage_change.reason:
             return opp
 
         # Update stage
         opp.sales_stage_id = new_stage_id
         opp.last_modified_by_id = user_id
         
-        # Update probability based on stage
+        # Update probability and close lost reason based on stage
         from app.models.opportunity_picklists import SalesStage
         new_stage = await SalesStage.get(new_stage_id)
         if new_stage:
             opp.probability = new_stage.probability
+            # If moving to a lost stage, store the reason in close_lost_reason
+            if getattr(new_stage, 'is_lost', False) and stage_change.reason:
+                opp.close_lost_reason = stage_change.reason
         
         await opp.save()
         
-        # Log history
-        history = OpportunityHistory(
-            opportunity_id=opp.id,
-            tenant_id=tenant_id,
-            field_name="sales_stage_id",
-            old_value=str(old_stage_id),
-            new_value=str(new_stage_id),
-            changed_by=user_id
-        )
-        await history.insert()
+        # Log history only if stage ID actually changed
+        if str(old_stage_id) != str(new_stage_id):
+            history = OpportunityHistory(
+                opportunity_id=opp.id,
+                tenant_id=tenant_id,
+                field_name="sales_stage_id",
+                old_value=str(old_stage_id),
+                new_value=str(new_stage_id),
+                changed_by=user_id,
+                amount_at_change=opp.amount,
+                probability_at_change=opp.probability,
+            )
+            await history.insert()
         
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
@@ -395,18 +467,19 @@ class OpportunityService(ActivityMixin):
 
     async def seed_standard_stages(self, tenant_id: ObjectId):
         """
-        Seed/normalize sales stages for a tenant.
+        Seed/normalize sales stages.
 
-        After this runs, the tenant will only have these active stages:
+        After this runs, the system will have these active stages:
         - Received (10%)
         - Qualified (20%)
         - Proposal (30%)
         - Closed Won (100%, won)
         - Closed Lost (0%, lost)
+        - Refunded (0%, lost)
 
-        Any other existing stages for this tenant are marked inactive so they
-        no longer appear in picklists, but existing opportunities that still
-        reference them will keep working.
+        Stages are global (shared across tenants). This method will upsert
+        existing stages by name, regardless of whether they have a tenant_id
+        or not, to avoid creating duplicates.
         """
         from app.models.opportunity_picklists import SalesStage
 
@@ -416,14 +489,14 @@ class OpportunityService(ActivityMixin):
             {"name": "Proposal", "probability": 30, "sorting": 30, "is_default": False, "is_won": False, "is_lost": False},
             {"name": "Closed Won", "probability": 100, "sorting": 40, "is_default": False, "is_won": True, "is_lost": False},
             {"name": "Closed Lost", "probability": 0, "sorting": 50, "is_default": False, "is_won": False, "is_lost": True},
+            {"name": "Refunded", "probability": 0, "sorting": 60, "is_default": False, "is_won": False, "is_lost": True},
         ]
 
         desired_names = {s["name"] for s in desired_stages}
 
-        # Upsert desired stages
+        # Upsert desired stages — search by name only (stages are global)
         for stage_data in desired_stages:
             existing = await SalesStage.find_one(
-                SalesStage.tenant_id == tenant_id,
                 SalesStage.name == stage_data["name"],
             )
 
@@ -438,14 +511,12 @@ class OpportunityService(ActivityMixin):
             else:
                 stage = SalesStage(
                     **stage_data,
-                    tenant_id=tenant_id,
                     is_active=True,
                 )
                 await stage.insert()
 
-        # Deactivate any other stages for this tenant
+        # Deactivate any other stages that aren't in the desired set
         other_stages_cursor = SalesStage.find(
-            SalesStage.tenant_id == tenant_id,
             SalesStage.name.not_in(list(desired_names)),
         )
         async for stage in other_stages_cursor:

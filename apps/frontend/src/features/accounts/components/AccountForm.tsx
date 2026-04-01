@@ -4,8 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
-import { AxiosRequestConfig } from "axios";
+import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
+import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,7 +18,13 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
+import { PhoneInput } from "@/components/ui/phone-input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
+import { Separator } from "@/components/ui/separator";
+import { accountService } from "@/features/accounts/services/accountService";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 import {
     Select,
     SelectContent,
@@ -25,50 +32,47 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { accountService } from "@/features/accounts/services/accountService";
-import { getSession } from "next-auth/react";
 
-const accountFormSchema = z.object({
-    name: z.string().min(2, "Name must be at least 2 characters.").optional().or(z.literal("")),
+const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
+    name: isPersonAccount ? z.string().optional().or(z.literal("")) : z.string().min(2, "Name must be at least 2 characters.").max(255),
     salutation: z.string().optional(),
     first_name: z.string().optional(),
-    last_name: z.string().optional(),
-    email: z.string().email("Invalid email address.").optional().or(z.literal("")),
-    phone: z.string().optional().or(z.literal("")),
-    mobile: z.string().optional().or(z.literal("")),
+    last_name: isPersonAccount ? z.string().min(1, "Last Name is required") : z.string().optional(),
+    email: z.string().email("Invalid email address."),
+    phone: z.string().min(1, "Phone is required").refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number."
+    }),
     website: z.string().url("Invalid URL.").optional().or(z.literal("")),
-    description: z.string().optional(),
 
     // Classification
-    industry_id: z.string().optional(),
+    industry_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Industry is required"),
     rating_id: z.string().optional(),
-    acc_type_id: z.string().optional(),
-    account_source_id: z.string().optional(),
-    owner_id: z.string().optional(),
+    acc_type_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Account Type is required"),
 
     // Addresses
     billing_street: z.string().optional(),
     billing_city: z.string().optional(),
-    billing_state: z.string().optional(),
-    billing_zip: z.string().optional(),
-    billing_country: z.string().optional(),
+    billing_state: z.string().min(1, "State is required"),
+    billing_zip: z.string().regex(/^\d{3,10}$/, "Invalid Zip/Postal code format. Must be numeric.").optional().or(z.literal("")),
+    billing_country: z.string().min(1, "Country is required"),
 
     shipping_street: z.string().optional(),
     shipping_city: z.string().optional(),
     shipping_state: z.string().optional(),
-    shipping_zip: z.string().optional(),
+    shipping_zip: z.string().regex(/^\d{3,10}$/, "Invalid Zip/Postal code format. Must be numeric.").optional().or(z.literal("")),
     shipping_country: z.string().optional(),
-
-    status: z.enum(["active", "inactive"]),
+    owner_id: z.string().optional(),
 });
 
-type AccountFormValues = z.infer<typeof accountFormSchema>;
+type AccountFormValues = z.infer<ReturnType<typeof getAccountFormSchema>>;
 
 interface AccountFormProps {
     isPersonAccount?: boolean;
     initialData?: any;
     id?: string;
+    onSuccess?: () => void;
+    onCancel?: () => void;
+    isDrawer?: boolean;
 }
 
 interface MetaData {
@@ -77,15 +81,329 @@ interface MetaData {
     account_types: { id: string, name: string }[];
     sources: { id: string, name: string }[];
     users: { id: string, name: string }[];
+    current_user_name?: string;
 }
 
-export function AccountForm({ isPersonAccount = false, initialData, id }: AccountFormProps) {
+const locationCache = {
+    countries: new Map<string, any>(),
+    states: new Map<string, any>(),
+    cities: new Map<string, any>(),
+};
+
+function BillingLocationFields({ form, children }: { form: any, children?: React.ReactNode }) {
+    const [countries, setCountries] = useState<Country[]>([]);
+    const [states, setStates] = useState<State[]>([]);
+    const [cities, setCities] = useState<City[]>([]);
+    const [loadingCountries, setLoadingCountries] = useState(false);
+    const [loadingStates, setLoadingStates] = useState(false);
+    const [loadingCities, setLoadingCities] = useState(false);
+
+    useEffect(() => {
+        const init = async () => {
+            const currentCountryName = form.getValues("billing_country");
+            const currentStateName = form.getValues("billing_state");
+            const currentCityName = form.getValues("billing_city");
+
+            setLoadingCountries(true);
+            try {
+                let loadedCountries: Country[] = [];
+                const cacheKey = "popular";
+                if (locationCache.countries.has(cacheKey)) {
+                    loadedCountries = locationCache.countries.get(cacheKey);
+                } else {
+                    const r = await locationService.getCountries(true);
+                    locationCache.countries.set(cacheKey, r.countries);
+                    loadedCountries = r.countries;
+                }
+                
+                if (currentCountryName && !loadedCountries.find(c => c.name === currentCountryName)) {
+                    const searchRes = await locationService.searchCountries(currentCountryName);
+                    const specific = searchRes.countries.find(c => c.name === currentCountryName);
+                    if (specific) loadedCountries = [...loadedCountries, specific];
+                }
+                setCountries(loadedCountries);
+
+                if (currentCountryName) {
+                    const country = loadedCountries.find(c => c.name === currentCountryName);
+                    if (country) {
+                        setLoadingStates(true);
+                        try {
+                            const statesCacheKey = `${country.id}:all`;
+                            let loadedStates: State[] = [];
+                            if (locationCache.states.has(statesCacheKey)) {
+                                loadedStates = locationCache.states.get(statesCacheKey);
+                            } else {
+                                const sRes = await locationService.getStates(country.id);
+                                locationCache.states.set(statesCacheKey, sRes.states);
+                                loadedStates = sRes.states;
+                            }
+                            
+                            if (currentStateName && !loadedStates.find(s => s.name === currentStateName)) {
+                                const sSearch = await locationService.searchStates(currentStateName, country.id);
+                                const specificState = sSearch.states.find(s => s.name === currentStateName);
+                                if (specificState) loadedStates = [...loadedStates, specificState];
+                            }
+                            setStates(loadedStates);
+
+                            if (currentStateName) {
+                                const state = loadedStates.find(s => s.name === currentStateName);
+                                if (state) {
+                                    setLoadingCities(true);
+                                    try {
+                                        const citiesCacheKey = `${state.id}:all`;
+                                        let loadedCities: City[] = [];
+                                        if (locationCache.cities.has(citiesCacheKey)) {
+                                            loadedCities = locationCache.cities.get(citiesCacheKey);
+                                        } else {
+                                            const cRes = await locationService.getCitiesByState(state.id);
+                                            locationCache.cities.set(citiesCacheKey, cRes.cities);
+                                            loadedCities = cRes.cities;
+                                        }
+                                        
+                                        if (currentCityName && !loadedCities.find(c => c.name === currentCityName)) {
+                                            const cSearch = await locationService.searchCities(currentCityName, country.id, state.id);
+                                            const specificCity = cSearch.cities.find(c => c.name === currentCityName);
+                                            if (specificCity) loadedCities = [...loadedCities, specificCity];
+                                        }
+                                        setCities(loadedCities);
+                                    } finally {
+                                        setLoadingCities(false);
+                                    }
+                                }
+                            }
+                        } finally {
+                            setLoadingStates(false);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Location init error", err);
+            } finally {
+                setLoadingCountries(false);
+            }
+        };
+        init();
+    }, [form]);
+
+    const handleCountrySearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        try {
+            if (!query) {
+                const cacheKey = "popular";
+                if (locationCache.countries.has(cacheKey)) {
+                    setCountries(locationCache.countries.get(cacheKey));
+                    return;
+                }
+                const res = await locationService.getCountries(true, signal);
+                locationCache.countries.set(cacheKey, res.countries);
+                setCountries(res.countries);
+                return;
+            }
+
+            if (locationCache.countries.has(query)) {
+                setCountries(locationCache.countries.get(query));
+                return;
+            }
+
+            setLoadingCountries(true);
+            const res = await locationService.searchCountries(query, signal);
+            locationCache.countries.set(query, res.countries);
+            setCountries(res.countries);
+        } catch (error) {
+            import("axios").then(axios => {
+                if (axios.default.isCancel(error)) return;
+                console.error("Country search error", error);
+            });
+        } finally {
+            setLoadingCountries(false);
+        }
+    }, []);
+
+    const handleStateSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        const countryName = form.getValues("billing_country");
+        const country = countries.find(c => c.name === countryName);
+        if (!country) return;
+
+        try {
+            const cacheKey = `${country.id}:${query || "all"}`;
+            if (locationCache.states.has(cacheKey)) {
+                setStates(locationCache.states.get(cacheKey));
+                return;
+            }
+
+            if (!query) {
+                const res = await locationService.getStates(country.id, signal);
+                locationCache.states.set(cacheKey, res.states);
+                setStates(res.states);
+                return;
+            }
+
+            setLoadingStates(true);
+            const res = await locationService.searchStates(query, country.id, signal);
+            locationCache.states.set(cacheKey, res.states);
+            setStates(res.states);
+        } catch (error) {
+            import("axios").then(axios => {
+                if (axios.default.isCancel(error)) return;
+                console.error("State search error", error);
+            });
+        } finally {
+            setLoadingStates(false);
+        }
+    }, [countries, form]);
+
+    const handleCitySearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        const countryName = form.getValues("billing_country");
+        const stateName = form.getValues("billing_state");
+        const country = countries.find(c => c.name === countryName);
+        const state = states.find(s => s.name === stateName);
+        
+        if (!state) return;
+
+        try {
+            const cacheKey = `${state.id}:${query || "all"}`;
+            if (locationCache.cities.has(cacheKey)) {
+                setCities(locationCache.cities.get(cacheKey));
+                return;
+            }
+
+            if (!query) {
+                const res = await locationService.getCitiesByState(state.id, signal);
+                locationCache.cities.set(cacheKey, res.cities);
+                setCities(res.cities);
+                return;
+            }
+
+            setLoadingCities(true);
+            const res = await locationService.searchCities(query, country?.id, state.id, signal);
+            locationCache.cities.set(cacheKey, res.cities);
+            setCities(res.cities);
+        } catch (error) {
+            import("axios").then(axios => {
+                if (axios.default.isCancel(error)) return;
+                console.error("City search error", error);
+            });
+        } finally {
+            setLoadingCities(false);
+        }
+    }, [countries, states, form]);
+
+    return (
+        <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="billing_country"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Country *</FormLabel>
+                            <FormControl>
+                                <SearchableSelect
+                                    options={countries.map(c => ({ label: c.name, value: c.name }))}
+                                    value={field.value}
+                                    onSearch={handleCountrySearch}
+                                    isLoading={loadingCountries}
+                                    onValueChange={(val) => {
+                                        const prev = field.value;
+                                        field.onChange(val);
+                                        if (prev !== val) {
+                                            form.setValue("billing_state", "");
+                                            form.setValue("billing_city", "");
+                                            setStates([]);
+                                            setCities([]);
+                                            if (val) {
+                                                const country = countries.find(c => c.name === val);
+                                                if (country) {
+                                                    setLoadingStates(true);
+                                                    locationService.getStates(country.id).then(res => {
+                                                        setStates(res.states);
+                                                        setLoadingStates(false);
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }}
+                                    placeholder="Select Country"
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                <FormField
+                    control={form.control}
+                    name="billing_state"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>State *</FormLabel>
+                            <FormControl>
+                                <SearchableSelect
+                                    options={states.map(s => ({ label: s.name, value: s.name }))}
+                                    value={field.value}
+                                    onSearch={handleStateSearch}
+                                    isLoading={loadingStates}
+                                    onValueChange={(val) => {
+                                        const prev = field.value;
+                                        field.onChange(val);
+                                        if (prev !== val) {
+                                            form.setValue("billing_city", "");
+                                            setCities([]);
+                                            if (val) {
+                                                const state = states.find(s => s.name === val);
+                                                if (state) {
+                                                    setLoadingCities(true);
+                                                    locationService.getCitiesByState(state.id).then(res => {
+                                                        setCities(res.cities);
+                                                        setLoadingCities(false);
+                                                    });
+                                                }
+                                            }
+                                        }
+                                    }}
+                                    placeholder="Select State"
+                                    disabled={!form.watch("billing_country")}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+                <FormField
+                    control={form.control}
+                    name="billing_city"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                                <SearchableSelect
+                                    options={cities.map(c => ({ label: c.name, value: c.name }))}
+                                    value={field.value}
+                                    onValueChange={field.onChange}
+                                    onSearch={handleCitySearch}
+                                    disabled={!form.watch("billing_state")}
+                                    isLoading={loadingCities}
+                                    placeholder="Select City"
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                {children}
+            </div>
+        </div>
+    );
+}
+
+export function AccountForm({ isPersonAccount = false, initialData, id, onSuccess, onCancel, isDrawer = false }: AccountFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [metaData, setMetaData] = useState<MetaData | null>(null);
 
     const form = useForm<AccountFormValues>({
-        resolver: zodResolver(accountFormSchema),
+        resolver: zodResolver(getAccountFormSchema(isPersonAccount)),
         defaultValues: {
             name: initialData?.name || "",
             salutation: initialData?.salutation || "",
@@ -93,14 +411,10 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
             last_name: initialData?.last_name || "",
             email: initialData?.email || "",
             phone: initialData?.phone || "",
-            mobile: initialData?.mobile || "",
             website: initialData?.website || "",
-            description: initialData?.description || "",
             industry_id: initialData?.industry_id || initialData?.industry || "",
             rating_id: initialData?.rating_id || initialData?.rating || "",
             acc_type_id: initialData?.acc_type_id || "",
-            account_source_id: initialData?.account_source_id || "",
-            owner_id: initialData?.owner_id || "",
             billing_street: initialData?.billing_street || "",
             billing_city: initialData?.billing_city || "",
             billing_state: initialData?.billing_state || "",
@@ -111,7 +425,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
             shipping_state: initialData?.shipping_state || "",
             shipping_zip: initialData?.shipping_zip || "",
             shipping_country: initialData?.shipping_country || "",
-            status: initialData?.status || "active",
+            owner_id: initialData?.owner_id || "",
         },
     });
 
@@ -127,17 +441,25 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
         fetchMetaData();
     }, []);
 
-    const copyBillingToShipping = () => {
-        const values = form.getValues();
-        form.setValue("shipping_street", values.billing_street);
-        form.setValue("shipping_city", values.billing_city);
-        form.setValue("shipping_state", values.billing_state);
-        form.setValue("shipping_zip", values.billing_zip);
-        form.setValue("shipping_country", values.billing_country);
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
+        }
+        return false;
     };
 
     async function onSubmit(data: AccountFormValues) {
         setIsLoading(true);
+        const startTime = Date.now();
+        let isSuccess = false;
         try {
             let finalName = data.name || "";
             if (isPersonAccount && !finalName) {
@@ -146,8 +468,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                 finalName = initialData?.name || "Unnamed Account";
             }
 
-            // Clean up payload: convert empty strings to null for backend compatibility
-            // This prevents "400 Bad Request" errors when the backend expects ObjectIds or valid Email strings
+            // Clean up payload: convert empty strings to null/undefined for backend compatibility
             const cleanedData = Object.entries(data).reduce((acc, [key, value]) => {
                 acc[key] = value === "" ? null : value;
                 return acc;
@@ -159,23 +480,52 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                 is_person_account: isPersonAccount,
             };
 
-            if (id) {
-                await accountService.updateAccount(id, payload);
-            } else {
-                await accountService.createAccount(payload as any);
-            }
-            router.push(isPersonAccount ? "/person-accounts" : "/accounts");
-            router.refresh();
-        } catch (error) {
-            console.error(`Failed to ${id ? 'update' : 'create'} account`, error);
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    if (id) {
+                        await accountService.updateAccount(id, payload);
+                        toast.success("Account updated successfully");
+                    } else {
+                        await accountService.createAccount(payload as any);
+                        toast.success("Account created successfully");
+                    }
+                    isSuccess = true;
+                    
+                    const elapsedTime = Date.now() - startTime;
+                    if (elapsedTime < 2500) {
+                        await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                    }
+                    
+                    if (onSuccess) {
+                        onSuccess();
+                    } else {
+                        router.push(isPersonAccount ? "/person-accounts" : "/accounts");
+                        router.refresh();
+                    }
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to save account"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to save account");
+        } catch (_) {
+            // Error is already handled
         } finally {
-            setIsLoading(false);
+            if (!isSuccess) {
+                const elapsedTime = Date.now() - startTime;
+                if (elapsedTime < 2500) {
+                    await new Promise(r => setTimeout(r, 2500 - elapsedTime));
+                }
+                setIsLoading(false);
+            }
         }
     }
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-8"
+            >
                 {/* General Information */}
                 <div>
                     <h3 className="text-lg font-medium mb-4">General Information</h3>
@@ -186,7 +536,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                 name="name"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Account Name</FormLabel>
+                                        <FormLabel>Account Name *</FormLabel>
                                         <FormControl>
                                             <Input placeholder="Acme Corp" {...field} />
                                         </FormControl>
@@ -213,6 +563,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                                     <SelectItem value="Ms.">Ms.</SelectItem>
                                                     <SelectItem value="Mrs.">Mrs.</SelectItem>
                                                     <SelectItem value="Dr.">Dr.</SelectItem>
+                                                    <SelectItem value="Prof.">Prof.</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />
@@ -238,7 +589,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                         name="last_name"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Last Name</FormLabel>
+                                                <FormLabel>Last Name *</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Doe" {...field} />
                                                 </FormControl>
@@ -255,7 +606,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                             name="email"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Email</FormLabel>
+                                    <FormLabel>Email *</FormLabel>
                                     <FormControl>
                                         <Input type="email" placeholder="contact@example.com" {...field} />
                                     </FormControl>
@@ -264,6 +615,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                             )}
                         />
 
+                        {!isPersonAccount && (
                         <FormField
                             control={form.control}
                             name="website"
@@ -277,6 +629,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                                 </FormItem>
                             )}
                         />
+                        )}
                     </div>
                 </div>
 
@@ -291,22 +644,9 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                             name="phone"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Phone</FormLabel>
+                                    <FormLabel>Phone *</FormLabel>
                                     <FormControl>
-                                        <Input placeholder="1234567890" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="mobile"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Mobile</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="1234567890" {...field} />
+                                        <PhoneInput {...field} placeholder="Phone number" />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -316,314 +656,133 @@ export function AccountForm({ isPersonAccount = false, initialData, id }: Accoun
                 </div>
 
                 <Separator />
-
-                {/* Classification */}
+                
+                {/* System Information */}
                 <div>
-                    <h3 className="text-lg font-medium mb-4">Classification</h3>
+                    <h3 className="text-lg font-medium mb-4">System Information</h3>
                     <div className="grid gap-6 md:grid-cols-2">
-                        <FormField
-                            control={form.control}
-                            name="industry_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Industry</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        {initialData || id ? (
+                            <FormField
+                                control={form.control}
+                                name="owner_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Account Owner</FormLabel>
                                         <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Industry" />
-                                            </SelectTrigger>
+                                            <SearchableSelect
+                                                options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select Owner"
+                                            />
                                         </FormControl>
-                                        <SelectContent>
-                                            {metaData?.industries.map(i => (
-                                                <SelectItem key={i.id} value={i.id}>{i.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="rating_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Rating</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Rating" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.ratings.map(r => (
-                                                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="account_source_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Account Source</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Source" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.sources.map(s => (
-                                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="owner_id"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Owner</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Select Owner" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {metaData?.users.map(u => (
-                                                <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        ) : (
+                            <div className="flex flex-col space-y-2 mt-2">
+                                <FormLabel>Owner</FormLabel>
+                                <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                    {session?.user?.name || "Automatically assigned to you"}
+                                </p>
+                            </div>
+                        )}
                     </div>
                 </div>
+
+                {!isPersonAccount && (
+                    <>
+                        <Separator />
+                        {/* Classification */}
+                        <div>
+                            <h3 className="text-lg font-medium mb-4">Classification</h3>
+                            <div className="grid gap-6 md:grid-cols-2">
+                                <FormField
+                                    control={form.control}
+                                    name="industry_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Industry *</FormLabel>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={metaData?.industries.map(i => ({ label: i.name, value: i.id })) || []}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Select Industry"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={form.control}
+                                    name="acc_type_id"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Account Type *</FormLabel>
+                                            <FormControl>
+                                                <SearchableSelect
+                                                    options={metaData?.account_types?.map(t => ({ label: t.name, value: t.id })) || []}
+                                                    value={field.value}
+                                                    onValueChange={field.onChange}
+                                                    placeholder="Select Account Type"
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
+                        </div>
+                    </>
+                )}
 
                 <Separator />
 
                 {/* Address Information */}
                 <div>
-                    <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-medium">Address Information</h3>
-                        <Button type="button" variant="outline" size="sm" onClick={copyBillingToShipping}>
-                            Copy Billing to Shipping
-                        </Button>
-                    </div>
-
-                    <div className="grid gap-10 md:grid-cols-2">
-                        {/* Billing */}
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-semibold uppercase text-slate-500">Billing Address</h4>
-                            <FormField
-                                control={form.control}
-                                name="billing_street"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Street</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="123 Main St" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="billing_city"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>City</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="City" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="billing_state"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>State</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="State" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="billing_zip"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Zip Code</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="12345" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="billing_country"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Country</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Country" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </div>
-
-                        {/* Shipping */}
-                        <div className="space-y-4">
-                            <h4 className="text-sm font-semibold uppercase text-slate-500">Shipping Address</h4>
-                            <FormField
-                                control={form.control}
-                                name="shipping_street"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Street</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="123 Main St" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_city"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>City</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="City" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_state"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>State</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="State" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_zip"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Zip Code</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="12345" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="shipping_country"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Country</FormLabel>
-                                            <FormControl>
-                                                <Input placeholder="Country" {...field} />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <Separator />
-
-                {/* Description & Status */}
-                <div className="grid gap-6 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Description</FormLabel>
-                                <FormControl>
-                                    <Textarea
-                                        placeholder="Add any additional notes here..."
-                                        className="h-32"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="status"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Status</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <h3 className="text-lg font-medium mb-4">Address Information</h3>
+                    <div className="space-y-4">
+                        <FormField
+                            control={form.control}
+                            name="billing_street"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Street</FormLabel>
                                     <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a status" />
-                                        </SelectTrigger>
+                                        <Input placeholder="123 Main St" {...field} />
                                     </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="active">Active</SelectItem>
-                                        <SelectItem value="inactive">Inactive</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <BillingLocationFields form={form}>
+                            <FormField
+                                control={form.control}
+                                name="billing_zip"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Zip Code</FormLabel>
+                                        <FormControl>
+                                            <Input type="number" placeholder="12345" {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </BillingLocationFields>
+                    </div>
                 </div>
 
-                <div className="flex justify-end gap-4 pt-4 border-t">
-                    <Button type="button" variant="outline" onClick={() => router.back()}>
-                        Cancel
+                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10")}>
+                    <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>
+                        {isDrawer ? "Close" : "Cancel"}
                     </Button>
                     <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
-                        {isLoading ? (id ? "Updating..." : "Creating...") : (id ? "Update Account" : "Create Account")}
+                        {isLoading ? (id ? "Updating..." : "Creating...") : (isDrawer ? (id ? "Update" : "Save") : (id ? "Update Account" : "Create Account"))}
                     </Button>
                 </div>
             </form>

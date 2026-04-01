@@ -43,6 +43,9 @@ class TenantSettings(BaseDocument):
     payment_terms_days: int = 30
     default_tax_percent: float = 0.0
     
+    # Financial costing settings (multi-tenant)
+    default_tax_misc_supplier: Optional[str] = None  # Used as supplier name in Tax & Miscellaneous rows
+    
     # Notifications
     notify_on_new_lead: bool = True
     notify_on_new_opportunity: bool = True

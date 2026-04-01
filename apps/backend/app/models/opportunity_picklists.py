@@ -84,6 +84,10 @@ class OpportunityHistory(Document):
     old_value: Optional[str] = None
     new_value: Optional[str] = None
     
+    # Snapshot of opportunity financials AT THE TIME of the stage change
+    amount_at_change: Optional[float] = None
+    probability_at_change: Optional[int] = None
+    
     changed_by: PydanticObjectId
     changed_at: datetime = Field(default_factory=datetime.utcnow)
     

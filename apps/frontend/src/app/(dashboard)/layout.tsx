@@ -8,7 +8,6 @@ import {
     ChevronDown,
     Mail,
     Menu,
-    Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -22,10 +21,10 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { CommandPalette } from "@/components/search/CommandPalette";
+import { GlobalSearchBar } from "@/components/search/GlobalSearchBar";
 
 
 export default function DashboardLayout({
@@ -69,32 +68,8 @@ export default function DashboardLayout({
                 <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-extrabold tracking-tighter">
                     <span className="text-2xl bg-gradient-to-br from-white to-cyan-300 bg-clip-text text-transparent">Tutterfly</span>
                 </Link>
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="text-slate-100 hover:bg-white/10 text-base font-semibold px-4 h-10 transition-all">
-                            Accounts <ChevronDown className="ml-1.5 h-4 w-4 opacity-70" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start">
-                        <DropdownMenuLabel>Accounts</DropdownMenuLabel>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                            <Link href="/accounts">All Accounts</Link>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link href="/accounts/create">New Account</Link>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
                 <div className="flex-1 px-8">
-                    <div className="relative max-w-2xl group">
-                        <Search className="absolute left-3.5 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400 group-focus-within:text-cyan-400 transition-colors" />
-                        <Input
-                            type="search"
-                            placeholder="Universal search..."
-                            className="h-11 border-none bg-white/5 pl-11 text-white placeholder:text-slate-500 focus-visible:ring-1 focus-visible:ring-cyan-500/30 text-base rounded-full backdrop-blur-sm transition-all focus:bg-white/10"
-                        />
-                    </div>
+                    <GlobalSearchBar />
                 </div>
                 <div className="flex items-center gap-3">
                     <DropdownMenu>

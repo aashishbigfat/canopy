@@ -13,7 +13,7 @@ export function TaskList() {
     if (isLoading) return <div>Loading tasks...</div>;
     if (isError) return <div>Error loading tasks</div>;
 
-    const tasks = data?.data || [];
+    const tasks = data?.tasks || [];
 
     return (
         <div className="rounded-md border">

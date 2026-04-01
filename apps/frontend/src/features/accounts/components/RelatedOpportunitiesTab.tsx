@@ -9,7 +9,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { Plus, ExternalLink, DollarSign } from "lucide-react";
+import { Plus, ExternalLink, IndianRupee } from "lucide-react";
 import Link from "next/link";
 
 interface RelatedOpportunitiesTabProps {
@@ -27,10 +27,10 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                     <div>
                         <CardTitle>Related Opportunities</CardTitle>
                         <CardDescription>
-                            Sales opportunities for this account • Total Value: ${totalValue.toLocaleString()}
+                            Sales opportunities for this account • Total Value: ₹{totalValue.toLocaleString()}
                         </CardDescription>
                     </div>
-                    <Link href={`/opportunities/create?account_id=${accountId}`}>
+                    <Link href={`/opportunities/create?accountId=${accountId}`}>
                         <Button size="sm">
                             <Plus className="mr-2 h-4 w-4" />
                             Create Opportunity
@@ -42,7 +42,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                 {opportunities.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
                         <p>No opportunities for this account</p>
-                        <Link href={`/opportunities/create?account_id=${accountId}`}>
+                        <Link href={`/opportunities/create?accountId=${accountId}`}>
                             <Button variant="outline" size="sm" className="mt-4">
                                 <Plus className="mr-2 h-4 w-4" />
                                 Create First Opportunity
@@ -78,7 +78,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
-                                            <DollarSign className="h-3 w-3" />
+                                            <IndianRupee className="h-3 w-3" />
                                             {opp.amount?.toLocaleString() || "0"}
                                         </div>
                                     </TableCell>

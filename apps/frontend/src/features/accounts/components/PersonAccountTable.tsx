@@ -15,6 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -194,7 +195,23 @@ export const personAccountColumns: ColumnDef<Account>[] = [
     },
 ];
 
-export function PersonAccountTable({ data }: { data: Account[] }) {
+export function PersonAccountTable({ 
+    data, 
+    pagination 
+}: { 
+    data: Account[], 
+    pagination: { 
+        current_page: number; 
+        total: number; 
+        per_page: number; 
+        pages: number; 
+    } 
+}) {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const [isPending, startTransition] = React.useTransition();
+
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
@@ -203,6 +220,8 @@ export function PersonAccountTable({ data }: { data: Account[] }) {
     const table = useReactTable({
         data,
         columns: personAccountColumns,
+        pageCount: pagination.pages,
+        manualPagination: true,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
@@ -231,7 +250,7 @@ export function PersonAccountTable({ data }: { data: Account[] }) {
                     className="max-w-sm"
                 />
             </div>
-            <div className="rounded-md border">
+            <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -281,23 +300,34 @@ export function PersonAccountTable({ data }: { data: Account[] }) {
             </div>
             <div className="flex items-center justify-end space-x-2 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                    {table.getFilteredSelectedRowModel().rows.length} of{" "}
-                    {table.getFilteredRowModel().rows.length} row(s) selected.
+                    Showing {data.length} of {pagination.total} records
                 </div>
                 <div className="space-x-2">
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => table.previousPage()}
-                        disabled={!table.getCanPreviousPage()}
+                        onClick={() => {
+                            const params = new URLSearchParams(searchParams.toString());
+                            params.set("page", (pagination.current_page - 1).toString());
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
+                        }}
+                        disabled={pagination.current_page <= 1}
                     >
                         Previous
                     </Button>
                     <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => table.nextPage()}
-                        disabled={!table.getCanNextPage()}
+                        onClick={() => {
+                            const params = new URLSearchParams(searchParams.toString());
+                            params.set("page", (pagination.current_page + 1).toString());
+                            startTransition(() => {
+                                router.push(`${pathname}?${params.toString()}`);
+                            });
+                        }}
+                        disabled={pagination.current_page >= pagination.pages}
                     >
                         Next
                     </Button>

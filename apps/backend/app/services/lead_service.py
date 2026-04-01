@@ -12,7 +12,7 @@ from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
 from app.models.user import User
 from app.models.lead_picklists import LeadStatus, Source
-from app.models.picklists import Industry, Rating
+from app.models.picklists import Industry
 from app.models.lead_custom_fields import UserLeadView
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.lead_repository import LeadRepository
@@ -144,7 +144,7 @@ class LeadService(ActivityMixin):
             user_id=user_id,
             tenant_id=tenant_id,
             title="New Lead Created",
-            message=f"Lead '{getattr(lead, 'name', getattr(lead, 'first_name', 'Unknown'))}' has been created",
+            message=f"Lead '{lead.full_name}' has been created",
             type="lead",
             entity_type="lead",
             entity_id=lead.id,
@@ -156,8 +156,15 @@ class LeadService(ActivityMixin):
         
         return lead
     async def get_lead(self, lead_id: str, tenant_id: ObjectId) -> Optional[Lead]:
-        """Get lead by ID"""
-        return await self.repository.get_by_id(id=lead_id, tenant_id=tenant_id)
+        """Get lead by ID (allows soft-deleted/converted leads)"""
+        # We allow converted leads here to avoid 404 errors in the UI after conversion
+        try:
+            return await Lead.find_one(
+                Lead.id == ObjectId(lead_id),
+                Lead.tenant_id == tenant_id
+            )
+        except Exception:
+            return None
     
     async def update_lead(
         self,
@@ -173,6 +180,20 @@ class LeadService(ActivityMixin):
         if not lead:
             return None
         
+        # 1. Deduplication check if email or mobile changed
+        email_changed = 'email' in lead_data.model_dump(exclude_unset=True) and lead_data.email != lead.email
+        mobile_changed = 'mobile' in lead_data.model_dump(exclude_unset=True) and lead_data.mobile != lead.mobile
+        
+        if email_changed or mobile_changed:
+            duplicate = await self._check_duplicate_lead(
+                lead_data.email if email_changed else lead.email,
+                lead_data.mobile if mobile_changed else lead.mobile,
+                tenant_id
+            )
+            # If a duplicate is found and it's not the current lead
+            if duplicate and duplicate.id != lead.id:
+                raise ValueError(f"A lead with this contact information already exists: {duplicate.first_name} {duplicate.last_name}")
+
         # Store original values for change tracking
         original_values = {}
         updated_fields = {}
@@ -286,6 +307,23 @@ class LeadService(ActivityMixin):
             limit=limit
         )
         
+    def _extract_domain(self, email: Optional[str]) -> Optional[str]:
+        """Extract domain from email address, ignoring public providers"""
+        if not email or "@" not in email:
+            return None
+            
+        domain = email.split("@")[-1].lower()
+        public_domains = {
+            "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
+            "me.com", "live.com", "msn.com", "aol.com", "mail.com", "zoho.com",
+            "yandex.com", "protonmail.com", "tutanota.com", "gmail.co.in", "yahoo.co.in"
+        }
+        
+        if domain in public_domains:
+            return None
+            
+        return domain
+
     async def _find_duplicate_account(
         self,
         account_name: str,
@@ -294,7 +332,7 @@ class LeadService(ActivityMixin):
         is_person_account: bool,
         tenant_id: ObjectId
     ) -> Optional[ObjectId]:
-        """Find an existing account by name, email, or phone to prevent duplicates during conversion"""
+        """Find an existing account by name, email, phone, or domain to prevent duplicates during conversion"""
         from app.models.account import Account
         
         # 1. Check exact name match first
@@ -329,6 +367,25 @@ class LeadService(ActivityMixin):
             )
             if account:
                 return account.id
+        
+        # 4. Check domain match (for corporate accounts)
+        if not is_person_account and email:
+            domain = self._extract_domain(email)
+            if domain:
+                # Search for accounts with same domain in website or email
+                account = await Account.find_one(
+                    Account.tenant_id == tenant_id,
+                    Account.is_person_account == False,
+                    Account.deleted_at == None,
+                    {
+                        "$or": [
+                            {"email": {"$regex": f"@{domain}$", "$options": "i"}},
+                            {"website": {"$regex": domain, "$options": "i"}}
+                        ]
+                    }
+                )
+                if account:
+                    return account.id
                 
         return None
     
@@ -373,9 +430,30 @@ class LeadService(ActivityMixin):
         else:
             # Determine account name and type
             is_person_account = conversion_data.account_type == "Person Account"
-            if not lead.company and not conversion_data.account_name:
+            
+            p_salutation = conversion_data.person_salutation if is_person_account else None
+            p_first_name = conversion_data.person_first_name if is_person_account else None
+            p_last_name = conversion_data.person_last_name if is_person_account else None
+            
+            # Fallback to lead explicit data if not provided via API
+            if is_person_account and not p_first_name and not p_last_name:
+                p_salutation = lead.salutation
+                p_first_name = lead.first_name
+                p_last_name = lead.last_name
+                
+            if is_person_account:
+                # Intelligently construct name from parts for Person Account (Fallback)
+                parts = [p for p in [p_salutation, p_first_name, p_last_name] if p]
+                account_name = " ".join(parts).strip() if parts else f"{lead.first_name} {lead.last_name}".strip()
+                # Override with explicit account_name if it was still sent
+                if conversion_data.account_name:
+                    account_name = conversion_data.account_name
+            elif not lead.company and not conversion_data.account_name:
                 is_person_account = True
                 account_name = f"{lead.first_name} {lead.last_name}".strip()
+                p_salutation = lead.salutation
+                p_first_name = lead.first_name
+                p_last_name = lead.last_name
             else:
                 account_name = conversion_data.account_name or lead.company or f"{lead.first_name} {lead.last_name}".strip()
 
@@ -403,9 +481,9 @@ class LeadService(ActivityMixin):
                     industry_id=lead.industry_id,
                     account_source_id=lead.source_id,
                     is_person_account=is_person_account,
-                    salutation=lead.salutation if is_person_account else None,
-                    first_name=lead.first_name if is_person_account else None,
-                    last_name=lead.last_name if is_person_account else None,
+                    salutation=p_salutation,
+                    first_name=p_first_name,
+                    last_name=p_last_name,
                     tenant_id=tenant_id,
                     owner_id=user_id,
                     created_by=user_id
@@ -418,6 +496,18 @@ class LeadService(ActivityMixin):
                     entity=account,
                     entity_type="account",
                     additional_data={"converted_from_lead_id": str(lead.id), "is_person_account": account.is_person_account}
+                )
+                
+                # Notification for Account creation
+                await self.notification_service.notify_user(
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    title="New Account Created",
+                    message=f"Account '{account.name}' has been created from Lead conversion",
+                    type="account",
+                    entity_type="account",
+                    entity_id=account.id,
+                    action_url=f"/accounts/{account.id}"
                 )
         
         # ==================================================================
@@ -513,6 +603,18 @@ class LeadService(ActivityMixin):
                     entity=contact,
                     entity_type="contact",
                     additional_data={"converted_from_lead_id": str(lead.id)}
+                )
+                
+                # Notification for Contact creation
+                await self.notification_service.notify_user(
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    title="New Contact Created",
+                    message=f"Contact '{contact.full_name}' has been created from Lead conversion",
+                    type="contact",
+                    entity_type="contact",
+                    entity_id=contact.id,
+                    action_url=f"/contacts/{contact.id}"
                 )
                 
                 # If account exists, create pivot entry
@@ -711,6 +813,7 @@ class LeadService(ActivityMixin):
                 opportunitable_type="Account" if not is_person_account else "PersonalAccount",
                 opportunitable_id=account_id,
                 lead_id=lead.id,
+                segment=lead.segment,
                 source_id=lead.source_id,
                 source_medium_id=lead.source_medium_id,
                 tenant_id=tenant_id,
@@ -755,6 +858,18 @@ class LeadService(ActivityMixin):
                     entity=opportunity,
                     entity_type="opportunity",
                     additional_data={"converted_from_lead_id": str(lead.id)}
+                )
+                
+                # Notification for Opportunity creation
+                await self.notification_service.notify_user(
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    title="New Opportunity Created",
+                    message=f"Opportunity '{opportunity.name}' worth ₹{opportunity.amount:,.2f} has been created from Lead conversion",
+                    type="opportunity",
+                    entity_type="opportunity",
+                    entity_id=opportunity.id,
+                    action_url=f"/opportunities/{opportunity.id}"
                 )
             except Exception as e:
                 logger.warning(f"Optional logging failed for opportunity creation: {str(e)}")
@@ -883,6 +998,29 @@ class LeadService(ActivityMixin):
                         seen_account_ids.add(str(a.id))
                         suggestions["accounts"].append(
                             {"id": str(a.id), "name": a.name, "email": str(a.email) if a.email else None, "match_type": "phone"}
+                        )
+        
+        # 1d. Search for accounts by domain (for corporate leads)
+        if lead.email:
+            domain = self._extract_domain(lead.email)
+            if domain:
+                accounts_by_domain = await Account.find(
+                    Account.tenant_id == tenant_id,
+                    Account.is_person_account == False,
+                    Account.deleted_at == None,
+                    {
+                        "$or": [
+                            {"email": {"$regex": f"@{domain}$", "$options": "i"}},
+                            {"website": {"$regex": domain, "$options": "i"}}
+                        ]
+                    }
+                ).limit(5).to_list()
+                
+                for a in accounts_by_domain:
+                    if str(a.id) not in seen_account_ids:
+                        seen_account_ids.add(str(a.id))
+                        suggestions["accounts"].append(
+                            {"id": str(a.id), "name": a.name, "email": str(a.email) if a.email else None, "match_type": "domain"}
                         )
             
         # 2. Search for contacts (by email or full name)
@@ -1039,12 +1177,11 @@ class LeadService(ActivityMixin):
             Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
             User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
             Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
-            Rating.find(Rating.is_active == True).sort("+sorting").to_list(),
             Experience.find(Experience.tenant_id == tenant_id, Experience.is_active == True).sort("+sorting").to_list(),
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
-        lead_statuses, sources, users, industries, ratings, experiences = metadata_results
+        lead_statuses, sources, users, industries, experiences = metadata_results
         
         # Fetch both tenant-specific and global sales stages
         tenant_stages = await SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
@@ -1074,10 +1211,6 @@ class LeadService(ActivityMixin):
             "industries": [
                 {"id": str(i.id), "name": i.name}
                 for i in industries
-            ],
-            "ratings": [
-                {"id": str(r.id), "name": r.name}
-                for r in ratings
             ],
             "experiences": [
                 {"id": str(e.id), "name": e.name}

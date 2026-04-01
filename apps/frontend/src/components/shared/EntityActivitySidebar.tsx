@@ -31,7 +31,7 @@ import { toast } from "sonner";
 import { tasksService } from "@/lib/api/services/activities.service";
 
 interface EntityActivitySidebarProps {
-    entityType: "Contact" | "Account";
+    entityType: "Contact" | "Account" | "Lead" | "Supplier";
     entityId: string;
     entityName?: string;
     relatedTo?: string;

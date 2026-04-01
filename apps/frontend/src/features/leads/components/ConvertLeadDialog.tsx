@@ -45,6 +45,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -70,12 +71,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { LeadConvertData } from "../types";
+import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
 const convertSchema = z.object({
     account_type: z.enum(["Account", "Person Account"]),
     account_mode: z.enum(["new", "existing_only", "existing"]),
     account_id: z.string().optional(),
     account_name: z.string().optional(),
+    person_salutation: z.string().optional(),
+    person_first_name: z.string().optional(),
+    person_last_name: z.string().optional(),
     contact_id: z.string().optional(),
     contact_create: z.boolean(),
     contact_salutation: z.string().optional(),
@@ -85,15 +90,15 @@ const convertSchema = z.object({
     opportunity_name: z.string().optional(),
     opportunity_amount: z.coerce.number().optional(),
     opportunity_close_date: z.date().optional(),
-    travel_date: z.date().optional(),
+    travel_date: z.date({ message: "Travel date is required." }),
     destination_ids: z.array(z.string()).optional(),
     experience_id: z.string().optional(),
-    no_of_adults: z.coerce.number().optional(),
-    no_of_childs: z.coerce.number().optional(),
-    no_of_infants: z.coerce.number().optional(),
-    no_of_pax: z.coerce.number().optional(),
+    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
+    no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
+    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
     sales_stage_id: z.string().optional(),
-    no_of_nights: z.coerce.number().optional(),
+    no_of_nights: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     description: z.string().optional(),
     opportunity_owner_id: z.string().optional(),
 });
@@ -147,24 +152,27 @@ export function ConvertLeadDialog({
             account_mode: accountMode,
             account_id: selectedAccountId,
             account_name: lead.company || lead.full_name,
+            person_salutation: lead.salutation || "",
+            person_first_name: lead.first_name || "",
+            person_last_name: lead.last_name || "",
             contact_id: selectedContactId,
             contact_create: contactMode === "new",
             contact_salutation: lead.salutation || "",
             contact_first_name: lead.first_name || "",
             contact_last_name: lead.last_name || "",
             create_opportunity: true,
-            opportunity_name: `${lead.company || lead.full_name} - Opportunity`,
+            opportunity_name: "",
             opportunity_amount: 0,
             travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
-            no_of_adults: lead.no_of_adults || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax : 1),
-            no_of_childs: lead.no_of_childs || 0,
-            no_of_infants: lead.no_of_infants || 0,
-            no_of_pax: lead.no_of_pax || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax : 1),
-            no_of_nights: lead.no_of_nights || 0,
+            no_of_adults: lead.no_of_adults?.toString() || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax.toString() : "1"),
+            no_of_childs: lead.no_of_childs?.toString() || "0",
+            no_of_infants: lead.no_of_infants?.toString() || "0",
+            no_of_pax: lead.no_of_pax?.toString() || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax.toString() : "1"),
+            no_of_nights: lead.no_of_nights?.toString() || "0",
             description: "",
             destination_ids: lead.destination_ids || [],
             opportunity_close_date: new Date(),
-            sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'receive')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
+            sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'received')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
             experience_id: lead.experience_id || undefined,
         },
     });
@@ -212,7 +220,7 @@ export function ConvertLeadDialog({
                     if (Array.isArray(res.data) && res.data.length > 0) {
                         setLocalSalesStages(res.data);
                         // Update form default stage to the fetched default
-                        const receiveStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.name.toLowerCase() === 'receive');
+                        const receiveStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.name.toLowerCase() === 'received');
                         const defaultStage = receiveStage || res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.is_default) || res.data[0];
                         if (defaultStage) {
                             form.setValue("sales_stage_id", defaultStage.id);
@@ -222,6 +230,16 @@ export function ConvertLeadDialog({
                 .catch(() => {/* silently ignore */ });
         }
     }, [open, localExperiences.length, localSalesStages.length, form]);
+
+    // Set default experience to Luxury when experiences are loaded
+    useEffect(() => {
+        if (localExperiences.length > 0 && !form.getValues("experience_id")) {
+            const luxuryExp = localExperiences.find(exp => exp.name.toLowerCase() === "luxury");
+            if (luxuryExp) {
+                form.setValue("experience_id", luxuryExp.id);
+            }
+        }
+    }, [localExperiences, form]);
 
 
 
@@ -304,12 +322,53 @@ export function ConvertLeadDialog({
     const adults = form.watch("no_of_adults") || 0;
     const childs = form.watch("no_of_childs") || 0;
     const infants = form.watch("no_of_infants") || 0;
+    const watchedDestinationIds = form.watch("destination_ids");
+    const watchedPax = form.watch("no_of_pax");
+    const watchedTravelDate = form.watch("travel_date");
 
     // Auto-calculate Total Pax = adults + children + infants
     useEffect(() => {
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
-        form.setValue("no_of_pax", total > 0 ? total : 1);
+        form.setValue("no_of_pax", total > 0 ? total.toString() : "1");
     }, [adults, childs, infants, form]);
+
+    // Auto-generate opportunity name: Dest1_Dest2_Npax_DDMon
+    useEffect(() => {
+        const parts: string[] = [];
+
+        // Destination names (from resolved list)
+        if (watchedDestinationIds && watchedDestinationIds.length > 0) {
+            const names = watchedDestinationIds
+                .map(id => {
+                    const match = (leadProcessedDestinations.length > 0 ? leadProcessedDestinations : availableDestinations)
+                        .find(d => d.id === id);
+                    return match?.name || "";
+                })
+                .filter(Boolean);
+            if (names.length > 0) parts.push(names.join("_"));
+        }
+
+        // Pax
+        if (watchedPax && Number(watchedPax) > 0) {
+            parts.push(`${watchedPax}pax`);
+        }
+
+        // Travel date as DDMon (e.g. 24Mar)
+        if (watchedTravelDate) {
+            try {
+                const d = new Date(watchedTravelDate);
+                if (!isNaN(d.getTime())) {
+                    const day = String(d.getDate()).padStart(2, "0");
+                    const mon = d.toLocaleString("en", { month: "short" });
+                    parts.push(`${day}${mon}`);
+                }
+            } catch {}
+        }
+
+        if (parts.length > 0) {
+            form.setValue("opportunity_name", parts.join("_"), { shouldDirty: false });
+        }
+    }, [watchedDestinationIds, watchedPax, watchedTravelDate, leadProcessedDestinations, availableDestinations, form]);
 
 
     useEffect(() => {
@@ -323,92 +382,69 @@ export function ConvertLeadDialog({
         }
     }, [leadProcessedDestinations, form]);
 
-    // Track if opportunity name was manually edited
-    const [isNameManuallyEdited, setIsNameManuallyEdited] = useState(false);
 
-    // Update Opportunity Name automatically
-    const travelDate = form.watch("travel_date");
-    const selectedDestIds = form.watch("destination_ids");
 
-    useEffect(() => {
-        if (isNameManuallyEdited) return;
 
-        const pax = form.getValues("no_of_pax") || 0;
-        const dateObj = travelDate;
 
-        // Get destination names
-        let destNames: string[] = [];
-
-        if (selectedDestIds && selectedDestIds.length > 0 && availableDestinations.length > 0) {
-            // Find all names in available destinations
-            destNames = selectedDestIds.map(id => {
-                const match = availableDestinations.find(d => d.id === id);
-                return match ? match.name : undefined;
-            }).filter(Boolean) as string[];
+    const handleBackendErrors = (error: any) => {
+        if (error.type === ErrorType.VALIDATION && error.details?.detail) {
+            const details = error.details.detail;
+            details.forEach((err: any) => {
+                const field = err.loc[err.loc.length - 1];
+                form.setError(field as any, {
+                    type: "manual",
+                    message: err.msg,
+                });
+            });
+            return true;
         }
-
-        if (destNames.length === 0 && leadProcessedDestinations.length > 0) {
-            // Fallback to processed lead destinations
-            destNames = leadProcessedDestinations.map(d => d.name);
-        }
-
-        // Check for raw destinations (unmatched ones like "Baku")
-        if (destNames.length === 0 && lead.destinations && lead.destinations.length > 0) {
-            destNames = lead.destinations;
-        }
-
-        let prefix = "";
-        // If still no destination name, fall back to Company or Full Name to avoid empty prefix
-        if (destNames.length === 0) {
-            prefix = lead.company || lead.full_name || "Opportunity";
-        } else {
-            prefix = destNames.join("_");
-        }
-
-        // Format date: 1May (dMMM)
-        let dateStr = "";
-        if (dateObj instanceof Date && !isNaN(dateObj.getTime())) {
-            dateStr = `_${format(dateObj, "dMMM")}`;
-        }
-
-        const newName = `${prefix}_${pax}Pax${dateStr}`;
-        form.setValue("opportunity_name", newName);
-    }, [selectedDestIds, adults, childs, infants, travelDate, availableDestinations, isNameManuallyEdited, form, leadProcessedDestinations, lead.company, lead.full_name]);
+        return false;
+    };
 
     async function onSubmit(values: ConvertFormValues) {
         try {
-            const convertData: LeadConvertData = {
-                lead_id: lead.id,
-                account_type: values.account_type,
-                account_id: values.account_mode !== "new" ? values.account_id : undefined,
-                account_name: values.account_mode === "new" ? values.account_name : undefined,
-                contact_id: values.contact_id,
-                contact_create: values.contact_create,
-                contact_salutation: values.contact_salutation,
-                contact_first_name: values.contact_first_name,
-                contact_last_name: values.contact_last_name,
-                create_opportunity: values.create_opportunity,
-                opportunity_name: values.opportunity_name,
-                opportunity_amount: values.opportunity_amount,
-                opportunity_close_date: values.opportunity_close_date?.toISOString(),
-                travel_date: values.travel_date?.toISOString(),
-                destination_ids: values.destination_ids,
-                experience_id: values.experience_id === "no-experiences" ? undefined : values.experience_id,
-                no_of_adults: values.no_of_adults,
-                no_of_childs: values.no_of_childs,
-                no_of_infants: values.no_of_infants,
-                no_of_pax: values.no_of_pax,
-                sales_stage_id: !values.sales_stage_id || ["no-sales-stages", "undefined", "null"].includes(values.sales_stage_id) ? undefined : values.sales_stage_id,
-                no_of_nights: values.no_of_nights,
-                description: values.description,
-                opportunity_owner_id: values.opportunity_owner_id,
-            };
+            await ErrorHandler.withErrorHandling(async () => {
+                try {
+                    const convertData: LeadConvertData = {
+                        lead_id: lead.id,
+                        account_type: values.account_type,
+                        account_id: values.account_mode !== "new" ? values.account_id : undefined,
+                        account_name: values.account_mode === "new" ? values.account_name : undefined,
+                        person_salutation: values.account_mode === "new" && values.account_type === "Person Account" ? values.person_salutation : undefined,
+                        person_first_name: values.account_mode === "new" && values.account_type === "Person Account" ? values.person_first_name : undefined,
+                        person_last_name: values.account_mode === "new" && values.account_type === "Person Account" ? values.person_last_name : undefined,
+                        contact_id: values.contact_id,
+                        contact_create: values.contact_create,
+                        contact_salutation: values.contact_salutation,
+                        contact_first_name: values.contact_first_name,
+                        contact_last_name: values.contact_last_name,
+                        create_opportunity: values.create_opportunity,
+                        opportunity_name: values.opportunity_name,
+                        opportunity_amount: values.opportunity_amount,
+                        opportunity_close_date: values.opportunity_close_date?.toISOString(),
+                        travel_date: values.travel_date?.toISOString(),
+                        destination_ids: values.destination_ids,
+                        experience_id: values.experience_id === "no-experiences" ? undefined : values.experience_id,
+                        no_of_adults: values.no_of_adults ? Number(values.no_of_adults) : undefined,
+                        no_of_childs: values.no_of_childs ? Number(values.no_of_childs) : undefined,
+                        no_of_infants: values.no_of_infants ? Number(values.no_of_infants) : undefined,
+                        no_of_pax: values.no_of_pax ? Number(values.no_of_pax) : undefined,
+                        sales_stage_id: !values.sales_stage_id || ["no-sales-stages", "undefined", "null"].includes(values.sales_stage_id) ? undefined : values.sales_stage_id,
+                        no_of_nights: values.no_of_nights ? Number(values.no_of_nights) : undefined,
+                        description: values.description,
+                        opportunity_owner_id: values.opportunity_owner_id,
+                    };
 
-            await convertLead.mutateAsync(convertData);
-            onOpenChange(false);
-            onSuccess?.();
+                    await convertLead.mutateAsync(convertData);
+                    onOpenChange(false);
+                    onSuccess?.();
+                } catch (error: any) {
+                    const mapped = handleBackendErrors(ErrorHandler.parseError(error, "Failed to convert lead"));
+                    if (!mapped) throw error;
+                }
+            }, "Failed to convert lead");
         } catch (error) {
-            // Error is handled by useConvertLead
+            // Error mapped to UI
         }
     }
 
@@ -493,19 +529,63 @@ export function ConvertLeadDialog({
                                         />
 
                                         {formAccountMode === "new" ? (
-                                            <FormField
-                                                control={form.control}
-                                                name="account_name"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Account Name</FormLabel>
-                                                        <FormControl>
-                                                            <Input {...field} placeholder="Account Name" className="bg-white" />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
+                                            formAccountType === "Person Account" ? (
+                                                <div className="space-y-4">
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="person_salutation"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Salutation</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="Mr." className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="person_first_name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>First Name</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="First Name" className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                    <FormField
+                                                        control={form.control}
+                                                        name="person_last_name"
+                                                        render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Last Name</FormLabel>
+                                                                <FormControl>
+                                                                    <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                                </FormControl>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <FormField
+                                                    control={form.control}
+                                                    name="account_name"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Account Name</FormLabel>
+                                                            <FormControl>
+                                                                <Input {...field} placeholder="Account Name" className="bg-white" />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )
                                         ) : (
                                             <FormField
                                                 control={form.control}
@@ -513,23 +593,20 @@ export function ConvertLeadDialog({
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>Select Existing Account</FormLabel>
-                                                        <Select onValueChange={(value) => {
-                                                            field.onChange(value);
-                                                            setSelectedAccountId(value);
-                                                        }} value={field.value}>
-                                                            <FormControl>
-                                                                <SelectTrigger className="bg-white">
-                                                                    <SelectValue placeholder="Select an account..." />
-                                                                </SelectTrigger>
-                                                            </FormControl>
-                                                            <SelectContent>
-                                                                {suggestions?.accounts?.map((acc) => (
-                                                                    <SelectItem key={acc.id} value={acc.id || ''}>
-                                                                        {acc.name} {acc.email && `(${acc.email})`} - {acc.match_type}
-                                                                    </SelectItem>
-                                                                ))}
-                                                            </SelectContent>
-                                                        </Select>
+                                                        <FormControl>
+                                                            <SearchableSelect
+                                                                options={suggestions?.accounts?.map((acc) => ({
+                                                                    label: `${acc.name} ${acc.email ? `(${acc.email})` : ""} - ${acc.match_type}`,
+                                                                    value: acc.id || ""
+                                                                })) || []}
+                                                                value={field.value}
+                                                                onValueChange={(value) => {
+                                                                    field.onChange(value);
+                                                                    setSelectedAccountId(value);
+                                                                }}
+                                                                placeholder="Select an account..."
+                                                            />
+                                                        </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -596,23 +673,20 @@ export function ConvertLeadDialog({
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Select Existing Contact</FormLabel>
-                                                            <Select onValueChange={(value) => {
-                                                                field.onChange(value);
-                                                                setSelectedContactId(value);
-                                                            }} value={field.value}>
-                                                                <FormControl>
-                                                                    <SelectTrigger className="bg-white">
-                                                                        <SelectValue placeholder="Select a contact..." />
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                    {suggestions?.contacts?.map((con) => (
-                                                                        <SelectItem key={con.id} value={con.id || ''}>
-                                                                            {con.name} {con.email && `(${con.email})`} - {con.match_type}
-                                                                        </SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
+                                                            <FormControl>
+                                                                <SearchableSelect
+                                                                    options={suggestions?.contacts?.map((con) => ({
+                                                                        label: `${con.name} ${con.email ? `(${con.email})` : ""} - ${con.match_type}`,
+                                                                        value: con.id || ""
+                                                                    })) || []}
+                                                                    value={field.value}
+                                                                    onValueChange={(value) => {
+                                                                        field.onChange(value);
+                                                                        setSelectedContactId(value);
+                                                                    }}
+                                                                    placeholder="Select a contact..."
+                                                                />
+                                                            </FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -698,12 +772,10 @@ export function ConvertLeadDialog({
                                                                 <Input
                                                                     {...field}
                                                                     className="bg-white"
-                                                                    onChange={(e) => {
-                                                                        field.onChange(e);
-                                                                        setIsNameManuallyEdited(true);
-                                                                    }}
+                                                                    placeholder="Auto-generated from destination, pax & date"
                                                                 />
                                                             </FormControl>
+                                                            <p className="text-[11px] text-muted-foreground mt-1">Auto-filled from destinations, pax &amp; travel date. You can edit manually.</p>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -715,7 +787,7 @@ export function ConvertLeadDialog({
                                                         name="travel_date"
                                                         render={({ field }) => (
                                                             <FormItem className="flex flex-col">
-                                                                <FormLabel>Date of Travel</FormLabel>
+                                                                <FormLabel>Date of Travel *</FormLabel>
                                                                 <Popover>
                                                                     <PopoverTrigger asChild>
                                                                         <FormControl>
@@ -822,22 +894,17 @@ export function ConvertLeadDialog({
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Experience</FormLabel>
-                                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                                    <FormControl>
-                                                                        <SelectTrigger className="bg-white">
-                                                                            <SelectValue placeholder="Select experience..." />
-                                                                        </SelectTrigger>
-                                                                    </FormControl>
-                                                                    <SelectContent>
-                                                                        {localExperiences && localExperiences.length > 0 ? (
-                                                                            localExperiences.map(exp => (
-                                                                                <SelectItem key={exp.id} value={exp.id || ''}>{exp.name}</SelectItem>
-                                                                            ))
-                                                                        ) : (
-                                                                            <SelectItem value="no-experiences" disabled>No experiences available</SelectItem>
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
+                                                                <FormControl>
+                                                                    <SearchableSelect
+                                                                        options={localExperiences && localExperiences.length > 0 ? 
+                                                                            localExperiences.map(exp => ({ label: exp.name, value: exp.id || "" })) : 
+                                                                            [{ label: "No experiences available", value: "no-experiences", disabled: true }]
+                                                                        }
+                                                                        value={field.value}
+                                                                        onValueChange={field.onChange}
+                                                                        placeholder="Select experience..."
+                                                                    />
+                                                                </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         )}
@@ -849,22 +916,17 @@ export function ConvertLeadDialog({
                                                         render={({ field }) => (
                                                             <FormItem>
                                                                 <FormLabel>Stage</FormLabel>
-                                                                <Select onValueChange={field.onChange} value={field.value}>
-                                                                    <FormControl>
-                                                                        <SelectTrigger className="bg-white">
-                                                                            <SelectValue placeholder="Select stage..." />
-                                                                        </SelectTrigger>
-                                                                    </FormControl>
-                                                                    <SelectContent>
-                                                                        {localSalesStages && localSalesStages.length > 0 ? (
-                                                                            localSalesStages.map(stage => (
-                                                                                <SelectItem key={stage.id} value={stage.id || ''}>{stage.name}</SelectItem>
-                                                                            ))
-                                                                        ) : (
-                                                                            <SelectItem value="no-sales-stages" disabled>No sales stages available</SelectItem>
-                                                                        )}
-                                                                    </SelectContent>
-                                                                </Select>
+                                                                <FormControl>
+                                                                    <SearchableSelect
+                                                                        options={localSalesStages && localSalesStages.length > 0 ? 
+                                                                            localSalesStages.map(stage => ({ label: stage.name, value: stage.id || "" })) : 
+                                                                            [{ label: "No sales stages available", value: "no-sales-stages", disabled: true }]
+                                                                        }
+                                                                        value={field.value}
+                                                                        onValueChange={field.onChange}
+                                                                        placeholder="Select stage..."
+                                                                    />
+                                                                </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
                                                         )}
@@ -946,7 +1008,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Adults</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                    <Input type="number" min="1" {...field} className="h-8 text-xs" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -958,7 +1020,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Childs</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                    <Input type="number" min="0" {...field} className="h-8 text-xs" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -970,7 +1032,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Infants</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs" />
+                                                                    <Input type="number" min="0" {...field} className="h-8 text-xs" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -982,7 +1044,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
+                                                                    <Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
                                                                 </FormControl>
                                                             </FormItem>
                                                         )}
@@ -998,8 +1060,17 @@ export function ConvertLeadDialog({
                                                                 <FormLabel>Lead Amount</FormLabel>
                                                                 <FormControl>
                                                                     <div className="relative">
-                                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">$</span>
-                                                                        <Input type="number" {...field} className="pl-7 bg-white" />
+                                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">₹</span>
+                                                                        <Input
+                                                                            type="text"
+                                                                            inputMode="decimal"
+                                                                            {...field}
+                                                                            className="pl-7 bg-white"
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value.replace(/[^0-9.]/g, "");
+                                                                                field.onChange(val);
+                                                                            }}
+                                                                        />
                                                                     </div>
                                                                 </FormControl>
                                                                 <FormMessage />
@@ -1014,7 +1085,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>No of Nights</FormLabel>
                                                                 <FormControl>
-                                                                    <Input type="number" {...field} className="bg-white" />
+                                                                    <Input type="number" min="0" {...field} className="bg-white" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -1028,18 +1099,14 @@ export function ConvertLeadDialog({
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Opportunity Owner</FormLabel>
-                                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                                <FormControl>
-                                                                    <SelectTrigger className="bg-white">
-                                                                        <SelectValue placeholder="Assign owner..." />
-                                                                    </SelectTrigger>
-                                                                </FormControl>
-                                                                <SelectContent>
-                                                                    {users?.map(user => (
-                                                                        <SelectItem key={user.id} value={user.id || ''}>{user.name}</SelectItem>
-                                                                    ))}
-                                                                </SelectContent>
-                                                            </Select>
+                                                            <FormControl>
+                                                                <SearchableSelect
+                                                                    options={users?.map(user => ({ label: user.name, value: user.id || "" })) || []}
+                                                                    value={field.value}
+                                                                    onValueChange={field.onChange}
+                                                                    placeholder="Assign owner..."
+                                                                />
+                                                            </FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}

@@ -39,6 +39,8 @@ export interface Contact {
     owner_id: string;
     tenant_id: string;
     created_by: string;
+    created_by_name?: string;
+    last_modified_by_name?: string;
 
     // Metadata
     view_count: number;

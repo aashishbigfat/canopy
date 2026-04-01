@@ -410,6 +410,7 @@ class UserService(ActivityMixin):
         
         # Import here to avoid circular dependency
         from app.models.opportunity import Opportunity
+        from app.models.opportunity_picklists import SalesStage
         from app.models.task import Task
         from app.models.event import Event
         from app.models.email import Email
@@ -417,6 +418,11 @@ class UserService(ActivityMixin):
         # Get current month start
         now = datetime.utcnow()
         month_start = datetime(now.year, now.month, 1)
+        
+        # Build a stage lookup map: stage_id → SalesStage document
+        all_stages = await SalesStage.find(SalesStage.is_active == True).to_list()
+        won_stage_ids = {s.id for s in all_stages if s.is_won}
+        lost_stage_ids = {s.id for s in all_stages if s.is_lost}
         
         # Get opportunities
         all_opps = await Opportunity.find(
@@ -431,15 +437,15 @@ class UserService(ActivityMixin):
             if opp.created_at >= month_start
         ]
         
-        # Calculate metrics
+        # Calculate metrics using sales_stage_id and the stage lookup
         current_month_revenue = sum(
             opp.amount or 0 for opp in current_month_opps
-            if opp.sales_stage == "Closed Won"
+            if opp.sales_stage_id in won_stage_ids
         )
         
         current_month_deals = len([
             opp for opp in current_month_opps
-            if opp.sales_stage == "Closed Won"
+            if opp.sales_stage_id in won_stage_ids
         ])
         
         # Achievement percentages
@@ -453,12 +459,12 @@ class UserService(ActivityMixin):
             if user.monthly_deals_target > 0 else 0
         )
         
-        # Overall stats
-        won_opps = [opp for opp in all_opps if opp.sales_stage == "Closed Won"]
-        lost_opps = [opp for opp in all_opps if opp.sales_stage == "Closed Lost"]
+        # Overall stats using is_won / is_lost flags
+        won_opps = [opp for opp in all_opps if opp.sales_stage_id in won_stage_ids]
+        lost_opps = [opp for opp in all_opps if opp.sales_stage_id in lost_stage_ids]
         pipeline_opps = [
             opp for opp in all_opps
-            if opp.sales_stage not in ["Closed Won", "Closed Lost"]
+            if opp.sales_stage_id not in won_stage_ids and opp.sales_stage_id not in lost_stage_ids
         ]
         
         pipeline_value = sum(opp.amount or 0 for opp in pipeline_opps)

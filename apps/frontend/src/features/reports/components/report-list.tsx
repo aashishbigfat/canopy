@@ -48,23 +48,23 @@ export function ReportList() {
                             </TableCell>
                         </TableRow>
                     ) : (
-                        reports.map((report) => (
-                            <TableRow key={report._id}>
+                        reports.map((report: any) => (
+                            <TableRow key={report.id || report._id}>
                                 <TableCell className="font-medium">
-                                    <Link href={`/reports/${report._id}`} className="hover:underline">
+                                    <Link href={`/reports/${report.id || report._id}`} className="hover:underline">
                                         {report.name}
                                     </Link>
                                 </TableCell>
                                 <TableCell className="capitalize">{report.entity_type}</TableCell>
                                 <TableCell><Badge variant="outline">{report.report_type}</Badge></TableCell>
                                 <TableCell className="text-right space-x-2">
-                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/reports/${report._id}`)}>
+                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/reports/${report.id || report._id}`)}>
                                         <Play className="h-4 w-4 mr-1" /> Run
                                     </Button>
-                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/reports/${report._id}/edit`)}> {/* Add edit route later if needed */}
+                                    <Button variant="ghost" size="sm" onClick={() => router.push(`/reports/${report.id || report._id}/edit`)}> {/* Add edit route later if needed */}
                                         <Edit className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(report._id)}>
+                                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(report.id || report._id)}>
                                         <Trash className="h-4 w-4" />
                                     </Button>
                                 </TableCell>

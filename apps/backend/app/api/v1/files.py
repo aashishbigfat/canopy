@@ -1,7 +1,7 @@
 """
 File API endpoints - File upload, download, and management
 """
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile, Query
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from io import BytesIO
@@ -10,11 +10,15 @@ from app.models.user import User
 from app.schemas.file import FileResponse, FileListResponse
 from app.services.file_service import FileService
 from app.api.deps import get_current_user, check_permission
+from app.core.rate_limiter import limiter
 
 router = APIRouter()
 
 @router.post("/upload", response_model=FileResponse, status_code=201)
+@limiter.limit("10/minute")
 async def upload_file(
+    request: Request,
+    response: Response,
     file: UploadFile = FastAPIFile(...),
     fileable_type: Optional[str] = None,
     fileable_id: Optional[str] = None,

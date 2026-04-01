@@ -19,9 +19,24 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
+const INDUSTRIES = [
+    { value: "travel", label: "Travel" },
+    { value: "it", label: "IT" },
+    { value: "finance", label: "Finance" },
+    { value: "education", label: "Education" },
+] as const;
+
 const loginSchema = z.object({
+    industry: z.string().min(1, "Please select an industry"),
     email: z.string().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
 });
@@ -37,12 +52,19 @@ function LoginFormContent() {
     const form = useForm<LoginValues>({
         resolver: zodResolver(loginSchema),
         defaultValues: {
+            industry: "",
             email: "",
             password: "",
         },
     });
 
     async function onSubmit(data: LoginValues) {
+        // Non-travel industries show a "coming soon" page — no backend call needed
+        if (data.industry !== "travel") {
+            router.push(`/coming-soon?industry=${data.industry}`);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
@@ -74,6 +96,36 @@ function LoginFormContent() {
         <div className="grid gap-6">
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    {/* Industry selector */}
+                    <FormField
+                        control={form.control}
+                        name="industry"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Industry</FormLabel>
+                                <Select
+                                    onValueChange={field.onChange}
+                                    defaultValue={field.value}
+                                    disabled={isLoading}
+                                >
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select your industry" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {INDUSTRIES.map((ind) => (
+                                            <SelectItem key={ind.value} value={ind.value}>
+                                                {ind.label}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
                     <FormField
                         control={form.control}
                         name="email"

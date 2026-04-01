@@ -10,7 +10,32 @@ from datetime import datetime
 import uuid
 import json
 
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
+from fastapi.responses import JSONResponse as _JSONResponse
+import logging as _logging
+
+_logger = _logging.getLogger(__name__)
+
+def _custom_rate_limit_handler(request, exc):
+    """
+    Custom handler replacing slowapi's default.
+    slowapi can pass a redis ConnectionError here (not a RateLimitExceeded),
+    which crashes because ConnectionError has no .detail attribute.
+    We handle both cases gracefully.
+    """
+    if isinstance(exc, RateLimitExceeded):
+        return _JSONResponse(
+            status_code=429,
+            content={"error": f"Rate limit exceeded: {exc.detail}"},
+        )
+    # Redis ConnectionError or any other unexpected exception from the limiter
+    _logger.warning("Rate limiter backend error (Redis unreachable?): %s", exc)
+    # Fail open: let the request through rather than returning a 500
+    return None
+
 from app.core.config import settings
+from app.core.rate_limiter import limiter
 from app.core.cache import init_cache, close_cache
 from app.db.mongodb import init_db
 from app.middleware.activity_context import activity_context_middleware
@@ -32,8 +57,14 @@ app = FastAPI(
     version=settings.VERSION,
     docs_url="/api/docs",
     redoc_url="/api/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
+
+# ── Rate Limiting ─────────────────────────────────────────────────────────────
+# Attach limiter state to app for SlowAPI middleware discovery
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _custom_rate_limit_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 # Activity logging middleware
 @app.middleware("http")
@@ -62,7 +93,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # Include routers
-from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search
+from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
 
@@ -72,6 +103,7 @@ app.include_router(accounts.router, prefix="/api/v1/accounts", tags=["Accounts"]
 app.include_router(contacts_extra.router, prefix="/api/v1/contacts", tags=["Contacts"])
 app.include_router(contacts.router, prefix="/api/v1/contacts", tags=["Contacts"])
 app.include_router(leads.router, prefix="/api/v1/leads", tags=["Leads"])
+app.include_router(opportunity_financial.router, prefix="/api/v1/opportunities", tags=["Opportunity Financial"])
 app.include_router(opportunities.router, prefix="/api/v1/opportunities", tags=["Opportunities"])
 app.include_router(tasks.router, prefix="/api/v1/tasks", tags=["Tasks"])
 app.include_router(events.router, prefix="/api/v1/events", tags=["Events"])
@@ -117,6 +149,20 @@ async def root():
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+@app.get("/health/redis")
+async def redis_health_check():
+    """Check Redis connectivity and cache backend status"""
+    from app.core.cache import get_cache_status
+    try:
+        status = await get_cache_status()
+        return {"status": "healthy", **status}
+    except Exception as e:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "unhealthy", "error": str(e)}
+        )
+
 
 @app.get("/debug/cors")
 async def debug_cors():

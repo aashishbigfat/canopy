@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { ContactFilters, ContactCreateData } from "../types";
 
@@ -6,7 +6,8 @@ export const useContacts = (filters: ContactFilters = { page: 1, per_page: 10 })
     return useQuery({
         queryKey: ["contacts", filters],
         queryFn: () => contactsService.getContacts(filters),
-        staleTime: 0,
+        staleTime: 30_000, // 30 seconds
+        placeholderData: keepPreviousData,
     });
 };
 

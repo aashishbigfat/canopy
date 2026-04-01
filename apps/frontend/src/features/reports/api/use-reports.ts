@@ -6,9 +6,8 @@ export const useGetReports = (params?: { entity_type?: string }) => {
     return useQuery({
         queryKey: ['reports', params],
         queryFn: async () => {
-            // Assuming list endpoint returns array
-            const response = await apiClient.get<Report[]>('/reports', { params });
-            return response.data;
+            const response = await apiClient.get<any>('/reports', { params });
+            return response.data.reports || [];
         },
     });
 };
@@ -44,9 +43,9 @@ export const useUpdateReport = () => {
             const response = await apiClient.put<Report>(`/reports/${id}`, data);
             return response.data;
         },
-        onSuccess: (data) => {
+        onSuccess: (data: any) => {
             queryClient.invalidateQueries({ queryKey: ['reports'] });
-            queryClient.invalidateQueries({ queryKey: ['reports', data._id] });
+            queryClient.invalidateQueries({ queryKey: ['reports', data.id || data._id] });
         },
     });
 };

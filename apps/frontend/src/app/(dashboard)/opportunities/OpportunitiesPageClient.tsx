@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
     Plus,
     LayoutGrid,
@@ -14,8 +14,6 @@ import {
     Lightbulb,
     ChevronDown
 } from "lucide-react";
-import Link from "next/link";
-
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GroupedOpportunityTable } from "@/features/opportunities/components/GroupedOpportunityTable";
@@ -30,13 +28,18 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
 
 type ViewMode = "list" | "kanban";
 
 export default function OpportunitiesPageClient() {
     const [viewMode, setViewMode] = useState<ViewMode>("list");
     const [groupByOwner, setGroupByOwner] = useState(true);
+    const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
     const router = useRouter();
+    const searchParams = useSearchParams();
+    
+    const page = parseInt(searchParams.get("page") || "1");
 
     const opportunityViews = [
         { label: "Today Opportunities", value: "today" },
@@ -48,7 +51,7 @@ export default function OpportunitiesPageClient() {
     const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || "Today Opportunities";
 
     const { data: opportunitiesData, isLoading: isLoadingOpportunities } = useOpportunities({
-        page: 1,
+        page: page,
         per_page: 100, // Get more for kanban view
         view: currentView
     });
@@ -113,11 +116,12 @@ export default function OpportunitiesPageClient() {
                         >
                             <LayoutGrid className="h-4 w-4" />
                         </Button>
-                        <Button asChild className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm">
-                            <Link href="/opportunities/create">
+                        <Button 
+                            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm"
+                            onClick={() => setIsCreateDrawerOpen(true)}
+                        >
                                 <Plus className="h-4 w-4" />
                                 New Opportunity
-                            </Link>
                         </Button>
                         <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
                             <RotateCw className="h-4 w-4 text-slate-600" />
@@ -165,9 +169,49 @@ export default function OpportunitiesPageClient() {
                             onOpportunityClick={handleOpportunityClick}
                             groupByOwner={groupByOwner}
                         />
+                        
+                        <div className="flex items-center justify-between space-x-2 py-4 px-6 bg-slate-50 border-t">
+                            <div className="text-sm text-slate-500 font-medium">
+                                Showing {opportunities.length} of {opportunitiesData?.total || 0} records
+                            </div>
+                            <div className="space-x-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-3 border-slate-200 text-slate-600 font-medium"
+                                    onClick={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set("page", (page - 1).toString());
+                                        router.push(`${window.location.pathname}?${params.toString()}`);
+                                    }}
+                                    disabled={page <= 1}
+                                >
+                                    Previous
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 px-3 border-slate-200 text-slate-600 font-medium"
+                                    onClick={() => {
+                                        const params = new URLSearchParams(searchParams.toString());
+                                        params.set("page", (page + 1).toString());
+                                        router.push(`${window.location.pathname}?${params.toString()}`);
+                                    }}
+                                    disabled={!opportunitiesData || page >= opportunitiesData.pages}
+                                >
+                                    Next
+                                </Button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>
+
+            <OpportunityFormDrawer
+                open={isCreateDrawerOpen}
+                onOpenChange={setIsCreateDrawerOpen}
+                stages={normalizedStages}
+            />
         </div>
     );
 }

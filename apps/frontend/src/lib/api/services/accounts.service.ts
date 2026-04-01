@@ -35,5 +35,17 @@ export const accountsService = {
             params: { query }
         });
         return response.data;
+    },
+
+    searchAccountAutocomplete: async (query: string, isPersonAccount?: boolean, signal?: AbortSignal): Promise<{ id: string; name: string; is_person_account: boolean }[]> => {
+        const params: any = { s: query };
+        if (isPersonAccount !== undefined) {
+            params.is_person_account = isPersonAccount;
+        }
+        const response = await apiClient.get<{ error: boolean; accounts: { id: string; name: string; is_person_account: boolean }[] }>(`${BASE_URL}/search-account`, {
+            params,
+            signal,
+        });
+        return response.data.accounts;
     }
 };
