@@ -126,6 +126,23 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
         }).catch(err => console.error("Failed to fetch destinations", err));
     }, []);
 
+    // Original pre-filled data (to restore on toggle)
+    const [originalAccount, setOriginalAccount] = useState<{ id: string; name: string; is_person_account?: boolean } | null>(null);
+
+    useEffect(() => {
+        if (initialAccountId) {
+            accountsService.getAccount(initialAccountId).then(acc => {
+                const opt = { id: acc.id, name: acc.name, is_person_account: acc.is_person_account };
+                setAccountOptions([opt]);
+                setOriginalAccount(opt);
+                setIsPersonAccount(acc.is_person_account || false);
+                if (initialContactId) {
+                    form.setValue("contact_id", initialContactId);
+                }
+            }).catch(() => {});
+        }
+    }, [initialAccountId, initialContactId]);
+
     // Search accounts handler
     const handleAccountSearch = useCallback(async (query: string, signal?: AbortSignal) => {
         if (!query || query.length < 1) {
@@ -134,7 +151,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
         }
         try {
             setLoadingAccounts(true);
-            const results = await accountsService.searchAccountAutocomplete(query, signal);
+            const results = await accountsService.searchAccountAutocomplete(query, isPersonAccount, signal);
             setAccountOptions(results as any);
         } catch (error) {
             if (!axios.isCancel(error)) {
@@ -143,7 +160,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
         } finally {
             setLoadingAccounts(false);
         }
-    }, []);
+    }, [isPersonAccount]);
 
     // Load contacts when account changes
     useEffect(() => {
@@ -371,19 +388,71 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                {selectedAccountId && (
-                    <div className="flex items-center gap-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
-                        <Badge variant="outline" className={cn(
-                            "px-2 py-0.5 font-bold text-[10px] transition-colors",
-                            isPersonAccount 
-                                ? "bg-orange-100 text-orange-700 border-orange-200" 
-                                : "bg-blue-100 text-blue-700 border-blue-200"
-                        )}>
-                            {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
-                        </Badge>
+                <div className="flex items-center gap-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
+                    <Badge variant="outline" className={cn(
+                        "px-2 py-0.5 font-bold text-[10px] transition-colors",
+                        isPersonAccount 
+                            ? "bg-orange-100 text-orange-700 border-orange-200" 
+                            : "bg-blue-100 text-blue-700 border-blue-200"
+                    )}>
+                        {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
+                    </Badge>
+                </div>
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="radio"
+                            id="account-type-company"
+                            name="accountType"
+                            checked={!isPersonAccount}
+                            onChange={(e) => {
+                                const newIsPerson = false;
+                                setIsPersonAccount(newIsPerson);
+                                if (originalAccount && !originalAccount.is_person_account) {
+                                    form.setValue("account_id", originalAccount.id);
+                                    form.setValue("contact_id", initialContactId || "");
+                                    setSelectedAccountId(originalAccount.id);
+                                    setAccountOptions([originalAccount]);
+                                } else {
+                                    form.setValue("account_id", "");
+                                    form.setValue("contact_id", "");
+                                    setSelectedAccountId("");
+                                    setAccountOptions([]);
+                                    setAccountContacts([]);
+                                }
+                            }}
+                            className="cursor-pointer"
+                        />
+                        <label htmlFor="account-type-company" className="text-sm font-medium text-slate-700 cursor-pointer">Account</label>
                     </div>
-                )}
+                    <div className="flex items-center gap-2">
+                        <input
+                            type="radio"
+                            id="account-type-person"
+                            name="accountType"
+                            checked={isPersonAccount}
+                            onChange={(e) => {
+                                const newIsPerson = true;
+                                setIsPersonAccount(newIsPerson);
+                                if (originalAccount && originalAccount.is_person_account) {
+                                    form.setValue("account_id", originalAccount.id);
+                                    form.setValue("contact_id", "");
+                                    setSelectedAccountId(originalAccount.id);
+                                    setAccountOptions([originalAccount]);
+                                } else {
+                                    form.setValue("account_id", "");
+                                    form.setValue("contact_id", "");
+                                    setSelectedAccountId("");
+                                    setAccountOptions([]);
+                                    setAccountContacts([]);
+                                }
+                            }}
+                            className="cursor-pointer"
+                        />
+                        <label htmlFor="account-type-person" className="text-sm font-medium text-slate-700 cursor-pointer">Personal Account</label>
+                    </div>
+                </div>
                 <div className="grid gap-6 md:grid-cols-2">
                     {/* Opportunity Name — first field */}
                     <FormField
@@ -406,7 +475,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                         name="account_id"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Account</FormLabel>
+                                <FormLabel>{isPersonAccount ? "Personal Accounts *" : "Account *"}</FormLabel>
                                 <FormControl>
                                     <SearchableSelect
                                         options={accountOptions.map(a => ({ label: a.name, value: a.id }))}
@@ -414,9 +483,6 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                                         onValueChange={(val) => {
                                             field.onChange(val);
                                             setSelectedAccountId(val);
-                                            const selectedOpt = accountOptions.find((a: any) => a.id === val);
-                                            const isPerson = selectedOpt ? (selectedOpt as any).is_person_account : false;
-                                            setIsPersonAccount(isPerson);
                                             // Reset contact when account changes
                                             form.setValue("contact_id", "");
                                         }}
@@ -437,7 +503,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                             name="contact_id"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Contact</FormLabel>
+                                    <FormLabel>Contact Name *</FormLabel>
                                     <FormControl>
                                         <SearchableSelect
                                             options={accountContacts.map(c => ({ label: c.full_name || `${c.first_name} ${c.last_name}`, value: c.id }))}

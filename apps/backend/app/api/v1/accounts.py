@@ -349,14 +349,19 @@ async def search_account_by_email(
 @router.get("/search-account")
 async def search_account_autocomplete(
     s: str = Query(..., description="Search term"),
+    is_person_account: Optional[bool] = Query(None, description="Filter by person account status"),
     current_user: User = Depends(get_current_user)
 ):
     """Search accounts by name (autocomplete)"""
-    accounts = await Account.find({
+    query: dict = {
         "tenant_id": current_user.tenant_id,
         "name": {"$regex": s, "$options": "i"},
         "deleted_at": None
-    }).limit(10).to_list()
+    }
+    if is_person_account is not None:
+        query["is_person_account"] = is_person_account
+        
+    accounts = await Account.find(query).limit(10).to_list()
     
     return {
         "error": False,

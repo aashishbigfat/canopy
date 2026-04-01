@@ -274,7 +274,13 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
     const handleSave = () => {
         const errors: Record<string, string> = {};
+        let hasZeroAmountItem = false;
+
         items.forEach((item) => {
+            if ((item.amount || 0) <= 0) {
+                errors[item.item_type] = "Amount must be greater than 0";
+                hasZeroAmountItem = true;
+            }
             if ((item.amount || 0) > 0 && !item.supplier_id) {
                 errors[item.item_type] = "Supplier is required when amount > 0";
             }
@@ -282,7 +288,16 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
         if (Object.keys(errors).length > 0) {
             setValidationErrors(errors);
-            toast.error("Please select a supplier for all items with an amount");
+            if (hasZeroAmountItem) {
+                toast.error("Costing items (except Tax/Misc) must have amount > 0");
+            } else {
+                toast.error("Please select a supplier for all items with an amount");
+            }
+            return;
+        }
+
+        if (totalCost < (opportunityAmount * 0.5)) {
+            toast.error("Total costing amount must be at least 50% of the opportunity amount");
             return;
         }
 
@@ -429,12 +444,18 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                 <td className="px-3 py-2">
                                     {item.supplier_id ? (
                                         <div className="flex items-center gap-1">
-                                            <Badge variant="secondary" className="bg-slate-100 text-slate-700 flex items-center gap-1 text-xs h-7 px-2 max-w-[200px]">
+                                            <Badge 
+                                                variant="secondary" 
+                                                className="bg-slate-100 text-slate-700 flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] cursor-pointer hover:bg-slate-200 transition-colors group"
+                                                onClick={() => clearSupplier(idx)}
+                                                title="Click to change supplier"
+                                            >
                                                 <span className="truncate">{item.supplier_name}</span>
-                                                <X
-                                                    className="h-3 w-3 cursor-pointer hover:text-red-500 flex-shrink-0"
-                                                    onClick={() => clearSupplier(idx)}
-                                                />
+                                                <div className="flex items-center justify-center h-4 w-4 rounded-full hover:bg-red-100 hover:text-red-600 transition-colors">
+                                                    <X
+                                                        className="h-3 w-3 flex-shrink-0"
+                                                    />
+                                                </div>
                                             </Badge>
                                         </div>
                                     ) : (
