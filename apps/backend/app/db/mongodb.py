@@ -49,6 +49,10 @@ from app.models.contact_views import ContactView, ContactColumn, AdditionalField
 from app.models.picklists import Industry, Rating
 from app.models.custom_fields import AccountCustomField
 from app.models.module_attachment import ModuleAttachment
+<<<<<<< Updated upstream
+=======
+from app.models.opportunity_financial import OpportunityCosting, PaymentScheduleItem, OpportunityTransaction
+>>>>>>> Stashed changes
 
 async def init_db():
     """Initialize database connection"""
@@ -163,6 +167,13 @@ async def init_db():
             Rating,
             AccountCustomField,
             ModuleAttachment,
+<<<<<<< Updated upstream
+=======
+            # Opportunity Financial
+            OpportunityCosting,
+            PaymentScheduleItem,
+            OpportunityTransaction,
+>>>>>>> Stashed changes
         ],
         recreate_views=False,
         allow_index_dropping=True,
