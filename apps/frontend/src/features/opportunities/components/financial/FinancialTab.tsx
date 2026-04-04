@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CostingTab } from "./CostingTab";
 import { PaymentScheduleTab } from "./PaymentScheduleTab";
 import { ProformaInvoiceTab } from "./ProformaInvoiceTab";
@@ -8,6 +8,7 @@ import { TransactionTab } from "./TransactionTab";
 import { Opportunity } from "../../types";
 import { cn } from "@/lib/utils";
 import { financialService } from "@/lib/api/services/financial.service";
+import { useCosting } from "../../api/useOpportunityFinancial";
 
 const SUB_TABS = [
     { id: "costing", label: "Costing" },
@@ -26,6 +27,25 @@ export function FinancialTab({ opportunity }: Props) {
     const [activeTab, setActiveTab] = useState<SubTabId>("costing");
     const [destOptions, setDestOptions] = useState<{ label: string; value: string }[]>([]);
 
+    // Fetch saved costing to derive suppliers & destinations for the Transaction modal
+    const { data: costing } = useCosting(opportunity.id);
+
+    // Unique suppliers from costing line items (excluding Tax/Misc fixed rows with no supplier_id)
+    const costingSuppliers = useMemo<string[]>(() => {
+        if (!costing?.items) return [];
+        const names = costing.items
+            .filter((item) => item.supplier_name && item.item_type !== "Tax" && item.item_type !== "Miscellaneous")
+            .map((item) => item.supplier_name as string);
+        return Array.from(new Set(names));
+    }, [costing]);
+
+    // Unique destinations from costing line items
+    const costingDestinations = useMemo<string[]>(() => {
+        if (!costing?.items) return [];
+        const names = costing.items.flatMap((item) => item.destination_names || []);
+        return Array.from(new Set(names));
+    }, [costing]);
+
     // Fetch SCOPED destinations from the opportunity (not global!)
     useEffect(() => {
         financialService
@@ -39,9 +59,9 @@ export function FinancialTab({ opportunity }: Props) {
                 // Fallback: use opportunity.destination_names if API fails
                 if (opportunity.destination_names && opportunity.destination_names.length > 0) {
                     setDestOptions(
-                        opportunity.destination_names.map((name, i) => ({
+                        opportunity.destination_names.map((name) => ({
                             label: name,
-                            value: name, // Use name as value fallback
+                            value: name,
                         }))
                     );
                 }
@@ -78,8 +98,8 @@ export function FinancialTab({ opportunity }: Props) {
                     />
                 )}
                 {activeTab === "payment-schedule" && (
-                    <PaymentScheduleTab 
-                        opportunityId={opportunity.id} 
+                    <PaymentScheduleTab
+                        opportunityId={opportunity.id}
                         opportunityAmount={opportunity.amount ?? 0}
                     />
                 )}
@@ -90,9 +110,11 @@ export function FinancialTab({ opportunity }: Props) {
                     />
                 )}
                 {activeTab === "transaction" && (
-                    <TransactionTab 
+                    <TransactionTab
                         opportunityId={opportunity.id}
                         opportunityAmount={opportunity.amount ?? 0}
+                        costingSuppliers={costingSuppliers}
+                        costingDestinations={costingDestinations}
                     />
                 )}
             </div>

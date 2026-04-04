@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { getServerSession } from "next-auth";
+import Link from "next/link";
 
 import { authOptions } from "@/lib/auth";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
@@ -34,6 +35,7 @@ export default async function OpportunityPage(props: OpportunityPageProps) {
                 <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
                     <h2 className="text-2xl font-semibold">Opportunity not found</h2>
                     <p className="text-muted-foreground">The opportunity you are looking for does not exist or has been deleted.</p>
+                    <Link href="/opportunities" className="text-blue-600 hover:underline text-sm">← Back to Opportunities</Link>
                 </div>
             );
         }
@@ -46,12 +48,39 @@ export default async function OpportunityPage(props: OpportunityPageProps) {
                 />
             </div>
         );
-    } catch (error) {
+    } catch (error: unknown) {
+        const isConnectionError =
+            error &&
+            typeof error === "object" &&
+            "code" in error &&
+            (error as { code: string }).code === "ECONNREFUSED";
+
         console.error("Error fetching opportunity data:", error);
+
         return (
-            <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 text-red-600">
-                <h2 className="text-2xl font-semibold">Error Loading Opportunity</h2>
-                <p>There was a problem loading the opportunity data. Please try again later.</p>
+            <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
+                <h2 className="text-2xl font-semibold text-red-600">
+                    {isConnectionError ? "Backend Unavailable" : "Error Loading Opportunity"}
+                </h2>
+                <p className="text-slate-600 text-sm max-w-md text-center">
+                    {isConnectionError
+                        ? "Could not connect to the backend server. Please ensure the backend is running and try again."
+                        : "There was a problem loading the opportunity data. Please try again later."}
+                </p>
+                <div className="flex gap-4">
+                    <Link
+                        href={`/opportunities/${id}`}
+                        className="inline-flex items-center gap-1 bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-md transition-colors"
+                    >
+                        Retry
+                    </Link>
+                    <Link
+                        href="/opportunities"
+                        className="inline-flex items-center gap-1 text-slate-600 hover:text-slate-800 text-sm px-4 py-2 rounded-md border border-slate-200 hover:bg-slate-50 transition-colors"
+                    >
+                        ← Back to Opportunities
+                    </Link>
+                </div>
             </div>
         );
     }

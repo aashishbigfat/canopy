@@ -66,6 +66,7 @@ class PaymentScheduleItemUpdate(BaseModel):
     reference_number: Optional[str] = None
     notes: Optional[str] = None
     paid_at: Optional[datetime] = None
+    transaction_id: Optional[str] = None  # Linked transaction ID (set by server)
 
 
 class PaymentScheduleItemResponse(BaseModel):
@@ -93,7 +94,7 @@ class PaymentScheduleItemResponse(BaseModel):
 
 class TransactionCreate(BaseModel):
     """Schema for creating a transaction"""
-    transaction_type: str  # "Pay", "Refund"
+    transaction_type: str  # "Receive", "Pay", or "Refund"
     amount: float = Field(..., gt=0)
     transaction_date: Optional[datetime] = None
     payment_mode: Optional[str] = None  # Cash, Cheque, Online, Other

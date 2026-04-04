@@ -25,6 +25,13 @@ class Itinerary(BaseDocument):
     
     # Destinations
     destination_ids: List[PydanticObjectId] = Field(default_factory=list)
+    tour_starts_from: Optional[str] = None
+    tour_ends_same: bool = False
+    
+    # Details
+    inclusions: List[str] = Field(default_factory=list)
+    feature_image: Optional[str] = None
+    overview: Optional[str] = None
     
     # Status
     is_active: bool = True

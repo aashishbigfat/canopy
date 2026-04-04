@@ -329,7 +329,7 @@ async def update_payment_schedule_item(
     data: PaymentScheduleItemUpdate,
     current_user: User = Depends(get_current_user),
 ):
-    """Update a payment schedule item. When status changes to 'Received', auto-create a transaction."""
+    """Update a payment schedule item. When status changes to 'Received', auto-create a Receive transaction."""
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     try:
@@ -346,15 +346,53 @@ async def update_payment_schedule_item(
     old_status = item.status
     new_status = update_data.get("status", old_status)
 
-    # Just update the paid_at timestamp for the milestone
+    # When marking as Received: set paid_at (use provided or now), then create a Receive transaction
     if new_status == "Received" and old_status != "Received":
-        update_data["paid_at"] = datetime.utcnow()
+        # Use provided paid_at or fall back to now
+        paid_at_value = update_data.get("paid_at") or datetime.utcnow()
+        update_data["paid_at"] = paid_at_value
 
-    # If reverting from Received back to Pending, clear paid_at
+        # Auto-create the Receive transaction in the ledger
+        txn = OpportunityTransaction(
+            opportunity_id=ObjectId(opportunity_id),
+            tenant_id=current_user.tenant_id,
+            transaction_type="Receive",
+            amount=item.amount,
+            transaction_date=paid_at_value,
+            payment_mode=update_data.get("payment_method"),
+            reference_id=update_data.get("reference_number"),
+            note=update_data.get("notes"),
+            payment_schedule_item_id=item.id,
+            created_by=current_user.id,
+        )
+        await txn.insert()
+
+        # Link transaction back to the payment schedule item
+        # Store as PydanticObjectId so it matches the model's field type
+        update_data["transaction_id"] = txn.id  # txn.id is already PydanticObjectId
+
+    # If reverting from Received back to Pending, clear paid_at and delete the linked transaction
     if new_status == "Pending" and old_status == "Received":
         update_data["paid_at"] = None
+        # Delete the linked Receive transaction if it exists
+        if item.transaction_id:
+            try:
+                linked_txn = await OpportunityTransaction.get(item.transaction_id)
+                if linked_txn:
+                    await linked_txn.delete()
+            except Exception:
+                pass
+        update_data["transaction_id"] = None
 
+    # Apply updates — coerce transaction_id string (from client schema) to PydanticObjectId
+    from beanie import PydanticObjectId as PyObjId
     for field, value in update_data.items():
+        if field == "transaction_id" and isinstance(value, str):
+            # Shouldn't normally arrive as str, but guard defensively
+            try:
+                value = PyObjId(value)
+            except Exception:
+                value = None
         setattr(item, field, value)
 
     item.updated_at = datetime.utcnow()
@@ -499,8 +537,9 @@ async def update_transaction(
     for field, value in update_data.items():
         setattr(txn, field, value)
 
+    from datetime import datetime
     txn.updated_at = datetime.utcnow()
-    txn.last_modified_by_id = current_user.id
+    # Note: OpportunityTransaction has no last_modified_by_id field
     await txn.save()
 
     return _txn_to_response(txn)

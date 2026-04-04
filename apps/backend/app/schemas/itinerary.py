@@ -68,6 +68,11 @@ class ItineraryBase(BaseModel):
     end_date: Optional[Union[datetime, date]] = None
     
     destination_ids: List[str] = Field(default_factory=list)
+    tour_starts_from: Optional[str] = None
+    tour_ends_same: bool = False
+    inclusions: List[str] = Field(default_factory=list)
+    feature_image: Optional[str] = None
+    overview: Optional[str] = None
     
     is_template: bool = False
     notes: Optional[str] = None

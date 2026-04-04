@@ -86,13 +86,16 @@ export const useUpdatePaymentItem = (opportunityId: string) => {
             data: Partial<PaymentScheduleItemCreate> & {
                 status?: string;
                 paid_at?: string;
+                payment_method?: string;
+                reference_number?: string;
+                notes?: string;
             };
         }) => financialService.updatePaymentScheduleItem(opportunityId, itemId, data),
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["opportunities", opportunityId, "payment-schedule"],
             });
-            // Also refresh transactions since status change may create one
+            // Refresh transactions since Received status creates a transaction
             queryClient.invalidateQueries({
                 queryKey: ["opportunities", opportunityId, "transactions"],
             });
@@ -110,6 +113,11 @@ export const useDeletePaymentItem = (opportunityId: string) => {
         onSuccess: () => {
             queryClient.invalidateQueries({
                 queryKey: ["opportunities", opportunityId, "payment-schedule"],
+            });
+            // Also refresh transactions: a Received item deletion cascades to
+            // deleting the linked transaction on the backend.
+            queryClient.invalidateQueries({
+                queryKey: ["opportunities", opportunityId, "transactions"],
             });
             toast.success("Payment milestone deleted");
         },

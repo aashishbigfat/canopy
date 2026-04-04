@@ -59,6 +59,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { UpdateStageDialog } from "./UpdateStageDialog";
 import { FinancialTab } from "./financial/FinancialTab";
+import { OpportunityItinerariesTab } from "@/features/itineraries/components/OpportunityItinerariesTab";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
 import {
     useOpportunity,
@@ -744,20 +745,7 @@ export function OpportunityDetails({
 
                         {/* ── ITINERARIES TAB ── */}
                         <TabsContent value="itineraries" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-                                    <Map className="h-4 w-4 text-blue-500" />
-                                    Itineraries
-                                </h3>
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs">
-                                    + Add Itinerary
-                                </Button>
-                            </div>
-                            <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Map className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No itineraries yet</p>
-                                <p className="text-slate-400 text-sm mt-1">Create travel itineraries to plan the trip details.</p>
-                            </div>
+                            <OpportunityItinerariesTab opportunityId={record.id} />
                         </TabsContent>
 
                         {/* ── FINANCIAL TAB ── */}

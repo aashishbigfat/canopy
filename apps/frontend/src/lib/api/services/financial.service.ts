@@ -162,7 +162,13 @@ export const financialService = {
     updatePaymentScheduleItem: async (
         opportunityId: string,
         itemId: string,
-        data: Partial<PaymentScheduleItemCreate> & { status?: string; paid_at?: string }
+        data: Partial<PaymentScheduleItemCreate> & {
+            status?: string;
+            paid_at?: string;
+            payment_method?: string;
+            reference_number?: string;
+            notes?: string;
+        }
     ): Promise<PaymentScheduleItem> => {
         const res = await apiClient.put<PaymentScheduleItem>(
             `${BASE}/${opportunityId}/payment-schedule/${itemId}`,

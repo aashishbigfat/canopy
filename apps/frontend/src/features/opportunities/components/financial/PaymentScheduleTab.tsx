@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
-import { Plus, Minus, Loader2, IndianRupee, Pencil } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Plus, Minus, Loader2, IndianRupee, Pencil, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaymentSchedule, useUpdatePaymentItem } from "../../api/useOpportunityFinancial";
-import { financialService } from "@/lib/api/services/financial.service";
+import { financialService, PaymentScheduleItem as PSItem } from "@/lib/api/services/financial.service";
 import { format } from "date-fns";
 
 interface Props {
@@ -16,12 +16,195 @@ interface Props {
 }
 
 interface ScheduleRow {
-    id?: string; // Existing server item ID (undefined = new row)
+    id?: string;
     due_date: string;
     amount: number;
     percentage: number;
     status: "Pending" | "Received";
 }
+
+// ── Payment Received Dialog ─────────────────────────────────────────────────
+
+const PAYMENT_MODES = ["Select Payment Mode", "Cash", "Cheque", "Online", "Other"];
+
+interface PaymentReceivedDialogProps {
+    item: PSItem;
+    onConfirm: (data: {
+        payment_method: string;
+        reference_number: string;
+        notes: string;
+        paid_at: string;
+    }) => Promise<void>;
+    onCancel: () => void;
+}
+
+function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDialogProps) {
+    const [paymentMethod, setPaymentMethod] = useState("");
+    const [referenceNumber, setReferenceNumber] = useState("");
+    const [notes, setNotes] = useState("");
+    const [paidAt, setPaidAt] = useState(new Date().toISOString().split("T")[0]);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleConfirm = async () => {
+        setIsSaving(true);
+        try {
+            await onConfirm({
+                payment_method: paymentMethod && paymentMethod !== "Select Payment Mode" ? paymentMethod : "",
+                reference_number: referenceNumber,
+                notes,
+                paid_at: new Date(paidAt).toISOString(),
+            });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Safe close (prevent close while saving)
+    const safeClose = useCallback(() => {
+        if (!isSaving) onCancel();
+    }, [isSaving, onCancel]);
+
+    // Escape key handler
+    useEffect(() => {
+        const handler = (e: KeyboardEvent) => {
+            if (e.key === "Escape") safeClose();
+        };
+        document.addEventListener("keydown", handler);
+        return () => document.removeEventListener("keydown", handler);
+    }, [safeClose]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={safeClose} />
+
+            {/* Dialog */}
+            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                    <div>
+                        <h3 className="text-base font-semibold text-slate-800">Payment Received</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">
+                            Amount:{" "}
+                            <span className="font-semibold text-emerald-600">
+                                ₹{item.amount.toLocaleString("en-IN")}
+                            </span>
+                        </p>
+                    </div>
+                    <button
+                        onClick={safeClose}
+                        disabled={isSaving}
+                        className="h-7 w-7 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                    >
+                        <X className="h-4 w-4 text-slate-500" />
+                    </button>
+                </div>
+
+                {/* Body */}
+                <div className="px-6 py-5 space-y-4">
+                    {/* Amount Received (read-only display) */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                                Amount Received
+                            </label>
+                            <div className="h-10 rounded-md border border-slate-200 bg-slate-50 px-3 flex items-center text-sm font-medium text-slate-700">
+                                ₹{item.amount.toLocaleString("en-IN")}
+                            </div>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                                Date Received<span className="text-red-500">*</span>
+                            </label>
+                            <Input
+                                type="date"
+                                value={paidAt}
+                                onChange={(e) => setPaidAt(e.target.value)}
+                                className="h-10"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Payment Mode & Reference */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                                Payment Mode
+                            </label>
+                            <select
+                                value={paymentMethod}
+                                onChange={(e) => setPaymentMethod(e.target.value)}
+                                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+                            >
+                                {PAYMENT_MODES.map((mode) => (
+                                    <option
+                                        key={mode}
+                                        value={mode === "Select Payment Mode" ? "" : mode}
+                                    >
+                                        {mode}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                                Reference ID
+                            </label>
+                            <Input
+                                type="text"
+                                value={referenceNumber}
+                                onChange={(e) => setReferenceNumber(e.target.value)}
+                                placeholder="Reference / Txn ID"
+                                className="h-10"
+                            />
+                        </div>
+                    </div>
+
+                    {/* Notes */}
+                    <div>
+                        <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                            Note
+                        </label>
+                        <textarea
+                            value={notes}
+                            onChange={(e) => setNotes(e.target.value)}
+                            placeholder="Any notes about this payment..."
+                            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
+                        />
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
+                    <Button
+                        variant="outline"
+                        onClick={safeClose}
+                        disabled={isSaving}
+                        className="h-9 px-5 text-sm"
+                    >
+                        Cancel
+                    </Button>
+                    <Button
+                        onClick={handleConfirm}
+                        disabled={isSaving || !paidAt}
+                        className="bg-emerald-600 hover:bg-emerald-700 h-9 px-5 text-sm"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            "Confirm Receipt"
+                        )}
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
 
 export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) {
     const queryClient = useQueryClient();
@@ -32,6 +215,9 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
     const [editMode, setEditMode] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const initRef = useRef(false);
+
+    // Payment Received dialog state
+    const [pendingReceiveItem, setPendingReceiveItem] = useState<PSItem | null>(null);
 
     // Initialize rows from saved items on load
     useEffect(() => {
@@ -75,7 +261,6 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
     };
 
     const removeRow = (index: number) => {
-        // Can only remove unsaved rows (no id) in edit mode
         const row = rows[index];
         if (row.id) {
             toast.error("Cannot delete a saved payment. You can only edit it.");
@@ -115,23 +300,52 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
         });
     };
 
-    // ── Status change (table view) ──────────────────────────────────────────
+    // ── Status change: intercept Received ──────────────────────────────────
 
-    const handleStatusChange = async (itemId: string, newStatus: string) => {
+    const handleStatusChange = (itemId: string, newStatus: string) => {
+        if (newStatus === "Received") {
+            // Find the item and open Payment Received dialog
+            const item = savedItems.find((i) => i.id === itemId);
+            if (item) {
+                setPendingReceiveItem(item);
+            }
+            return;
+        }
+
+        // Reverting back to Pending — do it directly
+        updateMutation.mutate({
+            itemId,
+            data: { status: newStatus },
+        });
+    };
+
+    const handlePaymentReceivedConfirm = async (data: {
+        payment_method: string;
+        reference_number: string;
+        notes: string;
+        paid_at: string;
+    }) => {
+        if (!pendingReceiveItem) return;
         try {
             await updateMutation.mutateAsync({
-                itemId,
-                data: { status: newStatus },
+                itemId: pendingReceiveItem.id,
+                data: {
+                    status: "Received",
+                    payment_method: data.payment_method || undefined,
+                    reference_number: data.reference_number || undefined,
+                    notes: data.notes || undefined,
+                    paid_at: data.paid_at,
+                },
             });
+            setPendingReceiveItem(null);
         } catch {
             // Error handled by mutation hook
         }
     };
 
-    // ── Save ────────────────────────────────────────────────────────────────
+    // ── Save schedule (edit mode) ────────────────────────────────────────────
 
     const handleSave = async () => {
-        // Validate: remaining must be exactly 0
         if (Math.abs(remaining) > 0.01) {
             toast.error(
                 remaining > 0
@@ -148,17 +362,14 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
 
         setIsSaving(true);
         try {
-            // IDs that still exist in local rows
             const currentIds = new Set(rows.filter((r) => r.id).map((r) => r.id));
 
-            // Delete removed items (only unsaved / pending items can be removed)
             for (const saved of savedItems) {
                 if (!currentIds.has(saved.id)) {
                     await financialService.deletePaymentScheduleItem(opportunityId, saved.id);
                 }
             }
 
-            // Create new / update existing
             for (const row of rows) {
                 const payload = {
                     due_date: row.due_date ? new Date(row.due_date).toISOString() : undefined,
@@ -173,7 +384,6 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                 }
             }
 
-            // Refresh data
             await queryClient.invalidateQueries({
                 queryKey: ["opportunities", opportunityId, "payment-schedule"],
             });
@@ -204,69 +414,81 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
 
     if (hasSavedSchedule && !editMode) {
         return (
-            <div className="space-y-4">
-                {/* Header with edit link */}
-                <div className="flex justify-between items-center">
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
-                        Payment Schedule
-                    </p>
-                    <button
-                        onClick={() => setEditMode(true)}
-                        className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-xs font-medium transition-colors"
-                    >
-                        <Pencil className="h-3 w-3" />
-                        Payment Schedule
-                    </button>
-                </div>
+            <>
+                {/* Payment Received Dialog */}
+                {pendingReceiveItem && (
+                    <PaymentReceivedDialog
+                        item={pendingReceiveItem}
+                        onConfirm={handlePaymentReceivedConfirm}
+                        onCancel={() => setPendingReceiveItem(null)}
+                    />
+                )}
 
-                {/* Table */}
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-sm">
-                        <thead>
-                            <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-12">#</th>
-                                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Date</th>
-                                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Amount</th>
-                                <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-40">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {savedItems.map((item, idx) => (
-                                <tr
-                                    key={item.id}
-                                    className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
-                                >
-                                    <td className="px-4 py-3 text-slate-600">{idx + 1}</td>
-                                    <td className="px-4 py-3 text-slate-700">
-                                        {item.due_date
-                                            ? format(new Date(item.due_date), "d-MMM-yyyy")
-                                            : "—"}
-                                    </td>
-                                    <td className="px-4 py-3 text-slate-700 font-medium">
-                                        {item.amount.toLocaleString("en-IN")}
-                                    </td>
-                                    <td className="px-4 py-3">
-                                        <select
-                                            value={item.status}
-                                            onChange={(e) =>
-                                                handleStatusChange(item.id, e.target.value)
-                                            }
-                                            className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
-                                                item.status === "Received"
-                                                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                    : "bg-amber-50 text-amber-700 border-amber-200"
-                                            }`}
-                                        >
-                                            <option value="Pending">Pending</option>
-                                            <option value="Received">Received</option>
-                                        </select>
-                                    </td>
+                <div className="space-y-4">
+                    {/* Header with edit link */}
+                    <div className="flex justify-between items-center">
+                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                            Payment Schedule
+                        </p>
+                        <button
+                            onClick={() => setEditMode(true)}
+                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-xs font-medium transition-colors"
+                        >
+                            <Pencil className="h-3 w-3" />
+                            Edit Schedule
+                        </button>
+                    </div>
+
+                    {/* Table */}
+                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                            <thead>
+                                <tr className="bg-slate-50 border-b border-slate-200">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-12">#</th>
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Date</th>
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Amount</th>
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-40">Status</th>
                                 </tr>
-                            ))}
-                        </tbody>
-                    </table>
+                            </thead>
+                            <tbody>
+                                {savedItems.map((item, idx) => (
+                                    <tr
+                                        key={item.id}
+                                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
+                                    >
+                                        <td className="px-4 py-3 text-slate-600">{idx + 1}</td>
+                                        <td className="px-4 py-3 text-slate-700">
+                                            {item.due_date
+                                                ? format(new Date(item.due_date), "d-MMM-yyyy")
+                                                : "—"}
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-700 font-medium">
+                                            {item.amount.toLocaleString("en-IN")}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <select
+                                                value={item.status}
+                                                onChange={(e) =>
+                                                    handleStatusChange(item.id, e.target.value)
+                                                }
+                                                disabled={updateMutation.isPending}
+                                                className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 ${
+                                                    item.status === "Received"
+                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                        : "bg-amber-50 text-amber-700 border-amber-200"
+                                                }`}
+                                            >
+                                                <option value="Pending">Pending</option>
+                                                <option value="Received">Received</option>
+                                            </select>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
+            </>
         );
     }
 
@@ -297,7 +519,6 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                         variant="outline"
                         className="h-8 text-xs"
                         onClick={() => {
-                            // Reset rows to saved state
                             setRows(
                                 savedItems.map((item) => ({
                                     id: item.id,
@@ -374,7 +595,6 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                                     <span className="text-sm text-slate-400 flex-shrink-0">%</span>
                                 </div>
 
-                                {/* + for first row, − for unsaved additional rows, disabled for saved rows */}
                                 {idx === 0 ? (
                                     <button
                                         type="button"
@@ -384,7 +604,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                                         <Plus className="h-4 w-4" />
                                     </button>
                                 ) : isSavedRow ? (
-                                    <div className="h-9 w-9" /> // No delete for saved rows
+                                    <div className="h-9 w-9" />
                                 ) : (
                                     <button
                                         type="button"
