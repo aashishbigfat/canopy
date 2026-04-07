@@ -26,7 +26,8 @@ RUN apt-get update && apt-get install -y \
 COPY requirements.txt .
 RUN --mount=type=cache,target=/root/.cache/uv \
     pip install --no-cache-dir uv \
-    && uv pip install --system --no-cache -r requirements.txt
+    && uv pip install --system --no-cache -r requirements.txt \
+    && pip install --no-cache-dir jinja2
 
 # Copy project
 COPY . .
