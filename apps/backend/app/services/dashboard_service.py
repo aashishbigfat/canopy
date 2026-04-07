@@ -483,10 +483,33 @@ class DashboardService:
         tomorrow_dep_query = {**base_query, "travel_date": {"$gte": tomorrow_start, "$lt": tomorrow_end}}
         tomorrow_departures = await Opportunity.find(tomorrow_dep_query).count()
         
-        # Today's checkout (Not clearly defined in simplified model, but let's say departures today)
-        # Using travel_date for now if we don't have a check-out date
-        today_checkout_query = {**base_query, "travel_date": {"$gte": today_start, "$lt": today_end}}
-        today_checkout = await Opportunity.find(today_checkout_query).count()
+        # Today's checkout (travel_date + no_of_nights == today)
+        checkout_match_query = {
+            **base_query,
+            "travel_date": {"$type": "date"}
+        }
+        checkout_pipeline = [
+            {"$match": checkout_match_query},
+            {
+                "$project": {
+                    "checkout_date": {
+                        "$dateAdd": {
+                            "startDate": "$travel_date",
+                            "unit": "day",
+                            "amount": {"$ifNull": ["$no_of_nights", 0]}
+                        }
+                    }
+                }
+            },
+            {
+                "$match": {
+                    "checkout_date": {"$gte": today_start, "$lt": today_end}
+                }
+            },
+            {"$count": "total"}
+        ]
+        checkout_result = await Opportunity.aggregate(checkout_pipeline).to_list()
+        today_checkout = checkout_result[0]["total"] if checkout_result else 0
         
         # Today's Revenue (won today)
         won_today_query = {
@@ -605,20 +628,17 @@ class DashboardService:
         from beanie import PydanticObjectId
         from app.models.opportunity import Opportunity
         from app.models.opportunity_picklists import SalesStage
+        import calendar
         
         tenant_obj_id = PydanticObjectId(tenant_id)
         
-        # Determine date range
         now = datetime.utcnow()
-        if period == "week":
-            start_date = now - timedelta(days=7)
-            group_format = "%Y-%m-%d"
-        elif period == "year":
-            start_date = now.replace(month=1, day=1)
-            group_format = "%Y-%m"
-        else:  # month
-            start_date = now.replace(day=1)
-            group_format = "%Y-%m-%d"
+        this_month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        
+        if now.month == 1:
+            last_month_start = now.replace(year=now.year - 1, month=12, day=1, hour=0, minute=0, second=0, microsecond=0)
+        else:
+            last_month_start = now.replace(month=now.month - 1, day=1, hour=0, minute=0, second=0, microsecond=0)
             
         won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
         won_stage_ids = [s.id for s in won_stages]
@@ -626,28 +646,39 @@ class DashboardService:
         query = {
             "tenant_id": tenant_obj_id,
             "sales_stage_id": {"$in": won_stage_ids},
-            "close_date": {"$gte": start_date}
+            "close_date": {"$gte": last_month_start}
         }
         if user_id:
             query["owner_id"] = PydanticObjectId(user_id)
         
-        opportunities = await Opportunity.find(query).sort("close_date").to_list()
+        opportunities = await Opportunity.find(query).to_list()
         
-        # Group by period
+        _, days_in_this_month = calendar.monthrange(now.year, now.month)
+        
         revenue_data = {}
+        for day in range(1, days_in_this_month + 1):
+            revenue_data[day] = {
+                "day": day,
+                "sale_this_month": 0,
+                "sale_last_month": 0,
+                "target": 0
+            }
+            
         for opp in opportunities:
             if not opp.close_date:
                 continue
-            
-            period_key = opp.close_date.strftime(group_format)
-            if period_key not in revenue_data:
-                revenue_data[period_key] = 0
-            revenue_data[period_key] += getattr(opp, "amount", 0)
-        
-        return [
-            {"date": date, "revenue": revenue}
-            for date, revenue in sorted(revenue_data.items())
-        ]
+                
+            is_this_month = opp.close_date >= this_month_start
+            day = opp.close_date.day
+            if day > days_in_this_month:
+                day = days_in_this_month
+                
+            if is_this_month:
+                revenue_data[day]["sale_this_month"] += getattr(opp, "amount", 0) or 0
+            else:
+                revenue_data[day]["sale_last_month"] += getattr(opp, "amount", 0) or 0
+                
+        return list(revenue_data.values())
     
     async def get_opportunities_by_stage(
         self,

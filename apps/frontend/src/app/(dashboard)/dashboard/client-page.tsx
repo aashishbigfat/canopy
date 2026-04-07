@@ -17,18 +17,22 @@ export default function DashboardClientPage() {
     const { data: queryData, isLoading: loading, error } = useQuery({
         queryKey: ["dashboard", "overview"],
         queryFn: async () => {
-            const [data, stats, activityLogs, deals, tasks, pipeline] = await Promise.all([
+            const [data, stats, activityLogs, deals, tasks, pipeline, chart] = await Promise.all([
                 dashboardService.getDashboardData(),
                 dashboardService.getStats(),
                 dashboardService.getActivityLogs(),
                 dashboardService.getKeyDeals().catch(() => []),
                 dashboardService.getTaskSummary().catch(() => ({ missed_count: 0, payment_reminder_count: 0 })),
                 dashboardService.getOpportunitiesByStage().catch(() => []),
+                dashboardService.getRevenueChart('month').catch(() => [])
             ]);
 
             // Merge real-time stats into the dashboard data if available
             if (data && stats) {
                 data.stats = { ...data.stats, ...stats };
+            }
+            if (data && chart) {
+                data.revenue_chart = chart;
             }
 
             return {
