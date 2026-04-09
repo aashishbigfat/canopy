@@ -144,25 +144,27 @@ export function UserForm({ initialData }: UserFormProps) {
                             <FormLabel>Roles</FormLabel>
                             <FormControl>
                                 <div className="flex flex-col gap-2 border p-4 rounded-md">
-                                    {isLoadingRoles ? <p>Loading roles...</p> : roles.map((role) => (
-                                        <div key={role._id} className="flex items-center space-x-2">
+                                    {isLoadingRoles ? <p>Loading roles...</p> : roles.map((role) => {
+                                        const roleId = (role.id || role._id) as string;
+                                        return (
+                                        <div key={roleId} className="flex items-center space-x-2">
                                             <Checkbox
-                                                id={role._id}
-                                                checked={field.value.includes(role._id)}
+                                                id={roleId}
+                                                checked={field.value.includes(roleId)}
                                                 onCheckedChange={(checked) => {
                                                     return checked
-                                                        ? field.onChange([...field.value, role._id])
-                                                        : field.onChange(field.value.filter((value) => value !== role._id))
+                                                        ? field.onChange([...field.value, roleId])
+                                                        : field.onChange(field.value.filter((value) => value !== roleId))
                                                 }}
                                             />
                                             <label
-                                                htmlFor={role._id}
+                                                htmlFor={roleId}
                                                 className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
                                             >
                                                 {role.name}
                                             </label>
                                         </div>
-                                    ))}
+                                    )})}
                                 </div>
                             </FormControl>
                             <FormMessage />

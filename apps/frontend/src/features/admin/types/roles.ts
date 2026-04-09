@@ -12,7 +12,8 @@ export interface RoleInput {
 }
 
 export interface Role {
-    _id: string;
+    _id?: string;
+    id?: string;
     name: string;
     description?: string;
     permissions: string[];
