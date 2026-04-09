@@ -98,7 +98,8 @@ class TaskService:
         skip: int = 0,
         limit: int = 10,
         assigned_user_id: Optional[ObjectId] = None,
-        status: Optional[str] = None
+        status: Optional[str] = None,
+        priority: Optional[str] = None
     ) -> Tuple[List[Task], int]:
         """Get tasks for a tenant with pagination"""
         
@@ -112,6 +113,9 @@ class TaskService:
         
         if status:
             query["status"] = status
+
+        if priority:
+            query["priority"] = priority
         
         # Get total count
         total = await Task.find(query).count()

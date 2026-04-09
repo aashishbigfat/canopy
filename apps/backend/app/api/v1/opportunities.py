@@ -67,6 +67,27 @@ async def get_experiences(
         for exp in experiences
     ]
 
+@router.get("/search-opportunity")
+async def search_opportunity_autocomplete(
+    s: str = Query(..., description="Search term"),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Autocomplete search for opportunity name.
+    Used by the Task form's Related To > Opportunity field.
+    """
+    from app.models.opportunity import Opportunity as OppDoc
+    opps = await OppDoc.find({
+        "tenant_id": current_user.tenant_id,
+        "name": {"$regex": s, "$options": "i"},
+        "deleted_at": None
+    }).limit(15).to_list()
+    return {
+        "error": False,
+        "opportunities": [{"id": str(o.id), "name": o.name} for o in opps]
+    }
+
+
 @router.post("/", response_model=OpportunityResponse, status_code=201)
 async def create_opportunity(
     opp_data: OpportunityCreate,
