@@ -16,7 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateRole, useUpdateRole, useGetAllPermissions } from "@/features/admin/api/use-roles";
-import { Role } from "@/features/admin/types/roles";
+import { Role, getRoleId } from "@/features/admin/types/roles";
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
@@ -82,7 +82,7 @@ export function RoleForm({ initialData }: RoleFormProps) {
             await ErrorHandler.withErrorHandling(async () => {
                 try {
                     if (initialData) {
-                        await updateRole.mutateAsync({ id: initialData._id, data });
+                        await updateRole.mutateAsync({ id: getRoleId(initialData), data });
                     } else {
                         await createRole.mutateAsync(data);
                     }

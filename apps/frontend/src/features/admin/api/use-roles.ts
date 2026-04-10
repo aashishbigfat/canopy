@@ -1,13 +1,12 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api/client';
-import { Role, RoleInput, RoleResponse, PermissionListResponse } from '../types/roles';
+import { Role, RoleInput, RoleResponse, PermissionListResponse, getRoleId } from '../types/roles';
 
 // Queries
 export const useGetRoles = (params?: { skip?: number; limit?: number }) => {
     return useQuery({
         queryKey: ['roles', params],
         queryFn: async () => {
-            // The API returns { roles: Role[], total: number } but we'll accept just the array for now or adjust
             const response = await apiClient.get<{ roles: Role[]; total: number }>('/roles', { params });
             return response.data.roles;
         },
@@ -21,7 +20,7 @@ export const useGetRole = (id: string) => {
             const response = await apiClient.get<Role>(`/roles/${id}`);
             return response.data;
         },
-        enabled: !!id,
+        enabled: !!id && id !== 'undefined',
     });
 };
 
@@ -58,7 +57,7 @@ export const useUpdateRole = () => {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ['roles'] });
-            queryClient.invalidateQueries({ queryKey: ['roles', data._id] });
+            queryClient.invalidateQueries({ queryKey: ['roles', getRoleId(data)] });
         },
     });
 };

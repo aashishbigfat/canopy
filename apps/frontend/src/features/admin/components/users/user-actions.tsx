@@ -22,13 +22,15 @@ export function UserActions({ user }: UserActionsProps) {
     const router = useRouter();
     const deleteUser = useDeleteUser();
 
+    const userId = user.id || user._id;
+
     const handleEdit = () => {
-        router.push(`/admin/users/${user._id}`);
+        router.push(`/admin/users/${userId}`);
     };
 
     const handleDelete = async () => {
         if (confirm("Are you sure you want to delete this user?")) {
-            await deleteUser.mutateAsync(user._id);
+            await deleteUser.mutateAsync(userId);
         }
     };
 
@@ -42,7 +44,7 @@ export function UserActions({ user }: UserActionsProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(user._id)}>
+                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(userId)}>
                     Copy ID
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

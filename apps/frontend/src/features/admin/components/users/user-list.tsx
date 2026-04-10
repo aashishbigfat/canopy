@@ -47,7 +47,7 @@ export function UserList() {
                         </TableRow>
                     ) : (
                         users.map((user: User) => (
-                            <TableRow key={user._id}>
+                            <TableRow key={user.id || user._id}>
                                 <TableCell className="font-medium">{user.name}</TableCell>
                                 <TableCell>{user.email}</TableCell>
                                 <TableCell>

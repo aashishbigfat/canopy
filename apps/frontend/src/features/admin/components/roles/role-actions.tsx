@@ -11,7 +11,7 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Role } from "@/features/admin/types/roles";
+import { Role, getRoleId } from "@/features/admin/types/roles";
 import { useDeleteRole } from "@/features/admin/api/use-roles";
 
 interface RoleActionsProps {
@@ -22,13 +22,15 @@ export function RoleActions({ role }: RoleActionsProps) {
     const router = useRouter();
     const deleteRole = useDeleteRole();
 
+    const roleId = getRoleId(role);
+
     const handleEdit = () => {
-        router.push(`/admin/roles/${role._id}`);
+        router.push(`/admin/roles/${roleId}`);
     };
 
     const handleDelete = async () => {
         if (confirm("Are you sure you want to delete this role?")) {
-            await deleteRole.mutateAsync(role._id);
+            await deleteRole.mutateAsync(roleId);
         }
     };
 
@@ -42,7 +44,7 @@ export function RoleActions({ role }: RoleActionsProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(role._id)}>
+                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(roleId)}>
                     Copy ID
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

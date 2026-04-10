@@ -11,6 +11,7 @@ from app.schemas.role import (
 from app.schemas.user import UserResponse
 from app.services.role_service import RoleService
 from app.api.deps import get_current_user, check_permission
+from app.api.validators import validate_object_id
 
 router = APIRouter()
 
@@ -62,6 +63,7 @@ async def get_role(
     current_user: User = Depends(check_permission("view_role"))
 ):
     """Get role by ID"""
+    validate_object_id(role_id, "role_id")
     service = RoleService()
     
     role = await service.get_role(role_id, current_user.tenant_id)
@@ -79,6 +81,7 @@ async def update_role(
     current_user: User = Depends(check_permission("edit_role"))
 ):
     """Update a role"""
+    validate_object_id(role_id, "role_id")
     service = RoleService()
     
     try:
@@ -103,6 +106,7 @@ async def delete_role(
     current_user: User = Depends(check_permission("delete_role"))
 ):
     """Delete a role (soft delete)"""
+    validate_object_id(role_id, "role_id")
     service = RoleService()
     
     try:
@@ -126,6 +130,7 @@ async def add_permissions(
     current_user: User = Depends(check_permission("edit_role"))
 ):
     """Add permissions to a role"""
+    validate_object_id(role_id, "role_id")
     service = RoleService()
     
     try:
@@ -150,6 +155,7 @@ async def remove_permissions(
     current_user: User = Depends(check_permission("edit_role"))
 ):
     """Remove permissions from a role"""
+    validate_object_id(role_id, "role_id")
     service = RoleService()
     
     role = await service.remove_permissions(
@@ -170,6 +176,7 @@ async def get_role_users(
     current_user: User = Depends(check_permission("view_user"))
 ):
     """Get all users with this role"""
+    validate_object_id(role_id, "role_id")
     service = RoleService()
     
     users = await service.get_users_by_role(

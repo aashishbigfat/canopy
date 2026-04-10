@@ -11,7 +11,7 @@ import {
 import { useGetRoles } from "@/features/admin/api/use-roles";
 import { RoleActions } from "./role-actions";
 import { Badge } from "@/components/ui/badge";
-import { Role } from "@/features/admin/types/roles";
+import { Role, getRoleId } from "@/features/admin/types/roles";
 
 export function RoleList() {
     const { data: roles = [], isLoading, isError } = useGetRoles();
@@ -29,7 +29,7 @@ export function RoleList() {
             <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Namxe</TableHead>
+                        <TableHead>Name</TableHead>
                         <TableHead>Permissions Count</TableHead>
                         <TableHead>Type</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
@@ -44,7 +44,7 @@ export function RoleList() {
                         </TableRow>
                     ) : (
                         roles.map((role: Role) => (
-                            <TableRow key={role.id || role._id}>
+                            <TableRow key={getRoleId(role)}>
                                 <TableCell className="font-medium">{role.name}</TableCell>
                                 <TableCell>
                                     <Badge variant="outline">{role.permissions.length}</Badge>

@@ -18,6 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateUser, useUpdateUser } from "@/features/admin/api/use-users";
 import { useGetRoles } from "@/features/admin/api/use-roles";
+import { getRoleId } from "@/features/admin/types/roles";
 import { User } from "@/features/admin/types";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 
@@ -77,7 +78,7 @@ export function UserForm({ initialData }: UserFormProps) {
                         const updateData: any = { ...data };
                         if (!updateData.password) delete updateData.password;
 
-                        await updateUser.mutateAsync({ id: initialData._id, data: updateData });
+                        await updateUser.mutateAsync({ id: initialData.id || initialData._id, data: updateData });
                     } else {
                         await createUser.mutateAsync(data);
                     }
@@ -145,7 +146,7 @@ export function UserForm({ initialData }: UserFormProps) {
                             <FormControl>
                                 <div className="flex flex-col gap-2 border p-4 rounded-md">
                                     {isLoadingRoles ? <p>Loading roles...</p> : roles.map((role) => {
-                                        const roleId = (role.id || role._id) as string;
+                                        const roleId = getRoleId(role);
                                         return (
                                         <div key={roleId} className="flex items-center space-x-2">
                                             <Checkbox
