@@ -356,16 +356,6 @@ export function OpportunityDetails({
 
                     <div className="flex flex-col items-end justify-between min-w-[250px]">
                         <div className="flex items-center gap-2">
-                            <div className="text-right text-xs space-y-1 mr-4">
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="text-slate-500">Key Deal</span>
-                                    <input type="checkbox" checked={record.key_deal} readOnly className="rounded border-slate-300" />
-                                </div>
-                                <div className="flex items-center justify-end gap-2">
-                                    <span className="text-slate-500">Verified by Account</span>
-                                    <input type="checkbox" readOnly className="rounded border-slate-300" />
-                                </div>
-                            </div>
                             <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" onClick={() => setIsEditDrawerOpen(true)}>
                                 Edit
                             </Button>

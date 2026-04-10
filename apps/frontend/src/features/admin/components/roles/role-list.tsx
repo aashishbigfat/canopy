@@ -44,7 +44,7 @@ export function RoleList() {
                         </TableRow>
                     ) : (
                         roles.map((role: Role) => (
-                            <TableRow key={role._id}>
+                            <TableRow key={role.id || role._id}>
                                 <TableCell className="font-medium">{role.name}</TableCell>
                                 <TableCell>
                                     <Badge variant="outline">{role.permissions.length}</Badge>

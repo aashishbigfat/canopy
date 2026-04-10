@@ -45,7 +45,7 @@ const taskFormSchema = z.object({
         .enum(["Not Started", "In Progress", "Completed", "Deferred"])
         .default("Not Started"),
     priority: z.enum(["Low", "Normal", "High"]).default("Normal"),
-    assigned_user_id: z.string().optional(),
+    assigned_user_id: z.string().min(1, "Assignee is required"),
     description: z.string().optional(),
 
     // Related To
@@ -71,7 +71,7 @@ export function TaskForm({ initialData, onSuccess, embedded, onLoadingChange }: 
     const createTask = useCreateTask();
     const updateTask = useUpdateTask();
     const { data: usersData } = useGetUsers();
-    const users = usersData?.data || [];
+    const users = (usersData as any)?.users || usersData?.data || [];
 
     // ── Dynamic search state ──
     const [accountOptions, setAccountOptions] = React.useState<
@@ -354,12 +354,12 @@ export function TaskForm({ initialData, onSuccess, embedded, onLoadingChange }: 
                         name="assigned_user_id"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Assigned To</FormLabel>
+                                <FormLabel>Assigned To <span className="text-destructive">*</span></FormLabel>
                                 <FormControl>
                                     <SearchableSelect
-                                        options={users.map((u: User) => ({
+                                        options={users.map((u: any) => ({
                                             label: u.name,
-                                            value: u._id,
+                                            value: u.id || u._id,
                                         }))}
                                         value={field.value}
                                         onValueChange={field.onChange}

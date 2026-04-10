@@ -93,7 +93,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     )
 
 # Include routers
-from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial
+from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial, hierarchies
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
 
@@ -115,6 +115,7 @@ app.include_router(itineraries.router, prefix="/api/v1/itineraries", tags=["Itin
 app.include_router(packages.router, prefix="/api/v1/packages", tags=["Packages"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])
 app.include_router(roles.router, prefix="/api/v1/roles", tags=["Roles"])
+app.include_router(hierarchies.router, prefix="/api/v1/hierarchies", tags=["Hierarchies"])
 app.include_router(destinations.router, prefix="/api/v1/destinations", tags=["Destinations"])
 app.include_router(departments.router, prefix="/api/v1/departments", tags=["Departments"])
 app.include_router(products.router, prefix="/api/v1/products", tags=["Products"])

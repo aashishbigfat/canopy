@@ -278,20 +278,20 @@ export function HierarchyList() {
             </Table>
 
             <div className="rounded-md border">
-                <Table>
-                    <TableBody>
-                        {hierarchies.length === 0 ? (
-                            <TableRow>
-                                <TableCell colSpan={4} className="h-24 text-center">
-                                    No hierarchies found.
-                                </TableCell>
-                            </TableRow>
-                        ) : (
-                            <DndContext
-                                sensors={sensors}
-                                collisionDetection={closestCenter}
-                                onDragEnd={onDragEnd}
-                            >
+                <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={onDragEnd}
+                >
+                    <Table>
+                        <TableBody>
+                            {hierarchies.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={4} className="h-24 text-center">
+                                        No hierarchies found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
                                 <SortableContext
                                     items={flat.map(({ node }) => node._id || node.id || "").filter(Boolean)}
                                     strategy={verticalListSortingStrategy}
@@ -312,10 +312,10 @@ export function HierarchyList() {
                                         );
                                     })}
                                 </SortableContext>
-                            </DndContext>
-                        )}
-                    </TableBody>
-                </Table>
+                            )}
+                        </TableBody>
+                    </Table>
+                </DndContext>
             </div>
 
             <Dialog

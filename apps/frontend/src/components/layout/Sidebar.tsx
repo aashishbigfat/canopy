@@ -27,27 +27,49 @@ export function Sidebar({ className }: SidebarProps) {
                     {navItems.map((item) => {
                         const isActive = pathname.startsWith(item.href);
                         return (
-                            <Button
-                                key={item.href}
-                                asChild
-                                variant="ghost"
-                                className={cn(
-                                    "w-full justify-start h-10 px-4 rounded-xl transition-all duration-200",
-                                    isActive
-                                        ? "bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 shadow-sm"
-                                        : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                            <div key={item.href} className="flex flex-col mb-1">
+                                <Button
+                                    asChild
+                                    variant="ghost"
+                                    className={cn(
+                                        "w-full justify-start h-10 px-4 rounded-xl transition-all duration-200",
+                                        isActive
+                                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 shadow-sm"
+                                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                    )}
+                                >
+                                    <Link href={item.href} className="flex items-center w-full">
+                                        <item.icon className={cn(
+                                            "mr-3 size-[20px]",
+                                            isActive ? "text-blue-600" : "text-slate-400"
+                                        )} />
+                                        <span className="text-[14px] font-semibold flex-1">
+                                            {item.title}
+                                        </span>
+                                    </Link>
+                                </Button>
+                                {item.submenu && isActive && (
+                                    <div className="ml-10 mt-1 flex flex-col gap-1 border-l-2 border-slate-100 pl-3 py-1">
+                                        {item.submenu.map((sub) => {
+                                            const isSubActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
+                                            return (
+                                                <Link
+                                                    key={sub.href}
+                                                    href={sub.href}
+                                                    className={cn(
+                                                        "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                                                        isSubActive 
+                                                            ? "text-blue-600 bg-blue-50/50" 
+                                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                                    )}
+                                                >
+                                                    {sub.title}
+                                                </Link>
+                                            )
+                                        })}
+                                    </div>
                                 )}
-                            >
-                                <Link href={item.href} className="flex items-center w-full">
-                                    <item.icon className={cn(
-                                        "mr-3 size-[20px]",
-                                        isActive ? "text-blue-600" : "text-slate-400"
-                                    )} />
-                                    <span className="text-[14px] font-semibold flex-1">
-                                        {item.title}
-                                    </span>
-                                </Link>
-                            </Button>
+                            </div>
                         );
                     })}
                 </div>

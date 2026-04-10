@@ -122,8 +122,8 @@ export function SearchableSelect({
                                     {Array.from(new Map(options.map(o => [o.value, o])).values()).map((option) => (
                                         <CommandItem
                                             key={option.value}
-                                            value={option.value} // Use value for selection
-                                            keywords={[option.label]} // Fix: Allows searching by label text
+                                            value={`${option.label}:::${option.value}`} // Include label for better cmdk matching
+                                            keywords={[option.label, option.value]} // Additional search keywords
                                             onSelect={() => {
                                                 if (option.disabled) return
                                                 onValueChange(option.value === value ? "" : option.value)

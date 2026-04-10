@@ -88,5 +88,11 @@ export const navItems: NavItem[] = [
         title: "Admin",
         href: "/admin",
         icon: Settings,
+        submenu: [
+            { title: "User Management", href: "/admin/users" },
+            { title: "Role Management", href: "/admin/role-management" },
+            { title: "Hierarchies", href: "/admin/hierarchies" },
+            { title: "Departments", href: "/admin/departments" },
+        ]
     },
 ];

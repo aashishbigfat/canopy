@@ -156,6 +156,7 @@ async def get_opportunities(
         from datetime import datetime, timedelta
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
+        stage_filter = ObjectId(sales_stage_id) if sales_stage_id else None
         
         if view == "today":
             # Created today
@@ -171,8 +172,12 @@ async def get_opportunities(
                  "$lte": now + timedelta(days=7)
              }
         elif view == "closed":
-             # Handled by frontend or specific status filter usually
-             pass
+             closed_stages = await SalesStage.find(
+                 {"$or": [{"is_won": True}, {"is_lost": True}]}
+             ).to_list()
+             if closed_stages:
+                 closed_stage_ids = [s.id for s in closed_stages]
+                 stage_filter = {"$in": closed_stage_ids}
 
         # Get opportunities
         opportunities, total = await service.get_opportunities_by_tenant(
@@ -180,7 +185,7 @@ async def get_opportunities(
             skip=(page - 1) * per_page,
             limit=per_page,
             owner_id=ObjectId(owner_id) if owner_id else None,
-            sales_stage_id=ObjectId(sales_stage_id) if sales_stage_id else None,
+            sales_stage_id=stage_filter,
             **filters
         )
         # Get related data names
