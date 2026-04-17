@@ -500,14 +500,20 @@ class AccountService(ActivityMixin):
         search_params: AccountSearch,
         tenant_id: ObjectId,
         skip: int = 0,
-        limit: int = 10
+        limit: int = 10,
+        visible_owner_ids: Optional[list] = None
     ) -> tuple[List[Account], int]:
-        """Search accounts with filters"""
+        """Search accounts with filters and visibility rules"""
         
         query = {
             "tenant_id": tenant_id,
             "deleted_at": None
         }
+        
+        # Scope results based on visibility rules
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+
         
         # Text search
         if search_params.query:

@@ -11,6 +11,7 @@ declare module "next-auth" {
             image?: string | null;
             role?: string;
             tenantId?: string;
+            permissions?: string[];
         };
     }
 
@@ -22,6 +23,7 @@ declare module "next-auth" {
         tenantId?: string;
         accessToken?: string;
         refreshToken?: string;
+        permissions?: string[];
     }
 }
 
@@ -32,5 +34,6 @@ declare module "next-auth/jwt" {
         id?: string;
         role?: string;
         tenantId?: string;
+        permissions?: string[];
     }
 }

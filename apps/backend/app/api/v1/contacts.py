@@ -124,13 +124,14 @@ async def get_contacts(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     owner_id: Optional[str] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("view_contact"))
 ):
     """Get all contacts with pagination"""
     import asyncio
     import logging
     logger = logging.getLogger(__name__)
     try:
+        from app.services.visibility_scope import get_visible_owner_ids
         service = ContactService()
         
         # Build query
@@ -138,8 +139,21 @@ async def get_contacts(
             "tenant_id": current_user.tenant_id,
             "deleted_at": None
         }
+        # --- Data visibility scoping (owner + hierarchy) ---
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        
         if owner_id:
-            query["owner_id"] = ObjectId(owner_id)
+            try:
+                requested_oid = ObjectId(owner_id)
+                if visible_owner_ids is not None and requested_oid not in visible_owner_ids:
+                    # User is requested an owner they can't see — force an impossible match
+                    query["_id"] = ObjectId() 
+                else:
+                    query["owner_id"] = requested_oid
+            except Exception:
+                query["_id"] = ObjectId() # Invalid format
+        elif visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
 
         # Run count and paginated fetch in parallel
         skip = (page - 1) * per_page
@@ -201,15 +215,18 @@ async def search_contacts(
     current_user: User = Depends(check_permission("view_contact"))
 ):
     """Search contacts"""
+    from app.services.visibility_scope import get_visible_owner_ids
     service = ContactService()
     
     skip = (page - 1) * per_page
+    visible_owner_ids = await get_visible_owner_ids(current_user)
     contacts, total = await service.search_contacts(
         query,
         current_user.tenant_id,
         account_id=account_id,
         skip=skip,
-        limit=per_page
+        limit=per_page,
+        visible_owner_ids=visible_owner_ids
     )
     
     return {
@@ -224,11 +241,20 @@ async def get_contact(
     current_user: User = Depends(check_permission("view_contact"))
 ):
     """Get contact by ID with related records"""
+    from app.services.visibility_scope import get_visible_owner_ids
     service = ContactService()
     contact_data = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
     
     if not contact_data:
         raise HTTPException(status_code=404, detail="Contact not found")
+    
+    # Visibility check
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    contact_owner = contact_data.get("owner_id") if isinstance(contact_data, dict) else getattr(contact_data, "owner_id", None)
+    if visible_owner_ids is not None and contact_owner:
+        owner_oid = ObjectId(contact_owner) if isinstance(contact_owner, str) else contact_owner
+        if owner_oid not in visible_owner_ids:
+            raise HTTPException(status_code=404, detail="Contact not found")
     
     # Track view
     await service._track_user_view(
@@ -252,7 +278,19 @@ async def update_contact(
     current_user: User = Depends(check_permission("edit_contact"))
 ):
     """Update a contact"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     service = ContactService()
+    
+    # Visibility pre-check
+    existing = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    contact_owner = existing.get("owner_id") if isinstance(existing, dict) else getattr(existing, "owner_id", None)
+    if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
     contact = await service.update_contact(
         contact_id,
         contact_data,
@@ -275,7 +313,19 @@ async def delete_contact(
     current_user: User = Depends(check_permission("delete_contact"))
 ):
     """Delete a contact (soft delete)"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     service = ContactService()
+    
+    # Visibility pre-check
+    existing = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    contact_owner = existing.get("owner_id") if isinstance(existing, dict) else getattr(existing, "owner_id", None)
+    if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
     success = await service.delete_contact(contact_id, current_user.tenant_id)
     
     if not success:
@@ -297,7 +347,18 @@ async def change_contact_owner(
     current_user: User = Depends(check_permission("edit_contact"))
 ):
     """Change contact owner"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     service = ContactService()
+    
+    # Visibility pre-check
+    existing = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    contact_owner = existing.get("owner_id") if isinstance(existing, dict) else getattr(existing, "owner_id", None)
+    if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Contact not found")
     
     contact = await service.change_owner(
         contact_id,
@@ -323,7 +384,19 @@ async def link_contact_to_account(
     current_user: User = Depends(check_permission("edit_contact"))
 ):
     """Link contact to an account"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     service = ContactService()
+    
+    # Visibility pre-check
+    existing = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    contact_owner = existing.get("owner_id") if isinstance(existing, dict) else getattr(existing, "owner_id", None)
+    if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
     await service.link_to_account(
         contact_id,
         account_id,
@@ -343,7 +416,19 @@ async def unlink_contact_from_account(
     current_user: User = Depends(check_permission("edit_contact"))
 ):
     """Unlink contact from an account"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     service = ContactService()
+    
+    # Visibility pre-check
+    existing = await service.get_contact_with_relations(contact_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    contact_owner = existing.get("owner_id") if isinstance(existing, dict) else getattr(existing, "owner_id", None)
+    if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Contact not found")
+        
     await service.unlink_from_account(contact_id, account_id)
     
     return {

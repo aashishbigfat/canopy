@@ -25,6 +25,8 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { GlobalSearchBar } from "@/components/search/GlobalSearchBar";
+import { RouteGuard } from "@/components/permissions/RouteGuard";
+import { usePermissionRefresh } from "@/hooks/use-permission-refresh";
 
 
 export default function DashboardLayout({
@@ -37,6 +39,9 @@ export default function DashboardLayout({
     const { data: session } = useSession();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+
+    // Poll for fresh permissions every 60s — live permission updates without re-login
+    usePermissionRefresh(60_000);
 
     useEffect(() => {
         setMounted(true);
@@ -131,9 +136,9 @@ export default function DashboardLayout({
                     <Sidebar />
                 </aside>
 
-                {/* Main content */}
+                {/* Main content — wrapped with RouteGuard for permission enforcement */}
                 <main className="flex-1 overflow-y-auto bg-muted/20">
-                    <div className="p-6">{children}</div>
+                    <div className="p-6"><RouteGuard>{children}</RouteGuard></div>
                 </main>
             </div>
         </div>

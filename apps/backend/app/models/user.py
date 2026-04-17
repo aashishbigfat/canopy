@@ -117,6 +117,17 @@ class User(BaseDocument):
             if await self.has_permission(permission):
                 return True
         return False
+        
+    async def get_permissions(self) -> List[str]:
+        """Get all permissions across all assigned roles"""
+        from app.models.role import Role
+        
+        perms = set()
+        for role_id in self.role_ids:
+            role = await Role.get(role_id)
+            if role:
+                perms.update(role.permissions)
+        return list(perms)
     
     async def update_last_login(self):
         """Update last login timestamp"""

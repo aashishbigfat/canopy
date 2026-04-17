@@ -28,6 +28,7 @@ import { useGetTasks, useDeleteTask, useCompleteTask } from "@/features/tasks/ap
 import { Task } from "@/features/tasks/types";
 import { TaskModal } from "./task-modal";
 import { toast } from "sonner";
+import { PermissionGate } from "@/components/permissions/PermissionGate";
 
 function statusBadge(status: string) {
     const lower = status?.toLowerCase();
@@ -122,14 +123,16 @@ export function TaskList() {
                         </SelectContent>
                     </Select>
                 </div>
-                <Button
-                    size="sm"
-                    className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs"
-                    onClick={() => setAddOpen(true)}
-                >
-                    <Plus className="h-3.5 w-3.5 mr-1" />
-                    New
-                </Button>
+                <PermissionGate permission="create_task">
+                    <Button
+                        size="sm"
+                        className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                        onClick={() => setAddOpen(true)}
+                    >
+                        <Plus className="h-3.5 w-3.5 mr-1" />
+                        New
+                    </Button>
+                </PermissionGate>
             </div>
 
             {/* Table */}

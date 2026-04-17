@@ -15,6 +15,12 @@ export interface Department {
     notes?: string | null;
 }
 
+export interface DepartmentDetail extends Department {
+    user_count: number;
+    child_count: number;
+    manager_name?: string | null;
+}
+
 export interface DepartmentListResponse {
     departments: Department[];
     total: number;
@@ -22,4 +28,9 @@ export interface DepartmentListResponse {
 
 export interface DepartmentInput {
     name: string;
+    description?: string;
+}
+
+export function getDepartmentId(dept: Department): string {
+    return dept.id || dept._id || "";
 }

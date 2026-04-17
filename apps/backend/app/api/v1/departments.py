@@ -12,6 +12,7 @@ from app.schemas.department import (
 from app.schemas.user import UserResponse
 from app.services.department_service import DepartmentService
 from app.api.deps import get_current_user, check_permission
+from app.api.validators import validate_object_id
 
 router = APIRouter()
 
@@ -101,6 +102,7 @@ async def get_department(
     current_user: User = Depends(check_permission("view_department"))
 ):
     """Get department by ID with details"""
+    validate_object_id(department_id, "department_id")
     service = DepartmentService()
     
     result = await service.get_department_with_details(
@@ -126,6 +128,7 @@ async def update_department(
     current_user: User = Depends(check_permission("edit_department"))
 ):
     """Update a department"""
+    validate_object_id(department_id, "department_id")
     service = DepartmentService()
     
     try:
@@ -150,6 +153,7 @@ async def delete_department(
     current_user: User = Depends(check_permission("delete_department"))
 ):
     """Delete a department (soft delete)"""
+    validate_object_id(department_id, "department_id")
     service = DepartmentService()
     
     try:
@@ -172,6 +176,7 @@ async def get_department_hierarchy(
     current_user: User = Depends(check_permission("view_department"))
 ):
     """Get department hierarchy (parent and children)"""
+    validate_object_id(department_id, "department_id")
     service = DepartmentService()
     
     result = await service.get_department_hierarchy(
@@ -195,6 +200,7 @@ async def get_department_users(
     current_user: User = Depends(check_permission("view_user"))
 ):
     """Get all users in a department"""
+    validate_object_id(department_id, "department_id")
     service = DepartmentService()
     
     users = await service.get_department_users(

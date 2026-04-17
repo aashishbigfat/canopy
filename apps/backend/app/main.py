@@ -84,12 +84,17 @@ app.add_middleware(
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     import json
+    from fastapi.encoders import jsonable_encoder
+    
     print(f"DEBUG: 422 Validation Error at {request.url.path}")
-    print(f"DEBUG: Error details: {json.dumps(exc.errors(), indent=2)}")
+    
+    encoded_errors = jsonable_encoder(exc.errors())
+    print(f"DEBUG: Error details: {json.dumps(encoded_errors, indent=2)}")
     print(f"DEBUG: Request body: {exc.body}")
+    
     return JSONResponse(
         status_code=422,
-        content={"detail": exc.errors(), "body": str(exc.body)},
+        content={"detail": encoded_errors, "body": str(exc.body)},
     )
 
 # Include routers

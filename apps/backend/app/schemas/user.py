@@ -70,9 +70,11 @@ class UserUpdate(BaseModel):
     """Schema for updating user"""
     name: Optional[str] = None
     email: Optional[EmailStr] = None
+    password: Optional[str] = None
     phone: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     department_id: Optional[str] = None
     role_hierarchy_id: Optional[str] = None
+    role_ids: Optional[List[str]] = None
     
     avatar_url: Optional[str] = None
     directory: Optional[str] = None

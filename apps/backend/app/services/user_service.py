@@ -174,15 +174,27 @@ class UserService(ActivityMixin):
                 raise ValueError(f"User with email {user_data.email} already exists")
         
         # Update fields
-        update_data = user_data.model_dump(exclude_unset=True, exclude={'assigned_destinations'})
+        update_data = user_data.model_dump(exclude_unset=True, exclude={'assigned_destinations', 'role_ids'})
         for field, value in update_data.items():
-            old_values[field] = getattr(user, field, None)
-            if field in ['department_id', 'role_hierarchy_id'] and value:
-                setattr(user, field, ObjectId(value))
-                updated_fields[field] = value
+            if field == 'password':
+                # Hash the password if it's being updated
+                if value:
+                    user.password = User.hash_password(value)
+                    updated_fields['password'] = "***"
             else:
-                setattr(user, field, value)
-                updated_fields[field] = value
+                old_values[field] = getattr(user, field, None)
+                if field in ['department_id', 'role_hierarchy_id'] and value:
+                    setattr(user, field, ObjectId(value))
+                    updated_fields[field] = value
+                else:
+                    setattr(user, field, value)
+                    updated_fields[field] = value
+        
+        # Handle role_ids
+        if user_data.role_ids is not None:
+            old_values['role_ids'] = [str(rid) for rid in user.role_ids]
+            user.role_ids = [ObjectId(rid) for rid in user_data.role_ids]
+            updated_fields['role_ids'] = user_data.role_ids
         
         # Handle destination IDs
         if user_data.assigned_destinations is not None:

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
-import { Department, DepartmentInput, DepartmentListResponse } from "../types/departments";
+import { Department, DepartmentDetail, DepartmentInput, DepartmentListResponse } from "../types/departments";
 
 export const useGetDepartments = (params?: { skip?: number; limit?: number }) => {
     return useQuery({
@@ -16,10 +16,21 @@ export const useGetDepartment = (id: string) => {
     return useQuery({
         queryKey: ["departments", id],
         queryFn: async () => {
-            const response = await apiClient.get<Department>(`/departments/${id}`);
+            const response = await apiClient.get<DepartmentDetail>(`/departments/${id}`);
             return response.data;
         },
-        enabled: !!id,
+        enabled: !!id && id !== "undefined",
+    });
+};
+
+export const useGetDepartmentUsers = (id: string) => {
+    return useQuery({
+        queryKey: ["departments", id, "users"],
+        queryFn: async () => {
+            const response = await apiClient.get<{ users: any[]; total: number }>(`/departments/${id}/users`);
+            return response.data;
+        },
+        enabled: !!id && id !== "undefined",
     });
 };
 

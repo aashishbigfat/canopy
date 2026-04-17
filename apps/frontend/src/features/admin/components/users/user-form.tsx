@@ -1,5 +1,6 @@
 "use client";
 
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -18,15 +19,18 @@ import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useCreateUser, useUpdateUser } from "@/features/admin/api/use-users";
 import { useGetRoles } from "@/features/admin/api/use-roles";
+import { useGetDepartments } from "@/features/admin/api/use-departments";
 import { getRoleId } from "@/features/admin/types/roles";
 import { User } from "@/features/admin/types";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Eye, EyeOff } from "lucide-react";
 
-// Basic schema
 const userFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
     email: z.string().email("Invalid email address."),
     password: z.string().optional(),
+    department_id: z.string().optional(),
     role_ids: z.array(z.string()).min(1, "At least one role is required."),
     is_active: z.boolean().default(true),
 });
@@ -42,6 +46,18 @@ export function UserForm({ initialData }: UserFormProps) {
     const createUser = useCreateUser();
     const updateUser = useUpdateUser();
     const { data: roles = [], isLoading: isLoadingRoles } = useGetRoles();
+    const { data: departmentsData } = useGetDepartments();
+    const departments = departmentsData?.departments || [];
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Build a set of valid role IDs once roles are loaded
+    const validRoleIds = roles.map((r) => getRoleId(r));
+
+    // Filter initialData.role_ids to only include IDs that exist in the roles list
+    const getCleanRoleIds = () => {
+        if (!initialData?.role_ids || validRoleIds.length === 0) return initialData?.role_ids || [];
+        return initialData.role_ids.filter((rid: string) => validRoleIds.includes(rid));
+    };
 
     const form = useForm({
         resolver: zodResolver(userFormSchema),
@@ -49,10 +65,21 @@ export function UserForm({ initialData }: UserFormProps) {
             name: initialData?.name || "",
             email: initialData?.email || "",
             password: "",
+            department_id: initialData?.department_id || "",
             role_ids: initialData?.role_ids || [],
             is_active: initialData?.is_active ?? true,
         },
     });
+
+    // Once roles load, clean up the role_ids to remove invalid references
+    React.useEffect(() => {
+        if (!isLoadingRoles && roles.length > 0 && initialData?.role_ids) {
+            const cleanIds = getCleanRoleIds();
+            if (cleanIds.length !== (initialData?.role_ids?.length || 0)) {
+                form.setValue("role_ids", cleanIds);
+            }
+        }
+    }, [isLoadingRoles, roles]);
 
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
@@ -123,6 +150,32 @@ export function UserForm({ initialData }: UserFormProps) {
                         </FormItem>
                     )}
                 />
+
+                <FormField
+                    control={form.control}
+                    name="department_id"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Department</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select a department" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {departments.map((dept: any) => (
+                                        <SelectItem key={dept.id || dept._id} value={dept.id || dept._id || ""}>
+                                            {dept.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
                 <FormField
                     control={form.control}
                     name="password"
@@ -130,7 +183,16 @@ export function UserForm({ initialData }: UserFormProps) {
                         <FormItem>
                             <FormLabel>{initialData ? "Password (leave blank to keep current)" : "Password"}</FormLabel>
                             <FormControl>
-                                <Input type="password" placeholder="******" {...field} />
+                                <div className="relative">
+                                    <Input type={showPassword ? "text" : "password"} placeholder="******" {...field} />
+                                    <button
+                                        type="button"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                    >
+                                        {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                                    </button>
+                                </div>
                             </FormControl>
                             <FormMessage />
                         </FormItem>

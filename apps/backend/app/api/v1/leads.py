@@ -30,7 +30,7 @@ def get_lead_service():
 async def create_lead(
     lead_data: LeadCreate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("create_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Create a new lead with comprehensive activity logging"""
@@ -65,10 +65,14 @@ async def get_leads(
         None,
         description="Predefined view filter: today, yesterday, last_week, recent, whatsapp, all, etc.",
     ),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Get all leads with pagination and optional predefined views."""
+    from app.services.visibility_scope import get_visible_owner_ids
+    
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    
     result = await service.get_leads_with_metadata(
         tenant_id=current_user.tenant_id,
         page=page,
@@ -76,7 +80,8 @@ async def get_leads(
         owner_id=owner_id,
         is_converted=is_converted,
         view=view,
-        current_user_id=current_user.id
+        current_user_id=current_user.id,
+        visible_owner_ids=visible_owner_ids
     )
     
     # The service returns lead models, we need to convert them to Pydantic responses
@@ -90,17 +95,20 @@ async def search_leads(
     lead_status_id: Optional[str] = None,
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Search leads"""
+    from app.services.visibility_scope import get_visible_owner_ids
     skip = (page - 1) * per_page
+    visible_owner_ids = await get_visible_owner_ids(current_user)
     leads, total = await service.search_leads(
         query,
         current_user.tenant_id,
         lead_status_id=lead_status_id,
         skip=skip,
-        limit=per_page
+        limit=per_page,
+        visible_owner_ids=visible_owner_ids
     )
     
     return {
@@ -112,13 +120,19 @@ async def search_leads(
 @router.get("/{lead_id}", response_model=LeadResponse)
 async def get_lead(
     lead_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Get lead by ID"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     lead = await service.get_lead(lead_id, current_user.tenant_id)
     
     if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Visibility check: user must have scope to see this owner's records
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(lead.owner_id, visible_owner_ids):
         raise HTTPException(status_code=404, detail="Lead not found")
     
     # Increment view count
@@ -140,12 +154,21 @@ async def update_lead(
     lead_id: str,
     lead_data: LeadUpdate,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("edit_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Update a lead with comprehensive activity logging"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     # Set request context for activity logging
     service.set_request_context(request, current_user)
+    
+    # Visibility pre-check: ensure the lead exists AND user can see/edit it
+    existing = await service.get_lead(lead_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(existing.owner_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Lead not found")
     
     try:
         lead = await service.update_lead(
@@ -172,12 +195,21 @@ async def update_lead(
 async def delete_lead(
     lead_id: str,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("delete_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Delete a lead with comprehensive activity logging"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     # Set request context for activity logging
     service.set_request_context(request, current_user)
+    
+    # Visibility pre-check
+    existing = await service.get_lead(lead_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(existing.owner_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Lead not found")
     
     success = await service.delete_lead(
         lead_id=lead_id,
@@ -196,7 +228,7 @@ async def delete_lead(
 async def convert_lead(
     lead_id: str,
     conversion_data: LeadConvert,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("edit_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Convert lead to opportunity"""
@@ -224,7 +256,7 @@ async def convert_lead(
 @router.get("/{lead_id}/conversion-suggestions")
 async def get_conversion_suggestions(
     lead_id: str,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Get potential duplicate accounts and contacts for a lead"""

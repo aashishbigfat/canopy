@@ -296,15 +296,17 @@ class LeadService(ActivityMixin):
         tenant_id: ObjectId,
         lead_status_id: Optional[str] = None,
         skip: int = 0,
-        limit: int = 10
+        limit: int = 10,
+        visible_owner_ids: Optional[list] = None
     ) -> Tuple[List[Lead], int]:
-        """Search leads"""
+        """Search leads scoped to visibility"""
         return await self.repository.search(
             tenant_id=tenant_id,
             query_text=query,
             lead_status_id=lead_status_id,
             skip=skip,
-            limit=limit
+            limit=limit,
+            visible_owner_ids=visible_owner_ids
         )
         
     def _extract_domain(self, email: Optional[str]) -> Optional[str]:
@@ -1103,7 +1105,8 @@ class LeadService(ActivityMixin):
         owner_id: Optional[str] = None,
         is_converted: Optional[bool] = None,
         view: Optional[str] = None,
-        current_user_id: Optional[ObjectId] = None
+        current_user_id: Optional[ObjectId] = None,
+        visible_owner_ids: Optional[list] = None
     ) -> Dict:
         """Get leads with metadata (statuses, sources, users, etc.)"""
         
@@ -1113,8 +1116,25 @@ class LeadService(ActivityMixin):
             Lead.deleted_at == None,  # noqa: E711
         ]
 
+        # Handle explicit owner filter + visibility scoping securely
         if owner_id:
-            filters.append(Lead.owner_id == ObjectId(owner_id))
+            requested_oid = ObjectId(owner_id)
+            if visible_owner_ids is not None and requested_oid not in visible_owner_ids:
+                # User requested records they aren't allowed to see -> force empty response
+                return {
+                    "leads": [],
+                    "pagination": {"current_page": page, "total": 0, "per_page": per_page, "pages": 0},
+                    "lead_statuses": [],
+                    "sources": [],
+                    "users": [],
+                    "industries": [],
+                    "experiences": [],
+                    "sales_stages": []
+                }
+            filters.append(Lead.owner_id == requested_oid)
+        elif visible_owner_ids is not None:
+            # Apply hierarchy-based visibility scoping natively
+            filters.append({"owner_id": {"$in": visible_owner_ids}})
 
         if is_converted is not None:
             filters.append(Lead.is_converted == is_converted)
@@ -1147,12 +1167,16 @@ class LeadService(ActivityMixin):
             
             lead_ids = [rv.lead_id for rv in recent_views]
             if lead_ids:
-                leads_query = Lead.find(
+                recent_query_filters = [
                     {"_id": {"$in": lead_ids}},
                     Lead.tenant_id == tenant_id,
                     Lead.deleted_at == None,  # noqa: E711
-                )
-                leads = await leads_query.to_list()
+                ]
+                # Apply visibility to recent view too
+                if visible_owner_ids is not None:
+                    recent_query_filters.append({"owner_id": {"$in": visible_owner_ids}})
+                
+                leads = await Lead.find(*recent_query_filters).to_list()
                 lead_map = {l.id: l for l in leads}
                 all_leads = [lead_map[lid] for lid in lead_ids if lid in lead_map]
             else:

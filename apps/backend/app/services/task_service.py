@@ -99,7 +99,8 @@ class TaskService:
         limit: int = 10,
         assigned_user_id: Optional[ObjectId] = None,
         status: Optional[str] = None,
-        priority: Optional[str] = None
+        priority: Optional[str] = None,
+        visible_owner_ids: Optional[list] = None
     ) -> Tuple[List[Task], int]:
         """Get tasks for a tenant with pagination"""
         
@@ -108,8 +109,18 @@ class TaskService:
             "deleted_at": None
         }
         
+        # Handle explicit assignment filter + visibility scoping securely
         if assigned_user_id:
+            if visible_owner_ids is not None and assigned_user_id not in visible_owner_ids:
+                # User requesting records they aren't allowed to see
+                return [], 0
             query["assigned_user_id"] = assigned_user_id
+        elif visible_owner_ids is not None:
+            # Restrict visibility based on hierarchy: user can see tasks they created OR tasks assigned to them
+            query["$or"] = [
+                {"assigned_user_id": {"$in": visible_owner_ids}},
+                {"owner_id": {"$in": visible_owner_ids}}
+            ]
         
         if status:
             query["status"] = status

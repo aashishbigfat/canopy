@@ -50,6 +50,8 @@ async def login(request: Request, response: Response, login_data: UserLogin):
     try:
         user, access_token, refresh_token = await service.login_user(login_data)
         
+        permissions = await user.get_permissions()
+        
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
@@ -59,7 +61,8 @@ async def login(request: Request, response: Response, login_data: UserLogin):
                 "name": user.name,
                 "email": user.email,
                 "tenant_id": str(user.tenant_id),
-                "role_ids": [str(r) for r in user.role_ids]
+                "role_ids": [str(r) for r in user.role_ids],
+                "permissions": permissions
             }
         )
     except ValueError as e:
@@ -126,6 +129,7 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "email": current_user.email,
         "tenant_id": str(current_user.tenant_id),
         "role_ids": [str(r) for r in current_user.role_ids],
+        "permissions": await current_user.get_permissions(),
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
         "last_login_at": current_user.last_login_at

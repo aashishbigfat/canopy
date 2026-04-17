@@ -29,6 +29,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
+import { PermissionGate } from "@/components/permissions/PermissionGate";
 
 type ViewMode = "list" | "kanban";
 
@@ -116,13 +117,15 @@ export default function OpportunitiesPageClient() {
                         >
                             <LayoutGrid className="h-4 w-4" />
                         </Button>
-                        <Button 
-                            className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm"
-                            onClick={() => setIsCreateDrawerOpen(true)}
-                        >
-                                <Plus className="h-4 w-4" />
-                                New Opportunity
-                        </Button>
+                        <PermissionGate permission="create_opportunity">
+                            <Button 
+                                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm"
+                                onClick={() => setIsCreateDrawerOpen(true)}
+                            >
+                                    <Plus className="h-4 w-4" />
+                                    New Opportunity
+                            </Button>
+                        </PermissionGate>
                         <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
                             <RotateCw className="h-4 w-4 text-slate-600" />
                         </Button>

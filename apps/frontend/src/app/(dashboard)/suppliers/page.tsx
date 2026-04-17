@@ -5,6 +5,7 @@ import { SupplierList } from "@/features/suppliers/components/supplier-list";
 import { SupplierFormDrawer } from "@/features/suppliers/components/SupplierFormDrawer";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { PermissionGate } from "@/components/permissions/PermissionGate";
 
 export default function SuppliersPage() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -14,9 +15,11 @@ export default function SuppliersPage() {
             <div className="flex items-center justify-between space-y-2">
                 <h2 className="text-3xl font-bold tracking-tight">Suppliers</h2>
                 <div className="flex items-center space-x-2">
-                    <Button onClick={() => setIsCreateOpen(true)}>
-                        <Plus className="mr-2 h-4 w-4" /> Add Supplier
-                    </Button>
+                    <PermissionGate permission="create_supplier">
+                        <Button onClick={() => setIsCreateOpen(true)}>
+                            <Plus className="mr-2 h-4 w-4" /> Add Supplier
+                        </Button>
+                    </PermissionGate>
                 </div>
             </div>
             <div className="hidden h-full flex-1 flex-col space-y-8 md:flex">

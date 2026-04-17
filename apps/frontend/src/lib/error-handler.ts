@@ -143,7 +143,7 @@ export class ErrorHandler {
         });
         break;
       case ErrorType.AUTHORIZATION:
-        toast.error(error.message, toastConfig);
+        toast.warning(error.message, toastConfig);
         break;
       case ErrorType.VALIDATION:
         toast.error(error.message, {

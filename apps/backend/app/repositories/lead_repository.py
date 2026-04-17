@@ -74,15 +74,20 @@ class LeadRepository(BaseRepository[Lead]):
         query_text: Optional[str],
         lead_status_id: Optional[str] = None,
         skip: int = 0,
-        limit: int = 10
+        limit: int = 10,
+        visible_owner_ids: Optional[list] = None
     ) -> Tuple[List[Lead], int]:
-        """Text search leads within a tenant."""
+        """Text search leads within a tenant, scoped to visibility."""
         tenant_obj_id = PydanticObjectId(tenant_id) if isinstance(tenant_id, str) else tenant_id
         
         search_query: Dict[str, Any] = {
             "tenant_id": tenant_obj_id,
             "deleted_at": None
         }
+        
+        # Apply owner-based visibility scoping
+        if visible_owner_ids is not None:
+            search_query["owner_id"] = {"$in": visible_owner_ids}
         
         if query_text:
             search_query["$or"] = [

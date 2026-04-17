@@ -130,7 +130,7 @@ async def get_accounts(
     per_page: int = Query(10, ge=1, le=100),
     owner_id: Optional[str] = None,
     is_person_account: Optional[bool] = None,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("view_account"))
 ):
     """Get all accounts with pagination, views, and columns"""
     try:
@@ -138,6 +138,7 @@ async def get_accounts(
         from app.models.user_account_view import UserAccountView
         from app.models.account_views import AccountView, AccountColumn, AccountPinView
         from app.models.picklists import Industry, Rating, AccountType
+        from app.services.visibility_scope import get_visible_owner_ids
         
         # Base query
         query = {
@@ -147,6 +148,24 @@ async def get_accounts(
         
         if is_person_account is not None:
             query["is_person_account"] = is_person_account
+
+        # --- Data visibility scoping (owner + hierarchy) ---
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        
+        # If caller explicitly filters by owner_id, validate it's within their visibility
+        if owner_id:
+            try:
+                from bson import ObjectId
+                requested_oid = ObjectId(owner_id)
+                if visible_owner_ids is not None and requested_oid not in visible_owner_ids:
+                    # User is requested an owner they can't see — force an impossible match
+                    query["_id"] = ObjectId() 
+                else:
+                    query["owner_id"] = requested_oid
+            except Exception:
+                query["_id"] = ObjectId() # Invalid format
+        elif visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
 
         # --- Server-side pagination (no full-collection load) ---
         skip = (page - 1) * per_page
@@ -315,11 +334,14 @@ async def search_accounts(
     )
     
     skip = (page - 1) * per_page
+    from app.services.visibility_scope import get_visible_owner_ids
+    visible_owner_ids = await get_visible_owner_ids(current_user)
     accounts, total = await service.search_accounts(
         search_params,
         current_user.tenant_id,
         skip=skip,
-        limit=per_page
+        limit=per_page,
+        visible_owner_ids=visible_owner_ids
     )
     
     return [account_to_response(acc) for acc in accounts]
@@ -331,11 +353,18 @@ async def search_account_by_email(
     current_user: User = Depends(get_current_user)
 ):
     """Search accounts by email for email selection (autocomplete)"""
-    accounts = await Account.find({
+    from app.services.visibility_scope import get_visible_owner_ids
+    query = {
         "tenant_id": current_user.tenant_id,
         "email": {"$regex": s, "$options": "i"},
         "deleted_at": None
-    }).limit(10).to_list()
+    }
+    
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if visible_owner_ids is not None:
+        query["owner_id"] = {"$in": visible_owner_ids}
+
+    accounts = await Account.find(query).limit(10).to_list()
     
     return {
         "error": False,
@@ -353,6 +382,7 @@ async def search_account_autocomplete(
     current_user: User = Depends(get_current_user)
 ):
     """Search accounts by name (autocomplete)"""
+    from app.services.visibility_scope import get_visible_owner_ids
     query: dict = {
         "tenant_id": current_user.tenant_id,
         "name": {"$regex": s, "$options": "i"},
@@ -360,6 +390,10 @@ async def search_account_autocomplete(
     }
     if is_person_account is not None:
         query["is_person_account"] = is_person_account
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if visible_owner_ids is not None:
+        query["owner_id"] = {"$in": visible_owner_ids}
         
     accounts = await Account.find(query).limit(10).to_list()
     
@@ -396,6 +430,7 @@ async def get_account(
     current_user: User = Depends(check_permission("view_account"))
 ):
     """Get account by ID, optionally with related records"""
+    from app.services.visibility_scope import get_visible_owner_ids
     service = AccountService()
     
     if include_related:
@@ -404,6 +439,14 @@ async def get_account(
         
         if not account_data:
             raise HTTPException(status_code=404, detail="Account not found")
+        
+        # Visibility check
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        acc_owner = account_data.get("account", {}).get("owner_id") if isinstance(account_data, dict) else None
+        if visible_owner_ids is not None and acc_owner:
+            from bson import ObjectId as OID
+            if OID(acc_owner) not in visible_owner_ids:
+                raise HTTPException(status_code=404, detail="Account not found")
         
         # Track view
         await service._track_user_view(
@@ -418,6 +461,12 @@ async def get_account(
         account = await service.get_account(account_id, current_user.tenant_id)
         
         if not account:
+            raise HTTPException(status_code=404, detail="Account not found")
+            
+        # Visibility check
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        from app.services.visibility_scope import is_record_visible
+        if not is_record_visible(account.owner_id, visible_owner_ids):
             raise HTTPException(status_code=404, detail="Account not found")
         
         # Track view
@@ -466,7 +515,18 @@ async def update_account(
 ):
     """Update an account"""
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = AccountService()
+        
+        # Visibility pre-check
+        existing = await service.get_account(account_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Account not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Account not found")
+            
         account = await service.update_account(
             account_id,
             account_data,
@@ -492,7 +552,18 @@ async def delete_account(
     current_user: User = Depends(check_permission("delete_account"))
 ):
     """Delete an account (soft delete)"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     service = AccountService()
+    
+    # Visibility pre-check
+    existing = await service.get_account(account_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Account not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(existing.owner_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Account not found")
+        
     success = await service.delete_account(account_id, current_user.tenant_id)
     
     if not success:
@@ -541,9 +612,15 @@ async def update_single_column(
     current_user: User = Depends(check_permission("edit_account"))
 ):
     """Update a single column of an account"""
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
     account = await Account.get(PydanticObjectId(account_id))
     
     if not account or account.tenant_id != current_user.tenant_id:
+        raise HTTPException(status_code=404, detail="Account not found")
+        
+    # Visibility pre-check
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(account.owner_id, visible_owner_ids):
         raise HTTPException(status_code=404, detail="Account not found")
     
     # Update the field

@@ -69,19 +69,26 @@ async def search_by_module(
 
     tenant_id = current_user.tenant_id
     pattern = _make_pattern(q)
+    
+    from app.services.visibility_scope import get_visible_owner_ids
+    visible_owner_ids = await get_visible_owner_ids(current_user)
 
     # ── Accounts ──────────────────────────────────────────────────────────────
     if module == "accounts":
-        docs = await Account.find(
-            Account.tenant_id == tenant_id,
-            Account.deleted_at == None,
-            Account.is_person_account == False,
-            {"$or": [
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "is_person_account": False,
+            "$or": [
                 {"name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
-            ]}
-        ).skip(skip).limit(limit).to_list()
+            ]
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await Account.find(query).skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -103,18 +110,22 @@ async def search_by_module(
 
     # ── Person Accounts ───────────────────────────────────────────────────────
     if module == "person_accounts":
-        docs = await Account.find(
-            Account.tenant_id == tenant_id,
-            Account.deleted_at == None,
-            Account.is_person_account == True,
-            {"$or": [
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "is_person_account": True,
+            "$or": [
                 {"first_name": {"$regex": pattern}},
                 {"last_name": {"$regex": pattern}},
                 {"name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
-            ]}
-        ).skip(skip).limit(limit).to_list()
+            ]
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await Account.find(query).skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -137,17 +148,21 @@ async def search_by_module(
 
     # ── Contacts ──────────────────────────────────────────────────────────────
     if module == "contacts":
-        docs = await Contact.find(
-            Contact.tenant_id == tenant_id,
-            Contact.deleted_at == None,
-            {"$or": [
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "$or": [
                 {"first_name": {"$regex": pattern}},
                 {"last_name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
                 {"mobile": {"$regex": pattern}},
-            ]}
-        ).skip(skip).limit(limit).to_list()
+            ]
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await Contact.find(query).skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -171,17 +186,21 @@ async def search_by_module(
     # ── Leads ─────────────────────────────────────────────────────────────────
     if module == "leads":
         from app.models.lead_picklists import Source
-        docs = await Lead.find(
-            Lead.tenant_id == tenant_id,
-            Lead.deleted_at == None,
-            {"$or": [
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "$or": [
                 {"first_name": {"$regex": pattern}},
                 {"last_name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
                 {"company": {"$regex": pattern}},
-            ]}
-        ).skip(skip).limit(limit).to_list()
+            ]
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await Lead.find(query).skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -215,12 +234,16 @@ async def search_by_module(
     # ── Opportunities ─────────────────────────────────────────────────────────
     if module == "opportunities":
         from app.models.opportunity_picklists import SalesStage, Experience
-
-        docs = await Opportunity.find(
-            Opportunity.tenant_id == tenant_id,
-            Opportunity.deleted_at == None,
-            {"name": {"$regex": pattern}}
-        ).skip(skip).limit(limit).to_list()
+        
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "name": {"$regex": pattern}
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await Opportunity.find(query).skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -272,16 +295,20 @@ async def search_by_module(
 
     # ── Suppliers ─────────────────────────────────────────────────────────────
     if module == "suppliers":
-        docs = await Supplier.find(
-            Supplier.tenant_id == tenant_id,
-            Supplier.deleted_at == None,
-            {"$or": [
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "$or": [
                 {"name": {"$regex": pattern}},
                 {"company_name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
-            ]}
-        ).skip(skip).limit(limit).to_list()
+            ]
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await Supplier.find(query).skip(skip).limit(limit).to_list()
 
         items = [
             {
@@ -300,14 +327,18 @@ async def search_by_module(
 
     # ── Files ─────────────────────────────────────────────────────────────────
     if module == "files":
-        docs = await File.find(
-            File.tenant_id == tenant_id,
-            File.deleted_at == None,
-            {"$or": [
+        query = {
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "$or": [
                 {"original_filename": {"$regex": pattern}},
                 {"filename": {"$regex": pattern}},
-            ]}
-        ).skip(skip).limit(limit).to_list()
+            ]
+        }
+        if visible_owner_ids is not None:
+            query["owner_id"] = {"$in": visible_owner_ids}
+            
+        docs = await File.find(query).skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -344,78 +375,89 @@ async def global_search(
     tenant_id = current_user.tenant_id
     results = {"query": q, "results": []}
     pattern = _make_pattern(q)
+    
+    from app.services.visibility_scope import get_visible_owner_ids
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    owner_match = {"$in": visible_owner_ids} if visible_owner_ids is not None else {"$exists": True}
 
     leads, accounts, person_accounts, contacts, opportunities, suppliers, files = await asyncio.gather(
-        Lead.find(
-            Lead.tenant_id == tenant_id,
-            Lead.deleted_at == None,
-            {"$or": [
+        Lead.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "owner_id": owner_match,
+            "$or": [
                 {"first_name": {"$regex": pattern}},
                 {"last_name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"company": {"$regex": pattern}},
-            ]}
-        ).limit(limit).to_list(),
+            ]
+        }).limit(limit).to_list(),
 
-        Account.find(
-            Account.tenant_id == tenant_id,
-            Account.deleted_at == None,
-            Account.is_person_account == False,
-            {"$or": [
+        Account.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "is_person_account": False,
+            "owner_id": owner_match,
+            "$or": [
                 {"name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
-            ]}
-        ).limit(limit).to_list(),
+            ]
+        }).limit(limit).to_list(),
         
-        Account.find(
-            Account.tenant_id == tenant_id,
-            Account.deleted_at == None,
-            Account.is_person_account == True,
-            {"$or": [
+        Account.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "is_person_account": True,
+            "owner_id": owner_match,
+            "$or": [
                 {"first_name": {"$regex": pattern}},
                 {"last_name": {"$regex": pattern}},
                 {"name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
-            ]}
-        ).limit(limit).to_list(),
+            ]
+        }).limit(limit).to_list(),
 
-        Contact.find(
-            Contact.tenant_id == tenant_id,
-            Contact.deleted_at == None,
-            {"$or": [
+        Contact.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "owner_id": owner_match,
+            "$or": [
                 {"first_name": {"$regex": pattern}},
                 {"last_name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
-            ]}
-        ).limit(limit).to_list(),
+            ]
+        }).limit(limit).to_list(),
 
-        Opportunity.find(
-            Opportunity.tenant_id == tenant_id,
-            Opportunity.deleted_at == None,
-            {"name": {"$regex": pattern}}
-        ).limit(limit).to_list(),
+        Opportunity.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "owner_id": owner_match,
+            "name": {"$regex": pattern}
+        }).limit(limit).to_list(),
         
-        Supplier.find(
-            Supplier.tenant_id == tenant_id,
-            Supplier.deleted_at == None,
-            {"$or": [
+        Supplier.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "owner_id": owner_match,
+            "$or": [
                 {"name": {"$regex": pattern}},
                 {"company_name": {"$regex": pattern}},
                 {"email": {"$regex": pattern}},
                 {"phone": {"$regex": pattern}},
-            ]}
-        ).limit(limit).to_list(),
+            ]
+        }).limit(limit).to_list(),
         
-        File.find(
-            File.tenant_id == tenant_id,
-            File.deleted_at == None,
-            {"$or": [
+        File.find({
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "owner_id": owner_match,
+            "$or": [
                 {"original_filename": {"$regex": pattern}},
                 {"filename": {"$regex": pattern}},
-            ]}
-        ).limit(limit).to_list(),
+            ]
+        }).limit(limit).to_list(),
     )
 
     if leads:

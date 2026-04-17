@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/table";
 import { Account } from "../types";
 import { CreateAccountButton } from "./CreateAccountButton";
+import { PermissionGate } from "@/components/permissions/PermissionGate";
 
 export const columns: ColumnDef<Account>[] = [
     {
@@ -129,7 +130,9 @@ export function AccountTable({
                 </div>
                 
                 <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
-                    <CreateAccountButton />
+                    <PermissionGate permission="create_account">
+                        <CreateAccountButton />
+                    </PermissionGate>
                     <Button variant="outline" className="bg-white text-gray-700 border-gray-300 whitespace-nowrap">Merge Account</Button>
                     <Button variant="outline" size="icon" className="bg-white text-gray-600 border-gray-300 flex-shrink-0">
                         <RefreshCw className="w-4 h-4" />

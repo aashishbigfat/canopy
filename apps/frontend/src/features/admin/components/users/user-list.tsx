@@ -24,7 +24,7 @@ export function UserList() {
         return <div className="p-4 text-center text-red-500">Error loading users</div>;
     }
 
-    const users = data?.data || [];
+    const users = data?.users || [];
 
     return (
         <div className="rounded-md border">

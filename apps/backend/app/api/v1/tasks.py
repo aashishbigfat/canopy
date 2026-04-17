@@ -85,13 +85,20 @@ async def search_opportunity_autocomplete(
     s: str = Query(..., description="Search term"),
     current_user: User = Depends(get_current_user)
 ):
-    """Autocomplete search for opportunities (used in task Related To field)."""
+"""Autocomplete search for opportunities (used in task Related To field)."""
+    from app.services.visibility_scope import get_visible_owner_ids
     from app.models.opportunity import Opportunity
-    opps = await Opportunity.find({
+    query = {
         "tenant_id": current_user.tenant_id,
         "name": {"$regex": s, "$options": "i"},
         "deleted_at": None
-    }).limit(15).to_list()
+    }
+    
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if visible_owner_ids is not None:
+        query["owner_id"] = {"$in": visible_owner_ids}
+        
+    opps = await Opportunity.find(query).limit(15).to_list()
 
     return {
         "error": False,
@@ -133,13 +140,17 @@ async def get_tasks(
     skip = (page - 1) * per_page
     assigned_id = ObjectId(assigned_user_id) if assigned_user_id else None
 
+    from app.services.visibility_scope import get_visible_owner_ids
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+
     tasks, total = await service.get_tasks_by_tenant(
         current_user.tenant_id,
         skip=skip,
         limit=per_page,
         assigned_user_id=assigned_id,
         status=status,
-        priority=priority
+        priority=priority,
+        visible_owner_ids=visible_owner_ids
     )
 
     pages = (total + per_page - 1) // per_page
@@ -188,14 +199,27 @@ async def get_tasks_by_entity(
     current_user: User = Depends(check_permission("view_task"))
 ):
     """Get all tasks for a specific entity (Account, Opportunity, Contact)."""
+    from app.services.visibility_scope import get_visible_owner_ids
     service = TaskService()
+    
+    # Optional further enhancement: Could verify that the user can actually see the related entity FIRST.
+    # For now, we fetch the tasks and filter out any tasks the user shouldn't see.
     tasks = await service.get_tasks_by_entity(
         taskable_type,
         taskable_id,
         current_user.tenant_id
     )
-    enriched = await _build_enriched_tasks(tasks)
-    return {"tasks": enriched, "total": len(tasks)}
+    
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    from app.services.visibility_scope import is_task_visible
+    
+    filtered_tasks = []
+    for t in tasks:
+        if is_task_visible(t.created_by, t.assigned_user_id, visible_owner_ids):
+            filtered_tasks.append(t)
+            
+    enriched = await _build_enriched_tasks(filtered_tasks)
+    return {"tasks": enriched, "total": len(filtered_tasks)}
 
 
 @router.get("/{task_id}", response_model=dict)
@@ -204,10 +228,15 @@ async def get_task(
     current_user: User = Depends(check_permission("view_task"))
 ):
     """Get task by ID with full enriched detail."""
+    from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
     task = await service.get_task(task_id, current_user.tenant_id)
 
     if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_task_visible(task.created_by, task.assigned_user_id, visible_owner_ids):
         raise HTTPException(status_code=404, detail="Task not found")
 
     await task.increment_view_count()
@@ -222,7 +251,18 @@ async def update_task(
     current_user: User = Depends(check_permission("edit_task"))
 ):
     """Update a task."""
+    from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
+    
+    # Pre-check visibility
+    existing = await service.get_task(task_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_task_visible(existing.created_by, existing.assigned_user_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Task not found")
+        
     task = await service.update_task(
         task_id,
         task_data,
@@ -243,7 +283,18 @@ async def delete_task(
     current_user: User = Depends(check_permission("delete_task"))
 ):
     """Delete a task (soft delete)."""
+    from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
+    
+    # Pre-check visibility
+    existing = await service.get_task(task_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_task_visible(existing.created_by, existing.assigned_user_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Task not found")
+        
     success = await service.delete_task(task_id, current_user.tenant_id)
 
     if not success:
@@ -258,7 +309,18 @@ async def mark_task_completed(
     current_user: User = Depends(check_permission("edit_task"))
 ):
     """Mark task as completed."""
+    from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
+    
+    # Pre-check visibility
+    existing = await service.get_task(task_id, current_user.tenant_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="Task not found")
+        
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_task_visible(existing.created_by, existing.assigned_user_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Task not found")
+        
     task = await service.mark_completed(
         task_id,
         current_user.id,

@@ -227,7 +227,10 @@ export function HierarchyList() {
         if (!targetParent) return;
 
         // Prevent cycles: cannot move a node under itself or under one of its descendants.
-        if (isInSubtreeOf(hierarchies, overId, activeId)) return;
+        if (isInSubtreeOf(hierarchies, overId, activeId)) {
+            toast.error("Circular dependency detected: Cannot move a hierarchy under its own descendant.");
+            return;
+        }
 
         await updateHierarchy.mutateAsync({
             id: activeId,

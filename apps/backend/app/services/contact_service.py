@@ -544,14 +544,18 @@ class ContactService(ActivityMixin):
         tenant_id: ObjectId,
         account_id: Optional[str] = None,
         skip: int = 0,
-        limit: int = 10
+        limit: int = 10,
+        visible_owner_ids: Optional[list] = None
     ) -> tuple[List[Contact], int]:
-        """Search contacts"""
+        """Search contacts scoped by visibility"""
         
         search_query = {
             "tenant_id": tenant_id,
             "deleted_at": None
         }
+        
+        if visible_owner_ids is not None:
+            search_query["owner_id"] = {"$in": visible_owner_ids}
         
         # Text search
         if query:

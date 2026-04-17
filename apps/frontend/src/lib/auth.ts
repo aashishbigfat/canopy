@@ -43,6 +43,7 @@ export const authOptions: NextAuthOptions = {
                             refreshToken: data.refresh_token,
                             role: data.user.role_ids?.[0], // Taking first role for now
                             tenantId: data.user.tenant_id,
+                            permissions: data.user.permissions || [],
                         };
                     }
                     return null;
@@ -65,6 +66,7 @@ export const authOptions: NextAuthOptions = {
                 token.id = user.id;
                 token.role = user.role;
                 token.tenantId = user.tenantId;
+                token.permissions = user.permissions;
             }
             return token;
         },
@@ -75,6 +77,7 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = token.id as string;
                 session.user.role = token.role as string;
                 (session.user as any).tenantId = token.tenantId as string;
+                session.user.permissions = token.permissions as string[];
             }
             return session;
         },

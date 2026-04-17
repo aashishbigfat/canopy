@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { getSession, signOut } from 'next-auth/react';
 import { API_BASE_URL } from '@/lib/env';
+import { toast } from 'sonner';
 
 // Token refresh management
 let isRefreshing = false;
@@ -103,6 +104,11 @@ apiClient.interceptors.response.use(
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;
+            }
+        } else if (error.response?.status === 403) {
+            // Permission denied
+            if (typeof window !== 'undefined') {
+                toast.warning("Access Denied: You do not have permission for this resource.");
             }
         }
 

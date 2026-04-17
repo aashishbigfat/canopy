@@ -4,14 +4,23 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { navItems } from "./nav-items";
+import { filterNavItemsForPermissions } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
+import { useMemo } from "react";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
 
 export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const { data: session } = useSession();
+
+    // Filter nav items based on user's permissions — memoized to avoid recalc on every render
+    const userPermissions = (session?.user as any)?.permissions as string[] | undefined;
+    const visibleNavItems = useMemo(
+        () => filterNavItemsForPermissions(navItems, userPermissions),
+        [userPermissions]
+    );
 
     return (
         <div className={cn("h-full flex flex-col w-[260px] bg-white text-slate-900 border-r", className)}>
@@ -24,7 +33,7 @@ export function Sidebar({ className }: SidebarProps) {
                 </div>
 
                 <div className="flex flex-col gap-1.5">
-                    {navItems.map((item) => {
+                    {visibleNavItems.map((item) => {
                         const isActive = pathname.startsWith(item.href);
                         return (
                             <div key={item.href} className="flex flex-col mb-1">

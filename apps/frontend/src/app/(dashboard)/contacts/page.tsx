@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { CreateContactButton } from "@/features/contacts/components/CreateContactButton";
+import { PermissionGate } from "@/components/permissions/PermissionGate";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +55,9 @@ export default async function ContactsPage({
                         Manage your key contacts and people.
                     </p>
                 </div>
-                <CreateContactButton />
+                <PermissionGate permission="create_contact">
+                    <CreateContactButton />
+                </PermissionGate>
             </div>
 
             <ContactTable 

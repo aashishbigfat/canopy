@@ -32,6 +32,7 @@ import { LeadTable } from "@/features/leads/components/LeadTable";
 import { useLeads } from "@/features/leads/api/useLeads";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFormDrawer } from "@/features/leads/components/LeadFormDrawer";
+import { PermissionGate } from "@/components/permissions/PermissionGate";
 
 export default function LeadsClientPage() {
     const searchParams = useSearchParams();
@@ -124,10 +125,12 @@ export default function LeadsClientPage() {
                             Track and manage your potential business opportunities.
                         </p>
                     </div>
-                    <Button onClick={() => setIsCreateDrawerOpen(true)}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Create Lead
-                    </Button>
+                    <PermissionGate permission="create_lead">
+                        <Button onClick={() => setIsCreateDrawerOpen(true)}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create Lead
+                        </Button>
+                    </PermissionGate>
                 </div>
                 <div className="p-8 text-center text-red-600">
                     Failed to load leads. Please try again.
@@ -237,10 +240,12 @@ export default function LeadsClientPage() {
                         </div>
                     )}
 
-                    <Button onClick={() => setIsCreateDrawerOpen(true)}>
-                            <Plus className="mr-2 h-4 w-4" />
-                            Create Lead
-                    </Button>
+                    <PermissionGate permission="create_lead">
+                        <Button onClick={() => setIsCreateDrawerOpen(true)}>
+                                <Plus className="mr-2 h-4 w-4" />
+                                Create Lead
+                        </Button>
+                    </PermissionGate>
                 </div>
             </div>
 

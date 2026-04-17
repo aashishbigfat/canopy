@@ -129,7 +129,7 @@ async def get_opportunities(
     owner_id: Optional[str] = Query(None, description="Filter by owner ID"),
     sales_stage_id: Optional[str] = Query(None, description="Filter by sales stage ID"),
     view: Optional[str] = Query(None, description="View filter (today, recent, etc.)"),
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("view_opportunity"))
 ):
     """
     Get all opportunities with pagination and filtering
@@ -146,11 +146,30 @@ async def get_opportunities(
     """
     try:
         from app.models.opportunity_picklists import SalesStage, OpportunityType
+        from app.services.visibility_scope import get_visible_owner_ids, apply_visibility_filter
         
         service = OpportunityService()
         
         # Build filters
         filters = {}
+        
+        # --- Data visibility scoping (owner + hierarchy) ---
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        
+        # If caller explicitly filters by owner_id, validate it's within their visibility
+        effective_owner_id = None
+        if owner_id:
+            requested_oid = ObjectId(owner_id)
+            if visible_owner_ids is not None and requested_oid not in visible_owner_ids:
+                # User is requesting records they can't see — return empty
+                return OpportunityListResponse(
+                    opportunities=[], total=0, page=page, per_page=per_page, pages=0
+                )
+            effective_owner_id = requested_oid
+        
+        # Apply hierarchy visibility as an additional filter when no explicit owner_id
+        if not effective_owner_id and visible_owner_ids is not None:
+            filters["owner_id"] = {"$in": visible_owner_ids}
         
         # Apply view filters
         from datetime import datetime, timedelta
@@ -184,7 +203,7 @@ async def get_opportunities(
             tenant_id=current_user.tenant_id,
             skip=(page - 1) * per_page,
             limit=per_page,
-            owner_id=ObjectId(owner_id) if owner_id else None,
+            owner_id=effective_owner_id,
             sales_stage_id=stage_filter,
             **filters
         )
@@ -291,7 +310,7 @@ async def get_opportunities(
 @router.get("/{opportunity_id}", response_model=OpportunityResponse)
 async def get_opportunity(
     opportunity_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("view_opportunity"))
 ):
     """
     Get a specific opportunity by ID
@@ -304,6 +323,8 @@ async def get_opportunity(
         Opportunity details
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids
+        
         service = OpportunityService()
         opportunity = await service.get_opportunity(
             opportunity_id,
@@ -311,6 +332,11 @@ async def get_opportunity(
         )
         
         if not opportunity:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+        
+        # Visibility check: if user can't see this owner's records, return 404
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if visible_owner_ids is not None and opportunity.owner_id not in visible_owner_ids:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
         # Enrich response with related names
@@ -431,7 +457,17 @@ async def update_opportunity(
         Updated opportunity details
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
         
         # Set request context for activity logging
         service.set_request_context(request, current_user)
@@ -525,7 +561,17 @@ async def delete_opportunity(
         Success message
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
         
         # Set request context for activity logging
         service.set_request_context(request, current_user)
@@ -565,7 +611,18 @@ async def change_opportunity_stage(
         Updated opportunity details
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
         opportunity = await service.change_stage(
             opportunity_id,
             stage_data,
@@ -653,7 +710,18 @@ async def lock_opportunity(
         Updated opportunity details
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
         opportunity = await service.lock_opportunity(
             opportunity_id,
             current_user.id,
@@ -687,7 +755,18 @@ async def unlock_opportunity(
         Updated opportunity details
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
         opportunity = await service.unlock_opportunity(
             opportunity_id,
             current_user.id,
@@ -723,7 +802,18 @@ async def change_opportunity_owner(
         Updated opportunity details
     """
     try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
         opportunity = await service.change_owner(
             opportunity_id,
             ObjectId(new_owner_id),
@@ -752,6 +842,19 @@ async def get_opportunity_history(
     """
     try:
         from app.models.opportunity_picklists import OpportunityHistory, SalesStage
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+        from app.services.opportunity_service import OpportunityService
+        
+        service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
         
         # Get history records sorted by newest first
         history_records = await OpportunityHistory.find(
