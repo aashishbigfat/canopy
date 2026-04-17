@@ -169,7 +169,7 @@ async def get_opportunities(
         
         # Apply hierarchy visibility as an additional filter when no explicit owner_id
         if not effective_owner_id and visible_owner_ids is not None:
-            filters["owner_id"] = {"$in": visible_owner_ids}
+            effective_owner_id = {"$in": visible_owner_ids}
         
         # Apply view filters
         from datetime import datetime, timedelta
