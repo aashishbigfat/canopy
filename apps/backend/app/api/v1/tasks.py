@@ -85,7 +85,7 @@ async def search_opportunity_autocomplete(
     s: str = Query(..., description="Search term"),
     current_user: User = Depends(get_current_user)
 ):
-"""Autocomplete search for opportunities (used in task Related To field)."""
+    """Autocomplete search for opportunities (used in task Related To field)."""
     from app.services.visibility_scope import get_visible_owner_ids
     from app.models.opportunity import Opportunity
     query = {
