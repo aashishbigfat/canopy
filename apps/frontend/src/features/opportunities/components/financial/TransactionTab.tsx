@@ -6,7 +6,7 @@ import {
     useCreateTransaction,
 } from "../../api/useOpportunityFinancial";
 import { Loader2, Receipt, ChevronDown } from "lucide-react";
-import { format } from "date-fns";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { TransactionModal } from "./TransactionModal";
 
 interface Props {
@@ -175,31 +175,28 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                                         {/* Date */}
                                         <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
                                             {txn.transaction_date
-                                                ? format(
-                                                      new Date(txn.transaction_date),
-                                                      "d-MMM-yyyy"
-                                                  )
+                                                ? formatDate(txn.transaction_date)
                                                 : "—"}
                                         </td>
 
                                         {/* Received */}
                                         <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
                                             {txn.transaction_type === "Receive"
-                                                ? txn.amount.toLocaleString("en-IN")
+                                                ? formatCurrency(txn.amount)
                                                 : ""}
                                         </td>
 
                                         {/* Paid */}
                                         <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
                                             {txn.transaction_type === "Pay"
-                                                ? txn.amount.toLocaleString("en-IN")
+                                                ? formatCurrency(txn.amount)
                                                 : ""}
                                         </td>
 
                                         {/* Refund */}
                                         <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
                                             {txn.transaction_type === "Refund"
-                                                ? txn.amount.toLocaleString("en-IN")
+                                                ? formatCurrency(txn.amount)
                                                 : ""}
                                         </td>
 
@@ -243,19 +240,19 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                                         Total Receivables
                                     </td>
                                     <td className="px-4 py-3 text-slate-800">
-                                        {totalReceivables.toLocaleString("en-IN")}
+                                        {formatCurrency(totalReceivables)}
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">
                                         Total Received
                                     </td>
                                     <td className="px-4 py-3 text-slate-800">
-                                        {totalReceived.toLocaleString("en-IN")}
+                                        {formatCurrency(totalReceived)}
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">
                                         Total Paid
                                     </td>
                                     <td className="px-4 py-3 text-slate-800">
-                                        {totalPaid.toLocaleString("en-IN")}
+                                        {formatCurrency(totalPaid)}
                                     </td>
                                     <td className="px-4 py-3 text-slate-600">
                                         Total Balance
@@ -266,7 +263,7 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                                         }`}
                                         colSpan={3}
                                     >
-                                        {totalBalance.toLocaleString("en-IN")}
+                                        {formatCurrency(totalBalance)}
                                     </td>
                                 </tr>
                             </tfoot>

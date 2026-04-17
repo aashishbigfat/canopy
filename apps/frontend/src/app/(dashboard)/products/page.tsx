@@ -47,6 +47,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/format";
 import {
     productsService,
     Product,
@@ -160,13 +161,6 @@ export default function ProductsPage() {
         p.category?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const formatCurrency = (amount?: number) => {
-        if (amount === undefined) return "";
-        return new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-        }).format(amount);
-    };
 
     return (
         <div className="space-y-6">
@@ -367,7 +361,7 @@ export default function ProductsPage() {
                                         </TableCell>
                                         <TableCell>{product.category || "—"}</TableCell>
                                         <TableCell className="text-right font-medium">
-                                            {formatCurrency(product.unit_price)}
+                                            {formatCurrency(product.unit_price || 0)}
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Badge variant={product.is_active ? "default" : "secondary"}>

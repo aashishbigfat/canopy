@@ -56,6 +56,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Opportunity } from "../types";
 import { format } from "date-fns";
+import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { UpdateStageDialog } from "./UpdateStageDialog";
 import { FinancialTab } from "./financial/FinancialTab";
@@ -346,7 +347,7 @@ export function OpportunityDetails({
                                     <p className="text-xs text-slate-400">Travel Date | No of Pax</p>
                                     <p className="font-medium text-slate-700">
                                         {record.travel_date
-                                            ? new Date(record.travel_date).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" })
+                                            ? formatDate(record.travel_date)
                                             : "-"} | {record.no_of_pax || "-"}
                                     </p>
                                 </div>
@@ -610,7 +611,7 @@ export function OpportunityDetails({
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
                                                 <p className="text-lg font-bold text-slate-900">
-                                                    {record.amount ? `₹${record.amount.toLocaleString()}` : "₹0"}
+                                                    {record.amount ? formatCurrency(record.amount) : formatCurrency(0)}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
@@ -625,7 +626,7 @@ export function OpportunityDetails({
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Revenue</p>
                                                 <p className="text-lg font-bold text-emerald-600">
-                                                    ₹{(((record.amount || 0) * (record.probability || 0)) / 100).toLocaleString()}
+                                                    {formatCurrency(((record.amount || 0) * (record.probability || 0)) / 100)}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
@@ -912,7 +913,7 @@ export function OpportunityDetails({
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <p className="text-xs text-slate-600">
-                                                                ₹{row.displayAmount.toLocaleString()}
+                                                                {formatCurrency(row.displayAmount)}
                                                             </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">

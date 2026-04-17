@@ -12,6 +12,7 @@ import {
     IndianRupee,
 } from "lucide-react";
 import type { LeaderBoardKPIs as LeaderBoardKPIsType } from "@/features/dashboard/services/dashboardService";
+import { formatCurrency } from "@/lib/format";
 
 const KPI_CARDS: {
     key: keyof LeaderBoardKPIsType;
@@ -92,7 +93,7 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
                     const value = Number(raw);
                     const display =
                         format === "currency"
-                            ? `₹ ${value.toLocaleString("en-IN")}`
+                            ? formatCurrency(value)
                             : value.toLocaleString("en-IN");
                     return (
                         <div

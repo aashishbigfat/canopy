@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Briefcase, X } from "lucide-react";
-import { format } from "date-fns";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
@@ -116,16 +116,16 @@ export function OpportunitiesViewAllDialog({
                                         </span>
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-right font-bold text-slate-600 text-[12px]">
-                                        {opp.amount ? opp.amount.toLocaleString() : "0"}
+                                        {opp.amount ? formatCurrency(opp.amount) : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-center font-bold text-slate-600 text-[12px]">
                                         {opp.no_of_pax || "0"}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-[12px] font-bold text-slate-600 whitespace-nowrap">
-                                        {opp.travel_date ? format(new Date(opp.travel_date), "yyyy-MM-dd") : "-"}
+                                        {formatDate(opp.travel_date)}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-[12px] font-bold text-slate-600 whitespace-nowrap">
-                                        {opp.close_date ? format(new Date(opp.close_date), "yyyy-MM-dd") : "-"}
+                                        {formatDate(opp.close_date)}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-[12px] font-bold text-slate-600 truncate max-w-[150px]">
                                         {opp.owner_name || "Admin User"}

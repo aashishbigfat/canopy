@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePaymentSchedule, useUpdatePaymentItem } from "../../api/useOpportunityFinancial";
 import { financialService, PaymentScheduleItem as PSItem } from "@/lib/api/services/financial.service";
-import { format } from "date-fns";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 interface Props {
     opportunityId: string;
@@ -86,9 +86,7 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                         <h3 className="text-base font-semibold text-slate-800">Payment Received</h3>
                         <p className="text-xs text-slate-500 mt-0.5">
                             Amount:{" "}
-                            <span className="font-semibold text-emerald-600">
-                                ₹{item.amount.toLocaleString("en-IN")}
-                            </span>
+                                {formatCurrency(item.amount)}
                         </p>
                     </div>
                     <button
@@ -108,9 +106,7 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                             <label className="block text-xs font-medium text-slate-600 mb-1.5">
                                 Amount Received
                             </label>
-                            <div className="h-10 rounded-md border border-slate-200 bg-slate-50 px-3 flex items-center text-sm font-medium text-slate-700">
-                                ₹{item.amount.toLocaleString("en-IN")}
-                            </div>
+                                {formatCurrency(item.amount)}
                         </div>
                         <div>
                             <label className="block text-xs font-medium text-slate-600 mb-1.5">
@@ -459,11 +455,11 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                                         <td className="px-4 py-3 text-slate-600">{idx + 1}</td>
                                         <td className="px-4 py-3 text-slate-700">
                                             {item.due_date
-                                                ? format(new Date(item.due_date), "d-MMM-yyyy")
+                                                ? formatDate(item.due_date)
                                                 : "—"}
                                         </td>
                                         <td className="px-4 py-3 text-slate-700 font-medium">
-                                            {item.amount.toLocaleString("en-IN")}
+                                            {formatCurrency(item.amount)}
                                         </td>
                                         <td className="px-4 py-3">
                                             <select
@@ -630,7 +626,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                                     : "text-slate-800"
                             }`}
                         >
-                            {remaining.toLocaleString("en-IN")}
+                            {formatCurrency(remaining)}
                         </span>
                     </p>
 
@@ -638,8 +634,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                     {remaining < 0 && (
                         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
                             <span className="font-semibold">Please check amount!</span> Payment
-                            schedule exceeds opportunity amount by ₹
-                            {Math.abs(remaining).toLocaleString("en-IN")}
+                            schedule exceeds opportunity amount by {formatCurrency(Math.abs(remaining))}
                         </div>
                     )}
 
@@ -647,7 +642,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                     {remaining > 0.01 && (
                         <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-lg text-sm">
                             <span className="font-semibold">Remaining amount must be 0.</span> Please
-                            allocate ₹{remaining.toLocaleString("en-IN")} more to save.
+                            allocate {formatCurrency(remaining)} more to save.
                         </div>
                     )}
 

@@ -11,6 +11,7 @@ import {
     Cell,
 } from "recharts";
 import { GitBranch } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 
 interface PipelineStage {
     stage: string;
@@ -29,13 +30,7 @@ const STAGE_COLORS = [
     "#ef4444", // red
 ];
 
-const formatCurrency = (v: number) => {
-    return new Intl.NumberFormat("en-IN", {
-        style: "currency",
-        currency: "INR",
-        maximumFractionDigits: 0,
-    }).format(v);
-};
+// formatCurrency imported from @/lib/format
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CustomTooltip = ({ active, payload }: any) => {

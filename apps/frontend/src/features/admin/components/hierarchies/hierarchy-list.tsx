@@ -37,6 +37,7 @@ import {
 import { toast } from "sonner";
 import { AxiosError } from "axios";
 import { useCrudPermissions } from "@/hooks/use-crud-permissions";
+import { formatDateTime } from "@/lib/format";
 
 type TreeNode = Hierarchy & { children: TreeNode[] };
 
@@ -139,7 +140,7 @@ function HierarchyRow({ hierarchy, depth, onAddChild, canCreateChild }: Hierarch
             </TableCell>
             <TableCell>{hierarchy.created_by_name || "-"}</TableCell>
             <TableCell>
-                {hierarchy.created_at ? new Date(hierarchy.created_at).toLocaleString() : "-"}
+                {hierarchy.created_at ? formatDateTime(hierarchy.created_at) : "-"}
             </TableCell>
             <TableCell className="text-right">
                 <div className="flex justify-end items-center gap-2">

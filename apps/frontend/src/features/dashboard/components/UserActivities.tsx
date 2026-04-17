@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { ClipboardList, Building2, Lightbulb, UserPlus, Users, Briefcase } from "lucide-react";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/format";
 import type { ActivityLog } from "@/features/dashboard/services/dashboardService";
 
 const typeIcons: Record<string, React.ReactNode> = {
@@ -72,7 +72,7 @@ export function UserActivities({ activities }: { activities: ActivityLog[] }) {
                         activities.map((activity) => {
                             let dateStr = activity.created_at;
                             try {
-                                dateStr = format(new Date(activity.created_at), "dd MMM yyyy | hh:mm a");
+                                dateStr = formatDateTime(activity.created_at);
                             } catch {
                                 // keep original
                             }

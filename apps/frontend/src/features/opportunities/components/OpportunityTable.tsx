@@ -37,7 +37,7 @@ import {
 import { Opportunity } from "../types";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 export const columns: ColumnDef<Opportunity>[] = [
     {
@@ -79,11 +79,7 @@ export const columns: ColumnDef<Opportunity>[] = [
         header: "Value",
         cell: ({ row }) => {
             const amount = parseFloat(row.getValue("amount") || "0");
-            const formatted = new Intl.NumberFormat("en-IN", {
-                style: "currency",
-                currency: "INR",
-            }).format(amount);
-            return <div className="font-medium">{formatted}</div>;
+            return <div className="font-medium">{formatCurrency(amount)}</div>;
         },
     },
     {
@@ -116,7 +112,7 @@ export const columns: ColumnDef<Opportunity>[] = [
         cell: ({ row }) => {
             const date = row.getValue("close_date") as string;
             if (!date) return "-";
-            return <div className="text-sm">{new Date(date).toLocaleDateString()}</div>
+            return <div className="text-sm">{formatDate(date)}</div>
         },
     },
     {

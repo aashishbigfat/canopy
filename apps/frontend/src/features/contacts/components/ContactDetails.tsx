@@ -38,6 +38,7 @@ import { contactsService } from "@/lib/api/services/contacts.service";
 import { ContactFormDrawer } from "./ContactFormDrawer";
 import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
 import { toast } from "sonner";
+import { formatDateTime } from "@/lib/format";
 
 interface ContactDetailsProps {
     contact: Contact & {
@@ -250,14 +251,14 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Created By</p>
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{contact.created_by_name || "Unknown"}</p>
-                                                    <span className="text-slate-400 text-xs">at {new Date(contact.created_at).toLocaleString()}</span>
+                                                    <span className="text-slate-400 text-xs">at {formatDateTime(contact.created_at)}</span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Modified By</p>
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{contact.last_modified_by_name || contact.created_by_name || "Unknown"}</p>
-                                                    <span className="text-slate-400 text-xs">at {new Date(contact.updated_at).toLocaleString()}</span>
+                                                    <span className="text-slate-400 text-xs">at {formatDateTime(contact.updated_at)}</span>
                                                 </div>
                                             </div>
                                         </div>

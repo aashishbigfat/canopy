@@ -40,6 +40,7 @@ import { SupplierFormDrawer } from "./SupplierFormDrawer";
 import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/format";
 
 interface SupplierDetailsProps {
     supplier: Supplier;
@@ -198,14 +199,14 @@ export function SupplierDetails({
                                                 <p className="text-xs font-semibold text-slate-500 uppercase">Created By</p>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-sm text-blue-600 font-medium">{owner?.name || "System"}</span>
-                                                    <span className="text-slate-400 text-xs">, {new Date(supplier.created_at).toLocaleString()}</span>
+                                                    <span className="text-slate-400 text-xs">, {formatDateTime(supplier.created_at)}</span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase">Last Modified By</p>
                                                 <div className="flex items-center gap-2">
                                                     <span className="text-sm text-blue-600 font-medium">{owner?.name || "System"}</span>
-                                                    <span className="text-slate-400 text-xs">, {new Date(supplier.updated_at).toLocaleString()}</span>
+                                                    <span className="text-slate-400 text-xs">, {formatDateTime(supplier.updated_at)}</span>
                                                 </div>
                                             </div>
                                         </div>

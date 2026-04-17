@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
 interface Props {
@@ -339,7 +340,7 @@ export function TransactionModal({
                             <p className="text-sm text-slate-700 font-semibold flex items-center gap-2">
                                 Total:{" "}
                                 <span className="text-slate-500 font-normal">
-                                    {opportunityTotal!.toLocaleString("en-IN")}
+                                    {formatCurrency(opportunityTotal!)}
                                 </span>
                             </p>
                             <p className="text-sm text-slate-700 font-semibold flex items-center gap-2">
@@ -351,7 +352,7 @@ export function TransactionModal({
                                             : "text-emerald-600"
                                     }`}
                                 >
-                                    {currentBalance!.toLocaleString("en-IN")}
+                                    {formatCurrency(currentBalance!)}
                                 </span>
                             </p>
                         </div>

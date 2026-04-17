@@ -9,6 +9,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useCosting, useUpsertCosting } from "../../api/useOpportunityFinancial";
 import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { financialService, CostingLineItem } from "@/lib/api/services/financial.service";
+import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
 // Fallback fixed supplier name (overridden by tenant config on mount)
@@ -329,7 +330,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                 <SummaryCard
                     icon={<DollarSign className="h-4 w-4 text-blue-600" />}
                     label="Opp. Amount"
-                    value={`₹${opportunityAmount.toLocaleString("en-IN")}`}
+                    value={formatCurrency(opportunityAmount)}
                     bg="bg-blue-50 border-blue-100"
                     iconBg="bg-blue-100"
                     labelColor="text-blue-500"
@@ -338,7 +339,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                 <SummaryCard
                     icon={<ShoppingCart className="h-4 w-4 text-slate-600" />}
                     label="Total Cost"
-                    value={`₹${totalCost.toLocaleString("en-IN")}`}
+                    value={formatCurrency(totalCost)}
                     bg="bg-slate-50 border-slate-200"
                     iconBg="bg-slate-100"
                     labelColor="text-slate-500"
@@ -347,7 +348,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                 <SummaryCard
                     icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600" : "text-red-600"}`} />}
                     label={profit >= 0 ? "Profit" : "Loss"}
-                    value={`₹${profit.toLocaleString("en-IN")}`}
+                    value={formatCurrency(profit)}
                     bg={profit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}
                     iconBg={profit >= 0 ? "bg-emerald-100" : "bg-red-100"}
                     labelColor={profit >= 0 ? "text-emerald-500" : "text-red-500"}

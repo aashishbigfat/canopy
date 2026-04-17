@@ -14,8 +14,7 @@ import {
     Calendar,
     Download
 } from "lucide-react";
-import { format } from "date-fns";
-
+import { formatCurrency, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -114,12 +113,6 @@ export default function QuotesPage() {
         }
     };
 
-    const formatCurrency = (amount: number) => {
-        return new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-        }).format(amount || 0);
-    };
 
     return (
         <div className="space-y-6">
@@ -188,7 +181,7 @@ export default function QuotesPage() {
                                         <TableCell>
                                             <div className="flex items-center gap-2 text-muted-foreground">
                                                 <Calendar className="h-3.5 w-3.5" />
-                                                {format(new Date(quote.created_at), "MMM d, yyyy")}
+                                                {formatDate(quote.created_at)}
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-medium">

@@ -295,7 +295,7 @@ class DashboardService:
         now = datetime.utcnow()
         time_filters = self._get_time_filters(widget.time_range, now)
         
-        query = {"tenant_id": widget.tenant_id}
+        query = {"tenant_id": widget.tenant_id, "deleted_at": None}
         query.update(widget.filters)
         query.update(time_filters)
         
@@ -425,7 +425,7 @@ class DashboardService:
         month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         
         tenant_obj_id = PydanticObjectId(tenant_id)
-        base_query = {"tenant_id": tenant_obj_id}
+        base_query = {"tenant_id": tenant_obj_id, "deleted_at": None}
         if user_id:
             base_query["owner_id"] = PydanticObjectId(user_id)
         
@@ -554,7 +554,7 @@ class DashboardService:
         from app.models.opportunity_picklists import SalesStage
         
         tenant_obj_id = PydanticObjectId(tenant_id)
-        query = {"tenant_id": tenant_obj_id}
+        query = {"tenant_id": tenant_obj_id, "deleted_at": None}
         if user_id:
             query["owner_id"] = PydanticObjectId(user_id)
         
@@ -599,6 +599,7 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         query = {
             "tenant_id": tenant_obj_id,
+            "deleted_at": None,
             "sales_stage_id": {"$in": won_stage_ids}
         }
         if user_id:
@@ -645,6 +646,7 @@ class DashboardService:
         
         query = {
             "tenant_id": tenant_obj_id,
+            "deleted_at": None,
             "sales_stage_id": {"$in": won_stage_ids},
             "close_date": {"$gte": last_month_start}
         }
@@ -710,6 +712,7 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         query = {
             "tenant_id": tenant_obj_id,
+            "deleted_at": None,
             "sales_stage_id": {"$nin": won_stage_ids + lost_stage_ids},  # Open deals only
         }
         if user_id:
@@ -759,6 +762,7 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         base_query = {
             "tenant_id": tenant_obj_id,
+            "deleted_at": None,
             "status": {"$ne": "Completed"}
         }
         if user_id:

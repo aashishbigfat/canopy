@@ -44,6 +44,7 @@ import { accountService } from "../services/accountService";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { formatDateTime } from "@/lib/format";
 
 interface AccountDetailViewProps {
     account: Account & {
@@ -352,14 +353,14 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Created By</p>
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{account.created_by_name || "Unknown"}</p>
-                                                    <span className="text-slate-400 text-xs">at {new Date(account.created_at).toLocaleString()}</span>
+                                                    <span className="text-slate-400 text-xs">at {formatDateTime(account.created_at)}</span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Modified By</p>
                                                 <div className="flex items-center gap-2">
                                                     <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{account.last_modified_by_name || account.created_by_name || "Unknown"}</p>
-                                                    <span className="text-slate-400 text-xs">at {new Date(account.updated_at).toLocaleString()}</span>
+                                                    <span className="text-slate-400 text-xs">at {formatDateTime(account.updated_at)}</span>
                                                 </div>
                                             </div>
                                         </div>

@@ -8,6 +8,7 @@ import { KanbanCard } from "./KanbanCard";
 import { SalesStage } from "./KanbanBoard";
 import { cn } from "@/lib/utils";
 import { TrendingUp } from "lucide-react";
+import { formatCurrency } from "@/lib/format";
 
 interface KanbanColumnProps {
     stage: SalesStage;
@@ -21,13 +22,6 @@ export function KanbanColumn({ stage, opportunities, total, onOpportunityClick }
 
     const stageColor = stage.color || "#6366f1";
 
-    const formatCurrency = (amount: number) =>
-        new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 0,
-        }).format(amount);
 
     const getHeaderStyle = () => {
         if (stage.is_won) return "border-green-400";

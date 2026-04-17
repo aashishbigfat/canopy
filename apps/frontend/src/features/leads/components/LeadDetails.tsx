@@ -43,7 +43,7 @@ import { ConvertLeadDialog } from "./ConvertLeadDialog";
 import { LeadFormDrawer } from "./LeadFormDrawer";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/format";
 
 interface LeadDetailsProps {
     lead: Lead;
@@ -318,14 +318,14 @@ export function LeadDetails({
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Created By</p>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{lead.created_by_name || "Unknown"}</p>
-                                                <span className="text-slate-400 text-xs">at {new Date(lead.created_at).toLocaleString()}</span>
+                                                <span className="text-slate-400 text-xs">at {formatDateTime(lead.created_at)}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Modified By</p>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{lead.last_modified_by_name || lead.created_by_name || "Unknown"}</p>
-                                                <span className="text-slate-400 text-xs">at {new Date(lead.updated_at).toLocaleString()}</span>
+                                                <span className="text-slate-400 text-xs">at {formatDateTime(lead.updated_at)}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1">

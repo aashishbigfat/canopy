@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, ExternalLink, IndianRupee } from "lucide-react";
 import Link from "next/link";
+import { formatCurrency, formatDate } from "@/lib/format";
 
 interface RelatedOpportunitiesTabProps {
     accountId: string;
@@ -27,7 +28,7 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                     <div>
                         <CardTitle>Related Opportunities</CardTitle>
                         <CardDescription>
-                            Sales opportunities for this account • Total Value: ₹{totalValue.toLocaleString()}
+                            Sales opportunities for this account • Total Value: {formatCurrency(totalValue)}
                         </CardDescription>
                     </div>
                     <Link href={`/opportunities/create?accountId=${accountId}`}>
@@ -78,14 +79,13 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex items-center gap-1">
-                                            <IndianRupee className="h-3 w-3" />
-                                            {opp.amount?.toLocaleString() || "0"}
+                                            {formatCurrency(opp.amount)}
                                         </div>
                                     </TableCell>
                                     <TableCell>{opp.probability ? `${opp.probability}%` : "-"}</TableCell>
                                     <TableCell>
                                         {opp.close_date
-                                            ? new Date(opp.close_date).toLocaleDateString()
+                                            ? formatDate(opp.close_date)
                                             : "-"}
                                     </TableCell>
                                     <TableCell className="text-right">

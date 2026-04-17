@@ -14,7 +14,7 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
+import { formatDate, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 interface GroupedOpportunityTableProps {
@@ -42,9 +42,9 @@ const COL_HEADER = (
 );
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
-function formatDate(dateStr?: string) {
+function formatOppDate(dateStr?: string) {
     if (!dateStr) return "—";
-    try { return format(new Date(dateStr), "dd MMM yyyy"); } catch { return "—"; }
+    return formatDate(dateStr) || "—";
 }
 
 function getStageBadgeStyle(stageName?: string) {
@@ -125,7 +125,7 @@ function OppRow({
             {/* Amount */}
             <TableCell className="py-2.5 text-right">
                 <span className="text-xs font-semibold tabular-nums text-slate-700">
-                    {opp.amount ? `₹${opp.amount.toLocaleString()}` : <span className="text-slate-400">—</span>}
+                    {opp.amount ? formatCurrency(opp.amount) : <span className="text-slate-400">—</span>}
                 </span>
             </TableCell>
 
@@ -141,12 +141,12 @@ function OppRow({
 
             {/* Travel Date */}
             <TableCell className="py-2.5 text-xs text-slate-600 tabular-nums whitespace-nowrap">
-                {formatDate(opp.travel_date)}
+                {formatOppDate(opp.travel_date)}
             </TableCell>
 
             {/* Close Date */}
             <TableCell className="py-2.5 text-xs text-slate-600 tabular-nums whitespace-nowrap">
-                {formatDate(opp.close_date)}
+                {formatOppDate(opp.close_date)}
             </TableCell>
 
             {/* Owner */}

@@ -6,7 +6,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Opportunity } from "../types";
 import { cn } from "@/lib/utils";
 import { Calendar, GripVertical, Star, MapPin, Users } from "lucide-react";
-import { format } from "date-fns";
+import { formatCurrency, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
 
 interface KanbanCardProps {
@@ -30,18 +30,7 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
         transition,
     };
 
-    const formatCurrency = (amount: number) =>
-        new Intl.NumberFormat("en-IN", {
-            style: "currency",
-            currency: "INR",
-            minimumFractionDigits: 0,
-            maximumFractionDigits: 2,
-        }).format(amount);
 
-    const formatDate = (dateString?: string) => {
-        if (!dateString) return null;
-        try { return format(new Date(dateString), "dd MMM yyyy"); } catch { return null; }
-    };
 
     const isActiveDragging = isDragging || isSortableDragging;
 

@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/table";
 import { Plus, ExternalLink, CheckCircle2, Circle, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import { formatDate } from "@/lib/format";
 
 interface RelatedTasksTabProps {
     accountId: string;
@@ -109,7 +110,7 @@ export function RelatedTasksTab({ accountId, tasks }: RelatedTasksTabProps) {
                                     <TableCell>{task.assigned_user_name || "-"}</TableCell>
                                     <TableCell>
                                         {task.due_date
-                                            ? new Date(task.due_date).toLocaleDateString()
+                                            ? formatDate(task.due_date)
                                             : "-"}
                                     </TableCell>
                                     <TableCell className="text-right">

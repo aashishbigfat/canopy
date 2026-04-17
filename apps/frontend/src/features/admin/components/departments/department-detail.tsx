@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { Separator } from "@/components/ui/separator";
 import { useGetDepartment, useGetDepartmentUsers } from "@/features/admin/api/use-departments";
+import { formatDateTime } from "@/lib/format";
 
 interface DepartmentDetailProps {
     departmentId: string;
@@ -131,13 +132,7 @@ export function DepartmentDetail({ departmentId }: DepartmentDetailProps) {
                             <span className="font-medium text-muted-foreground">Created</span>
                             <p>
                                 {department.created_at
-                                    ? new Date(department.created_at).toLocaleString(undefined, {
-                                          year: "numeric",
-                                          month: "long",
-                                          day: "numeric",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                      })
+                                    ? formatDateTime(department.created_at)
                                     : "—"}
                             </p>
                         </div>
@@ -145,13 +140,7 @@ export function DepartmentDetail({ departmentId }: DepartmentDetailProps) {
                             <span className="font-medium text-muted-foreground">Last Updated</span>
                             <p>
                                 {department.updated_at
-                                    ? new Date(department.updated_at).toLocaleString(undefined, {
-                                          year: "numeric",
-                                          month: "long",
-                                          day: "numeric",
-                                          hour: "2-digit",
-                                          minute: "2-digit",
-                                      })
+                                    ? formatDateTime(department.updated_at)
                                     : "—"}
                             </p>
                         </div>
