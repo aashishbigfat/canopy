@@ -105,8 +105,8 @@ export const navItems: NavItem[] = [
         submenu: [
             { title: "User Management", href: "/admin/users", requiredPermission: "view_user" },
             { title: "Role Management", href: "/admin/role-management", requiredPermission: "view_role" },
-            { title: "Hierarchies", href: "/admin/hierarchies", requiredPermission: "view_department" },
-            { title: "Departments", href: "/admin/departments", requiredPermission: "view_department" },
+            { title: "Hierarchies", href: "/admin/hierarchies", requiredPermission: "manage_system" },
+            { title: "Departments", href: "/admin/departments", requiredPermission: "manage_system" },
         ]
     },
 ];

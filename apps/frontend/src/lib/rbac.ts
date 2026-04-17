@@ -7,8 +7,8 @@ import type { NavItem } from "@/components/layout/nav-items";
 const ROUTE_RULES: { prefix: string; permission: string }[] = [
     { prefix: "/admin/role-management", permission: "view_role" },
     { prefix: "/admin/users", permission: "view_user" },
-    { prefix: "/admin/departments", permission: "view_department" },
-    { prefix: "/admin/hierarchies", permission: "view_department" },
+    { prefix: "/admin/departments", permission: "manage_system" },
+    { prefix: "/admin/hierarchies", permission: "manage_system" },
     { prefix: "/admin", permission: "view_user" },
     { prefix: "/person-accounts", permission: "view_contact" },
     { prefix: "/accessflow/opportunities", permission: "view_opportunity" },
@@ -60,14 +60,22 @@ export function filterNavItemsForPermissions(
     const perms = userPermissions ?? [];
     const out: NavItem[] = [];
     for (const item of items) {
+        const req = item.requiredPermission;
+        
+        // ENFORCE PARENT PERMISSION FIRST
+        // If a parent item requires a permission, the user MUST have it to see the item or its submenus.
+        if (req && !perms.includes(req)) {
+            continue;
+        }
+
         if (item.submenu?.length) {
             const sub = item.submenu.filter((s) => perms.includes(s.requiredPermission));
             if (sub.length === 0) continue;
             out.push({ ...item, submenu: sub });
             continue;
         }
-        const req = item.requiredPermission;
-        if (req && perms.includes(req)) out.push(item);
+        
+        out.push(item);
     }
     return out;
 }
