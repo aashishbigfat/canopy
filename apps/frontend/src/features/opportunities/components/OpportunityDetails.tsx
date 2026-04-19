@@ -438,12 +438,12 @@ export function OpportunityDetails({
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start w-full">
 
                 {/* Main Content Area - Tabs */}
-                <div className="lg:col-span-2">
+                <div className="lg:col-span-2 min-w-0 w-full">
                     <Tabs defaultValue="activity" className="w-full bg-white rounded-lg border shadow-sm">
-                        <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 overflow-x-auto">
+                        <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 max-w-full overflow-x-auto flex-nowrap scrollbar-hide">
                             <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Activity</TabsTrigger>
                             <TabsTrigger value="departures" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Departures</TabsTrigger>
                             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Details</TabsTrigger>
@@ -889,7 +889,8 @@ export function OpportunityDetails({
                                     }
 
                                     return (
-                                        <Table>
+                                        <div className="w-full overflow-x-auto scrollbar-hide">
+                                            <Table>
                                             <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
                                                 <TableRow>
                                                     <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Stage</TableHead>
@@ -935,6 +936,7 @@ export function OpportunityDetails({
                                                 ))}
                                             </TableBody>
                                         </Table>
+                                        </div>
                                     );
                                 })()}
                             </ScrollArea>

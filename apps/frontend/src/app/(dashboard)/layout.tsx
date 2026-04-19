@@ -61,26 +61,26 @@ export default function DashboardLayout({
         <div className="flex min-h-screen flex-col bg-muted/40 text-foreground">
             <CommandPalette />
             {/* Premium Midnight Header */}
-            <header className="sticky top-0 z-50 flex h-[56px] sm:h-[72px] items-center gap-2 sm:gap-4 border-b border-indigo-950/20 bg-gradient-to-r from-[#0a0a2e] to-[#1a1a4a] px-3 sm:px-6 text-white shadow-lg">
+            <header className="sticky top-0 z-50 flex h-[56px] sm:h-[72px] items-center gap-1 sm:gap-4 border-b border-indigo-950/20 bg-gradient-to-r from-[#0a0a2e] to-[#1a1a4a] px-2 sm:px-6 text-white shadow-lg">
                 <Button
                     variant="ghost"
                     size="icon"
                     className="text-white hover:bg-white/10 h-10 w-10 transition-colors"
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 >
-                    <Menu className="h-6 w-6" />
+                    <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
                 </Button>
                 <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-extrabold tracking-tighter">
-                    <span className="text-2xl bg-gradient-to-br from-white to-cyan-300 bg-clip-text text-transparent">Tutterfly</span>
+                    <span className="text-xl sm:text-2xl bg-gradient-to-br from-white to-cyan-300 bg-clip-text text-transparent">Tutterfly</span>
                 </Link>
                 <div className="flex-1 min-w-0 px-2 sm:px-8 hidden sm:block">
                     <GlobalSearchBar />
                 </div>
-                <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+                <div className="flex items-center gap-1 sm:gap-3 ml-auto">
                     <div className="hidden md:block">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="gap-2.5 text-slate-100 hover:bg-white/10 text-base font-semibold h-11 px-4 rounded-full border border-white/5 transition-all">
+                                <Button variant="ghost" className="gap-1 sm:gap-2.5 text-slate-100 hover:bg-white/10 text-base font-semibold h-10 sm:h-11 px-2 sm:px-4 rounded-full border border-white/5 transition-all">
                                     <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)] animate-pulse" />
                                     Available <ChevronDown className="h-4 w-4 opacity-50" />
                                 </Button>
@@ -98,13 +98,13 @@ export default function DashboardLayout({
                     </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="gap-3 text-white hover:bg-white/10 text-base font-semibold h-11 px-4 rounded-full transition-all">
-                                <Avatar className="h-8 w-8 border-2 border-cyan-500/30">
-                                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-sm text-white font-bold">
+                            <Button variant="ghost" className="gap-1 sm:gap-3 text-white hover:bg-white/10 text-base font-semibold h-10 sm:h-11 px-2 sm:px-4 rounded-full transition-all">
+                                <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border-2 border-cyan-500/30">
+                                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-xs sm:text-sm text-white font-bold">
                                         {session?.user?.name?.[0] ?? "U"}
                                     </AvatarFallback>
                                 </Avatar>
-                                <span className="hidden xl:inline">{session?.user?.name ?? "User"}</span> <ChevronDown className="h-4 w-4 opacity-50" />
+                                <span className="hidden xl:inline">{session?.user?.name ?? "User"}</span> <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">

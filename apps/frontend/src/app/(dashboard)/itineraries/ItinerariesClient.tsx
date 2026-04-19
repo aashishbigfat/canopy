@@ -48,29 +48,29 @@ export default function ItinerariesClient() {
     ) || [];
 
     return (
-        <div className="space-y-6 max-w-[1400px] mx-auto p-6">
-            <h1 className="text-2xl font-bold text-slate-900">Itineraries</h1>
+        <div className="flex-1 min-w-0 w-full space-y-6 max-w-[1400px] mx-auto p-4 sm:p-6">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Itineraries</h1>
             
-            <Card className="border-slate-200 shadow-sm">
-                <CardHeader className="bg-slate-50 border-b border-slate-200 py-3 flex flex-row items-center justify-between">
+            <Card className="border-slate-200 shadow-sm min-w-0 w-full">
+                <CardHeader className="bg-slate-50 border-b border-slate-200 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-2">
-                        <div className="h-8 w-8 bg-blue-500 rounded flex items-center justify-center">
+                        <div className="h-8 w-8 bg-blue-500 rounded flex items-center justify-center shrink-0">
                             <FileText className="h-4 w-4 text-white" />
                         </div>
                         <CardTitle className="text-base font-semibold text-slate-800">Itinerary Builder</CardTitle>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                        <div className="relative">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                        <div className="relative flex-1 sm:flex-initial">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
                             <Input 
                                 placeholder="Search" 
-                                className="pl-9 h-9 w-[250px] text-sm bg-white"
+                                className="pl-9 h-9 w-full sm:w-[250px] text-sm bg-white"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
                         </div>
-                        <Link href="/itineraries/create">
+                        <Link href="/itineraries/create" className="shrink-0">
                             <Button size="icon" className="h-9 w-9 bg-blue-500 hover:bg-blue-600">
                                 <Plus className="h-4 w-4" />
                             </Button>
@@ -78,86 +78,88 @@ export default function ItinerariesClient() {
                     </div>
                 </CardHeader>
                 <CardContent className="p-0">
-                    <Table>
-                        <TableHeader className="bg-slate-50">
-                            <TableRow>
-                                <TableHead className="font-semibold text-slate-600">Itinerary Name</TableHead>
-                                <TableHead className="font-semibold text-slate-600">Starts From</TableHead>
-                                <TableHead className="font-semibold text-slate-600">Destinations</TableHead>
-                                <TableHead className="font-semibold text-slate-600">Durations</TableHead>
-                                <TableHead className="font-semibold text-slate-600">Created On</TableHead>
-                                <TableHead className="font-semibold text-slate-600 w-[100px]"></TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {isLoading ? (
+                    <div className="w-full overflow-x-auto scrollbar-hide">
+                        <Table>
+                            <TableHeader className="bg-slate-50 whitespace-nowrap">
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8">Loading itineraries...</TableCell>
+                                    <TableHead className="font-semibold text-slate-600">Itinerary Name</TableHead>
+                                    <TableHead className="font-semibold text-slate-600">Starts From</TableHead>
+                                    <TableHead className="font-semibold text-slate-600">Destinations</TableHead>
+                                    <TableHead className="font-semibold text-slate-600">Durations</TableHead>
+                                    <TableHead className="font-semibold text-slate-600">Created On</TableHead>
+                                    <TableHead className="font-semibold text-slate-600 w-[100px]"></TableHead>
                                 </TableRow>
-                            ) : filteredItineraries.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-slate-500">No itineraries found</TableCell>
-                                </TableRow>
-                            ) : (
-                                filteredItineraries.map((itinerary) => (
-                                    <TableRow key={itinerary.id} className="hover:bg-slate-50/50">
-                                        <TableCell>
-                                            <div className="flex items-center gap-3">
-                                                <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-500 text-center leading-tight border border-slate-300">
-                                                    ID<br/>BLD
-                                                </div>
-                                                <Link href={`/itineraries/${itinerary.id}`} className="text-blue-600 hover:underline font-medium">
-                                                    {itinerary.name}
-                                                </Link>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="text-slate-600">
-                                            {itinerary.tour_starts_from || "-"}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600 font-medium">
-                                            {/* Note: In a real app we'd resolve destination_ids to names. For now, showing length or a placeholder */}
-                                            {itinerary.destination_ids?.length > 0 ? `${itinerary.destination_ids.length} Destination(s)` : "-"}
-                                        </TableCell>
-                                        <TableCell className="text-slate-600">
-                                            {itinerary.total_nights || 0} N / {itinerary.total_days || 0} D
-                                        </TableCell>
-                                        <TableCell className="text-slate-600">
-                                            {itinerary.created_at ? format(new Date(itinerary.created_at), "dd MMM yyyy") : "-"}
-                                        </TableCell>
-                                        <TableCell>
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" className="h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-indigo-200 pr-2">
-                                                        Action <MoreHorizontal className="h-4 w-4 ml-1" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-56">
-                                                    <DropdownMenuItem onClick={() => router.push(`/itineraries/${itinerary.id}/edit`)}>
-                                                        <Edit className="h-4 w-4 mr-2 text-slate-500" /> Edit
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <FileText className="h-4 w-4 mr-2 text-slate-500" /> Preview & Generate Pdf
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <Mail className="h-4 w-4 mr-2 text-slate-500" /> E-mail Itinerary
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem>
-                                                        <Copy className="h-4 w-4 mr-2 text-slate-500" /> Copy
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem 
-                                                        onClick={() => handleDelete(itinerary.id)}
-                                                        className="text-red-600 focus:text-red-600"
-                                                    >
-                                                        <Trash2 className="h-4 w-4 mr-2" /> Delete
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
-                                        </TableCell>
+                            </TableHeader>
+                            <TableBody>
+                                {isLoading ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center py-8">Loading itineraries...</TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
+                                ) : filteredItineraries.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">No itineraries found</TableCell>
+                                    </TableRow>
+                                ) : (
+                                    filteredItineraries.map((itinerary) => (
+                                        <TableRow key={itinerary.id} className="hover:bg-slate-50/50 block sm:table-row">
+                                            <TableCell className="block sm:table-cell">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-500 text-center leading-tight border border-slate-300 shrink-0">
+                                                        ID<br/>BLD
+                                                    </div>
+                                                    <Link href={`/itineraries/${itinerary.id}`} className="text-blue-600 hover:underline font-medium break-words">
+                                                        {itinerary.name}
+                                                    </Link>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 block sm:table-cell whitespace-nowrap">
+                                                {itinerary.tour_starts_from || "-"}
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 font-medium block sm:table-cell whitespace-nowrap">
+                                                {/* Note: In a real app we'd resolve destination_ids to names. For now, showing length or a placeholder */}
+                                                {itinerary.destination_ids?.length > 0 ? `${itinerary.destination_ids.length} Destination(s)` : "-"}
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 block sm:table-cell whitespace-nowrap">
+                                                {itinerary.total_nights || 0} N / {itinerary.total_days || 0} D
+                                            </TableCell>
+                                            <TableCell className="text-slate-600 block sm:table-cell whitespace-nowrap">
+                                                {itinerary.created_at ? format(new Date(itinerary.created_at), "dd MMM yyyy") : "-"}
+                                            </TableCell>
+                                            <TableCell className="block sm:table-cell text-right">
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="outline" className="h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-indigo-200 pr-2">
+                                                            Action <MoreHorizontal className="h-4 w-4 ml-1" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end" className="w-56">
+                                                        <DropdownMenuItem onClick={() => router.push(`/itineraries/${itinerary.id}/edit`)}>
+                                                            <Edit className="h-4 w-4 mr-2 text-slate-500" /> Edit
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem>
+                                                            <FileText className="h-4 w-4 mr-2 text-slate-500" /> Preview & Generate Pdf
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem>
+                                                            <Mail className="h-4 w-4 mr-2 text-slate-500" /> E-mail Itinerary
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem>
+                                                            <Copy className="h-4 w-4 mr-2 text-slate-500" /> Copy
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem 
+                                                            onClick={() => handleDelete(itinerary.id)}
+                                                            className="text-red-600 focus:text-red-600"
+                                                        >
+                                                            <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
                 </CardContent>
             </Card>
         </div>

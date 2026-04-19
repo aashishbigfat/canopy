@@ -69,7 +69,7 @@ export default function OpportunitiesPageClient() {
 
 
     return (
-        <div className="space-y-6">
+        <div className="flex-1 min-w-0 w-full space-y-6">
             {/* Header & Toolbar */}
             <div className="bg-slate-50/50 p-4 rounded-t-lg border border-b-0 space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

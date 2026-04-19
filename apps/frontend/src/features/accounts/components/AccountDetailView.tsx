@@ -141,7 +141,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                 {/* Main Content (Left Column) */}
                 <div className="flex-1 min-w-0">
                     <Tabs defaultValue="related" className="w-full">
-                        <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-11 p-0 gap-8">
+                        <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-11 p-0 gap-8 max-w-full overflow-x-auto flex-nowrap scrollbar-hide">
                             <TabsTrigger
                                 value="related"
                                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"

@@ -437,51 +437,53 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
 
                     {/* Table */}
                     <div className="border border-slate-200 rounded-lg overflow-hidden">
-                        <table className="w-full text-sm">
-                            <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-12">#</th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Date</th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Amount</th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-40">Status</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {savedItems.map((item, idx) => (
-                                    <tr
-                                        key={item.id}
-                                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
-                                    >
-                                        <td className="px-4 py-3 text-slate-600">{idx + 1}</td>
-                                        <td className="px-4 py-3 text-slate-700">
-                                            {item.due_date
-                                                ? formatDate(item.due_date)
-                                                : "—"}
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-700 font-medium">
-                                            {formatCurrency(item.amount)}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <select
-                                                value={item.status}
-                                                onChange={(e) =>
-                                                    handleStatusChange(item.id, e.target.value)
-                                                }
-                                                disabled={updateMutation.isPending}
-                                                className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 ${
-                                                    item.status === "Received"
-                                                        ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                        : "bg-amber-50 text-amber-700 border-amber-200"
-                                                }`}
-                                            >
-                                                <option value="Pending">Pending</option>
-                                                <option value="Received">Received</option>
-                                            </select>
-                                        </td>
+                        <div className="overflow-x-auto scrollbar-hide">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-slate-50 border-b border-slate-200">
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-12">#</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Date</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Amount</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-40">Status</th>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
+                                </thead>
+                                <tbody>
+                                    {savedItems.map((item, idx) => (
+                                        <tr
+                                            key={item.id}
+                                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
+                                        >
+                                            <td className="px-4 py-3 text-slate-600">{idx + 1}</td>
+                                            <td className="px-4 py-3 text-slate-700">
+                                                {item.due_date
+                                                    ? formatDate(item.due_date)
+                                                    : "—"}
+                                            </td>
+                                            <td className="px-4 py-3 text-slate-700 font-medium">
+                                                {formatCurrency(item.amount)}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <select
+                                                    value={item.status}
+                                                    onChange={(e) =>
+                                                        handleStatusChange(item.id, e.target.value)
+                                                    }
+                                                    disabled={updateMutation.isPending}
+                                                    className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 ${
+                                                        item.status === "Received"
+                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                                    }`}
+                                                >
+                                                    <option value="Pending">Pending</option>
+                                                    <option value="Received">Received</option>
+                                                </select>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </>
@@ -543,10 +545,11 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
             {(editMode || (!hasSavedSchedule && rows.length > 0)) && (
                 <div className="space-y-3">
                     {/* Column headers */}
-                    <div className="grid grid-cols-[1fr_1fr_1fr_44px] gap-3">
+                    {/* Column headers - hidden on mobile */}
+                    <div className="hidden sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 mb-1">
                         <p className="text-xs font-semibold text-slate-500">Date</p>
-                        <p className="text-xs font-semibold text-slate-500">Amount</p>
-                        <p className="text-xs font-semibold text-slate-500">Amount Percentage</p>
+                        <p className="text-xs font-semibold text-slate-500 text-right pr-2">Amount</p>
+                        <p className="text-xs font-semibold text-slate-500 text-right pr-2">Percentage</p>
                         <div />
                     </div>
 
@@ -558,58 +561,71 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                         return (
                             <div
                                 key={row.id || `new-${idx}`}
-                                className="grid grid-cols-[1fr_1fr_1fr_44px] gap-3 items-center"
+                                className="flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none bg-slate-50/30 sm:bg-transparent relative"
                             >
-                                <Input
-                                    type="date"
-                                    value={row.due_date}
-                                    onChange={(e) => updateDate(idx, e.target.value)}
-                                    className="h-9 text-sm"
-                                    disabled={isReceived}
-                                />
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    value={row.amount || ""}
-                                    onChange={(e) => updateAmount(idx, e.target.value)}
-                                    placeholder="0"
-                                    className="h-9 text-sm"
-                                    disabled={isReceived}
-                                />
-                                <div className="flex items-center gap-1">
+                                <div className="space-y-1 sm:space-y-0">
+                                    <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Due Date</label>
                                     <Input
-                                        type="number"
-                                        min={0}
-                                        max={100}
-                                        step="0.01"
-                                        value={row.percentage || ""}
-                                        onChange={(e) => updatePercentage(idx, e.target.value)}
-                                        placeholder="0"
+                                        type="date"
+                                        value={row.due_date}
+                                        onChange={(e) => updateDate(idx, e.target.value)}
                                         className="h-9 text-sm"
                                         disabled={isReceived}
                                     />
-                                    <span className="text-sm text-slate-400 flex-shrink-0">%</span>
+                                </div>
+                                
+                                <div className="space-y-1 sm:space-y-0">
+                                    <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Amount</label>
+                                    <Input
+                                        type="number"
+                                        min={0}
+                                        value={row.amount || ""}
+                                        onChange={(e) => updateAmount(idx, e.target.value)}
+                                        placeholder="0"
+                                        className="h-9 text-sm sm:text-right"
+                                        disabled={isReceived}
+                                    />
                                 </div>
 
-                                {idx === 0 ? (
-                                    <button
-                                        type="button"
-                                        onClick={addRow}
-                                        className="h-9 w-9 rounded-md bg-teal-500 hover:bg-teal-600 text-white flex items-center justify-center transition-colors flex-shrink-0"
-                                    >
-                                        <Plus className="h-4 w-4" />
-                                    </button>
-                                ) : isSavedRow ? (
-                                    <div className="h-9 w-9" />
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeRow(idx)}
-                                        className="h-9 w-9 rounded-md bg-red-400 hover:bg-red-500 text-white flex items-center justify-center transition-colors flex-shrink-0"
-                                    >
-                                        <Minus className="h-4 w-4" />
-                                    </button>
-                                )}
+                                <div className="space-y-1 sm:space-y-0">
+                                    <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Percentage</label>
+                                    <div className="flex items-center gap-1">
+                                        <Input
+                                            type="number"
+                                            min={0}
+                                            max={100}
+                                            step="0.01"
+                                            value={row.percentage || ""}
+                                            onChange={(e) => updatePercentage(idx, e.target.value)}
+                                            placeholder="0"
+                                            className="h-9 text-sm sm:text-right"
+                                            disabled={isReceived}
+                                        />
+                                        <span className="text-sm text-slate-400 flex-shrink-0">%</span>
+                                    </div>
+                                </div>
+
+                                <div className="absolute top-2 right-2 sm:static flex justify-end">
+                                    {idx === 0 ? (
+                                        <button
+                                            type="button"
+                                            onClick={addRow}
+                                            className="h-8 w-8 sm:h-9 sm:w-9 rounded-md bg-teal-500 hover:bg-teal-600 text-white flex items-center justify-center transition-colors shadow-sm"
+                                        >
+                                            <Plus className="h-4 w-4" />
+                                        </button>
+                                    ) : isSavedRow ? (
+                                        <div className="h-8 w-8 sm:h-9 sm:w-9" />
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeRow(idx)}
+                                            className="h-8 w-8 sm:h-9 sm:w-9 rounded-md bg-red-400 hover:bg-red-500 text-white flex items-center justify-center transition-colors shadow-sm"
+                                        >
+                                            <Minus className="h-4 w-4" />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         );
                     })}

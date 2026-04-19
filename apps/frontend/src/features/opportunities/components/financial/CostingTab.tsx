@@ -326,7 +326,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
     return (
         <div className="space-y-4">
             {/* ── Summary Bar — Bug 3 fix: Opp. Amount | Total Cost | Profit | Profit % ── */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
                 <SummaryCard
                     icon={<DollarSign className="h-4 w-4 text-blue-600" />}
                     label="Opp. Amount"
@@ -427,7 +427,8 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
             {/* ── Line Items Table ── */}
             <div className="border border-slate-200 rounded-lg overflow-hidden">
-                <table className="w-full text-sm">
+                <div className="overflow-x-auto scrollbar-hide">
+                    <table className="w-full text-sm">
                     <thead>
                         <tr className="bg-slate-50 border-b border-slate-200">
                             <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">Item&apos;s</th>
@@ -571,7 +572,8 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                             <td className="px-2 py-2"></td>
                         </tr>
                     </tbody>
-                </table>
+                    </table>
+                </div>
             </div>
 
             {/* ── Empty State ── */}

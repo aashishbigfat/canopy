@@ -77,9 +77,9 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
         : undefined;
 
     return (
-        <div className="flex-1 space-y-4 p-6">
+        <div className="flex-1 space-y-4 p-4 sm:p-6 min-w-0 w-full">
             {/* Breadcrumb / page header */}
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
                     <div className="h-10 w-10 rounded-md bg-blue-100 flex items-center justify-center">
                         <ClipboardList className="h-5 w-5 text-blue-600" />
@@ -117,7 +117,7 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
             <div className="bg-white rounded-md border shadow-sm overflow-hidden">
                 <SectionHeader title="Task Information" />
                 <div className="px-5 pb-4">
-                    <div className="grid grid-cols-2 gap-x-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
                         <div>
                             <FieldRow label="Subject" value={task.name} />
                             <FieldRow label="Comments" value={task.description} />
@@ -162,7 +162,7 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
             <div className="bg-white rounded-md border shadow-sm overflow-hidden">
                 <SectionHeader title="System information" />
                 <div className="px-5 pb-4">
-                    <div className="grid grid-cols-2 gap-x-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
                         <div>
                             <FieldRow
                                 label="Created by"

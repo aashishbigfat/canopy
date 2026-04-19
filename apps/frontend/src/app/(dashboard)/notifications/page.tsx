@@ -197,12 +197,12 @@ export default function NotificationsPage() {
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
                                                 <p className={cn(
-                                                    "text-sm",
+                                                    "text-sm break-words whitespace-normal",
                                                     !notification.is_read && "font-semibold"
                                                 )}>
                                                     {notification.title}
                                                 </p>
-                                                <p className="text-sm text-muted-foreground mt-1">
+                                                <p className="text-sm text-muted-foreground mt-1 break-words whitespace-normal">
                                                     {notification.message}
                                                 </p>
                                                 <p className="text-xs text-muted-foreground mt-2">

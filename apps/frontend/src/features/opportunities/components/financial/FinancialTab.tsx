@@ -71,7 +71,7 @@ export function FinancialTab({ opportunity }: Props) {
     return (
         <div className="space-y-0">
             {/* Sub-tab Navigation */}
-            <div className="flex border-b border-slate-200 bg-slate-50/50">
+            <div className="flex border-b border-slate-200 bg-slate-50/50 overflow-x-auto scrollbar-hide">
                 {SUB_TABS.map((tab) => (
                     <button
                         key={tab.id}
