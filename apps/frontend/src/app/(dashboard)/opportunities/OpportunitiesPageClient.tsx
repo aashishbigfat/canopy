@@ -72,7 +72,7 @@ export default function OpportunitiesPageClient() {
         <div className="space-y-6">
             {/* Header & Toolbar */}
             <div className="bg-slate-50/50 p-4 rounded-t-lg border border-b-0 space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
                         <div className="p-2 bg-blue-600 rounded-full text-white">
                             <Lightbulb className="h-5 w-5" />
@@ -102,7 +102,7 @@ export default function OpportunitiesPageClient() {
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                         <Button
                             variant="outline"
                             size="icon"
@@ -173,7 +173,7 @@ export default function OpportunitiesPageClient() {
                             groupByOwner={groupByOwner}
                         />
                         
-                        <div className="flex items-center justify-between space-x-2 py-4 px-6 bg-slate-50 border-t">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between space-x-0 sm:space-x-2 py-4 px-4 sm:px-6 bg-slate-50 border-t">
                             <div className="text-sm text-slate-500 font-medium">
                                 Showing {opportunities.length} of {opportunitiesData?.total || 0} records
                             </div>

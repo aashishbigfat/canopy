@@ -7,8 +7,8 @@ export const dynamic = "force-dynamic";
 
 export default function ReportsPage() {
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
+        <div className="flex-1 space-y-4 p-4 sm:p-8 pt-4 sm:pt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Reports</h2>
                 <div className="flex items-center space-x-2">
                     <Link href="/reports/new">
@@ -18,7 +18,7 @@ export default function ReportsPage() {
                     </Link>
                 </div>
             </div>
-            <div className="hidden h-full flex-1 flex-col space-y-8 md:flex">
+            <div className="flex-1 flex-col space-y-8 flex">
                 <ReportList />
             </div>
         </div>

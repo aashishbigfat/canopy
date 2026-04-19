@@ -164,7 +164,7 @@ export default function ProductsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Products</h1>
                     <p className="text-muted-foreground">
@@ -191,7 +191,7 @@ export default function ProductsPage() {
                                 {editingProduct ? "Update product details" : "Add a new product to your catalog"}
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="grid grid-cols-2 gap-4 py-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-4">
                             <div className="space-y-2">
                                 <Label htmlFor="name">Name *</Label>
                                 <Input
@@ -210,7 +210,7 @@ export default function ProductsPage() {
                                     placeholder="SKU or code"
                                 />
                             </div>
-                            <div className="col-span-2 space-y-2">
+                            <div className="sm:col-span-2 space-y-2">
                                 <Label htmlFor="description">Description</Label>
                                 <Textarea
                                     id="description"

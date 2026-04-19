@@ -39,7 +39,7 @@ export function GlobalSearchBar() {
     }, []);
 
     return (
-        <div className="flex w-fit items-center h-9 rounded-full overflow-visible border border-white/10 bg-white/5 backdrop-blur-sm transition-all focus-within:bg-white/10 focus-within:ring-1 focus-within:ring-cyan-500/30">
+        <div className="flex w-full max-w-md items-center h-9 rounded-full overflow-visible border border-white/10 bg-white/5 backdrop-blur-sm transition-all focus-within:bg-white/10 focus-within:ring-1 focus-within:ring-cyan-500/30">
             {/* Category Dropdown */}
             <div className="relative" ref={dropdownRef}>
                 <button

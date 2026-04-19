@@ -61,7 +61,7 @@ export default function DashboardLayout({
         <div className="flex min-h-screen flex-col bg-muted/40 text-foreground">
             <CommandPalette />
             {/* Premium Midnight Header */}
-            <header className="sticky top-0 z-50 flex h-[72px] items-center gap-4 border-b border-indigo-950/20 bg-gradient-to-r from-[#0a0a2e] to-[#1a1a4a] px-6 text-white shadow-lg">
+            <header className="sticky top-0 z-50 flex h-[56px] sm:h-[72px] items-center gap-2 sm:gap-4 border-b border-indigo-950/20 bg-gradient-to-r from-[#0a0a2e] to-[#1a1a4a] px-3 sm:px-6 text-white shadow-lg">
                 <Button
                     variant="ghost"
                     size="icon"
@@ -73,25 +73,27 @@ export default function DashboardLayout({
                 <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-extrabold tracking-tighter">
                     <span className="text-2xl bg-gradient-to-br from-white to-cyan-300 bg-clip-text text-transparent">Tutterfly</span>
                 </Link>
-                <div className="flex-1 px-8">
+                <div className="flex-1 min-w-0 px-2 sm:px-8 hidden sm:block">
                     <GlobalSearchBar />
                 </div>
-                <div className="flex items-center gap-3">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="gap-2.5 text-slate-100 hover:bg-white/10 text-base font-semibold h-11 px-4 rounded-full border border-white/5 transition-all">
-                                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)] animate-pulse" />
-                                Available <ChevronDown className="h-4 w-4 opacity-50" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-48">
-                            <DropdownMenuItem>Available</DropdownMenuItem>
-                            <DropdownMenuItem>Busy</DropdownMenuItem>
-                            <DropdownMenuItem>Away</DropdownMenuItem>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                <div className="flex items-center gap-1.5 sm:gap-3 ml-auto">
+                    <div className="hidden md:block">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="gap-2.5 text-slate-100 hover:bg-white/10 text-base font-semibold h-11 px-4 rounded-full border border-white/5 transition-all">
+                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)] animate-pulse" />
+                                    Available <ChevronDown className="h-4 w-4 opacity-50" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem>Available</DropdownMenuItem>
+                                <DropdownMenuItem>Busy</DropdownMenuItem>
+                                <DropdownMenuItem>Away</DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                    </div>
                     <NotificationBell />
-                    <Button variant="ghost" size="icon" className="text-slate-300 hover:bg-white/10 hover:text-white h-11 w-11 rounded-full flex items-center justify-center transition-all bg-white/5 border border-white/5">
+                    <Button variant="ghost" size="icon" className="hidden md:flex text-slate-300 hover:bg-white/10 hover:text-white h-11 w-11 rounded-full items-center justify-center transition-all bg-white/5 border border-white/5">
                         <span className="text-lg font-bold">W</span>
                     </Button>
                     <DropdownMenu>
@@ -113,7 +115,7 @@ export default function DashboardLayout({
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button variant="ghost" size="icon" className="text-amber-400 hover:bg-white/10 hover:text-amber-300 h-11 w-11 rounded-full transition-all">
+                    <Button variant="ghost" size="icon" className="hidden md:flex text-amber-400 hover:bg-white/10 hover:text-amber-300 h-11 w-11 rounded-full transition-all">
                         <Mail className="h-6 w-6" />
                     </Button>
                 </div>
@@ -137,8 +139,8 @@ export default function DashboardLayout({
                 </aside>
 
                 {/* Main content — wrapped with RouteGuard for permission enforcement */}
-                <main className="flex-1 overflow-y-auto bg-muted/20">
-                    <div className="p-6"><RouteGuard>{children}</RouteGuard></div>
+                <main className="flex-1 overflow-y-auto bg-muted/20 min-w-0">
+                    <div className="p-3 sm:p-6"><RouteGuard>{children}</RouteGuard></div>
                 </main>
             </div>
         </div>

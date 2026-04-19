@@ -273,7 +273,7 @@ export function TaskList() {
 
             {/* Pagination */}
             {totalPages > 1 && (
-                <div className="flex items-center justify-between mt-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mt-3">
                     <p className="text-xs text-muted-foreground">
                         Page {pagination?.current_page} of {totalPages} ({pagination?.total} tasks)
                     </p>

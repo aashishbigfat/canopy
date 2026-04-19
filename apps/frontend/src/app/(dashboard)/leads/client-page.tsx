@@ -118,7 +118,7 @@ export default function LeadsClientPage() {
     if (error) {
         return (
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
                         <p className="text-muted-foreground">
@@ -142,7 +142,7 @@ export default function LeadsClientPage() {
     if (isLoading || !response) {
         return (
             <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
                         <p className="text-muted-foreground">
@@ -163,14 +163,14 @@ export default function LeadsClientPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
                     <p className="text-muted-foreground">
                         Track and manage your potential business opportunities.
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                     {selectedLeads.length > 0 && (
                         <div className="flex items-center gap-2 mr-2 animate-in fade-in slide-in-from-right-4">
                             <span className="text-sm text-muted-foreground mr-2">

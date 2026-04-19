@@ -376,7 +376,7 @@ export function LeadTable({
         <LoadingState isLoading={isLoading} fallback={<LoadingTable rows={10} columns={12} />}>
             <div className="w-full">
                 <div className="mb-4 rounded-lg border bg-card text-card-foreground shadow-sm">
-                    <div className="flex items-center justify-between border-b px-4 py-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b px-4 py-3">
                         <div className="flex flex-col gap-1">
                             <div className="text-sm font-semibold">
                                 Leads ({total})
@@ -416,7 +416,7 @@ export function LeadTable({
                                 </DropdownMenu>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                             <Button
                                 variant="outline"
                                 size="icon"
@@ -497,7 +497,7 @@ export function LeadTable({
                     </div>
                 </div>
 
-                <div className="flex items-center justify-end space-x-2 py-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end space-x-0 sm:space-x-2 py-2">
                     <div className="flex-1 text-sm text-muted-foreground">
                         {table.getFilteredSelectedRowModel().rows.length} of{" "}
                         {table.getFilteredRowModel().rows.length} row(s) selected.

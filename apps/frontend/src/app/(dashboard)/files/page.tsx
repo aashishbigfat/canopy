@@ -8,8 +8,8 @@ export default function FilesPage() {
     // Note: Since there is no global 'list all files' endpoint in the current backend API,
     // this page focuses on the Upload capability. In a real scenario, we would add a global list endpoint.
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
+        <div className="flex-1 space-y-4 p-4 sm:p-8 pt-4 sm:pt-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h2 className="text-3xl font-bold tracking-tight">Files</h2>
             </div>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
