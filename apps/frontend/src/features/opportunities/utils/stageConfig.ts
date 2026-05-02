@@ -1,35 +1,29 @@
 import type { SalesStage } from "@/lib/api/services/opportunities.service";
 
-// Central definition of allowed sales stages and their default probabilities
-// Order here controls how stages are displayed in dropdowns / kanban.
-const STAGE_DEFINITIONS: { name: string; probability: number }[] = [
-    { name: "Received", probability: 10 },
-    { name: "Qualified", probability: 20 },
-    { name: "Proposal", probability: 30 },
-    { name: "Closed Won", probability: 100 },
-    { name: "Closed Lost", probability: 0 },
-    { name: "Refunded", probability: 0 },
-];
+// Legacy travel stage probability defaults — used only as fallback when the
+// API stage has no probability set and the name matches.
+const LEGACY_PROBABILITY_MAP: Record<string, number> = {
+    "Received": 10,
+    "Qualified": 20,
+    "Proposal": 30,
+    "Closed Won": 100,
+    "Closed Lost": 0,
+    "Refunded": 0,
+};
 
 export type StageWithProbability = SalesStage & { probability: number };
 
 /**
- * Filter raw stages coming from the API to only the ones we support,
- * and enforce a consistent ordering and probability value.
+ * Accept ALL stages from the API and ensure each has a probability value.
+ * Stages are returned in the order the API provided (typically sorted by `sorting`).
  */
 export function normalizeSalesStages(stages: SalesStage[] | undefined | null): StageWithProbability[] {
     if (!stages || stages.length === 0) return [];
 
-    return STAGE_DEFINITIONS
-        .map(def => {
-            const apiStage = stages.find(s => s.name === def.name);
-            if (!apiStage) return undefined;
-            return {
-                ...apiStage,
-                probability: apiStage.probability ?? def.probability,
-            };
-        })
-        .filter((s): s is StageWithProbability => Boolean(s));
+    return stages.map(stage => ({
+        ...stage,
+        probability: stage.probability ?? LEGACY_PROBABILITY_MAP[stage.name] ?? 10,
+    }));
 }
 
 /**
@@ -46,15 +40,56 @@ export function getProbabilityForStageId(
 }
 
 
-export const CLOSE_LOST_REASONS = [
-    "Too late to respond",
-    "Client changed the destination",
-    "Offered rates did not match client's expectations",
-    "Client not responding",
-    "Travel Plan Cancelled",
-    "Travel Plan Postponed",
-    "Booked with other Travel Agent",
-    "Did not inquire",
-    "Duplicate Query",
-    "Information Required"
-];
+// Industry-specific close lost reasons
+const CLOSE_LOST_REASONS_MAP: Record<string, string[]> = {
+    travel: [
+        "Too late to respond",
+        "Client changed the destination",
+        "Offered rates did not match client's expectations",
+        "Client not responding",
+        "Travel Plan Cancelled",
+        "Travel Plan Postponed",
+        "Booked with other Travel Agent",
+        "Did not inquire",
+        "Duplicate Query",
+        "Information Required",
+    ],
+    healthcare: [
+        "Patient chose another provider",
+        "Insurance not accepted",
+        "Cost too high",
+        "Patient not responding",
+        "Treatment no longer needed",
+        "Referred elsewhere",
+        "Duplicate record",
+        "Patient moved / relocated",
+    ],
+    education: [
+        "Chose another institution",
+        "Financial constraints",
+        "Did not meet admission criteria",
+        "Student not responding",
+        "Application withdrawn",
+        "Visa denied",
+        "Duplicate application",
+        "Program no longer available",
+    ],
+    manufacturing: [
+        "Lost to competitor",
+        "Budget constraints",
+        "Requirements changed",
+        "Client not responding",
+        "Specifications not met",
+        "Delivery timeline mismatch",
+        "Duplicate RFQ",
+        "Project cancelled",
+    ],
+};
+
+/** Get close-lost reasons for the given industry. Falls back to a generic list. */
+export function getCloseLostReasons(industry?: string): string[] {
+    return CLOSE_LOST_REASONS_MAP[industry || "travel"] || CLOSE_LOST_REASONS_MAP.travel;
+}
+
+// Backward-compatible export (defaults to travel)
+export const CLOSE_LOST_REASONS = CLOSE_LOST_REASONS_MAP.travel;

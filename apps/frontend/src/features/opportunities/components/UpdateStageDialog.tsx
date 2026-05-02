@@ -12,7 +12,8 @@ import {
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { useQueryClient } from "@tanstack/react-query";
-import { CLOSE_LOST_REASONS } from "@/features/opportunities/utils/stageConfig";
+import { getCloseLostReasons } from "@/features/opportunities/utils/stageConfig";
+import { useIndustry } from "@/lib/industry-labels";
 import { X } from "lucide-react";
 
 interface StageOption {
@@ -46,6 +47,8 @@ export function UpdateStageDialog({
     const [selectedReason, setSelectedReason] = useState("");
     const [reasonError, setReasonError] = useState("");
     const queryClient = useQueryClient();
+    const industry = useIndustry();
+    const closeLostReasons = getCloseLostReasons(industry);
 
     // Initialize state when dialog opens
     useEffect(() => {
@@ -128,7 +131,7 @@ export function UpdateStageDialog({
                                 <SelectValue placeholder="Select reason" />
                             </SelectTrigger>
                             <SelectContent>
-                                {CLOSE_LOST_REASONS.map((reason) => (
+                                {closeLostReasons.map((reason) => (
                                     <SelectItem key={reason} value={reason}>
                                         {reason}
                                     </SelectItem>

@@ -28,19 +28,9 @@ export interface Lead {
     lead_status_id?: string;
     industry_id?: string;
     source_id?: string;
-    source_medium?: string; // Changed from source_medium_id as per requirement (seems to be a string field "Facebook", "Google" etc)
-    source_medium_id?: string; // Keep for backward compatibility if needed, or remove if not used. User said "sourceMedium: (optional) Facebook, Google"
-    experience_id?: string;
+    source_medium?: string;
+    source_medium_id?: string;
 
-    // Travel Details
-    travel_date?: string;
-    no_of_nights?: number;
-    no_of_adults?: number;
-    no_of_pax?: number;
-    no_of_childs?: number;
-    no_of_infants?: number;
-    destinations?: string[]; // User said "destinations: (required)"
-    is_fixed?: boolean;
     segment?: string;
     creation_type?: string;
 
@@ -54,6 +44,7 @@ export interface Lead {
 
     // Metadata
     owner_id: string;
+    owner_name?: string;
     tenant_id: string;
     created_by: string;
     created_by_name?: string;
@@ -61,8 +52,11 @@ export interface Lead {
     last_modified_by_name?: string;
     view_count: number;
     is_favorite: boolean;
-    destination_ids?: string[];
     custom_fields?: Record<string, unknown>;
+
+    // Industry-specific data (travel_date, no_of_pax, destinations, etc.)
+    industry_data?: Record<string, any>;
+
     created_at: string;
     updated_at: string;
 }
@@ -72,7 +66,7 @@ export interface LeadCreateData {
     last_name: string;
     salutation?: string;
     middle_name?: string;
-    full_name?: string; // Optional as backend generates it
+    full_name?: string;
     email?: string;
     phone?: string;
     mobile?: string;
@@ -90,21 +84,14 @@ export interface LeadCreateData {
     source_id?: string;
     source_medium?: string;
     campaign_name?: string;
-    travel_date?: string;
-    no_of_nights?: number;
-    no_of_adults?: number;
-    no_of_pax?: number;
-    no_of_childs?: number;
-    no_of_infants?: number;
-    destinations?: string[];
-    is_fixed?: boolean;
     segment?: string;
     creation_type?: string;
 
     source_medium_id?: string;
-    experience_id?: string;
-    destination_ids?: string[];
     custom_fields?: Record<string, unknown>;
+
+    // All industry-specific fields go here
+    industry_data?: Record<string, any>;
 }
 
 export interface LeadConvertData {
@@ -125,18 +112,13 @@ export interface LeadConvertData {
     opportunity_amount?: number;
     opportunity_close_date?: string;
 
-    // New Opportunity Fields
-    travel_date?: string;
-    destination_ids?: string[];
-    experience_id?: string;
-    no_of_adults?: number;
-    no_of_childs?: number;
-    no_of_infants?: number;
-    no_of_pax?: number;
+    // Pipeline
     sales_stage_id?: string;
-    no_of_nights?: number;
     description?: string;
     opportunity_owner_id?: string;
+
+    // All industry-specific conversion fields go here
+    industry_data?: Record<string, any>;
 }
 
 export interface ConversionSuggestion {

@@ -169,7 +169,7 @@ class DashboardPreferenceResponse(BaseModel):
 # ==================== Analytics Schemas ====================
 
 class AnalyticsSummary(BaseModel):
-    """Schema for analytics summary."""
+    """Schema for analytics summary — industry-agnostic."""
     accounts_total: int = 0
     contacts_total: int = 0
     leads_total: int = 0
@@ -189,6 +189,9 @@ class AnalyticsSummary(BaseModel):
     today_checkout: int = 0
     tomorrow_departures: int = 0
     today_revenue: float = 0.0
+    
+    # Industry context — tells the frontend which industry this tenant belongs to
+    industry: Optional[str] = "travel"
 
 
 class PipelineStage(BaseModel):
@@ -206,15 +209,14 @@ class PipelineAnalytics(BaseModel):
 
 
 class KeyDeal(BaseModel):
-    """Schema for a key deal (important opportunity)."""
+    """Schema for a key deal (important opportunity) — industry-agnostic."""
     id: str
     name: str
-    travel_date: Optional[str] = None
-    pax: Optional[int] = None
-    nights: Optional[int] = None
     stage: Optional[str] = None
     owner_name: Optional[str] = None
     amount: Optional[float] = None
+    # Industry-specific metadata — frontend reads this based on the tenant's industry
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class TaskSummary(BaseModel):

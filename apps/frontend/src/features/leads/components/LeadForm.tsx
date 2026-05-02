@@ -55,6 +55,8 @@ import { X } from "lucide-react";
 import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
 import { logger } from "@/lib/logger";
 import { LoadingButton } from "@/components/ui/loading";
+import { IndustryLeadFields } from "@/components/industry/IndustryLeadFields";
+import { useIndustry } from "@/lib/industry-labels";
 import {
     Card,
     CardContent,
@@ -380,10 +382,107 @@ const leadFormSchema = z.object({
     experience_id: z.string().optional(),
 });
 
+// Shared base fields for generic (non-travel) schemas
+const genericBaseFields = {
+    salutation: z.string().optional(),
+    first_name: z.string().optional(),
+    last_name: z.string().min(1, { message: "Last name is required." }),
+    company: z.string().optional(),
+    email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
+    phone: z.string()
+        .optional()
+        .or(z.literal(""))
+        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+            message: "Please select a country code and enter exactly a 10-digit number.",
+        }),
+    mobile: z.string()
+        .optional()
+        .or(z.literal(""))
+        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+            message: "Please select a country code and enter exactly a 10-digit number.",
+        }),
+    no_employees: z.string().optional(),
+    website: z.string().url({ message: "Please enter a valid URL (e.g. https://example.com)" }).optional().or(z.literal("")),
+    title: z.string().optional(),
+    lead_status_id: z.string().optional(),
+    source_id: z.string().optional(),
+    source_medium: z.string().optional(),
+    combined_source: z.string().min(1, { message: "Source Medium is required." }),
+    industry_id: z.string().optional(),
+    street: z.string().optional(),
+    city: z.string().min(1, { message: "City is required." }),
+    state: z.string().min(1, { message: "State is required." }),
+    zip: z.string().optional().or(z.literal("")).refine(val => !val || /^[A-Za-z0-9\s-]{3,10}$/.test(val), {
+        message: "Invalid Zip/Postal code format.",
+    }),
+    country: z.string().min(1, { message: "Country is required." }),
+    campaign_name: z.string().optional(),
+    segment: z.string().optional(),
+    creation_type: z.enum(["manual", "auto"]).optional(),
+};
+
+// Healthcare Lead Form Schema — explicit industry_data shape
+const healthcareLeadFormSchema = z.object({
+    ...genericBaseFields,
+    industry_data: z.object({
+        chief_complaint: z.string().optional(),
+        urgency: z.string().optional(),
+        patient_type: z.string().optional(),
+        referral_source: z.string().optional(),
+        insurance_provider: z.string().optional(),
+        insurance_policy_number: z.string().optional(),
+        preferred_appointment_date: z.string().optional(),
+    }).optional(),
+});
+
+// Education Lead Form Schema — explicit industry_data shape
+const educationLeadFormSchema = z.object({
+    ...genericBaseFields,
+    industry_data: z.object({
+        highest_qualification: z.string().optional(),
+        gpa: z.string().optional(),
+        preferred_start_date: z.string().optional(),
+        nationality: z.string().optional(),
+        sponsorship_type: z.string().optional(),
+        scholarship_interest: z.boolean().optional(),
+    }).optional(),
+});
+
+// Manufacturing Lead Form Schema — explicit industry_data shape
+const manufacturingLeadFormSchema = z.object({
+    ...genericBaseFields,
+    industry_data: z.object({
+        rfq_number: z.string().optional(),
+        product_category: z.string().optional(),
+        estimated_quantity: z.string().optional(),
+        unit_of_measure: z.string().optional(),
+        target_delivery_date: z.string().optional(),
+        budget_range: z.string().optional(),
+        technical_specs: z.string().optional(),
+        sample_required: z.boolean().optional(),
+    }).optional(),
+});
+
+/** Select the right Zod schema for the current industry */
+function getLeadSchemaForIndustry(industry: string) {
+    switch (industry) {
+        case "travel":
+            return leadFormSchema;
+        case "healthcare":
+            return healthcareLeadFormSchema;
+        case "education":
+            return educationLeadFormSchema;
+        case "manufacturing":
+            return manufacturingLeadFormSchema;
+        default:
+            return healthcareLeadFormSchema; // safe fallback
+    }
+}
+
 type LeadFormValues = z.infer<typeof leadFormSchema>;
 
 interface LeadFormProps {
-    initialData?: Lead;
+    initialData?: any;
     leadId?: string;
     statuses?: LeadStatus[];
     sources?: Source[];
@@ -399,7 +498,8 @@ interface LeadFormProps {
 
 const PUBLIC_EMAIL_DOMAINS = [
     "gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com",
-    "me.com", "live.com", "msn.com", "aol.com", "gmail.co.uk", "yahoo.co.in"
+    "me.com", "live.com", "msn.com", "aol.com", "rediffmail.com", "yahoo.co.in",
+    "yahoo.co.uk", "googlemail.com"
 ];
 
 export function LeadForm({
@@ -419,15 +519,20 @@ export function LeadForm({
 
     const [loadingDestinations, setLoadingDestinations] = useState(false);
 
+    const industry = useIndustry();
+    const isTravel = industry === "travel";
+
     useEffect(() => {
+        if (!isTravel) return;
         setLoadingDestinations(true);
         destinationsService.getDestinations({ limit: 20 }).then(res => {
             setAvailableDestinations(res.destinations);
         }).catch(err => console.error("Failed to fetch destinations", err))
           .finally(() => setLoadingDestinations(false));
-    }, []);
+    }, [isTravel]);
 
     const handleDestinationSearch = useCallback(async (query: string, signal?: AbortSignal) => {
+        if (!isTravel) return;
         try {
             const cacheKey = query || "all";
             if (searchCache.destinations.has(cacheKey)) {
@@ -446,10 +551,12 @@ export function LeadForm({
         } finally {
             setLoadingDestinations(false);
         }
-    }, []);
+    }, [isTravel]);
 
-    const form = useForm<LeadFormValues>({
-        resolver: zodResolver(leadFormSchema) as any,
+    const activeSchema = getLeadSchemaForIndustry(industry);
+
+    const form = useForm<any>({
+        resolver: zodResolver(activeSchema) as any,
         defaultValues: {
             salutation: initialData?.salutation || "",
             first_name: initialData?.first_name || "",
@@ -472,27 +579,64 @@ export function LeadForm({
             zip: initialData?.zip || "",
             country: initialData?.country || "",
             campaign_name: initialData?.campaign_name || "",
-            travel_date: initialData?.travel_date || "",
-            no_of_nights: initialData?.no_of_nights?.toString() ?? ("" as any),
-            no_of_adults: initialData?.no_of_adults?.toString() ?? ("1" as any),
-            no_of_pax: initialData?.no_of_pax?.toString() ?? ("1" as any),
-            no_of_childs: initialData?.no_of_childs?.toString() ?? ("0" as any),
-            no_of_infants: initialData?.no_of_infants?.toString() ?? ("0" as any),
-            is_fixed: initialData?.is_fixed || false,
-            destinations: initialData?.destinations?.join(", ") || "",
             segment: initialData?.segment || "B2C",
             creation_type: (initialData?.creation_type as "manual" | "auto") || "manual",
-            experience_id: initialData?.experience_id || "",
+            // Industry-specific defaults — prevents uncontrolled-to-controlled input errors
+            ...(isTravel ? {
+                travel_date: initialData?.industry_data?.travel_date || "",
+                no_of_nights: initialData?.industry_data?.no_of_nights?.toString() ?? ("" as any),
+                no_of_adults: initialData?.industry_data?.no_of_adults?.toString() ?? ("1" as any),
+                no_of_pax: initialData?.industry_data?.no_of_pax?.toString() ?? ("1" as any),
+                no_of_childs: initialData?.industry_data?.no_of_childs?.toString() ?? ("0" as any),
+                no_of_infants: initialData?.industry_data?.no_of_infants?.toString() ?? ("0" as any),
+                is_fixed: initialData?.industry_data?.is_fixed || false,
+                destinations: (initialData?.industry_data?.destination_ids as string[] | undefined)?.join(",") || "",
+                experience_id: initialData?.industry_data?.experience_id || "",
+            } : industry === "healthcare" ? {
+                industry_data: {
+                    chief_complaint: initialData?.industry_data?.chief_complaint ?? "",
+                    urgency: initialData?.industry_data?.urgency ?? "",
+                    patient_type: initialData?.industry_data?.patient_type ?? "",
+                    referral_source: initialData?.industry_data?.referral_source ?? "",
+                    insurance_provider: initialData?.industry_data?.insurance_provider ?? "",
+                    insurance_policy_number: initialData?.industry_data?.insurance_policy_number ?? "",
+                    preferred_appointment_date: initialData?.industry_data?.preferred_appointment_date ?? "",
+                },
+            } : industry === "education" ? {
+                industry_data: {
+                    highest_qualification: initialData?.industry_data?.highest_qualification ?? "",
+                    gpa: initialData?.industry_data?.gpa?.toString() ?? "",
+                    preferred_start_date: initialData?.industry_data?.preferred_start_date ?? "",
+                    nationality: initialData?.industry_data?.nationality ?? "",
+                    sponsorship_type: initialData?.industry_data?.sponsorship_type ?? "",
+                    scholarship_interest: initialData?.industry_data?.scholarship_interest ?? false,
+                },
+            } : industry === "manufacturing" ? {
+                industry_data: {
+                    rfq_number: initialData?.industry_data?.rfq_number ?? "",
+                    product_category: initialData?.industry_data?.product_category ?? "",
+                    estimated_quantity: initialData?.industry_data?.estimated_quantity?.toString() ?? "",
+                    unit_of_measure: initialData?.industry_data?.unit_of_measure ?? "",
+                    target_delivery_date: initialData?.industry_data?.target_delivery_date ?? "",
+                    budget_range: initialData?.industry_data?.budget_range ?? "",
+                    technical_specs: initialData?.industry_data?.technical_specs ?? "",
+                    sample_required: initialData?.industry_data?.sample_required ?? false,
+                },
+            } : {
+                industry_data: initialData?.industry_data || {},
+            }),
         },
     });
 
     const email = form.watch("email");
 
-    const adults = form.watch("no_of_adults") || 0;
-    const childs = form.watch("no_of_childs") || 0;
-    const infants = form.watch("no_of_infants") || 0;
+    // Auto-calculate pax — only for travel industry
+    const adults = isTravel ? (form.watch("no_of_adults") || 0) : 0;
+    const childs = isTravel ? (form.watch("no_of_childs") || 0) : 0;
+    const infants = isTravel ? (form.watch("no_of_infants") || 0) : 0;
 
     useEffect(() => {
+        if (!isTravel) return;
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         if (total > 0) {
             form.setValue("no_of_pax", total.toString() as any);
@@ -502,10 +646,11 @@ export function LeadForm({
     useEffect(() => {
         if (!email || !email.includes("@")) return;
 
-        const domain = email.split("@")[1]?.toLowerCase();
+        const emailParts = email.split("@");
+        const domain = emailParts[emailParts.length - 1]?.toLowerCase();
         if (!domain) return;
 
-        const isPublic = PUBLIC_EMAIL_DOMAINS.some(d => domain.endsWith(d));
+        const isPublic = PUBLIC_EMAIL_DOMAINS.some(d => domain === d || domain.endsWith("." + d));
         const detectedSegment = isPublic ? "B2C" : "B2B";
 
         form.setValue("segment", detectedSegment);
@@ -524,14 +669,19 @@ export function LeadForm({
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
             const details = error.details.detail;
-            details.forEach((err: any) => {
-                // loc is usually ["body", "field_name"] or ["query", "field_name"]
-                const field = err.loc[err.loc.length - 1];
-                form.setError(field as any, {
-                    type: "manual",
-                    message: err.msg,
+            if (Array.isArray(details)) {
+                details.forEach((err: any) => {
+                    const field = err.loc?.[err.loc.length - 1];
+                    if (field) {
+                        form.setError(field as any, {
+                            type: "manual",
+                            message: err.msg,
+                        });
+                    }
                 });
-            });
+            } else if (typeof details === "string") {
+                toast.error(details);
+            }
             return true;
         }
         return false;
@@ -544,12 +694,12 @@ export function LeadForm({
         const startTime = Date.now();
         let isSuccess = false;
         try {
-            const payload: LeadCreateData = {
+            const payload: any = {
                 salutation: data.salutation,
-                first_name: data.first_name || "",
+                first_name: data.first_name,
                 last_name: data.last_name,
                 company: data.company,
-                email: data.email,
+                email: data.email || undefined,
                 phone: data.phone,
                 mobile: data.mobile,
                 no_employees: data.no_employees ? parseInt(data.no_employees) : undefined,
@@ -557,7 +707,7 @@ export function LeadForm({
                 title: data.title,
                 lead_status_id: data.lead_status_id || undefined,
                 source_id: ["manual", "auto"].includes(data.combined_source) ? undefined : data.combined_source,
-                source_medium: data.source_medium, // Keep medium if it was already there or if we decide to use it somehow
+                source_medium: data.source_medium,
                 industry_id: data.industry_id || undefined,
                 street: data.street || undefined,
                 city: data.city,
@@ -565,18 +715,27 @@ export function LeadForm({
                 zip: data.zip,
                 country: data.country,
                 campaign_name: data.campaign_name,
-                travel_date: data.travel_date,
-                no_of_nights: Number(data.no_of_nights),
-                no_of_adults: Number(data.no_of_adults),
-                no_of_pax: Number(data.no_of_pax),
-                no_of_childs: data.no_of_childs ? Number(data.no_of_childs) : 0,
-                no_of_infants: data.no_of_infants ? Number(data.no_of_infants) : 0,
-                is_fixed: data.is_fixed,
-                destinations: data.destinations.split(",").map((d: string) => d.trim()).filter(Boolean),
                 segment: data.segment,
                 creation_type: ["manual", "auto"].includes(data.combined_source) ? data.combined_source : "manual",
-                experience_id: data.experience_id || undefined,
             };
+
+            // ALL industries: wrap industry-specific fields inside industry_data
+            if (isTravel) {
+                payload.industry_data = {
+                    travel_date: data.travel_date,
+                    no_of_nights: Number(data.no_of_nights),
+                    no_of_adults: Number(data.no_of_adults),
+                    no_of_pax: Number(data.no_of_pax),
+                    no_of_childs: data.no_of_childs ? Number(data.no_of_childs) : 0,
+                    no_of_infants: data.no_of_infants ? Number(data.no_of_infants) : 0,
+                    is_fixed: data.is_fixed,
+                    destination_ids: data.destinations?.split(",").map((d: string) => d.trim()).filter(Boolean) || [],
+                    experience_id: data.experience_id || undefined,
+                };
+            } else {
+                // Non-travel: send industry_data from form
+                payload.industry_data = data.industry_data || {};
+            }
 
             await ErrorHandler.withErrorHandling(async () => {
                 try {
@@ -727,6 +886,7 @@ export function LeadForm({
                                         <FormMessage />
                                     </FormItem>
                                 )} />
+                                {isTravel && (
                                 <FormField control={form.control as any} name="experience_id" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
@@ -734,6 +894,7 @@ export function LeadForm({
                                         <FormMessage />
                                     </FormItem>
                                 )} />
+                                )}
                                 <FormField control={form.control as any} name="company" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Company</FormLabel>
@@ -783,92 +944,8 @@ export function LeadForm({
                             </div>
                         </div>
 
-                        {/* Section: Travel Requirements */}
-                        <div>
-                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                                <Globe className="h-4 w-4 text-blue-600" />
-                                <h3 className="text-sm font-semibold text-slate-700">Travel Requirements</h3>
-                            </div>
-                            <div className="grid gap-3 grid-cols-2">
-                                <FormField control={form.control as any} name="travel_date" render={({ field }) => (
-                                    <FormItem className="flex flex-col col-span-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Travel Date <span className="text-red-500">*</span></FormLabel>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <FormControl>
-                                                    <Button variant="outline" className={cn("h-8 pl-3 text-left font-normal bg-white text-xs", !field.value && "text-muted-foreground")}>
-                                                        {field.value ? format(new Date(field.value), "PPP") : <span>Pick a date</span>}
-                                                        <CalendarIcon className="ml-auto h-3 w-3 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <DayPicker mode="single" captionLayout="dropdown" startMonth={new Date(1900, 0)} endMonth={new Date(2100, 11)} selected={field.value ? new Date(field.value) : undefined} onSelect={(date) => { if (!date) return field.onChange(undefined); const y = date.getFullYear(); const m = String(date.getMonth() + 1).padStart(2, '0'); const d = String(date.getDate()).padStart(2, '0'); field.onChange(`${y}-${m}-${d}`); }} disabled={(date) => { const today = new Date(); today.setHours(0,0,0,0); return date < today; }} initialFocus />
-                                            </PopoverContent>
-                                        </Popover>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="no_of_nights" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Nights <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl><Input type="number" placeholder="4" min={1} className="h-8 bg-white text-xs" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="no_of_adults" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Adults <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl><Input type="number" placeholder="2" min={1} className="h-8 bg-white text-xs" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="no_of_pax" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Total Pax</FormLabel>
-                                        <FormControl><Input type="number" placeholder="2" min={1} className="h-8 bg-white text-xs" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="no_of_childs" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Childs</FormLabel>
-                                        <FormControl><Input type="number" placeholder="0" min={0} className="h-8 bg-white text-xs" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="no_of_infants" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Infants</FormLabel>
-                                        <FormControl><Input type="number" placeholder="0" min={0} className="h-8 bg-white text-xs" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="is_fixed" render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-2 bg-slate-50/50 h-8 col-span-2">
-                                        <FormControl><Input type="checkbox" className="h-3 w-3" checked={field.value} onChange={field.onChange} /></FormControl>
-                                        <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">Fixed Departure?</FormLabel>
-                                    </FormItem>
-                                )} />
-                                <FormField control={form.control as any} name="destinations" render={({ field }) => (
-                                    <FormItem className="col-span-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Destinations <span className="text-red-500">*</span></FormLabel>
-                                        <SearchableSelect options={availableDestinations.map(d => ({ label: d.name, value: d.name }))} value="" onValueChange={(val) => { if (!val) return; const current = field.value ? field.value.split(", ") : []; if (!current.includes(val)) { field.onChange([...current, val].join(", ")); } }} onSearch={handleDestinationSearch} placeholder="Add destination..." isLoading={loadingDestinations} />
-                                        <div className="flex flex-wrap gap-1 mt-1">
-                                            {field.value ? field.value.split(", ").map((dest: string) => (
-                                                <Badge key={dest} variant="secondary" className="rounded-sm px-1 font-normal text-[10px]">
-                                                    {dest}
-                                                    <span className="ml-1 cursor-pointer" onClick={(e) => { e.stopPropagation(); field.onChange(field.value.split(", ").filter((d: string) => d !== dest).join(", ")); }}>
-                                                        <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
-                                                    </span>
-                                                </Badge>
-                                            )) : null}
-                                        </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
-                            </div>
-                        </div>
+                        {/* Section: Industry-Specific Fields */}
+                        <IndustryLeadFields industry={industry} form={form} />
                     </div>
 
                     {/* Sticky footer */}
@@ -1076,6 +1153,7 @@ export function LeadForm({
                                             </FormItem>
                                         )}
                                     />
+                                    {isTravel && (
                                     <FormField
                                         control={form.control as any}
                                         name="experience_id"
@@ -1094,6 +1172,7 @@ export function LeadForm({
                                             </FormItem>
                                         )}
                                     />
+                                    )}
                                     <FormField
                                         control={form.control as any}
                                         name="company"
@@ -1223,223 +1302,14 @@ export function LeadForm({
                             </CardContent>
                         </Card>
 
-                        {/* Travel Requirements Section */}
+                        {/* Industry-Specific Fields */}
                         <Card className="border-slate-200 shadow-sm">
-                            <CardHeader className="bg-slate-50/50 border-b py-3">
-                                <div className="flex items-center gap-2">
-                                    <Globe className="h-4 w-4 text-blue-600" />
-                                    <div>
-                                        <CardTitle className="text-base font-semibold">Travel Requirements</CardTitle>
-                                    </div>
-                                </div>
-                            </CardHeader>
                             <CardContent className="p-4">
-                                <div className="grid gap-4 grid-cols-2">
-                                    <FormField
-                                        control={form.control as any}
-                                        name="travel_date"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-col col-span-2">
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Travel Date <span className="text-red-500">*</span>
-                                                </FormLabel>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <FormControl>
-                                                            <Button
-                                                                variant={"outline"}
-                                                                className={cn(
-                                                                    "h-9 pl-3 text-left font-normal bg-white",
-                                                                    !field.value && "text-muted-foreground"
-                                                                )}
-                                                            >
-                                                                {field.value ? (
-                                                                    format(new Date(field.value), "PPP")
-                                                                ) : (
-                                                                    <span>Pick a date</span>
-                                                                )}
-                                                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                                            </Button>
-                                                        </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                        <DayPicker
-                                                            mode="single"
-                                                            captionLayout="dropdown"
-                                                            startMonth={new Date(1900, 0)}
-                                                            endMonth={new Date(2100, 11)}
-                                                            selected={field.value ? new Date(field.value) : undefined}
-                                                            onSelect={(date) => {
-                                                                if (!date) return field.onChange(undefined);
-                                                                // Use local date to avoid timezone issues
-                                                                const year = date.getFullYear();
-                                                                const month = String(date.getMonth() + 1).padStart(2, '0');
-                                                                const day = String(date.getDate()).padStart(2, '0');
-                                                                field.onChange(`${year}-${month}-${day}`);
-                                                            }}
-                                                            disabled={(date) => {
-                                                                const today = new Date();
-                                                                today.setHours(0, 0, 0, 0);
-                                                                return date < today;
-                                                            }}
-                                                            initialFocus
-                                                        />
-                                                    </PopoverContent>
-                                                </Popover>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="no_of_nights"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Nights <span className="text-red-500">*</span>
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input type="number" placeholder="4" min={1} className="h-9 bg-white" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="no_of_adults"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Adults <span className="text-red-500">*</span>
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="no_of_pax"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Total Pax
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input type="number" placeholder="2" min={1} className="h-9 bg-white" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="no_of_childs"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Childs
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input type="number" placeholder="0" min={0} className="h-9 bg-white" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="no_of_infants"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Infants
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <Input type="number" placeholder="0" min={0} className="h-9 bg-white" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="is_fixed"
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-2 shadow-sm bg-slate-50/50 mt-6 lg:mt-0 h-9">
-                                                <FormControl>
-                                                    <Input
-                                                        type="checkbox"
-                                                        className="h-3 w-3"
-                                                        checked={field.value}
-                                                        onChange={field.onChange}
-                                                    />
-                                                </FormControl>
-                                                <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">
-                                                    Fixed Departure?
-                                                </FormLabel>
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="destinations"
-                                        render={({ field }) => (
-                                            <FormItem className="col-span-full">
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Destinations <span className="text-red-500">*</span>
-                                                </FormLabel>
-                                                <SearchableSelect
-                                                    options={availableDestinations.map(d => ({ label: d.name, value: d.name }))}
-                                                    value=""
-                                                    onValueChange={(val) => {
-                                                        if (!val) return;
-                                                        const current = field.value ? field.value.split(", ") : [];
-                                                        if (!current.includes(val)) {
-                                                            field.onChange([...current, val].join(", "));
-                                                        }
-                                                    }}
-                                                    onSearch={handleDestinationSearch}
-                                                    placeholder="Add destination..."
-                                                    isLoading={loadingDestinations}
-                                                    className="border-none shadow-none focus-visible:ring-0 p-0 h-auto"
-                                                />
-                                                <div className="flex flex-wrap gap-1 mt-2">
-                                                    {field.value ? (
-                                                        field.value.split(", ").map((dest: string) => (
-                                                            <Badge
-                                                                key={dest}
-                                                                variant="secondary"
-                                                                className="rounded-sm px-1 font-normal text-[10px]"
-                                                            >
-                                                                {dest}
-                                                                <span
-                                                                    className="ml-1 rounded-full outline-none ring-offset-background focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const current = field.value.split(", ").filter((d: string) => d !== dest);
-                                                                        field.onChange(current.join(", "));
-                                                                    }}
-                                                                >
-                                                                    <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
-                                                                </span>
-                                                            </Badge>
-                                                        ))
-                                                    ) : null}
-                                                </div>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
+                                <IndustryLeadFields industry={industry} form={form} />
                             </CardContent>
                         </Card>
                     </div>
                 </div>
-
                 <div className="flex justify-end gap-3 pt-6 border-t border-slate-100">
                     <Button
                         type="button"

@@ -12,6 +12,7 @@ from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.opportunity_repository import OpportunityRepository
+from app.services.webhook_service import webhook_service
 
 class OpportunityService(ActivityMixin):
     """Service for Opportunity business logic"""
@@ -23,7 +24,7 @@ class OpportunityService(ActivityMixin):
     
     async def create_opportunity(
         self,
-        opp_data: OpportunityCreate,
+        opp_data,  # OpportunityCreate (unified for all industries)
         user_id: ObjectId,
         tenant_id: ObjectId,
         custom_fields: list = None,
@@ -58,12 +59,8 @@ class OpportunityService(ActivityMixin):
                 created_by=user_id
             )
             
-            # Set destination/origin IDs
-            if opp_data.destination_ids:
-                opportunity.destination_ids = [ObjectId(d) for d in opp_data.destination_ids]
-            if opp_data.origin_ids:
-                opportunity.origin_ids = [ObjectId(o) for o in opp_data.origin_ids]
-            if opp_data.team_member_ids:
+            # Set team_member_ids if present
+            if hasattr(opp_data, 'team_member_ids') and opp_data.team_member_ids:
                 opportunity.team_member_ids = [ObjectId(t) for t in opp_data.team_member_ids]
             
             await opportunity.insert()
@@ -80,10 +77,10 @@ class OpportunityService(ActivityMixin):
                 }
             )
             
-            # Link destinations (pivot table)
-            if destination_ids or opp_data.destination_ids:
-                dest_ids = destination_ids or opp_data.destination_ids
-                for dest_id in dest_ids:
+            # Link destinations via pivot table if provided in industry_data (travel only)
+            industry_dest_ids = (opp_data.industry_data or {}).get('destination_ids', []) if hasattr(opp_data, 'industry_data') else []
+            if industry_dest_ids:
+                for dest_id in industry_dest_ids:
                     pivot = DestinationOpportunity(
                         opportunity_id=opportunity.id,
                         destination_id=ObjectId(dest_id),
@@ -105,6 +102,25 @@ class OpportunityService(ActivityMixin):
             
             # Invalidate dashboard cache for this tenant
             await invalidate_tenant_cache(str(tenant_id))
+            
+            # Fire webhook event
+            try:
+                await webhook_service.trigger_event(
+                    event_type="opportunity.created",
+                    payload={
+                        "opportunity_id": str(opportunity.id),
+                        "name": opportunity.name,
+                        "amount": opportunity.amount,
+                        "probability": opportunity.probability,
+                        "industry_data": opportunity.industry_data,
+                    },
+                    tenant_id=str(tenant_id),
+                    entity_id=str(opportunity.id),
+                    entity_type="opportunity",
+                    triggered_by=str(user_id)
+                )
+            except Exception:
+                pass
             
             return opportunity
             
@@ -135,7 +151,7 @@ class OpportunityService(ActivityMixin):
     async def update_opportunity(
         self,
         opp_id: str,
-        opp_data: OpportunityUpdate,
+        opp_data,  # OpportunityUpdate (unified for all industries)
         user_id: ObjectId,
         tenant_id: ObjectId
     ) -> Optional[Opportunity]:
@@ -230,15 +246,17 @@ class OpportunityService(ActivityMixin):
             )
             await amount_history.insert()
             
-        # Bi-directional sync: If inclusions change, immediately reflect it in the Costing module
-        if "inclusions" in update_data and old_values.get("inclusions") != opp.inclusions:
+        # Bi-directional sync: If industry_data.inclusions change, reflect in Costing module
+        new_industry = getattr(opp, 'industry_data', {}) or {}
+        old_industry = old_values.get("industry_data", {}) or {}
+        if new_industry.get("inclusions") and new_industry.get("inclusions") != old_industry.get("inclusions"):
             from app.models.opportunity_financial import OpportunityCosting
             costing = await OpportunityCosting.find_one(
                 OpportunityCosting.opportunity_id == opp.id,
                 OpportunityCosting.tenant_id == tenant_id
             )
             if costing:
-                new_inclusions = opp.inclusions or []
+                new_inclusions = new_industry.get("inclusions", [])
                 costing.selected_item_types = new_inclusions
                 
                 # Filter out line items that are no longer in inclusions (but keep Tax and Misc)
@@ -261,6 +279,23 @@ class OpportunityService(ActivityMixin):
         
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
+        
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="opportunity.updated",
+                payload={
+                    "opportunity_id": str(opp.id),
+                    "name": opp.name,
+                    "updated_fields": {k: str(v) for k, v in updated_fields.items()},
+                },
+                tenant_id=str(tenant_id),
+                entity_id=str(opp.id),
+                entity_type="opportunity",
+                triggered_by=str(user_id)
+            )
+        except Exception:
+            pass
         
         return opp
     
@@ -293,6 +328,23 @@ class OpportunityService(ActivityMixin):
         
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
+        
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="opportunity.deleted",
+                payload={
+                    "opportunity_id": str(opp.id),
+                    "name": opp.name,
+                    "amount": opp.amount,
+                },
+                tenant_id=str(tenant_id),
+                entity_id=str(opp.id),
+                entity_type="opportunity",
+                triggered_by=str(user_id) if user_id else None
+            )
+        except Exception:
+            pass
         
         return True
     
@@ -463,6 +515,12 @@ class OpportunityService(ActivityMixin):
         opp.last_modified_by_id = current_user_id
         await opp.save()
         
+        # Populate owner name for the response
+        from app.models.user import User
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(opp, 'owner_name', owner.name)
+        
         return opp
 
     async def seed_standard_stages(self, tenant_id: ObjectId):
@@ -523,3 +581,25 @@ class OpportunityService(ActivityMixin):
             if stage.is_active:
                 stage.is_active = False
                 await stage.save()
+    async def change_owner(
+        self,
+        opportunity_id: str,
+        new_owner_id: ObjectId,
+        current_user_id: ObjectId,
+        tenant_id: ObjectId
+    ) -> Optional[Opportunity]:
+        """Change opportunity owner"""
+        opportunity = await self.get_opportunity(opportunity_id, tenant_id)
+        if not opportunity:
+            return None
+        
+        opportunity.owner_id = new_owner_id
+        opportunity.last_modified_by_id = current_user_id
+        await opportunity.save()
+        
+        # Populate owner name for response
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(opportunity, "owner_name", owner.name)
+            
+        return opportunity

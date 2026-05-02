@@ -9,8 +9,12 @@ from app.schemas.role import RoleCreate, RoleUpdate, PermissionAdd, PermissionRe
 from app.mixins.activity_mixin import ActivityMixin
 
 
-# List of all available permissions in the system
-ALL_PERMISSIONS = [
+# ---------------------------------------------------------------------------
+# Industry-partitioned permission registry
+# ---------------------------------------------------------------------------
+
+# Core permissions — available to ALL industries
+CORE_PERMISSIONS = [
     # Account permissions
     "view_account", "create_account", "edit_account", "delete_account",
     
@@ -39,21 +43,11 @@ ALL_PERMISSIONS = [
     # File permissions
     "view_file", "upload_file", "delete_file", "download_file",
     
-    # Supplier permissions
+    # Supplier / Provider / Vendor permissions (label differs per industry)
     "view_supplier", "create_supplier", "edit_supplier", "delete_supplier",
-    
-    # Destination permissions
-    "view_destination", "create_destination", "edit_destination", "delete_destination",
     
     # Department permissions
     "view_department", "create_department", "edit_department", "delete_department",
-    
-    # Itinerary permissions
-    "view_itinerary", "create_itinerary", "edit_itinerary", "delete_itinerary",
-    
-    # Package permissions
-    "view_package", "create_package", "edit_package", "delete_package",
-    "manage_package_pricing", "feature_package",
     
     # Product permissions
     "view_product", "create_product", "edit_product", "delete_product",
@@ -86,8 +80,27 @@ ALL_PERMISSIONS = [
     "manage_notifications",
     
     # Webhook permissions
-    "manage_webhooks", "view_webhook", "create_webhook", "edit_webhook", "delete_webhook"
+    "manage_webhooks", "view_webhook", "create_webhook", "edit_webhook", "delete_webhook",
 ]
+
+# Travel-only permissions — destinations, itineraries, packages
+TRAVEL_PERMISSIONS = [
+    "view_destination", "create_destination", "edit_destination", "delete_destination",
+    "view_itinerary", "create_itinerary", "edit_itinerary", "delete_itinerary",
+    "view_package", "create_package", "edit_package", "delete_package",
+    "manage_package_pricing", "feature_package",
+]
+
+# Per-industry extra permissions (extend as modules grow)
+INDUSTRY_PERMISSIONS: dict = {
+    "travel": TRAVEL_PERMISSIONS,
+    "healthcare": [],   # Future: view_patient, view_appointment, etc.
+    "education": [],
+    "manufacturing": [],
+}
+
+# Flat list — backward compatibility (validation uses this)
+ALL_PERMISSIONS = CORE_PERMISSIONS + TRAVEL_PERMISSIONS
 
 
 class RoleService(ActivityMixin):
@@ -114,8 +127,12 @@ class RoleService(ActivityMixin):
         if existing:
             raise ValueError(f"Role with name '{role_data.name}' already exists")
         
-        # Validate permissions
-        invalid_perms = [p for p in role_data.permissions if p not in ALL_PERMISSIONS]
+        # Validate permissions against the tenant's industry
+        from app.models.tenant import Tenant
+        tenant = await Tenant.get(tenant_id)
+        industry = tenant.industry if tenant else "travel"
+        valid_perms = self.get_permissions_for_industry(industry)
+        invalid_perms = [p for p in role_data.permissions if p not in valid_perms]
         if invalid_perms:
             raise ValueError(f"Invalid permissions: {', '.join(invalid_perms)}")
         
@@ -183,7 +200,11 @@ class RoleService(ActivityMixin):
         
         # Validate permissions if being updated
         if role_data.permissions is not None:
-            invalid_perms = [p for p in role_data.permissions if p not in ALL_PERMISSIONS]
+            from app.models.tenant import Tenant
+            tenant = await Tenant.get(tenant_id)
+            industry = tenant.industry if tenant else "travel"
+            valid_perms = self.get_permissions_for_industry(industry)
+            invalid_perms = [p for p in role_data.permissions if p not in valid_perms]
             if invalid_perms:
                 raise ValueError(f"Invalid permissions: {', '.join(invalid_perms)}")
         
@@ -270,8 +291,12 @@ class RoleService(ActivityMixin):
         if not role:
             return None
         
-        # Validate permissions
-        invalid_perms = [p for p in permission_data.permissions if p not in ALL_PERMISSIONS]
+        # Validate permissions against the tenant's industry
+        from app.models.tenant import Tenant
+        tenant = await Tenant.get(tenant_id)
+        industry = tenant.industry if tenant else "travel"
+        valid_perms = self.get_permissions_for_industry(industry)
+        invalid_perms = [p for p in permission_data.permissions if p not in valid_perms]
         if invalid_perms:
             raise ValueError(f"Invalid permissions: {', '.join(invalid_perms)}")
         
@@ -322,3 +347,12 @@ class RoleService(ActivityMixin):
     def get_all_permissions() -> List[str]:
         """Get list of all available permissions"""
         return ALL_PERMISSIONS.copy()
+    
+    @staticmethod
+    def get_permissions_for_industry(industry: str) -> List[str]:
+        """Get permissions relevant to a specific industry.
+        
+        Returns CORE_PERMISSIONS + industry-specific extras.
+        """
+        extras = INDUSTRY_PERMISSIONS.get(industry, [])
+        return CORE_PERMISSIONS + extras

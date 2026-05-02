@@ -194,10 +194,15 @@ async def get_role_users(
 async def get_all_permissions(
     current_user: User = Depends(check_permission("view_role"))
 ):
-    """Get list of all available permissions in the system"""
-    permissions = RoleService.get_all_permissions()
+    """Get list of all available permissions for the tenant's industry"""
+    from app.models.tenant import Tenant
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
+    
+    permissions = RoleService.get_permissions_for_industry(industry)
     
     return PermissionListResponse(
         permissions=permissions,
         total=len(permissions)
     )
+

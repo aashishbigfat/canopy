@@ -15,6 +15,9 @@ import {
     ChevronLeft,
     Trash2,
     Paperclip,
+    Stethoscope,
+    GraduationCap,
+    Factory,
     LucideIcon
 } from "lucide-react";
 import Link from "next/link";
@@ -44,6 +47,7 @@ import { LeadFormDrawer } from "./LeadFormDrawer";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
+import { useIndustry, useIndustryLabels } from "@/lib/industry-labels";
 
 interface LeadDetailsProps {
     lead: Lead;
@@ -53,6 +57,101 @@ interface LeadDetailsProps {
     industries: Industry[];
     experiences?: { id: string; name: string }[];
     sales_stages?: { id: string; name: string }[];
+}
+
+// ---------------------------------------------------------------------------
+// Industry-aware detail section dispatcher
+// ---------------------------------------------------------------------------
+function IndustryDetailSection({ industry, lead, experiences = [] }: { industry: string; lead: Lead; experiences?: { id: string; name: string }[] }) {
+    const data = lead.industry_data || {};
+
+    const sectionConfig: Record<string, { title: string; icon: React.ReactNode; borderColor: string; fields: { label: string; value: any }[] }> = {
+        travel: {
+            title: "Travel Requirements",
+            icon: <Calendar className="h-4 w-4" />,
+            borderColor: "border-blue-200",
+            fields: [
+                { label: "Travel Date", value: data.travel_date },
+                {
+                    label: "Destinations",
+                    value: Array.isArray(data.destination_names) && data.destination_names.length > 0
+                        ? data.destination_names.join(", ")
+                        : Array.isArray(data.destination_ids) && data.destination_ids.length > 0
+                            ? data.destination_ids.join(", ")
+                            : null,
+                },
+                { label: "Nights", value: data.no_of_nights },
+                { label: "Total Pax", value: data.no_of_pax },
+                { label: "Adults", value: data.no_of_adults },
+                { label: "Children", value: data.no_of_childs },
+                { label: "Infants", value: data.no_of_infants },
+                { label: "Fixed Departure?", value: data.is_fixed ? "Yes" : "No" },
+                { label: "Experience", value: experiences.find(e => e.id === data.experience_id)?.name || data.experience_id },
+            ],
+        },
+        healthcare: {
+            title: "Clinical Details",
+            icon: <Stethoscope className="h-4 w-4" />,
+            borderColor: "border-emerald-200",
+            fields: [
+                { label: "Chief Complaint", value: data.chief_complaint },
+                { label: "Urgency", value: data.urgency },
+                { label: "Patient Type", value: data.patient_type },
+                { label: "Referral Source", value: data.referral_source },
+                { label: "Insurance Provider", value: data.insurance_provider },
+                { label: "Policy Number", value: data.insurance_policy_number },
+                { label: "Preferred Appointment", value: data.preferred_appointment_date },
+            ],
+        },
+        education: {
+            title: "Academic Details",
+            icon: <GraduationCap className="h-4 w-4" />,
+            borderColor: "border-violet-200",
+            fields: [
+                { label: "Highest Qualification", value: data.highest_qualification },
+                { label: "GPA", value: data.gpa },
+                { label: "Preferred Start Date", value: data.preferred_start_date },
+                { label: "Nationality", value: data.nationality },
+                { label: "Sponsorship Type", value: data.sponsorship_type },
+                { label: "Scholarship Interest", value: data.scholarship_interest ? "Yes" : "No" },
+            ],
+        },
+        manufacturing: {
+            title: "Production Requirements",
+            icon: <Factory className="h-4 w-4" />,
+            borderColor: "border-orange-200",
+            fields: [
+                { label: "RFQ Number", value: data.rfq_number },
+                { label: "Product Category", value: data.product_category },
+                { label: "Estimated Quantity", value: data.estimated_quantity },
+                { label: "Unit of Measure", value: data.unit_of_measure },
+                { label: "Target Delivery Date", value: data.target_delivery_date },
+                { label: "Budget Range", value: data.budget_range },
+                { label: "Sample Required?", value: data.sample_required ? "Yes" : "No" },
+                { label: "Technical Specs", value: data.technical_specs },
+            ],
+        },
+    };
+
+    const config = sectionConfig[industry] || sectionConfig.travel;
+
+    return (
+        <CollapsibleDetailSection
+            title={config.title}
+            icon={config.icon}
+            defaultOpen={true}
+            className={config.borderColor}
+        >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                {config.fields.map((f, i) => (
+                    <div key={i} className="space-y-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.label}</p>
+                        <p className="text-sm font-medium text-slate-700">{f.value || "-"}</p>
+                    </div>
+                ))}
+            </div>
+        </CollapsibleDetailSection>
+    );
 }
 
 export function LeadDetails({
@@ -65,6 +164,8 @@ export function LeadDetails({
     sales_stages = []
 }: LeadDetailsProps) {
     const router = useRouter();
+    const industry = useIndustry();
+    const labels = useIndustryLabels();
     const [isConvertOpen, setIsConvertOpen] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -85,7 +186,7 @@ export function LeadDetails({
 
     const status = statuses.find(s => s.id === lead.lead_status_id);
     const source = sources.find(s => s.id === lead.source_id);
-    const industry = industries.find(i => i.id === lead.industry_id);
+    const leadIndustry = industries.find(i => i.id === lead.industry_id);
     const owner = users.find(u => u.id === lead.owner_id);
 
     return (
@@ -188,7 +289,7 @@ export function LeadDetails({
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
-                                            <p className="text-sm font-medium text-slate-700">{industry?.name || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-700">{leadIndustry?.name || industry || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Owner</p>
@@ -232,52 +333,8 @@ export function LeadDetails({
                                     </div>
                                 </CollapsibleDetailSection>
 
-                                {/* Travel Requirements */}
-                                <CollapsibleDetailSection
-                                    title="Travel Requirements"
-                                    icon={<Calendar className="h-4 w-4" />}
-                                    defaultOpen={true}
-                                    className="border-slate-200"
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Travel Date</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.travel_date || "-"}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Nights</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.no_of_nights || "-"}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Pax</p>
-                                            <p className="text-sm font-bold text-blue-700">{lead.no_of_pax || "-"}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fixed Departure?</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.is_fixed ? "Yes" : "No"}</p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Experience</p>
-                                            <p className="text-sm font-medium text-slate-700">
-                                                {experiences.find((e: { id: string; name: string }) => e.id === lead.experience_id || e.name === lead.experience_id)?.name || lead.experience_id || "-"}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1 col-span-2">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Destinations</p>
-                                            <div className="flex flex-wrap gap-2 mt-1">
-                                                {lead.destinations && lead.destinations.length > 0 ? (
-                                                    lead.destinations.map((dest, i) => (
-                                                        <Badge key={i} variant="outline" className="bg-slate-50 text-xs text-slate-600 border-slate-200">
-                                                            {dest}
-                                                        </Badge>
-                                                    ))
-                                                ) : (
-                                                    <p className="text-sm text-slate-400">-</p>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </CollapsibleDetailSection>
+                                {/* Industry-Specific Details */}
+                                <IndustryDetailSection industry={industry} lead={lead} experiences={experiences} />
 
                                 {/* Address Information */}
                                 <CollapsibleDetailSection

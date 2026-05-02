@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
+import { useIndustryLabels } from "@/lib/industry-labels";
 import {
     Dialog,
     DialogContent,
@@ -37,7 +38,7 @@ import { PermissionGate } from "@/components/permissions/PermissionGate";
 export default function LeadsClientPage() {
     const searchParams = useSearchParams();
     const queryClient = useQueryClient();
-
+    const labels = useIndustryLabels();
     // Selection state
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
     const [isBulkChangeOwnerOpen, setIsBulkChangeOwnerOpen] = useState(false);
@@ -120,7 +121,7 @@ export default function LeadsClientPage() {
             <div className="space-y-6">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
+                        <h1 className="text-3xl font-bold tracking-tight">{labels.leads}</h1>
                         <p className="text-muted-foreground">
                             Track and manage your potential business opportunities.
                         </p>
@@ -128,7 +129,7 @@ export default function LeadsClientPage() {
                     <PermissionGate permission="create_lead">
                         <Button onClick={() => setIsCreateDrawerOpen(true)}>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Create Lead
+                                Create {labels.lead}
                         </Button>
                     </PermissionGate>
                 </div>
@@ -243,7 +244,7 @@ export default function LeadsClientPage() {
                     <PermissionGate permission="create_lead">
                         <Button onClick={() => setIsCreateDrawerOpen(true)}>
                                 <Plus className="mr-2 h-4 w-4" />
-                                Create Lead
+                                Create {labels.lead}
                         </Button>
                     </PermissionGate>
                 </div>

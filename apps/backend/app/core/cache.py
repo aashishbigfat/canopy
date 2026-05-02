@@ -64,18 +64,38 @@ async def close_cache():
     if redis_client:
         await redis_client.close()
 
-def custom_key_builder(func, namespace: str = "", request=None, response=None, *args, **kwargs):
+def custom_key_builder(func, namespace: str = "", *, request=None, response=None, args=None, kwargs=None):
     """
     Builds a cache key that strictly isolates caches by tenant_id.
-    Looks for tenant_id and user_id in the kwargs or args.
+
+    IMPORTANT: fastapi-cache passes the decorated function's positional and
+    keyword arguments as `args` (tuple) and `kwargs` (dict) keyword-only
+    parameters.  We must read tenant_id / user_id from `kwargs` (the
+    function's kwargs), NOT from the key_builder's own **kwargs.
     """
-    tenant_id = kwargs.get("tenant_id")
-    user_id = kwargs.get("user_id", "system")
-    
+    func_kwargs = kwargs or {}
+    func_args = args or ()
+
+    # Try kwargs first (keyword argument style)
+    tenant_id = func_kwargs.get("tenant_id")
+    user_id = func_kwargs.get("user_id", "system")
+
+    # Fallback: try positional args.
+    # Most cached service methods are (self, tenant_id, user_id=None, ...)
+    if not tenant_id and len(func_args) >= 2:
+        tenant_id = str(func_args[1])  # func_args[0] = self
+    if user_id == "system" and len(func_args) >= 3 and func_args[2] is not None:
+        user_id = str(func_args[2])
+
     if not tenant_id:
-        # Fallback if no tenant is provided - highly dangerous in a multi-tenant system
+        # Last resort — this should never happen in production
         tenant_id = "global"
-        
+        import logging
+        logging.getLogger(__name__).warning(
+            "Cache key built without tenant_id for %s.%s — data isolation is broken!",
+            func.__module__, func.__name__,
+        )
+
     base_key = f"{FastAPICache.get_prefix()}:{namespace}:{func.__module__}:{func.__name__}"
     return f"{base_key}:{tenant_id}:{user_id}"
 

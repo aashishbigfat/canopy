@@ -130,6 +130,8 @@ export interface ModuleSearchResponse<T = AnySearchItem> {
     limit: number;
 }
 
+import type { IndustryType, IndustryLabelMap } from "@/lib/industry-labels";
+
 export const SEARCH_MODULES = [
     { value: "accounts", label: "Accounts" },
     { value: "contacts", label: "Contacts" },
@@ -139,6 +141,22 @@ export const SEARCH_MODULES = [
     { value: "person_accounts", label: "Person Accounts" },
     { value: "suppliers", label: "Suppliers" },
 ] as const;
+
+/**
+ * Returns search modules with labels adapted to the tenant's industry.
+ * e.g. Healthcare shows "Providers" instead of "Suppliers".
+ */
+export function getSearchModulesForIndustry(labels: IndustryLabelMap) {
+    return [
+        { value: "accounts", label: labels.accounts },
+        { value: "contacts", label: "Contacts" },
+        { value: "files", label: "Files" },
+        { value: "leads", label: labels.leads },
+        { value: "opportunities", label: labels.opportunities },
+        { value: "person_accounts", label: "Person Accounts" },
+        { value: "suppliers", label: labels.suppliers },
+    ];
+}
 
 export type SearchModuleValue = typeof SEARCH_MODULES[number]["value"];
 

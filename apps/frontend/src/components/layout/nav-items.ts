@@ -13,8 +13,11 @@ import {
     FileBarChart,
     LogOut,
     Menu,
-    Map
+    Map,
 } from "lucide-react";
+
+import type { IndustryLabelMap, IndustryType } from "@/lib/industry-labels";
+import { INDUSTRY_LABELS } from "@/lib/industry-labels";
 
 export interface NavItem {
     title: string;
@@ -24,89 +27,149 @@ export interface NavItem {
     submenu?: { title: string; href: string; requiredPermission: string }[];
 }
 
-export const navItems: NavItem[] = [
-    {
-        title: "Dashboard",
-        href: "/dashboard",
-        icon: LayoutDashboard,
-        requiredPermission: "view_dashboard",
-    },
-    {
-        title: "Accounts",
-        href: "/accounts",
-        icon: Building2,
-        requiredPermission: "view_account",
-    },
-    {
-        title: "Person Accounts",
-        href: "/person-accounts",
-        icon: Users,
-        requiredPermission: "view_account",
-    },
-    {
-        title: "Contacts",
-        href: "/contacts",
-        icon: Contact,
-        requiredPermission: "view_contact",
-    },
-    {
-        title: "Leads",
-        href: "/leads",
-        icon: Users,
-        requiredPermission: "view_lead",
-    },
-    {
-        title: "Suppliers",
-        href: "/suppliers",
-        icon: Truck,
-        requiredPermission: "view_supplier",
-    },
-    {
-        title: "Opportunities",
-        href: "/opportunities",
-        icon: Target,
-        requiredPermission: "view_opportunity",
-    },
-    {
-        title: "Tasks",
-        href: "/tasks",
-        icon: CheckSquare,
-        requiredPermission: "view_task",
-    },
-    {
-        title: "Drive",
-        href: "/files",
-        icon: HardDrive,
-        requiredPermission: "view_file",
-    },
-    {
-        title: "Itineraries",
-        href: "/itineraries",
-        icon: Map, // Will need to import Map or stick to Plane
-        requiredPermission: "view_itinerary",
-    },
-    {
-        title: "Reports",
-        href: "/reports",
-        icon: FileBarChart,
-        requiredPermission: "view_reports",
-    },
-    {
-        title: "Departure",
-        href: "/departure",
-        icon: LogOut,
-        requiredPermission: "view_dashboard",
-    },
-    {
-        title: "Admin",
-        href: "/admin",
-        icon: Settings,
-        requiredPermission: "view_user",
-        submenu: [
-            { title: "User Management", href: "/admin/users", requiredPermission: "view_user" },
-            { title: "Role Management", href: "/admin/role-management", requiredPermission: "view_role" },
-            { title: "Hierarchies", href: "/admin/hierarchies", requiredPermission: "manage_system" },
-            { title: "Departments", href: "/admin/departments", requiredPermission: "manage_system" },
-        ]
-    },
-];
+// ---------------------------------------------------------------------------
+// Core nav items — always visible, labels depend on industry
+// ---------------------------------------------------------------------------
+function coreNavItems(labels: IndustryLabelMap): NavItem[] {
+    return [
+        {
+            title: "Dashboard",
+            href: "/dashboard",
+            icon: LayoutDashboard,
+            requiredPermission: "view_dashboard",
+        },
+        {
+            title: labels.accounts,
+            href: "/accounts",
+            icon: Building2,
+            requiredPermission: "view_account",
+        },
+        {
+            title: "Person Accounts",
+            href: "/person-accounts",
+            icon: Users,
+            requiredPermission: "view_account",
+        },
+        {
+            title: "Contacts",
+            href: "/contacts",
+            icon: Contact,
+            requiredPermission: "view_contact",
+        },
+        {
+            title: labels.leads,
+            href: "/leads",
+            icon: Users,
+            requiredPermission: "view_lead",
+        },
+        {
+            title: labels.suppliers,
+            href: "/suppliers",
+            icon: Truck,
+            requiredPermission: "view_supplier",
+        },
+        {
+            title: labels.opportunities,
+            href: "/opportunities",
+            icon: Target,
+            requiredPermission: "view_opportunity",
+        },
+        {
+            title: "Tasks",
+            href: "/tasks",
+            icon: CheckSquare,
+            requiredPermission: "view_task",
+        },
+        {
+            title: "Drive",
+            href: "/files",
+            icon: HardDrive,
+            requiredPermission: "view_file",
+        },
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// Industry-specific nav items — only for industries that have real pages
+// ---------------------------------------------------------------------------
+function travelNavItems(modules: Record<string, boolean>): NavItem[] {
+    const items: NavItem[] = [];
+    if (modules.itineraries !== false) {
+        items.push({
+            title: "Itineraries",
+            href: "/itineraries",
+            icon: Map,
+            requiredPermission: "view_itinerary",
+        });
+    }
+    if (modules.destinations !== false) {
+        items.push({
+            title: "Departure",
+            href: "/departure",
+            icon: LogOut,
+            requiredPermission: "view_dashboard",
+        });
+    }
+    return items;
+}
+
+// ---------------------------------------------------------------------------
+// Trailing nav items — always at the bottom (Reports, Admin)
+// ---------------------------------------------------------------------------
+function trailingNavItems(): NavItem[] {
+    return [
+        {
+            title: "Reports",
+            href: "/reports",
+            icon: FileBarChart,
+            requiredPermission: "view_reports",
+        },
+        {
+            title: "Admin",
+            href: "/admin",
+            icon: Settings,
+            requiredPermission: "view_user",
+            submenu: [
+                { title: "User Management", href: "/admin/users", requiredPermission: "view_user" },
+                { title: "Role Management", href: "/admin/role-management", requiredPermission: "view_role" },
+                { title: "Hierarchies", href: "/admin/hierarchies", requiredPermission: "manage_system" },
+                { title: "Departments", href: "/admin/departments", requiredPermission: "manage_system" },
+            ],
+        },
+    ];
+}
+
+// ---------------------------------------------------------------------------
+// Public API — dynamic nav items factory
+// ---------------------------------------------------------------------------
+
+/**
+ * Build the navigation items list based on industry and enabled modules.
+ *
+ * IMPORTANT: We only add extra nav items for industries that have REAL pages
+ * backed by actual routes. Don't add phantom menu entries that will 404.
+ * Currently only travel has extra pages (Itineraries, Departure).
+ */
+export function getNavItems(
+    industry: IndustryType = "travel",
+    modules: Record<string, boolean> = {},
+): NavItem[] {
+    const labels = INDUSTRY_LABELS[industry] ?? INDUSTRY_LABELS.travel;
+    const core = coreNavItems(labels);
+
+    // Only travel has extra pages with real routes
+    let industryItems: NavItem[] = [];
+    if (industry === "travel") {
+        industryItems = travelNavItems(modules);
+    }
+
+    return [...core, ...industryItems, ...trailingNavItems()];
+}
+
+// Backward compatibility — static export uses travel defaults
+export const navItems: NavItem[] = getNavItems("travel", {
+    destinations: true,
+    itineraries: true,
+    packages: true,
+    suppliers: true,
+});

@@ -1,23 +1,23 @@
 """
-Pydantic schemas for Opportunity API
+Pydantic schemas for Opportunity API — Industry-agnostic
+
+Travel-specific fields (travel_date, no_of_pax, destination_ids, inclusions,
+experience_id, etc.) are no longer on these schemas. They live inside
+`industry_data` and are validated per-industry by schemas/industry_data/.
 """
 from pydantic import BaseModel, Field, BeforeValidator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
 
+class OpportunityOwnerChange(BaseModel):
+    """Schema for changing opportunity owner"""
+    new_owner_id: str = Field(..., description="ID of the new owner user")
+
 class OpportunityBase(BaseModel):
-    """Base schema for Opportunity"""
+    """Base schema for Opportunity — universal across all industries"""
     name: str = Field(..., min_length=1, max_length=255)
     amount: Optional[float] = Field(None, ge=0.0)
     description: Optional[str] = Field(None, max_length=1000)
-    
-    # Travel-specific fields
-    no_of_pax: Optional[int] = Field(None, ge=1)
-    no_of_nights: Optional[int] = Field(None, ge=0)
-    no_of_adults: Optional[int] = Field(None, ge=1)
-    no_of_childs: Optional[int] = Field(None, ge=0)
-    no_of_infants: Optional[int] = Field(None, ge=0)
-    travel_date: datetime = Field(..., description="Travel date is required")
     close_date: Optional[datetime] = None
     
     # Sales information
@@ -28,27 +28,23 @@ class OpportunityBase(BaseModel):
     account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     contact_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     opportunity_type_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
-    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
     # Source tracking
     source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_url: Optional[str] = Field(None, max_length=500)
     
-    # Additional fields
-    country_of_origin: Optional[str] = Field(None, max_length=100)
+    # Universal CRM fields
     segment: Optional[str] = "B2C"
     key_deal: bool = False
-    
-    # New fields
-    inclusions: Optional[List[str]] = Field(default_factory=list)
     close_lost_reason: Optional[str] = Field(None, max_length=2000)
+    
+    # Industry-specific data (validated per-industry)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class OpportunityCreate(OpportunityBase):
     """Schema for creating an opportunity"""
-    destination_ids: Optional[List[str]] = Field(default_factory=list)
-    origin_ids: Optional[List[str]] = Field(default_factory=list)
     team_member_ids: Optional[List[str]] = Field(default_factory=list)
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
@@ -78,24 +74,17 @@ class OpportunityUpdate(BaseModel):
     probability: Optional[int] = Field(None, ge=0, le=100)
 
     close_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
-    travel_date: Annotated[Optional[datetime], BeforeValidator(parse_date)] = None
-    no_of_pax: Optional[int] = Field(None, ge=1)
-    no_of_adults: Optional[int] = Field(None, ge=1)
-    no_of_childs: Optional[int] = Field(None, ge=0)
-    no_of_infants: Optional[int] = Field(None, ge=0)
-    no_of_nights: Optional[int] = Field(None, ge=0)
-    experience_id: Optional[str] = None
     account_id: Optional[str] = None
     contact_id: Optional[str] = None
     source_id: Optional[str] = None
     source_medium_id: Optional[str] = None
     source_url: Optional[str] = None
-    destination_ids: Optional[List[str]] = None
-    origin_ids: Optional[List[str]] = None
     key_deal: Optional[bool] = None
     custom_fields: Optional[Dict[str, Any]] = None
-    inclusions: Optional[List[str]] = None
     close_lost_reason: Optional[str] = Field(None, max_length=2000)
+    
+    # Industry-specific data
+    industry_data: Optional[Dict[str, Any]] = None
 
 
 class OpportunityHistoryResponse(BaseModel):
@@ -134,8 +123,8 @@ class OpportunityHistoryResponse(BaseModel):
         return cls()
 
 
-class OpportunityResponse(OpportunityBase):
-    """Schema for opportunity response"""
+class OpportunityResponse(BaseModel):
+    """Schema for opportunity response — industry-agnostic"""
     id: Annotated[str, BeforeValidator(str)]
     tenant_id: Annotated[str, BeforeValidator(str)]
     owner_id: Annotated[str, BeforeValidator(str)]
@@ -143,6 +132,33 @@ class OpportunityResponse(OpportunityBase):
     created_by_name: Optional[str] = None
     last_modified_by_name: Optional[str] = None
     
+    # Core fields
+    name: str
+    amount: Optional[float] = None
+    description: Optional[str] = None
+    close_date: Optional[datetime] = None
+    
+    # Sales info
+    sales_stage_id: Annotated[str, BeforeValidator(str)]
+    probability: Optional[int] = 0
+    
+    # Relationships
+    account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    contact_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    opportunity_type_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    lead_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    
+    # Source
+    source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_url: Optional[str] = None
+    
+    # Universal fields
+    segment: Optional[str] = None
+    key_deal: bool = False
+    close_lost_reason: Optional[str] = None
+    
+    # Metadata
     is_locked: bool = False
     locked_by: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
@@ -150,7 +166,7 @@ class OpportunityResponse(OpportunityBase):
     created_at: datetime
     updated_at: datetime
     
-    # Additional response fields for related data
+    # Enriched names (populated by service layer)
     sales_stage_name: Optional[str] = None
     opportunity_type_name: Optional[str] = None
     owner_name: Optional[str] = None
@@ -158,14 +174,12 @@ class OpportunityResponse(OpportunityBase):
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
     contact_phone: Optional[str] = None
-    experience_name: Optional[str] = None
-    destination_names: List[str] = Field(default_factory=list)
-    segment: Optional[str] = None
-    creation_type: Optional[str] = "Manual" # "Auto" or "Manual"
+    creation_type: Optional[str] = "Manual"
     is_person_account: bool = False
     type: Optional[str] = None
-    inclusions: Optional[List[str]] = Field(default_factory=list)
-    close_lost_reason: Optional[str] = None
+    
+    # Industry-specific data (all industries including travel)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
     
     class Config:
         from_attributes = True
@@ -191,14 +205,14 @@ class OpportunityResponse(OpportunityBase):
                 data['contact_id'] = str(obj.contact_id)
             if hasattr(obj, 'opportunity_type_id') and obj.opportunity_type_id:
                 data['opportunity_type_id'] = str(obj.opportunity_type_id)
-            if hasattr(obj, 'experience_id') and obj.experience_id:
-                data['experience_id'] = str(obj.experience_id)
             if hasattr(obj, 'source_id') and obj.source_id:
                 data['source_id'] = str(obj.source_id)
             if hasattr(obj, 'source_medium_id') and obj.source_medium_id:
                 data['source_medium_id'] = str(obj.source_medium_id)
             if hasattr(obj, 'locked_by') and obj.locked_by:
                 data['locked_by'] = str(obj.locked_by)
+            if hasattr(obj, 'lead_id') and obj.lead_id:
+                data['lead_id'] = str(obj.lead_id)
             
             # Map names if they exist on the object (populated by service/handler)
             if hasattr(obj, 'sales_stage_name'):
@@ -209,10 +223,6 @@ class OpportunityResponse(OpportunityBase):
                 data['owner_name'] = obj.owner_name
             if hasattr(obj, 'account_name'):
                 data['account_name'] = obj.account_name
-            if hasattr(obj, 'experience_name'):
-                data['experience_name'] = obj.experience_name
-            if hasattr(obj, 'destination_names'):
-                data['destination_names'] = obj.destination_names
             if hasattr(obj, 'segment'):
                 data['segment'] = obj.segment
             if hasattr(obj, 'creation_type'):
@@ -225,12 +235,22 @@ class OpportunityResponse(OpportunityBase):
                  data['type'] = obj.type
             
             # Ensure datetime fields are properly formatted
-            if hasattr(obj, 'travel_date') and obj.travel_date:
-                if isinstance(obj.travel_date, datetime):
-                    data['travel_date'] = obj.travel_date.isoformat()
             if hasattr(obj, 'close_date') and obj.close_date:
                 if isinstance(obj.close_date, datetime):
                     data['close_date'] = obj.close_date.isoformat()
+                    
+            # Convert ObjectIds inside industry_data to strings recursively
+            if 'industry_data' in data and isinstance(data['industry_data'], dict):
+                import bson
+                def convert_oids(val):
+                    if isinstance(val, dict):
+                        return {k: convert_oids(v) for k, v in val.items()}
+                    elif isinstance(val, list):
+                        return [convert_oids(item) for item in val]
+                    elif isinstance(val, bson.ObjectId):
+                        return str(val)
+                    return val
+                data['industry_data'] = convert_oids(data['industry_data'])
                     
             return cls(**data)
         return cls()

@@ -1,6 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/utils";
+import { useIndustry } from "@/lib/industry-labels";
 import {
     Target,
     CalendarPlus,
@@ -82,13 +83,25 @@ const KPI_CARDS: {
 ];
 
 export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
+    const industry = useIndustry();
+    
+    // Filter out travel-specific KPIs for non-travel industries
+    const activeCards = KPI_CARDS.filter(card => {
+        if (industry !== "travel") {
+            if (card.key === "today_checkout" || card.key === "tomorrow_departures") {
+                return false;
+            }
+        }
+        return true;
+    });
+
     return (
         <div className="space-y-5">
             <h2 className="text-2xl font-bold tracking-tight text-slate-900">
                 Dashboard Leader Board Incentive
             </h2>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8">
-                {KPI_CARDS.map(({ key, label, gradient, iconBg, icon, format }) => {
+                {activeCards.map(({ key, label, gradient, iconBg, icon, format }) => {
                     const raw = kpis[key] ?? 0;
                     const value = Number(raw);
                     const display =

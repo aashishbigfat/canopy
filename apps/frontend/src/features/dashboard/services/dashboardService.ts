@@ -222,12 +222,12 @@ export const dashboardService = {
 
     getActivityLogs: async (limit: number = 50): Promise<ActivityLog[]> => {
         try {
-            const { data } = await apiClient.get<{ logs: ActivityLog[]; total: number }>("/activity-logs/activity/", {
+            const { data } = await apiClient.get<{ logs: ActivityLog[]; total: number }>("/timeline/events/", {
                 params: { limit }
             });
             return data.logs;
         } catch (err) {
-            console.error("Failed to fetch activity logs:", err);
+            console.warn("Failed to fetch activity logs (possibly blocked by browser):", err);
             return [];
         }
     },

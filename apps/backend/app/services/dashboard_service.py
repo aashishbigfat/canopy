@@ -429,6 +429,12 @@ class DashboardService:
         if user_id:
             base_query["owner_id"] = PydanticObjectId(user_id)
         
+        # Determine tenant industry for conditional metrics
+        from app.models.tenant import Tenant
+        tenant = await Tenant.get(tenant_obj_id)
+        industry = tenant.industry if tenant else "travel"
+        is_travel = (industry == "travel")
+        
         # Generic counts
         accounts_total = await Account.find(base_query).count()
         contacts_total = await Contact.find(base_query).count()
@@ -479,37 +485,39 @@ class DashboardService:
         b2c_open_opportunities = await Opportunity.find(b2c_open_query).count()
         b2b_open_opportunities = await Opportunity.find(b2b_open_query).count()
         
-        # Tomorrow's Departures (travel_date is tomorrow)
-        tomorrow_dep_query = {**base_query, "travel_date": {"$gte": tomorrow_start, "$lt": tomorrow_end}}
-        tomorrow_departures = await Opportunity.find(tomorrow_dep_query).count()
+        # ── Travel-specific KPIs (only computed for travel tenants) ────────
+        tomorrow_departures = 0
+        today_checkout = 0
         
-        # Today's checkout (travel_date + no_of_nights == today)
-        checkout_match_query = {
-            **base_query,
-            "travel_date": {"$type": "date"}
-        }
-        checkout_pipeline = [
-            {"$match": checkout_match_query},
-            {
-                "$project": {
-                    "checkout_date": {
-                        "$dateAdd": {
-                            "startDate": "$travel_date",
-                            "unit": "day",
-                            "amount": {"$ifNull": ["$no_of_nights", 0]}
-                        }
-                    }
-                }
-            },
-            {
-                "$match": {
-                    "checkout_date": {"$gte": today_start, "$lt": today_end}
-                }
-            },
-            {"$count": "total"}
-        ]
-        checkout_result = await Opportunity.aggregate(checkout_pipeline).to_list()
-        today_checkout = checkout_result[0]["total"] if checkout_result else 0
+        if is_travel:
+            # Tomorrow's Departures — reads from industry_data.travel_date
+            tomorrow_dep_query = {**base_query, "industry_data.travel_date": {"$gte": tomorrow_start.isoformat(), "$lt": tomorrow_end.isoformat()}}
+            tomorrow_departures = await Opportunity.find(tomorrow_dep_query).count()
+            
+            # Today's checkout — calculate in-app since travel_date is a string in industry_data
+            try:
+                checkout_candidates = await Opportunity.find({
+                    **base_query,
+                    "industry_data.travel_date": {"$exists": True}
+                }).to_list()
+                for opp in checkout_candidates:
+                    td = (opp.industry_data or {}).get('travel_date')
+                    nights = (opp.industry_data or {}).get('no_of_nights', 0) or 0
+                    if td and nights:
+                        try:
+                            if isinstance(td, str):
+                                td_dt = datetime.fromisoformat(td.replace('Z', '+00:00')).replace(tzinfo=None)
+                            elif isinstance(td, datetime):
+                                td_dt = td
+                            else:
+                                continue
+                            checkout_dt = td_dt + timedelta(days=int(nights))
+                            if today_start <= checkout_dt < today_end:
+                                today_checkout += 1
+                        except (ValueError, TypeError):
+                            pass
+            except Exception:
+                pass
         
         # Today's Revenue (won today)
         won_today_query = {
@@ -539,7 +547,8 @@ class DashboardService:
             "b2b_open_opportunities": b2b_open_opportunities,
             "today_checkout": today_checkout,
             "tomorrow_departures": tomorrow_departures,
-            "today_revenue": today_revenue
+            "today_revenue": today_revenue,
+            "industry": industry,
         }
     
     @cache(expire=300, key_builder=custom_key_builder)
@@ -727,20 +736,31 @@ class DashboardService:
             owners = await User.find({"_id": {"$in": owner_ids}}).to_list()
             owners_map = {str(owner.id): owner.name for owner in owners}
             
+        # Helper: recursively convert ObjectId / datetime inside dicts/lists to strings
+        import bson
+        def _sanitize(val):
+            if isinstance(val, dict):
+                return {k: _sanitize(v) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [_sanitize(item) for item in val]
+            elif isinstance(val, bson.ObjectId):
+                return str(val)
+            elif isinstance(val, datetime):
+                return val.isoformat()
+            return val
+
         deals = []
         for opp in opportunities:
             owner_name = owners_map.get(str(opp.owner_id), "Unknown") if opp.owner_id else "Unknown"
-            travel_date_str = opp.travel_date.strftime("%Y-%m-%d") if opp.travel_date else None
             
             deals.append({
                 "id": str(opp.id),
                 "name": opp.name,
-                "travel_date": travel_date_str,
-                "pax": opp.no_of_pax,
-                "nights": opp.no_of_nights,
                 "stage": getattr(opp, "stage", "Open") or "Open",
                 "owner_name": owner_name,
-                "amount": opp.amount
+                "amount": opp.amount,
+                # Pass through industry_data for the frontend to render industry-appropriate details
+                "industry_data": _sanitize(opp.industry_data or {}),
             })
             
         return deals

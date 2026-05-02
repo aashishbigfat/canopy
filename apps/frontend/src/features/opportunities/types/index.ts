@@ -3,19 +3,11 @@ import { PaginatedResponse } from "@/lib/api/types";
 export interface Opportunity {
     id: string;
     name: string;
-    amount?: number; // float in python
+    amount?: number;
     description?: string;
 
-    // Logistics
-    no_of_pax?: number;
-    no_of_nights?: number;
-    no_of_adults?: number;
-    no_of_childs?: number;
-    no_of_infants?: number;
-    travel_date?: string; // Date string
-    close_date?: string; // Date string
-
     // Pipeline
+    close_date?: string;
     sales_stage_id: string;
     probability?: number;
     is_locked: boolean;
@@ -25,14 +17,12 @@ export interface Opportunity {
     account_id?: string;
     contact_id?: string;
     opportunity_type_id?: string;
-    experience_id?: string;
 
     // Source
     source_id?: string;
     source_medium_id?: string;
     source_url?: string;
 
-    country_of_origin?: string;
     key_deal: boolean;
 
     // Metadata
@@ -42,13 +32,12 @@ export interface Opportunity {
     contact_name?: string;
     contact_email?: string;
     contact_phone?: string;
-    destination_names?: string[];
     segment?: string;
     creation_type?: string;
     type?: string;
     is_person_account?: boolean;
-    experience_name?: string;
     sales_stage_name?: string;
+    opportunity_type_name?: string;
     created_by_name?: string;
     last_modified_by_name?: string;
     tenant_id: string;
@@ -56,8 +45,10 @@ export interface Opportunity {
     view_count: number;
     created_at: string;
     updated_at: string;
-    inclusions?: string[];
     close_lost_reason?: string;
+
+    // All industry-specific data (travel_date, no_of_pax, destinations, inclusions, etc.)
+    industry_data?: Record<string, any>;
 }
 
 export interface OpportunityCreateData {
@@ -65,14 +56,6 @@ export interface OpportunityCreateData {
     sales_stage_id: string;
     amount?: number;
     description?: string;
-
-    // Logistics
-    no_of_pax?: number;
-    no_of_nights?: number;
-    no_of_adults?: number;
-    no_of_childs?: number;
-    no_of_infants?: number;
-    travel_date?: string;
     close_date?: string;
 
     // Pipeline
@@ -82,9 +65,6 @@ export interface OpportunityCreateData {
     account_id?: string;
     contact_id?: string;
     opportunity_type_id?: string;
-    experience_id?: string;
-    destination_ids?: string[];
-    origin_ids?: string[];
     team_member_ids?: string[];
 
     // Source
@@ -93,8 +73,10 @@ export interface OpportunityCreateData {
     source_url?: string;
 
     key_deal?: boolean;
-    inclusions?: string[];
     close_lost_reason?: string;
+
+    // All industry-specific fields go here
+    industry_data?: Record<string, any>;
 }
 
 export interface OpportunityFilters {

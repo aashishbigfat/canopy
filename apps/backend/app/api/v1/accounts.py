@@ -18,7 +18,14 @@ from app.api.deps import get_current_user, check_permission
 router = APIRouter()
 
 def account_to_response(account: Account) -> AccountResponse:
-    """Convert Account model to AccountResponse with proper string conversion"""
+    """Convert Account model to AccountResponse with proper string conversion and name enrichment"""
+    # Try to get names from the object (if they were populated by the service)
+    # Fallback to None if not present
+    owner_name = getattr(account, 'owner_name', None)
+    created_by_name = getattr(account, 'created_by_name', None)
+    last_modified_by_name = getattr(account, 'last_modified_by_name', None)
+    account_type_name = getattr(account, 'account_type_name', None)
+    
     return AccountResponse(
         id=str(account.id),
         name=account.name,
@@ -41,16 +48,17 @@ def account_to_response(account: Account) -> AccountResponse:
         shipping_zip=account.shipping_zip,
         shipping_country=account.shipping_country,
         acc_type_id=str(account.acc_type_id) if account.acc_type_id else None,
-        account_type_name=getattr(account, 'account_type_name', None),
+        account_type_name=account_type_name,
         acc_parent_id=str(account.acc_parent_id) if account.acc_parent_id else None,
         industry_id=str(account.industry_id) if account.industry_id else None,
         rating_id=str(account.rating_id) if account.rating_id else None,
         tenant_id=str(account.tenant_id),
         owner_id=str(account.owner_id),
+        owner_name=owner_name,
         created_by=str(account.created_by),
-        created_by_name=getattr(account, 'created_by_name', None),
+        created_by_name=created_by_name,
         last_modified_by_id=str(account.last_modified_by_id) if account.last_modified_by_id else None,
-        last_modified_by_name=getattr(account, 'last_modified_by_name', None),
+        last_modified_by_name=last_modified_by_name,
         view_count=account.view_count,
         is_favorite=account.is_favorite,
         created_at=account.created_at,
@@ -578,10 +586,10 @@ async def delete_account(
     }
 
 
-@router.post("/change-owner")
+@router.post("/{account_id}/change-owner")
 async def change_account_owner(
+    account_id: str,
     owner_change: AccountOwnerChange,
-    account_id: str = Query(...),
     current_user: User = Depends(check_permission("edit_account"))
 ):
     """Change account owner"""

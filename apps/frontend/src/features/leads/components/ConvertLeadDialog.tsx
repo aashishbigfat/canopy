@@ -66,6 +66,7 @@ import { apiClient } from "@/lib/api/client";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { useIndustry } from "@/lib/industry-labels";
 import { User } from "../types";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -90,7 +91,7 @@ const convertSchema = z.object({
     opportunity_name: z.string().optional(),
     opportunity_amount: z.coerce.number().optional(),
     opportunity_close_date: z.date().optional(),
-    travel_date: z.date({ message: "Travel date is required." }),
+    travel_date: z.date().optional(),
     destination_ids: z.array(z.string()).optional(),
     experience_id: z.string().optional(),
     no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
@@ -125,6 +126,7 @@ export function ConvertLeadDialog({
     sales_stages = []
 }: ConvertLeadDialogProps) {
     const convertLead = useConvertLead();
+    const industry = useIndustry();
     const { data: suggestions, isLoading: suggestionsLoading } = useConversionSuggestions(lead.id);
 
     // Smart default selection logic
@@ -141,8 +143,9 @@ export function ConvertLeadDialog({
     const isPersonAccount = React.useMemo(() => {
         if (!lead.email) return false;
         const emailLower = lead.email.toLowerCase();
-        const personalDomains = ["gmail", "yahoo", "hotmail", "rediffmail", "outlook"];
-        return personalDomains.some(domain => emailLower.includes(`@${domain}.`) || emailLower.endsWith(`@${domain}.com`));
+        const personalDomains = ["gmail.com", "yahoo.com", "hotmail.com", "rediffmail.com", "outlook.com", "googlemail.com", "yahoo.co.in", "yahoo.co.uk"];
+        const domain = emailLower.split("@").pop();
+        return personalDomains.some(d => domain === d || domain?.endsWith("." + d));
     }, [lead.email]);
 
     const form = useForm<ConvertFormValues>({
@@ -163,19 +166,67 @@ export function ConvertLeadDialog({
             create_opportunity: true,
             opportunity_name: "",
             opportunity_amount: 0,
-            travel_date: lead.travel_date && !isNaN(new Date(lead.travel_date).getTime()) ? new Date(lead.travel_date) : undefined,
-            no_of_adults: lead.no_of_adults?.toString() || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax.toString() : "1"),
-            no_of_childs: lead.no_of_childs?.toString() || "0",
-            no_of_infants: lead.no_of_infants?.toString() || "0",
-            no_of_pax: lead.no_of_pax?.toString() || (lead.no_of_pax && lead.no_of_pax > 0 ? lead.no_of_pax.toString() : "1"),
-            no_of_nights: lead.no_of_nights?.toString() || "0",
+            travel_date: industry === "travel" && lead.industry_data?.travel_date && !isNaN(new Date(lead.industry_data.travel_date).getTime()) ? new Date(lead.industry_data.travel_date) : undefined,
+            no_of_adults: industry === "travel" ? (lead.industry_data?.no_of_adults?.toString() || (lead.industry_data?.no_of_pax && lead.industry_data.no_of_pax > 0 ? lead.industry_data.no_of_pax.toString() : "1")) : undefined,
+            no_of_childs: industry === "travel" ? (lead.industry_data?.no_of_childs?.toString() || "0") : undefined,
+            no_of_infants: industry === "travel" ? (lead.industry_data?.no_of_infants?.toString() || "0") : undefined,
+            no_of_pax: industry === "travel" ? (lead.industry_data?.no_of_pax?.toString() || "1") : undefined,
+            no_of_nights: industry === "travel" ? (lead.industry_data?.no_of_nights?.toString() || "0") : undefined,
             description: "",
-            destination_ids: lead.destination_ids || [],
+            destination_ids: industry === "travel" ? (lead.industry_data?.destination_ids || []) : [],
             opportunity_close_date: new Date(),
             sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'received')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
-            experience_id: lead.experience_id || undefined,
+            experience_id: industry === "travel" ? (lead.industry_data?.experience_id || undefined) : undefined,
         },
     });
+    // Update form values dynamically when dialog opens or lead changes
+    useEffect(() => {
+        if (open) {
+            // Explicitly re-fetch lead data to ensure names are fresh
+            leadsService.getLead(lead.id).then(freshLead => {
+                form.reset({
+                    ...form.getValues(),
+                    account_type: isPersonAccount ? "Person Account" : "Account",
+                    account_name: freshLead.company || freshLead.full_name,
+                    person_salutation: freshLead.salutation || "",
+                    person_first_name: freshLead.first_name || "",
+                    person_last_name: freshLead.last_name || "",
+                    contact_salutation: freshLead.salutation || "",
+                    contact_first_name: freshLead.first_name || "",
+                    contact_last_name: freshLead.last_name || "",
+                    travel_date: industry === "travel" && freshLead.industry_data?.travel_date && !isNaN(new Date(freshLead.industry_data.travel_date).getTime()) ? new Date(freshLead.industry_data.travel_date) : form.getValues().travel_date,
+                    no_of_adults: industry === "travel" ? (freshLead.industry_data?.no_of_adults?.toString() || (freshLead.industry_data?.no_of_pax && freshLead.industry_data.no_of_pax > 0 ? freshLead.industry_data.no_of_pax.toString() : "1")) : form.getValues().no_of_adults,
+                    no_of_childs: industry === "travel" ? (freshLead.industry_data?.no_of_childs?.toString() || "0") : form.getValues().no_of_childs,
+                    no_of_infants: industry === "travel" ? (freshLead.industry_data?.no_of_infants?.toString() || "0") : form.getValues().no_of_infants,
+                    no_of_pax: industry === "travel" ? (freshLead.industry_data?.no_of_pax?.toString() || "1") : form.getValues().no_of_pax,
+                    no_of_nights: industry === "travel" ? (freshLead.industry_data?.no_of_nights?.toString() || "0") : form.getValues().no_of_nights,
+                    destination_ids: industry === "travel" ? (freshLead.industry_data?.destination_ids || []) : form.getValues().destination_ids,
+                    experience_id: industry === "travel" ? (freshLead.industry_data?.experience_id || undefined) : form.getValues().experience_id,
+                });
+            }).catch(() => {
+                // Fallback to prop data if fetch fails
+                form.reset({
+                    ...form.getValues(),
+                    account_type: isPersonAccount ? "Person Account" : "Account",
+                    account_name: lead.company || lead.full_name,
+                    person_salutation: lead.salutation || "",
+                    person_first_name: lead.first_name || "",
+                    person_last_name: lead.last_name || "",
+                    contact_salutation: lead.salutation || "",
+                    contact_first_name: lead.first_name || "",
+                    contact_last_name: lead.last_name || "",
+                    travel_date: industry === "travel" && lead.industry_data?.travel_date && !isNaN(new Date(lead.industry_data.travel_date).getTime()) ? new Date(lead.industry_data.travel_date) : form.getValues().travel_date,
+                    no_of_adults: industry === "travel" ? (lead.industry_data?.no_of_adults?.toString() || (lead.industry_data?.no_of_pax && lead.industry_data.no_of_pax > 0 ? lead.industry_data.no_of_pax.toString() : "1")) : form.getValues().no_of_adults,
+                    no_of_childs: industry === "travel" ? (lead.industry_data?.no_of_childs?.toString() || "0") : form.getValues().no_of_childs,
+                    no_of_infants: industry === "travel" ? (lead.industry_data?.no_of_infants?.toString() || "0") : form.getValues().no_of_infants,
+                    no_of_pax: industry === "travel" ? (lead.industry_data?.no_of_pax?.toString() || "1") : form.getValues().no_of_pax,
+                    no_of_nights: industry === "travel" ? (lead.industry_data?.no_of_nights?.toString() || "0") : form.getValues().no_of_nights,
+                    destination_ids: industry === "travel" ? (lead.industry_data?.destination_ids || []) : form.getValues().destination_ids,
+                    experience_id: industry === "travel" ? (lead.industry_data?.experience_id || undefined) : form.getValues().experience_id,
+                });
+            });
+        }
+    }, [open, isPersonAccount, lead.id, industry, form]);
 
     // Auto-detect existing accounts/contacts and set defaults
     useEffect(() => {
@@ -231,15 +282,16 @@ export function ConvertLeadDialog({
         }
     }, [open, localExperiences.length, localSalesStages.length, form]);
 
-    // Set default experience to Luxury when experiences are loaded
+    // Set default experience to Luxury when experiences are loaded (travel only)
     useEffect(() => {
+        if (industry !== "travel") return;
         if (localExperiences.length > 0 && !form.getValues("experience_id")) {
             const luxuryExp = localExperiences.find(exp => exp.name.toLowerCase() === "luxury");
             if (luxuryExp) {
                 form.setValue("experience_id", luxuryExp.id);
             }
         }
-    }, [localExperiences, form]);
+    }, [localExperiences, form, industry]);
 
 
 
@@ -248,43 +300,37 @@ export function ConvertLeadDialog({
     const [leadProcessedDestinations, setLeadProcessedDestinations] = useState<{ id: string, name: string }[]>([]);
 
     useEffect(() => {
-        if (open) {
-            destinationsService.getDestinations({ limit: 1000 }).then(res => {
-                setAvailableDestinations(res.destinations);
-            }).catch(err => console.error("Failed to fetch destinations", err));
-        }
-    }, [open]);
+        if (industry !== "travel" || !open) return;
+        destinationsService.getDestinations({ limit: 1000 }).then(res => {
+            setAvailableDestinations(res.destinations);
+        }).catch(err => console.error("Failed to fetch destinations", err));
+    }, [open, industry]);
 
-    // Match destinations
+    // Match destinations from industry_data
     useEffect(() => {
-        // If we have no destinations, nothing to process
-        if ((!lead.destinations || lead.destinations.length === 0) && (!lead.destination_ids || lead.destination_ids.length === 0)) {
+        const leadDestIds = lead.industry_data?.destination_ids || [];
+        const leadDestNames = lead.industry_data?.destination_names || [];
+
+        if (leadDestIds.length === 0 && leadDestNames.length === 0) {
             setLeadProcessedDestinations([]);
             return;
         }
 
-        // If we haven't fetched destinations yet, use what we have in lead (IDs if any, otherwise wait)
-        // Actually, if we have IDs, we can use them immediately for basic display if needed, but we need names.
-        // If we rely on names, we need availableDestinations.
-
         if (availableDestinations.length > 0) {
             const processed: { id: string, name: string }[] = [];
-            const existingIds = lead.destination_ids || [];
-            const existingNames = lead.destinations || [];
 
             // Add known IDs
-            existingIds.forEach(id => {
+            leadDestIds.forEach((id: string) => {
                 const match = availableDestinations.find(d => d.id === id);
                 if (match) {
                     processed.push({ id: match.id, name: match.name });
                 } else {
-                    // If ID exists but not in fetched list, keep ID but use "Unknown"
                     processed.push({ id, name: "Unknown Destination" });
                 }
             });
 
             // Match names to IDs
-            existingNames.forEach(name => {
+            leadDestNames.forEach((name: string) => {
                 const alreadyIncluded = processed.some(p => p.name.toLowerCase() === name.toLowerCase());
                 if (!alreadyIncluded) {
                     const match = availableDestinations.find(d => d.name.toLowerCase() === name.toLowerCase());
@@ -295,12 +341,8 @@ export function ConvertLeadDialog({
             });
 
             setLeadProcessedDestinations(processed);
-        } else if (lead.destination_ids && lead.destination_ids.length > 0 && lead.destinations && lead.destinations.length === lead.destination_ids.length) {
-            // Fallback for when we have both (likely synced) but destinations not fetched yet
-            setLeadProcessedDestinations(lead.destination_ids.map((id, i) => ({ id, name: lead.destinations![i] })));
-        } else if (lead.destinations && lead.destinations.length > 0) {
-            // Only names available and destinations not fetched yet -> show placeholders?
-            // Better to wait for fetch to resolve IDs.
+        } else if (leadDestIds.length > 0 && leadDestNames.length === leadDestIds.length) {
+            setLeadProcessedDestinations(leadDestIds.map((id: string, i: number) => ({ id, name: leadDestNames[i] })));
         }
     }, [availableDestinations, lead]);
 
@@ -326,49 +368,50 @@ export function ConvertLeadDialog({
     const watchedPax = form.watch("no_of_pax");
     const watchedTravelDate = form.watch("travel_date");
 
-    // Auto-calculate Total Pax = adults + children + infants
+    // Auto-calculate Total Pax = adults + children + infants (travel only)
     useEffect(() => {
+        if (industry !== "travel") return;
         const total = (Number(adults) || 0) + (Number(childs) || 0) + (Number(infants) || 0);
         form.setValue("no_of_pax", total > 0 ? total.toString() : "1");
-    }, [adults, childs, infants, form]);
+    }, [adults, childs, infants, form, industry]);
 
-    // Auto-generate opportunity name: Dest1_Dest2_Npax_DDMon
+    // Auto-generate opportunity name based on industry
     useEffect(() => {
-        const parts: string[] = [];
-
-        // Destination names (from resolved list)
-        if (watchedDestinationIds && watchedDestinationIds.length > 0) {
-            const names = watchedDestinationIds
-                .map(id => {
-                    const match = (leadProcessedDestinations.length > 0 ? leadProcessedDestinations : availableDestinations)
-                        .find(d => d.id === id);
-                    return match?.name || "";
-                })
-                .filter(Boolean);
-            if (names.length > 0) parts.push(names.join("_"));
+        if (industry === "travel") {
+            // Travel: Dest1_Dest2_Npax_DDMon
+            const parts: string[] = [];
+            if (watchedDestinationIds && watchedDestinationIds.length > 0) {
+                const names = watchedDestinationIds
+                    .map(id => {
+                        const match = (leadProcessedDestinations.length > 0 ? leadProcessedDestinations : availableDestinations)
+                            .find(d => d.id === id);
+                        return match?.name || "";
+                    })
+                    .filter(Boolean);
+                if (names.length > 0) parts.push(names.join("_"));
+            }
+            if (watchedPax && Number(watchedPax) > 0) {
+                parts.push(`${watchedPax}pax`);
+            }
+            if (watchedTravelDate) {
+                try {
+                    const d = new Date(watchedTravelDate);
+                    if (!isNaN(d.getTime())) {
+                        const day = String(d.getDate()).padStart(2, "0");
+                        const mon = d.toLocaleString("en", { month: "short" });
+                        parts.push(`${day}${mon}`);
+                    }
+                } catch {}
+            }
+            if (parts.length > 0) {
+                form.setValue("opportunity_name", parts.join("_"), { shouldDirty: false });
+            }
+        } else {
+            // Generic: LeadName - Opportunity
+            const name = lead.full_name || `${lead.first_name} ${lead.last_name}`;
+            form.setValue("opportunity_name", `${name} - Opportunity`, { shouldDirty: false });
         }
-
-        // Pax
-        if (watchedPax && Number(watchedPax) > 0) {
-            parts.push(`${watchedPax}pax`);
-        }
-
-        // Travel date as DDMon (e.g. 24Mar)
-        if (watchedTravelDate) {
-            try {
-                const d = new Date(watchedTravelDate);
-                if (!isNaN(d.getTime())) {
-                    const day = String(d.getDate()).padStart(2, "0");
-                    const mon = d.toLocaleString("en", { month: "short" });
-                    parts.push(`${day}${mon}`);
-                }
-            } catch {}
-        }
-
-        if (parts.length > 0) {
-            form.setValue("opportunity_name", parts.join("_"), { shouldDirty: false });
-        }
-    }, [watchedDestinationIds, watchedPax, watchedTravelDate, leadProcessedDestinations, availableDestinations, form]);
+    }, [watchedDestinationIds, watchedPax, watchedTravelDate, leadProcessedDestinations, availableDestinations, form, industry, lead]);
 
 
     useEffect(() => {
@@ -389,13 +432,19 @@ export function ConvertLeadDialog({
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
             const details = error.details.detail;
-            details.forEach((err: any) => {
-                const field = err.loc[err.loc.length - 1];
-                form.setError(field as any, {
-                    type: "manual",
-                    message: err.msg,
+            if (Array.isArray(details)) {
+                details.forEach((err: any) => {
+                    const field = err.loc?.[err.loc.length - 1];
+                    if (field) {
+                        form.setError(field as any, {
+                            type: "manual",
+                            message: err.msg,
+                        });
+                    }
                 });
-            });
+            } else if (typeof details === "string") {
+                toast.error(details);
+            }
             return true;
         }
         return false;
@@ -422,17 +471,20 @@ export function ConvertLeadDialog({
                         opportunity_name: values.opportunity_name,
                         opportunity_amount: values.opportunity_amount,
                         opportunity_close_date: values.opportunity_close_date?.toISOString(),
-                        travel_date: values.travel_date?.toISOString(),
-                        destination_ids: values.destination_ids,
-                        experience_id: values.experience_id === "no-experiences" ? undefined : values.experience_id,
-                        no_of_adults: values.no_of_adults ? Number(values.no_of_adults) : undefined,
-                        no_of_childs: values.no_of_childs ? Number(values.no_of_childs) : undefined,
-                        no_of_infants: values.no_of_infants ? Number(values.no_of_infants) : undefined,
-                        no_of_pax: values.no_of_pax ? Number(values.no_of_pax) : undefined,
                         sales_stage_id: !values.sales_stage_id || ["no-sales-stages", "undefined", "null"].includes(values.sales_stage_id) ? undefined : values.sales_stage_id,
-                        no_of_nights: values.no_of_nights ? Number(values.no_of_nights) : undefined,
                         description: values.description,
                         opportunity_owner_id: values.opportunity_owner_id,
+                        // All travel-specific fields wrapped in industry_data
+                        industry_data: industry === "travel" ? {
+                            travel_date: values.travel_date?.toISOString(),
+                            destination_ids: values.destination_ids,
+                            experience_id: values.experience_id === "no-experiences" ? undefined : values.experience_id,
+                            no_of_adults: values.no_of_adults ? Number(values.no_of_adults) : undefined,
+                            no_of_childs: values.no_of_childs ? Number(values.no_of_childs) : undefined,
+                            no_of_infants: values.no_of_infants ? Number(values.no_of_infants) : undefined,
+                            no_of_pax: values.no_of_pax ? Number(values.no_of_pax) : undefined,
+                            no_of_nights: values.no_of_nights ? Number(values.no_of_nights) : undefined,
+                        } : undefined,
                     };
 
                     await convertLead.mutateAsync(convertData);
@@ -772,22 +824,23 @@ export function ConvertLeadDialog({
                                                                 <Input
                                                                     {...field}
                                                                     className="bg-white"
-                                                                    placeholder="Auto-generated from destination, pax & date"
+                                                                    placeholder={industry === "travel" ? "Auto-generated from destination, pax & date" : "Auto-generated"}
                                                                 />
                                                             </FormControl>
-                                                            <p className="text-[11px] text-muted-foreground mt-1">Auto-filled from destinations, pax &amp; travel date. You can edit manually.</p>
+                                                            <p className="text-[11px] text-muted-foreground mt-1">{industry === "travel" ? "Auto-filled from destinations, pax & travel date." : "Auto-filled."} You can edit manually.</p>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
 
+                                                {industry === "travel" && (
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                                                     <FormField
                                                         control={form.control}
                                                         name="travel_date"
                                                         render={({ field }) => (
                                                             <FormItem className="flex flex-col">
-                                                                <FormLabel>Date of Travel *</FormLabel>
+                                                                <FormLabel>Date of Travel</FormLabel>
                                                                 <Popover>
                                                                     <PopoverTrigger asChild>
                                                                         <FormControl>
@@ -816,7 +869,6 @@ export function ConvertLeadDialog({
                                                                             selected={field.value}
                                                                             onSelect={(date) => {
                                                                                 if (!date) return field.onChange(undefined);
-                                                                                // Use local date to avoid timezone issues
                                                                                 const year = date.getFullYear();
                                                                                 const month = String(date.getMonth() + 1).padStart(2, '0');
                                                                                 const day = String(date.getDate()).padStart(2, '0');
@@ -847,7 +899,6 @@ export function ConvertLeadDialog({
                                                                         <FormControl>
                                                                             <Button
                                                                                 variant={"outline"}
-                                                                                disabled
                                                                                 className={cn(
                                                                                     "w-full pl-3 text-left font-normal bg-white",
                                                                                     !field.value && "text-muted-foreground"
@@ -873,9 +924,7 @@ export function ConvertLeadDialog({
                                                                             disabled={(date) => {
                                                                                 const today = new Date();
                                                                                 today.setHours(0, 0, 0, 0);
-                                                                                const compareDate = new Date(date);
-                                                                                compareDate.setHours(0, 0, 0, 0);
-                                                                                return compareDate.getTime() !== today.getTime();
+                                                                                return date < today;
                                                                             }}
                                                                             initialFocus
                                                                         />
@@ -886,8 +935,10 @@ export function ConvertLeadDialog({
                                                         )}
                                                     />
                                                 </div>
+                                                )}
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
+                                                    {industry === "travel" && (
                                                     <FormField
                                                         control={form.control}
                                                         name="experience_id"
@@ -909,6 +960,7 @@ export function ConvertLeadDialog({
                                                             </FormItem>
                                                         )}
                                                     />
+                                                    )}
 
                                                     <FormField
                                                         control={form.control}
@@ -933,7 +985,7 @@ export function ConvertLeadDialog({
                                                     />
                                                 </div>
 
-                                                {/* Destinations Multi-Select */}
+                                                {industry === "travel" && (
                                                 <FormField
                                                     control={form.control}
                                                     name="destination_ids"
@@ -969,25 +1021,17 @@ export function ConvertLeadDialog({
                                                                             <p className="text-sm text-muted-foreground">No valid destinations found in lead</p>
                                                                         </div>
                                                                     )}
-
-                                                                    {/* Warning if we have destination names but couldn't match them to IDs */}
-                                                                    {lead.destinations && lead.destinations.length > leadProcessedDestinations.length && (
+                                                                    {(lead.industry_data?.destination_names || []).length > leadProcessedDestinations.length && (
                                                                         <div className="mt-2 pt-2 border-t">
-                                                                            <p className="text-xs text-amber-600 mb-1 font-medium">
-                                                                                Unmatched destinations:
-                                                                            </p>
+                                                                            <p className="text-xs text-amber-600 mb-1 font-medium">Unmatched destinations:</p>
                                                                             <div className="flex flex-wrap gap-1">
-                                                                                {lead.destinations.filter(name =>
+                                                                                {(lead.industry_data?.destination_names || []).filter((name: string) =>
                                                                                     !leadProcessedDestinations.some(pd => pd.name.toLowerCase() === name.toLowerCase())
-                                                                                ).map((name, i) => (
-                                                                                    <span key={i} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">
-                                                                                        {name}
-                                                                                    </span>
+                                                                                ).map((name: string, i: number) => (
+                                                                                    <span key={i} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">{name}</span>
                                                                                 ))}
                                                                             </div>
-                                                                            <p className="text-[10px] text-muted-foreground mt-1">
-                                                                                These destinations don't exist in the system and cannot be linked.
-                                                                            </p>
+                                                                            <p className="text-[10px] text-muted-foreground mt-1">These destinations don't exist in the system and cannot be linked.</p>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -999,98 +1043,60 @@ export function ConvertLeadDialog({
                                                         </FormItem>
                                                     )}
                                                 />
+                                                )}
 
+                                                {industry === "travel" && (
                                                 <div className="grid grid-cols-2 gap-x-4 gap-y-3 border p-4 rounded-lg bg-white shadow-sm">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="no_of_adults"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Adults</FormLabel>
-                                                                <FormControl>
-                                                                    <Input type="number" min="1" {...field} className="h-8 text-xs" />
-                                                                </FormControl>
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="no_of_childs"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Childs</FormLabel>
-                                                                <FormControl>
-                                                                    <Input type="number" min="0" {...field} className="h-8 text-xs" />
-                                                                </FormControl>
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="no_of_infants"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Infants</FormLabel>
-                                                                <FormControl>
-                                                                    <Input type="number" min="0" {...field} className="h-8 text-xs" />
-                                                                </FormControl>
-                                                            </FormItem>
-                                                        )}
-                                                    />
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="no_of_pax"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
-                                                                <FormControl>
-                                                                    <Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" />
-                                                                </FormControl>
-                                                            </FormItem>
-                                                        )}
-                                                    />
+                                                    <FormField control={form.control} name="no_of_adults" render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Adults</FormLabel>
+                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs" /></FormControl>
+                                                        </FormItem>
+                                                    )} />
+                                                    <FormField control={form.control} name="no_of_childs" render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Childs</FormLabel>
+                                                            <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs" /></FormControl>
+                                                        </FormItem>
+                                                    )} />
+                                                    <FormField control={form.control} name="no_of_infants" render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Infants</FormLabel>
+                                                            <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs" /></FormControl>
+                                                        </FormItem>
+                                                    )} />
+                                                    <FormField control={form.control} name="no_of_pax" render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
+                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" /></FormControl>
+                                                        </FormItem>
+                                                    )} />
                                                 </div>
+                                                )}
 
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="opportunity_amount"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Lead Amount</FormLabel>
-                                                                <FormControl>
-                                                                    <div className="relative">
-                                                                        <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">₹</span>
-                                                                        <Input
-                                                                            type="text"
-                                                                            inputMode="decimal"
-                                                                            {...field}
-                                                                            className="pl-7 bg-white"
-                                                                            onChange={(e) => {
-                                                                                const val = e.target.value.replace(/[^0-9.]/g, "");
-                                                                                field.onChange(val);
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
+                                                    <FormField control={form.control} name="opportunity_amount" render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Lead Amount</FormLabel>
+                                                            <FormControl>
+                                                                <div className="relative">
+                                                                    <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">₹</span>
+                                                                    <Input type="text" inputMode="decimal" {...field} className="pl-7 bg-white" onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); field.onChange(val); }} />
+                                                                </div>
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )} />
 
-                                                    <FormField
-                                                        control={form.control}
-                                                        name="no_of_nights"
-                                                        render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>No of Nights</FormLabel>
-                                                                <FormControl>
-                                                                    <Input type="number" min="0" {...field} className="bg-white" />
-                                                                </FormControl>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}
-                                                    />
+                                                    {industry === "travel" && (
+                                                    <FormField control={form.control} name="no_of_nights" render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>No of Nights</FormLabel>
+                                                            <FormControl><Input type="number" min="0" {...field} className="bg-white" /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )} />
+                                                    )}
                                                 </div>
 
                                                 <FormField

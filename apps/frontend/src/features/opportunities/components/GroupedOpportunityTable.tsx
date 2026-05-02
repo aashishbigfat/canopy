@@ -16,6 +16,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { useIndustry, type IndustryType } from "@/lib/industry-labels";
 
 interface GroupedOpportunityTableProps {
     data: Opportunity[];
@@ -23,23 +24,28 @@ interface GroupedOpportunityTableProps {
     groupByOwner?: boolean;
 }
 
-// ─── Shared column header ──────────────────────────────────────────────────────
-const COL_HEADER = (
-    <TableRow>
-        <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500 pl-6">ID</TableHead>
-        <TableHead className="w-16 text-[11px] uppercase font-bold text-slate-500">Segment</TableHead>
-        <TableHead className="min-w-[180px] text-[11px] uppercase font-bold text-slate-500">Opportunity Name</TableHead>
-        <TableHead className="text-[11px] uppercase font-bold text-slate-500">Destination(s)</TableHead>
-        <TableHead className="w-24 text-[11px] uppercase font-bold text-slate-500">Acct. Type</TableHead>
-        <TableHead className="min-w-[120px] text-[11px] uppercase font-bold text-slate-500">Account Name</TableHead>
-        <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500 text-right">Amount</TableHead>
-        <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500 text-center">Sales Stage</TableHead>
-        <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500">Travel Date</TableHead>
-        <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500">Close Date</TableHead>
-        <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500">Owner</TableHead>
-        <TableHead className="w-20 text-[11px] uppercase font-bold text-slate-500">Creation</TableHead>
-    </TableRow>
-);
+function getColHeader(industry: IndustryType) {
+    return (
+        <TableRow>
+            <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500 pl-6">ID</TableHead>
+            <TableHead className="w-16 text-[11px] uppercase font-bold text-slate-500">Segment</TableHead>
+            <TableHead className="min-w-[180px] text-[11px] uppercase font-bold text-slate-500">Opportunity Name</TableHead>
+            <TableHead className="text-[11px] uppercase font-bold text-slate-500">
+                {industry === "travel" ? "Destination(s)" : industry === "healthcare" ? "Treatment" : industry === "education" ? "Program" : "Product"}
+            </TableHead>
+            <TableHead className="w-24 text-[11px] uppercase font-bold text-slate-500">Acct. Type</TableHead>
+            <TableHead className="min-w-[120px] text-[11px] uppercase font-bold text-slate-500">Account Name</TableHead>
+            <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500 text-right">Amount</TableHead>
+            <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500 text-center">Sales Stage</TableHead>
+            <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500">
+                {industry === "travel" ? "Travel Date" : "Key Date"}
+            </TableHead>
+            <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500">Close Date</TableHead>
+            <TableHead className="w-28 text-[11px] uppercase font-bold text-slate-500">Owner</TableHead>
+            <TableHead className="w-20 text-[11px] uppercase font-bold text-slate-500">Creation</TableHead>
+        </TableRow>
+    );
+}
 
 // ─── Utility helpers ──────────────────────────────────────────────────────────
 function formatOppDate(dateStr?: string) {
@@ -62,9 +68,11 @@ function getStageBadgeStyle(stageName?: string) {
 function OppRow({
     opp,
     onRowClick,
+    industry,
 }: {
     opp: Opportunity;
     onRowClick: (opp: Opportunity) => void;
+    industry: IndustryType;
 }) {
     const stageName = opp.sales_stage_name || opp.sales_stage_id?.slice(-4) || "—";
     return (
@@ -96,11 +104,19 @@ function OppRow({
                 </span>
             </TableCell>
 
-            {/* Destinations */}
+            {/* Destinations / Product / Program / Treatment */}
             <TableCell className="py-2.5 text-xs text-blue-600">
-                {opp.destination_names?.length
-                    ? opp.destination_names.join(", ")
-                    : <span className="text-slate-400">—</span>}
+                {industry === "travel" ? (
+                    opp.industry_data?.destination_names?.length ? opp.industry_data.destination_names.join(", ") : <span className="text-slate-400">—</span>
+                ) : industry === "healthcare" ? (
+                    (opp as any).industry_data?.chief_complaint || <span className="text-slate-400">—</span>
+                ) : industry === "education" ? (
+                    (opp as any).industry_data?.highest_qualification || <span className="text-slate-400">—</span>
+                ) : industry === "manufacturing" ? (
+                    (opp as any).industry_data?.product_category || <span className="text-slate-400">—</span>
+                ) : (
+                    <span className="text-slate-400">—</span>
+                )}
             </TableCell>
 
             {/* Account Type */}
@@ -139,9 +155,19 @@ function OppRow({
                 </Badge>
             </TableCell>
 
-            {/* Travel Date */}
+            {/* Travel Date / Key Date */}
             <TableCell className="py-2.5 text-xs text-slate-600 tabular-nums whitespace-nowrap">
-                {formatOppDate(opp.travel_date)}
+                {industry === "travel" ? (
+                    formatOppDate(opp.industry_data?.travel_date)
+                ) : industry === "healthcare" ? (
+                    formatOppDate((opp as any).industry_data?.preferred_appointment_date)
+                ) : industry === "education" ? (
+                    formatOppDate((opp as any).industry_data?.preferred_start_date)
+                ) : industry === "manufacturing" ? (
+                    formatOppDate((opp as any).industry_data?.target_delivery_date)
+                ) : (
+                    <span className="text-slate-400">—</span>
+                )}
             </TableCell>
 
             {/* Close Date */}
@@ -176,6 +202,8 @@ export function GroupedOpportunityTable({
     groupByOwner = true,
 }: GroupedOpportunityTableProps) {
     const router = useRouter();
+    const industry = useIndustry();
+    const COL_HEADER = getColHeader(industry);
     const [expandedOwners, setExpandedOwners] = useState<Record<string, boolean>>({});
 
     // Group by owner, sorted alphabetically
@@ -229,7 +257,7 @@ export function GroupedOpportunityTable({
                     </TableHeader>
                     <TableBody>
                         {data.map(opp => (
-                            <OppRow key={opp.id} opp={opp} onRowClick={handleRowClick} />
+                            <OppRow key={opp.id} opp={opp} onRowClick={handleRowClick} industry={industry} />
                         ))}
                     </TableBody>
                 </Table>
@@ -275,7 +303,7 @@ export function GroupedOpportunityTable({
 
                             {/* Opportunity rows under this owner */}
                             {expandedOwners[group.id] && group.opportunities.map(opp => (
-                                <OppRow key={opp.id} opp={opp} onRowClick={handleRowClick} />
+                                <OppRow key={opp.id} opp={opp} onRowClick={handleRowClick} industry={industry} />
                             ))}
                         </React.Fragment>
                     ))}

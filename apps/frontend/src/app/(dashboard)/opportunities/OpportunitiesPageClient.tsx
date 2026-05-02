@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
+import { useIndustryLabels } from "@/lib/industry-labels";
 
 type ViewMode = "list" | "kanban";
 
@@ -39,17 +40,18 @@ export default function OpportunitiesPageClient() {
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
     const router = useRouter();
     const searchParams = useSearchParams();
+    const labels = useIndustryLabels();
     
     const page = parseInt(searchParams.get("page") || "1");
 
     const opportunityViews = [
-        { label: "Today Opportunities", value: "today" },
+        { label: `Today ${labels.opportunities}`, value: "today" },
         { label: "Recently Viewed", value: "recent" },
-        { label: "All Opportunities", value: "all" },
-        { label: "Closed Opportunities", value: "closed" },
+        { label: `All ${labels.opportunities}`, value: "all" },
+        { label: `Closed ${labels.opportunities}`, value: "closed" },
     ];
     const [currentView, setCurrentView] = useState("today");
-    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || "Today Opportunities";
+    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || `Today ${labels.opportunities}`;
 
     const { data: opportunitiesData, isLoading: isLoadingOpportunities } = useOpportunities({
         page: page,
@@ -79,7 +81,7 @@ export default function OpportunitiesPageClient() {
                         </div>
                         <div>
                             <div className="flex items-center gap-2 text-[10px] text-blue-600 font-semibold uppercase">
-                                Opportunity ({opportunities.length})
+                                {labels.opportunity} ({opportunities.length})
                             </div>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
@@ -123,7 +125,7 @@ export default function OpportunitiesPageClient() {
                                 onClick={() => setIsCreateDrawerOpen(true)}
                             >
                                     <Plus className="h-4 w-4" />
-                                    New Opportunity
+                                    New {labels.opportunity}
                             </Button>
                         </PermissionGate>
                         <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">

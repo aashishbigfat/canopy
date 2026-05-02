@@ -21,7 +21,7 @@ export default function LoginPage() {
                 <div className="relative z-20 mt-auto">
                     <blockquote className="space-y-2">
                         <p className="text-lg">
-                            &ldquo;The next generation travel CRM for modern agencies.&rdquo;
+                            &ldquo;The next generation multi-industry CRM for modern businesses.&rdquo;
                         </p>
                         <footer className="text-sm">Tutterfly Team</footer>
                     </blockquote>

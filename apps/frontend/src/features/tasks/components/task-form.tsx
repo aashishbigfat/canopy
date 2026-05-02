@@ -233,13 +233,19 @@ export function TaskForm({ initialData, onSuccess, embedded, onLoadingChange }: 
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
             const details = error.details.detail;
-            details.forEach((err: any) => {
-                const field = err.loc[err.loc.length - 1];
-                form.setError(field as any, {
-                    type: "manual",
-                    message: err.msg,
+            if (Array.isArray(details)) {
+                details.forEach((err: any) => {
+                    const field = err.loc?.[err.loc.length - 1];
+                    if (field) {
+                        form.setError(field as any, {
+                            type: "manual",
+                            message: err.msg,
+                        });
+                    }
                 });
-            });
+            } else if (typeof details === "string") {
+                toast.error(details);
+            }
             return true;
         }
         return false;

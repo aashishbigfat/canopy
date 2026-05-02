@@ -229,6 +229,7 @@ class ContactService(ActivityMixin):
             
             for opp in opportunities:
                 stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
+                ind = opp.industry_data or {}
                 
                 related_opportunities.append({
                     "id": str(opp.id),
@@ -238,9 +239,9 @@ class ContactService(ActivityMixin):
                     "sales_stage_name": stage_name,
                     "close_date": opp.close_date.isoformat() if opp.close_date else None,
                     "probability": opp.probability,
-                    "no_of_pax": opp.no_of_pax,
-                    "no_of_nights": opp.no_of_nights,
-                    "travel_date": opp.travel_date.isoformat() if opp.travel_date else None,
+                    "no_of_pax": ind.get('no_of_pax'),
+                    "no_of_nights": ind.get('no_of_nights'),
+                    "travel_date": ind.get('travel_date'),
                     "created_at": opp.created_at.isoformat()
                 })
         except Exception as e:
@@ -599,6 +600,12 @@ class ContactService(ActivityMixin):
         contact.last_modified_by_id = current_user_id
         await contact.save()
         
+        # Populate owner name for the response
+        from app.models.user import User
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(contact, 'owner_name', owner.name)
+        
         # Send email notification
         try:
             from app.tasks.account_tasks import send_owner_change_email
@@ -680,3 +687,25 @@ class ContactService(ActivityMixin):
                 view_count=1
             )
             await view.insert()
+    async def change_owner(
+        self,
+        contact_id: str,
+        new_owner_id: ObjectId,
+        current_user_id: ObjectId,
+        tenant_id: ObjectId
+    ) -> Optional[Contact]:
+        """Change contact owner"""
+        contact = await self.get_contact(contact_id, tenant_id)
+        if not contact:
+            return None
+        
+        contact.owner_id = new_owner_id
+        contact.last_modified_by_id = current_user_id
+        await contact.save()
+        
+        # Populate owner name for response
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(contact, "owner_name", owner.name)
+            
+        return contact

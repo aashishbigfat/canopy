@@ -3,14 +3,19 @@ Quote API endpoints
 """
 from fastapi import APIRouter, Depends, HTTPException
 from typing import Optional
+import logging
 
 from app.models.user import User
+from app.models.tenant import Tenant
 from app.schemas.quote import (
     QuoteCreate, QuoteUpdate, QuoteResponse, QuoteDetailResponse,
     QuoteListResponse, QuoteItemCreate, QuoteItemUpdate, QuoteItemResponse
 )
 from app.services.quote_service import QuoteService
+from app.schemas.industry_data import validate_industry_data
 from app.api.deps import get_current_user, check_permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -20,14 +25,30 @@ async def create_quote(
     quote_data: QuoteCreate,
     current_user: User = Depends(check_permission("create_quote"))
 ):
-    """Create a new quote with items"""
+    """Create a new quote with items -- unified schema for all industries"""
     service = QuoteService()
     
-    quote = await service.create_quote(
-        quote_data,
-        current_user.id,
-        current_user.tenant_id
-    )
+    # Determine tenant industry
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
+    
+    try:
+        # Validate industry_data if present
+        if quote_data.industry_data:
+            quote_data.industry_data = validate_industry_data(
+                industry, quote_data.industry_data, mode="quote"
+            )
+        
+        quote = await service.create_quote(
+            quote_data,
+            current_user.id,
+            current_user.tenant_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error during quote creation: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     
     result = await service.get_quote_with_items(str(quote.id), current_user.tenant_id)
     
@@ -112,15 +133,31 @@ async def update_quote(
     quote_data: QuoteUpdate,
     current_user: User = Depends(check_permission("edit_quote"))
 ):
-    """Update a quote"""
+    """Update a quote -- unified schema for all industries"""
     service = QuoteService()
     
-    quote = await service.update_quote(
-        quote_id,
-        quote_data,
-        current_user.id,
-        current_user.tenant_id
-    )
+    # Determine tenant industry
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
+    
+    try:
+        # Validate industry_data if present
+        if quote_data.industry_data:
+            quote_data.industry_data = validate_industry_data(
+                industry, quote_data.industry_data, mode="quote"
+            )
+        
+        quote = await service.update_quote(
+            quote_id,
+            quote_data,
+            current_user.id,
+            current_user.tenant_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Unexpected error during quote update: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
     
     if not quote:
         raise HTTPException(status_code=404, detail="Quote not found")

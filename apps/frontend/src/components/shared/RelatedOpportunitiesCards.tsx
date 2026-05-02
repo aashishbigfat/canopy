@@ -19,17 +19,16 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useIndustry } from "@/lib/industry-labels";
 
 interface Opportunity {
     id: string;
     name: string;
     amount?: number;
     sales_stage_name?: string;
-    no_of_pax?: number;
-    no_of_nights?: number;
-    travel_date?: string;
     close_date?: string;
     owner_name?: string;
+    industry_data?: Record<string, any>;
 }
 
 interface RelatedOpportunitiesCardsProps {
@@ -40,6 +39,7 @@ interface RelatedOpportunitiesCardsProps {
 }
 
 export function RelatedOpportunitiesCards({ opportunities, accountId, contactId, onNewClick }: RelatedOpportunitiesCardsProps) {
+    const industry = useIndustry();
     const createUrl = accountId
         ? `/opportunities/create?accountId=${accountId}`
         : contactId
@@ -89,13 +89,18 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
                             
                             <div className="flex items-center gap-2 text-slate-500">
                                 <Users className="h-[13px] w-[13px] shrink-0" />
-                                <span className="text-[11px] font-bold text-slate-600">{opp.no_of_pax || 0}</span>
+                                <span className="text-[11px] font-bold text-slate-600">
+                                    {industry === "travel" ? (((opp as any).industry_data?.no_of_pax || (opp as any).no_of_pax || 0)) + " pax" : opp.sales_stage_name || "—"}
+                                </span>
                             </div>
 
                             <div className="flex items-center gap-2 text-slate-500">
                                 <Calendar className="h-[13px] w-[13px] shrink-0" />
                                 <span className="text-[11px] font-bold text-slate-600">
-                                    {opp.travel_date ? format(new Date(opp.travel_date), "dd MMM yyyy") : "TBD"}
+                                    {industry === "travel"
+                                        ? (((opp as any).industry_data?.travel_date || (opp as any).travel_date) ? format(new Date(((opp as any).industry_data?.travel_date || (opp as any).travel_date)), "dd MMM yyyy") : "TBD")
+                                        : (opp.close_date ? format(new Date(opp.close_date), "dd MMM yyyy") : "TBD")
+                                    }
                                 </span>
                             </div>
 

@@ -24,6 +24,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { searchService, SearchResultGroup, SearchResultItem } from "@/lib/api/services/search.service";
+import { useIndustryLabels } from "@/lib/industry-labels";
 
 const moduleIcons: Record<string, React.ReactNode> = {
     leads: <User className="h-4 w-4" />,
@@ -51,6 +52,15 @@ export function CommandPalette() {
     const [selectedIndex, setSelectedIndex] = useState(0);
     const router = useRouter();
     const inputRef = useRef<HTMLInputElement>(null);
+    const labels = useIndustryLabels();
+
+    // Map backend module keys → industry-aware display labels
+    const groupLabelOverrides: Record<string, string> = {
+        suppliers: labels.suppliers,
+        leads: labels.leads,
+        opportunities: labels.opportunities,
+        accounts: labels.accounts,
+    };
 
     // Search query
     const { data, isLoading } = useQuery({
@@ -126,7 +136,7 @@ export function CommandPalette() {
                         value={query}
                         onChange={(e) => setQuery(e.target.value)}
                         onKeyDown={handleKeyDownInInput}
-                        placeholder="Search leads, accounts, contacts, opportunities..."
+                        placeholder={`Search ${labels.leads.toLowerCase()}, ${labels.accounts.toLowerCase()}, contacts...`}
                         className="border-0 focus-visible:ring-0 text-base placeholder:text-muted-foreground"
                     />
                     {isLoading && <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />}
@@ -150,7 +160,7 @@ export function CommandPalette() {
                             {data?.results.map((group, groupIndex) => (
                                 <div key={group.module}>
                                     <div className="px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                                        {group.label}
+                                        {groupLabelOverrides[group.module] || group.label}
                                     </div>
                                     {group.items.map((item, itemIndex) => {
                                         // Calculate flat index

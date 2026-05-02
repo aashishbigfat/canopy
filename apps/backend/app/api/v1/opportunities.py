@@ -7,15 +7,20 @@ import asyncio
 from bson import ObjectId
 
 from app.models.user import User
+from app.models.tenant import Tenant
 from app.models.opportunity import Opportunity
 from app.models.opportunity_picklists import SalesStage, Experience
 from app.schemas.opportunity import (
     OpportunityCreate, OpportunityUpdate, OpportunityResponse,
     OpportunityListResponse, OpportunityStageChange, ExperienceResponse,
-    OpportunityHistoryResponse
+    OpportunityHistoryResponse, OpportunityOwnerChange
 )
+from app.schemas.industry_data import validate_industry_data
 from app.services.opportunity_service import OpportunityService
 from app.api.deps import get_current_user, check_permission
+
+import logging
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -25,12 +30,18 @@ async def get_sales_stages(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all sales stages for the pipeline/kanban view
+    Get all sales stages for the tenant's pipeline/kanban view.
+
+    All industries (travel, healthcare, education, manufacturing) now store
+    their stages with a proper tenant_id. Travel has 6 stages (Received,
+    Qualified, Proposal, Closed Won, Closed Lost, Refunded) all seeded under
+    the travel tenant's ID. Non-travel tenants use their own stage sets.
     """
-    stages = await SalesStage.find(
+    tenant_stages = await SalesStage.find(
+        SalesStage.tenant_id == current_user.tenant_id,
         SalesStage.is_active == True
     ).sort("+sorting").to_list()
-    
+
     return [
         {
             "id": str(stage.id),
@@ -39,10 +50,12 @@ async def get_sales_stages(
             "probability": stage.probability,
             "is_won": stage.is_won,
             "is_lost": stage.is_lost,
+            "is_default": stage.is_default,
             "sorting": stage.sorting,
         }
-        for stage in stages
+        for stage in tenant_stages
     ]
+
 
 
 @router.get("/experiences", response_model=List[ExperienceResponse])
@@ -88,26 +101,60 @@ async def search_opportunity_autocomplete(
     }
 
 
+async def _resolve_destinations(industry_data: dict) -> dict:
+    if not industry_data or "destination_ids" not in industry_data:
+        return industry_data
+    
+    dest_ids = industry_data.get("destination_ids", [])
+    if not dest_ids:
+        industry_data["destination_names"] = []
+        return industry_data
+        
+    from app.models.destination import Destination
+    from bson import ObjectId
+    
+    valid_ids = []
+    for d_id in dest_ids:
+        try:
+            valid_ids.append(ObjectId(d_id))
+        except:
+            pass
+            
+    if valid_ids:
+        dests = await Destination.find({"_id": {"$in": valid_ids}}).to_list()
+        name_map = {str(d.id): d.name for d in dests}
+        industry_data["destination_names"] = [name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map]
+    else:
+        industry_data["destination_names"] = []
+        
+    return industry_data
+
+
 @router.post("/", response_model=OpportunityResponse, status_code=201)
 async def create_opportunity(
-    opp_data: OpportunityCreate,
     request: Request,
     current_user: User = Depends(check_permission("create_opportunity"))
 ):
     """
-    Create a new opportunity
-    
-    Args:
-        opp_data: Opportunity creation data
-        request: FastAPI Request object
-        current_user: Current authenticated user
+    Create a new opportunity -- unified schema for all industries
     """
     service = OpportunityService()
-    
-    # Set request context for activity logging
     service.set_request_context(request, current_user)
+    body = await request.json()
+    
+    # Determine tenant industry
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
     
     try:
+        opp_data = OpportunityCreate(**body)
+        if opp_data.industry_data:
+            opp_data.industry_data = validate_industry_data(
+                industry, opp_data.industry_data, mode="opportunity"
+            )
+            # Resolve destination IDs to names
+            opp_data.industry_data = await _resolve_destinations(opp_data.industry_data)
+        
         opportunity = await service.create_opportunity(
             opp_data=opp_data,
             user_id=current_user.id,
@@ -215,31 +262,22 @@ async def get_opportunities(
         # 1. Collect all IDs for batch fetching
         sales_stage_ids = {opp.sales_stage_id for opp in opportunities if opp.sales_stage_id}
         opportunity_type_ids = {opp.opportunity_type_id for opp in opportunities if opp.opportunity_type_id}
-        experience_ids = {opp.experience_id for opp in opportunities if opp.experience_id}
         owner_ids = {opp.owner_id for opp in opportunities if opp.owner_id}
         account_ids = {opp.account_id for opp in opportunities if opp.account_id}
-        all_dest_ids = set()
-        for opp in opportunities:
-            if opp.destination_ids:
-                all_dest_ids.update(opp.destination_ids)
 
         # 2. Batch fetch related documents
-        [stages, opp_types, experiences, owners, accounts, dests] = await asyncio.gather(
+        [stages, opp_types, owners, accounts] = await asyncio.gather(
             SalesStage.find({"_id": {"$in": list(sales_stage_ids)}}).to_list(),
             OpportunityType.find({"_id": {"$in": list(opportunity_type_ids)}}).to_list(),
-            Experience.find({"_id": {"$in": list(experience_ids)}}).to_list(),
             UserDoc.find({"_id": {"$in": list(owner_ids)}}).to_list(),
             AccountDoc.find({"_id": {"$in": list(account_ids)}}).to_list(),
-            DestinationDoc.find({"_id": {"$in": list(all_dest_ids)}}).to_list()
         )
 
         # 3. Create lookup maps
         stage_map = {s.id: s for s in stages}
         type_map = {t.id: t for t in opp_types}
-        exp_map = {e.id: e for e in experiences}
         owner_map = {o.id: o for o in owners}
         account_map = {a.id: a for a in accounts}
-        dest_map = {d.id: d for d in dests}
 
         # Convert to response format
         opportunity_responses = []
@@ -247,11 +285,9 @@ async def get_opportunities(
             # Get related data from maps
             sales_stage = stage_map.get(opp.sales_stage_id)
             opportunity_type = type_map.get(opp.opportunity_type_id)
-            experience = exp_map.get(opp.experience_id)
             owner = owner_map.get(opp.owner_id)
             account = account_map.get(opp.account_id)
             
-            experience_name = experience.name if experience else None
             owner_name = owner.name if owner else "Unknown"
             
             account_name = "-"
@@ -259,14 +295,6 @@ async def get_opportunities(
             if account:
                 account_name = account.name
                 is_person_account = getattr(account, 'is_person_account', False)
-            
-            # Fetch Destination Names from map
-            dest_names = []
-            if opp.destination_ids:
-                for dest_id in opp.destination_ids:
-                    dest = dest_map.get(dest_id)
-                    if dest:
-                        dest_names.append(dest.name)
 
             # Segment - derived from model or account type
             segment = getattr(opp, 'segment', None)
@@ -279,17 +307,20 @@ async def get_opportunities(
             
             # Build response
             opp_response = OpportunityResponse.from_orm(opp)
+            
+            # Resolve destinations if in travel industry
+            if opp_response.industry_data and "destination_ids" in opp_response.industry_data:
+                opp_response.industry_data = await _resolve_destinations(opp_response.industry_data)
+
             if sales_stage:
                 opp_response.sales_stage_name = sales_stage.name
             if opportunity_type:
                 opp_response.opportunity_type_name = opportunity_type.name
             
-            opp_response.experience_name = experience_name
             opp_response.owner_name = owner_name
             opp_response.account_name = account_name
             opp_response.is_person_account = is_person_account
             opp_response.type = "Person Account" if is_person_account else "Account"
-            opp_response.destination_names = dest_names
             opp_response.segment = segment
             opp_response.creation_type = creation_type
                 
@@ -344,7 +375,6 @@ async def get_opportunity(
         from app.models.user import User as UserDoc
         from app.models.account import Account as AccountDoc
         from app.models.contact import Contact as ContactDoc
-        from app.models.destination import Destination as DestinationDoc
         
         sales_stage = None
         if opportunity.sales_stage_id:
@@ -353,12 +383,6 @@ async def get_opportunity(
         opportunity_type = None
         if opportunity.opportunity_type_id:
             opportunity_type = await OpportunityType.get(opportunity.opportunity_type_id)
-        
-        experience_name = None
-        if opportunity.experience_id:
-            experience = await Experience.get(opportunity.experience_id)
-            if experience:
-                experience_name = experience.name
         
         owner_name = "Unknown"
         if opportunity.owner_id:
@@ -386,13 +410,6 @@ async def get_opportunity(
                 contact_email = getattr(contact, 'email', None)
                 contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
         
-        dest_names = []
-        if opportunity.destination_ids:
-            for dest_id in opportunity.destination_ids:
-                dest = await DestinationDoc.get(dest_id)
-                if dest:
-                    dest_names.append(dest.name)
-        
         # Resolve creator and modifier names
         created_by_user = await UserDoc.get(opportunity.created_by)
         created_by_name = created_by_user.name if created_by_user else "Unknown"
@@ -410,12 +427,16 @@ async def get_opportunity(
         creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
             
         opp_response = OpportunityResponse.from_orm(opportunity)
+        
+        # Resolve destinations if in travel industry
+        if opp_response.industry_data and "destination_ids" in opp_response.industry_data:
+            opp_response.industry_data = await _resolve_destinations(opp_response.industry_data)
+
         if sales_stage:
             opp_response.sales_stage_name = sales_stage.name
         if opportunity_type:
             opp_response.opportunity_type_name = opportunity_type.name
         
-        opp_response.experience_name = experience_name
         opp_response.owner_name = owner_name
         opp_response.account_name = account_name
         opp_response.is_person_account = is_person_account
@@ -423,7 +444,6 @@ async def get_opportunity(
         opp_response.contact_name = contact_name
         opp_response.contact_email = contact_email
         opp_response.contact_phone = contact_phone
-        opp_response.destination_names = dest_names
         opp_response.created_by_name = created_by_name
         opp_response.last_modified_by_name = last_modified_by_name
         opp_response.segment = segment
@@ -459,6 +479,11 @@ async def update_opportunity(
     try:
         from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         service = OpportunityService()
+        body = await request.json()
+        
+        # Determine tenant industry
+        tenant = await Tenant.get(current_user.tenant_id)
+        industry = tenant.industry if tenant else "travel"
         
         # Visibility pre-check
         existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
@@ -472,6 +497,14 @@ async def update_opportunity(
         # Set request context for activity logging
         service.set_request_context(request, current_user)
         
+        opp_data = OpportunityUpdate(**body)
+        if opp_data.industry_data:
+            opp_data.industry_data = validate_industry_data(
+                industry, opp_data.industry_data, mode="opportunity"
+            )
+            # Resolve destination IDs to names
+            opp_data.industry_data = await _resolve_destinations(opp_data.industry_data)
+        
         opportunity = await service.update_opportunity(
             opportunity_id,
             opp_data,
@@ -483,11 +516,10 @@ async def update_opportunity(
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
         # Enrich response with related contact/account info
-        from app.models.opportunity_picklists import SalesStage as SalesStageDoc, Experience as ExperienceDoc
+        from app.models.opportunity_picklists import SalesStage as SalesStageDoc
         from app.models.user import User as UserDoc
         from app.models.account import Account as AccountDoc
         from app.models.contact import Contact as ContactDoc
-        from app.models.destination import Destination as DestinationDoc
 
         opp_response = OpportunityResponse.from_orm(opportunity)
 
@@ -495,11 +527,6 @@ async def update_opportunity(
             stage = await SalesStageDoc.get(opportunity.sales_stage_id)
             if stage:
                 opp_response.sales_stage_name = stage.name
-
-        if opportunity.experience_id:
-            exp = await ExperienceDoc.get(opportunity.experience_id)
-            if exp:
-                opp_response.experience_name = exp.name
 
         if opportunity.owner_id:
             owner = await UserDoc.get(opportunity.owner_id)
@@ -519,14 +546,6 @@ async def update_opportunity(
                 opp_response.contact_name = " ".join(name_parts) or None
                 opp_response.contact_email = getattr(contact, 'email', None)
                 opp_response.contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
-
-        dest_names = []
-        if opportunity.destination_ids:
-            for dest_id in opportunity.destination_ids:
-                dest = await DestinationDoc.get(dest_id)
-                if dest:
-                    dest_names.append(dest.name)
-        opp_response.destination_names = dest_names
 
         opp_response.segment = getattr(opportunity, 'segment', None)
         if not opp_response.segment or opp_response.segment == "B2C":
@@ -634,11 +653,10 @@ async def change_opportunity_stage(
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
         # Enrich response with related contact/account info
-        from app.models.opportunity_picklists import SalesStage as SalesStageDoc, Experience as ExperienceDoc
+        from app.models.opportunity_picklists import SalesStage as SalesStageDoc
         from app.models.user import User as UserDoc
         from app.models.account import Account as AccountDoc
         from app.models.contact import Contact as ContactDoc
-        from app.models.destination import Destination as DestinationDoc
 
         opp_response = OpportunityResponse.from_orm(opportunity)
 
@@ -646,11 +664,6 @@ async def change_opportunity_stage(
             stage = await SalesStageDoc.get(opportunity.sales_stage_id)
             if stage:
                 opp_response.sales_stage_name = stage.name
-
-        if opportunity.experience_id:
-            exp = await ExperienceDoc.get(opportunity.experience_id)
-            if exp:
-                opp_response.experience_name = exp.name
 
         if opportunity.owner_id:
             owner = await UserDoc.get(opportunity.owner_id)
@@ -671,14 +684,6 @@ async def change_opportunity_stage(
                 opp_response.contact_email = getattr(contact, 'email', None)
                 opp_response.contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
 
-        dest_names = []
-        if opportunity.destination_ids:
-            for dest_id in opportunity.destination_ids:
-                dest = await DestinationDoc.get(dest_id)
-                if dest:
-                    dest_names.append(dest.name)
-        opp_response.destination_names = dest_names
-
         opp_response.segment = getattr(opportunity, 'segment', None)
         if not opp_response.segment or opp_response.segment == "B2C":
             opp_response.segment = "B2C" if opp_response.is_person_account else "B2B"
@@ -687,6 +692,53 @@ async def change_opportunity_stage(
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response
+    
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+@router.post("/{opportunity_id}/change-owner", response_model=OpportunityResponse)
+async def change_opportunity_owner(
+    opportunity_id: str,
+    owner_change: OpportunityOwnerChange,
+    current_user: User = Depends(check_permission("edit_opportunity"))
+):
+    """
+    Change the owner of an opportunity
+    
+    Args:
+        opportunity_id: ID of the opportunity
+        owner_change: New owner information
+        current_user: Current authenticated user
+        
+    Returns:
+        Updated opportunity details
+    """
+    try:
+        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+        service = OpportunityService()
+        
+        # Visibility pre-check
+        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        visible_owner_ids = await get_visible_owner_ids(current_user)
+        if not is_record_visible(existing.owner_id, visible_owner_ids):
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+            
+        opportunity = await service.change_owner(
+            opportunity_id,
+            ObjectId(owner_change.new_owner_id),
+            current_user.id,
+            current_user.tenant_id
+        )
+        
+        if not opportunity:
+            raise HTTPException(status_code=404, detail="Opportunity not found")
+        
+        return OpportunityResponse.from_orm(opportunity)
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -787,22 +839,18 @@ async def unlock_opportunity(
 @router.post("/{opportunity_id}/change-owner", response_model=OpportunityResponse)
 async def change_opportunity_owner(
     opportunity_id: str,
-    new_owner_id: str = Query(..., description="New owner user ID"),
+    owner_change: OpportunityOwnerChange,
     current_user: User = Depends(check_permission("edit_opportunity"))
 ):
     """
     Change the owner of an opportunity
-    
-    Args:
-        opportunity_id: ID of the opportunity
-        new_owner_id: ID of the new owner user
-        current_user: Current authenticated user
-        
-    Returns:
-        Updated opportunity details
     """
     try:
         from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+        from app.models.user import User as UserDoc
+        from app.models.account import Account as AccountDoc
+        from app.models.opportunity_picklists import SalesStage, OpportunityType
+        
         service = OpportunityService()
         
         # Visibility pre-check
@@ -813,10 +861,10 @@ async def change_opportunity_owner(
         visible_owner_ids = await get_visible_owner_ids(current_user)
         if not is_record_visible(existing.owner_id, visible_owner_ids):
             raise HTTPException(status_code=404, detail="Opportunity not found")
-            
+        
         opportunity = await service.change_owner(
             opportunity_id,
-            ObjectId(new_owner_id),
+            ObjectId(owner_change.new_owner_id),
             current_user.id,
             current_user.tenant_id
         )
@@ -824,7 +872,46 @@ async def change_opportunity_owner(
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
-        return OpportunityResponse.from_orm(opportunity)
+        # --- FULL RESPONSE ENRICHMENT ---
+        sales_stage = await SalesStage.get(opportunity.sales_stage_id)
+        opportunity_type = await OpportunityType.get(opportunity.opportunity_type_id) if opportunity.opportunity_type_id else None
+        
+        owner_name = "Unknown"
+        owner = await UserDoc.get(opportunity.owner_id)
+        if owner:
+            owner_name = owner.name
+        
+        account_name = "-"
+        is_person_account = False
+        if opportunity.account_id:
+            account = await AccountDoc.get(opportunity.account_id)
+            if account:
+                account_name = account.name
+                is_person_account = getattr(account, 'is_person_account', False)
+
+        created_by_user = await UserDoc.get(opportunity.created_by)
+        created_by_name = created_by_user.name if created_by_user else "Unknown"
+        
+        last_modified_by_name = None
+        if opportunity.last_modified_by_id:
+            last_modified_by_user = await UserDoc.get(opportunity.last_modified_by_id)
+            if last_modified_by_user:
+                last_modified_by_name = last_modified_by_user.name
+            
+        opp_response = OpportunityResponse.from_orm(opportunity)
+        if sales_stage:
+            opp_response.sales_stage_name = sales_stage.name
+        if opportunity_type:
+            opp_response.opportunity_type_name = opportunity_type.name
+        
+        opp_response.owner_name = owner_name
+        opp_response.account_name = account_name
+        opp_response.is_person_account = is_person_account
+        opp_response.type = "Person Account" if is_person_account else "Account"
+        opp_response.created_by_name = created_by_name
+        opp_response.last_modified_by_name = last_modified_by_name
+            
+        return opp_response
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

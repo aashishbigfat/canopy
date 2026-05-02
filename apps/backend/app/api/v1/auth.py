@@ -52,6 +52,10 @@ async def login(request: Request, response: Response, login_data: UserLogin):
         
         permissions = await user.get_permissions()
         
+        # Fetch tenant to include industry + modules in response
+        from app.models.tenant import Tenant
+        tenant = await Tenant.get(user.tenant_id)
+        
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
@@ -62,7 +66,9 @@ async def login(request: Request, response: Response, login_data: UserLogin):
                 "email": user.email,
                 "tenant_id": str(user.tenant_id),
                 "role_ids": [str(r) for r in user.role_ids],
-                "permissions": permissions
+                "permissions": permissions,
+                "industry": tenant.industry if tenant else "travel",
+                "modules": tenant.modules if tenant else {},
             }
         )
     except ValueError as e:
@@ -123,6 +129,9 @@ async def refresh_token(request: Request, response: Response, token_data: Refres
 @router.get("/me")
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
+    from app.models.tenant import Tenant
+    tenant = await Tenant.get(current_user.tenant_id)
+    
     return {
         "id": str(current_user.id),
         "name": current_user.name,
@@ -132,7 +141,9 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "permissions": await current_user.get_permissions(),
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
-        "last_login_at": current_user.last_login_at
+        "last_login_at": current_user.last_login_at,
+        "industry": tenant.industry if tenant else "travel",
+        "modules": tenant.modules if tenant else {},
     }
 
 

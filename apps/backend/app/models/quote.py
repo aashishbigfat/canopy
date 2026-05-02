@@ -1,9 +1,13 @@
 """
-Quote models for proposals and quotations
+Quote models for proposals and quotations — Industry-agnostic
+
+Travel-specific fields (travel_date, return_date, num_adults, etc.) have been
+migrated to the `industry_data` dict. All industries now store their metadata
+in `industry_data`, validated by the dispatcher in schemas/industry_data/__init__.py.
 """
 from beanie import Indexed
 from pydantic import Field
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
 from datetime import datetime, date
 from app.models.base import BaseDocument
@@ -76,13 +80,12 @@ class Quote(BaseDocument):
     terms_and_conditions: Optional[str] = None
     notes: Optional[str] = None
     
-    # Travel specific
-    travel_date: Optional[datetime] = None
-    return_date: Optional[datetime] = None
-    num_adults: int = 0
-    num_children: int = 0
-    num_infants: int = 0
-    destinations: List[str] = Field(default_factory=list)
+    # Industry-specific data — ALL industries store metadata here.
+    # Travel: travel_date, return_date, num_adults, num_children, num_infants, destinations
+    # Healthcare: treatment_plan_id, estimated_sessions, etc.
+    # Education: program_id, semester, etc.
+    # Manufacturing: delivery_schedule, specs, etc.
+    industry_data: Dict[str, Any] = Field(default_factory=dict)
     
     # Tenant & Ownership
     tenant_id: Indexed(PydanticObjectId)

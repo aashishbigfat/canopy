@@ -85,7 +85,8 @@ async def get_costing_item_types(
 
     # Merge: global selectable types + opportunity-specific inclusions, deduplicated, preserve order
     merged = list(COSTING_ITEM_TYPES)  # start with global list
-    for inclusion in (opp.inclusions or []):
+    opp_inclusions = (opp.industry_data or {}).get('inclusions', [])
+    for inclusion in (opp_inclusions or []):
         if inclusion and inclusion not in merged and inclusion not in FIXED_ITEM_TYPES:
             merged.append(inclusion)
 
@@ -101,9 +102,10 @@ async def get_costing_destinations(
     opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     result = []
-    for did in (opp.destination_ids or []):
+    opp_dest_ids = (opp.industry_data or {}).get('destination_ids', [])
+    for did in (opp_dest_ids or []):
         try:
-            dest = await Destination.get(did)
+            dest = await Destination.get(ObjectId(str(did)))
             if dest:
                 result.append({"id": str(dest.id), "name": dest.name})
         except Exception:
@@ -224,10 +226,13 @@ async def upsert_costing(
         )
         await costing.insert()
 
-    # BI-DIRECTIONAL SYNC: Immediately push selected_item_types back up to Opportunity record
+    # BI-DIRECTIONAL SYNC: Push selected_item_types into industry_data.inclusions
     opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
-    if set(opp.inclusions or []) != set(data.selected_item_types):
-        opp.inclusions = data.selected_item_types
+    current_inclusions = (opp.industry_data or {}).get('inclusions', [])
+    if set(current_inclusions or []) != set(data.selected_item_types):
+        if not opp.industry_data:
+            opp.industry_data = {}
+        opp.industry_data['inclusions'] = data.selected_item_types
         await opp.save()
 
     return CostingResponse(

@@ -1,5 +1,10 @@
 """
-Lead model matching Laravel Lead
+Lead model - Industry-agnostic CRM Lead
+
+Travel-specific fields (travel_date, no_of_pax, destinations, etc.) have been
+migrated to the `industry_data` dict. All industries (including travel) now
+store their metadata in `industry_data`, validated by the dispatcher in
+schemas/industry_data/__init__.py.
 """
 from beanie import Indexed
 from pydantic import EmailStr, Field
@@ -41,19 +46,11 @@ class Lead(BaseDocument):
     source_id: Annotated[Optional[PydanticObjectId], Indexed()] = None
     source_medium_id: Annotated[Optional[PydanticObjectId], Indexed()] = None
     
-    # New Fields
+    # Universal CRM fields
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
-    travel_date: Optional[str] = None
-    no_of_nights: Optional[int] = None
-    no_of_adults: Optional[int] = None
-    no_of_pax: Optional[int] = None
-    no_of_childs: Optional[int] = None
-    no_of_infants: Optional[int] = None
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"  # Default to B2C
-    is_fixed: bool = False
-    destinations: List[str] = Field(default_factory=list)
     creation_type: str = "manual"  # manual or auto
     
     # Conversion
@@ -67,12 +64,15 @@ class Lead(BaseDocument):
     created_by: PydanticObjectId
     last_modified_by_id: Optional[PydanticObjectId] = None
     
-    # Destinations (for travel CRM)
-    destination_ids: List[PydanticObjectId] = Field(default_factory=list)
-    experience_id: Optional[PydanticObjectId] = None
-    
     # Custom Fields
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Industry-specific data — ALL industries store metadata here.
+    # Travel: travel_date, no_of_pax, destinations, destination_ids, etc.
+    # Healthcare: patient_type, insurance_provider, etc.
+    # Education: program_type, enrollment_period, etc.
+    # Manufacturing: product_category, order_quantity, etc.
+    industry_data: Dict[str, Any] = Field(default_factory=dict)
     
     # Metadata
     view_count: int = 0

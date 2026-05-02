@@ -9,7 +9,7 @@ from app.models.user import User
 from app.models.contact import Contact
 from app.schemas.contact import (
     ContactCreate, ContactUpdate, ContactResponse, ContactListResponse,
-    ContactDetailResponse
+    ContactDetailResponse, ContactOwnerChange
 )
 from app.services.contact_service import ContactService
 from app.api.deps import get_current_user, check_permission
@@ -17,7 +17,13 @@ from app.api.deps import get_current_user, check_permission
 router = APIRouter()
 
 def contact_to_response(contact: Contact) -> ContactResponse:
-    """Convert Contact model to ContactResponse with proper string conversion"""
+    """Convert Contact model to ContactResponse with proper string conversion and name enrichment"""
+    # Try to get names from the object (if they were populated by the service)
+    # Fallback to None if not present
+    owner_name = getattr(contact, 'owner_name', None)
+    created_by_name = getattr(contact, 'created_by_name', None)
+    last_modified_by_name = getattr(contact, 'last_modified_by_name', None)
+    
     return ContactResponse(
         id=str(contact.id),
         salutation=contact.salutation,
@@ -46,10 +52,11 @@ def contact_to_response(contact: Contact) -> ContactResponse:
         account_id=str(contact.account_id) if contact.account_id else None,
         tenant_id=str(contact.tenant_id),
         owner_id=str(contact.owner_id),
+        owner_name=owner_name,
         created_by=str(contact.created_by),
-        created_by_name=getattr(contact, 'created_by_name', None),
+        created_by_name=created_by_name,
         last_modified_by_id=str(contact.last_modified_by_id) if contact.last_modified_by_id else None,
-        last_modified_by_name=getattr(contact, 'last_modified_by_name', None),
+        last_modified_by_name=last_modified_by_name,
         view_count=contact.view_count,
         is_favorite=contact.is_favorite,
         created_at=contact.created_at,
@@ -340,10 +347,10 @@ async def delete_contact(
     }
 
 
-@router.post("/change-owner")
+@router.post("/{contact_id}/change-owner")
 async def change_contact_owner(
-    contact_id: str = Query(...),
-    new_owner_id: str = Query(...),
+    contact_id: str,
+    owner_change: ContactOwnerChange,
     current_user: User = Depends(check_permission("edit_contact"))
 ):
     """Change contact owner"""
@@ -362,7 +369,7 @@ async def change_contact_owner(
     
     contact = await service.change_owner(
         contact_id,
-        ObjectId(new_owner_id),
+        ObjectId(owner_change.new_owner_id),
         current_user.id,
         current_user.tenant_id
     )

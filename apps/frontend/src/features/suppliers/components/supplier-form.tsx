@@ -49,6 +49,7 @@ import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useIndustry } from "@/lib/industry-labels";
 
 // More robust validation rules
 const leadPhoneRegex = /^\+?\d{1,4}\s\d{10}$/;
@@ -110,10 +111,14 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
     const createSupplier = useCreateSupplier();
     const updateSupplier = useUpdateSupplier();
     const [isLoading, setIsLoading] = useState(false);
+    const industry = useIndustry();
+    const isTravel = industry === "travel";
     const [metaData, setMetaData] = useState<{ 
         users: { id: string; name: string }[],
         services?: { id: string; name: string }[],
-        current_user_name?: string
+        current_user_name?: string,
+        supplier_types?: string[],
+        industry?: string,
     } | null>(null);
 
     // States for Address Locations
@@ -293,12 +298,14 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
 
         loadInitialCountries();
 
-        // Load Destinations
-        setLoadingDestinations(true);
-        destinationsService.getDestinations({ limit: 1000 })
-            .then(res => setAvailableDestinations(res.destinations))
-            .catch(err => console.error(err))
-            .finally(() => setLoadingDestinations(false));
+        // Load Destinations — travel industry only
+        if (isTravel) {
+            setLoadingDestinations(true);
+            destinationsService.getDestinations({ limit: 1000 })
+                .then(res => setAvailableDestinations(res.destinations))
+                .catch(err => console.error(err))
+                .finally(() => setLoadingDestinations(false));
+        }
             
     }, [form]);
 
@@ -490,15 +497,9 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="DMC">DMC</SelectItem>
-                                            <SelectItem value="Airlines">Airlines</SelectItem>
-                                            <SelectItem value="Hotel">Hotel</SelectItem>
-                                            <SelectItem value="Tour Operator">Tour Operator</SelectItem>
-                                            <SelectItem value="Visa Facilitator">Visa Facilitator</SelectItem>
-                                            <SelectItem value="Transporters">Transporters (Cab/ Taxi)</SelectItem>
-                                            <SelectItem value="Embassy">Embassy</SelectItem>
-                                            <SelectItem value="Travel Insurance">Travel Insurance</SelectItem>
-                                            <SelectItem value="Miscellaneous">Miscellaneous</SelectItem>
+                                            {(metaData?.supplier_types || []).map((type) => (
+                                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />
@@ -733,6 +734,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                                 </FormItem>
                             )}
                         />
+                        {isTravel && (
                         <FormField
                             control={form.control}
                             name="destinations"
@@ -809,6 +811,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                                 </FormItem>
                             )}
                         />
+                        )}
                     </div>
                 </div>
 

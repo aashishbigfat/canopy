@@ -37,10 +37,8 @@ export const accountService = {
     },
 
     changeOwner: async (id: string, newOwnerId: string) => {
-        const { data } = await apiClient.post(`${BASE_URL}/change-owner`, {
+        const { data } = await apiClient.post(`${BASE_URL}/${id}/change-owner`, {
             new_owner_id: newOwnerId
-        }, {
-            params: { account_id: id }
         });
         return data;
     },

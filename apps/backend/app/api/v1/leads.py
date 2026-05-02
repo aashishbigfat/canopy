@@ -8,16 +8,22 @@ from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from io import BytesIO
 from datetime import datetime, timedelta
+import logging
 
 from app.models.user import User
 from app.models.lead import Lead
+from app.models.tenant import Tenant
 from app.models.lead_picklists import LeadStatus, Source, SourceMedium
 from app.models.lead_custom_fields import UserLeadView
 from app.schemas.lead import (
-    LeadCreate, LeadUpdate, LeadResponse, LeadListResponse, LeadConvert
+    LeadCreate, LeadUpdate, LeadResponse, LeadListResponse, LeadConvert,
+    LeadOwnerChange
 )
+from app.schemas.industry_data import validate_industry_data
 from app.services.lead_service import LeadService
 from app.api.deps import get_current_user, check_permission
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -26,32 +32,72 @@ def get_lead_service():
 
 # Helper function is no longer needed as we use LeadResponse.model_validate via response_model
 
+async def _resolve_destinations(industry_data: dict) -> dict:
+    if not industry_data or "destination_ids" not in industry_data:
+        return industry_data
+    
+    dest_ids = industry_data.get("destination_ids", [])
+    if not dest_ids:
+        industry_data["destination_names"] = []
+        return industry_data
+        
+    from app.models.destination import Destination
+    from bson import ObjectId
+    
+    valid_ids = []
+    for d_id in dest_ids:
+        try:
+            valid_ids.append(ObjectId(d_id))
+        except:
+            pass
+            
+    if valid_ids:
+        dests = await Destination.find({"_id": {"$in": valid_ids}}).to_list()
+        name_map = {str(d.id): d.name for d in dests}
+        industry_data["destination_names"] = [name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map]
+    else:
+        industry_data["destination_names"] = []
+        
+    return industry_data
+
 @router.post("/", response_model=LeadResponse, status_code=201)
 async def create_lead(
-    lead_data: LeadCreate,
     request: Request,
     current_user: User = Depends(check_permission("create_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
-    """Create a new lead with comprehensive activity logging"""
-    # Set request context for activity logging
+    """Create a new lead -- unified schema for all industries"""
     service.set_request_context(request, current_user)
+    body = await request.json()
+    
+    # Determine tenant industry
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
     
     try:
+        # Unified schema -- no more dual routing
+        lead_data = LeadCreate(**body)
+        
+        # Validate industry_data block if present
+        if lead_data.industry_data:
+            lead_data.industry_data = validate_industry_data(
+                industry, lead_data.industry_data, mode="lead"
+            )
+            # Resolve destination IDs to names
+            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data)
+        
         lead = await service.create_lead(
             lead_data=lead_data,
             user_id=current_user.id,
             tenant_id=current_user.tenant_id,
             user_name=current_user.name or current_user.email,
-            custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None,
-            destination_ids=lead_data.destination_ids if hasattr(lead_data, 'destination_ids') else None
+            custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None
         )
         return lead
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Unexpected error during lead creation: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error during lead creation: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -84,8 +130,11 @@ async def get_leads(
         visible_owner_ids=visible_owner_ids
     )
     
-    # The service returns lead models, we need to convert them to Pydantic responses
-    # but LeadResponse.model_validate will handle it due to response_model=LeadListResponse
+    # Resolve destinations for each lead
+    for lead in result["leads"]:
+        if lead.industry_data and "destination_ids" in lead.industry_data:
+            lead.industry_data = await _resolve_destinations(lead.industry_data)
+            
     return result
 
 
@@ -143,8 +192,17 @@ async def get_lead(
     modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
     
     lead_response = LeadResponse.model_validate(lead)
+    
+    # Resolve destinations if in travel industry
+    if lead_response.industry_data and "destination_ids" in lead_response.industry_data:
+        lead_response.industry_data = await _resolve_destinations(lead_response.industry_data)
+        
     lead_response.created_by_name = creator.name if creator else "Unknown"
     lead_response.last_modified_by_name = modifier.name if modifier else None
+    
+    # Populate owner_name
+    owner = await User.get(lead.owner_id)
+    lead_response.owner_name = owner.name if owner else "Unknown"
     
     return lead_response
 
@@ -152,17 +210,20 @@ async def get_lead(
 @router.put("/{lead_id}", response_model=LeadResponse)
 async def update_lead(
     lead_id: str,
-    lead_data: LeadUpdate,
     request: Request,
     current_user: User = Depends(check_permission("edit_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
-    """Update a lead with comprehensive activity logging"""
+    """Update a lead -- unified schema for all industries"""
     from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
-    # Set request context for activity logging
     service.set_request_context(request, current_user)
+    body = await request.json()
     
-    # Visibility pre-check: ensure the lead exists AND user can see/edit it
+    # Determine tenant industry
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
+    
+    # Visibility pre-check
     existing = await service.get_lead(lead_id, current_user.tenant_id)
     if not existing:
         raise HTTPException(status_code=404, detail="Lead not found")
@@ -171,6 +232,14 @@ async def update_lead(
         raise HTTPException(status_code=404, detail="Lead not found")
     
     try:
+        lead_data = LeadUpdate(**body)
+        if lead_data.industry_data:
+            lead_data.industry_data = validate_industry_data(
+                industry, lead_data.industry_data, mode="lead"
+            )
+            # Resolve destination IDs to names
+            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data)
+        
         lead = await service.update_lead(
             lead_id=lead_id,
             lead_data=lead_data,
@@ -181,8 +250,7 @@ async def update_lead(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Unexpected error during lead update: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error during lead update: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
     
     if not lead:
@@ -227,12 +295,24 @@ async def delete_lead(
 @router.post("/{lead_id}/convert")
 async def convert_lead(
     lead_id: str,
-    conversion_data: LeadConvert,
+    request: Request,
     current_user: User = Depends(check_permission("edit_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
-    """Convert lead to opportunity"""
+    """Convert lead to opportunity -- unified schema for all industries"""
+    body = await request.json()
+    
+    # Determine tenant industry
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
+    
     try:
+        conversion_data = LeadConvert(**body)
+        if conversion_data.industry_data:
+            conversion_data.industry_data = validate_industry_data(
+                industry, conversion_data.industry_data, mode="opportunity"
+            )
+        
         result = await service.convert_lead(
             lead_id,
             conversion_data,
@@ -248,8 +328,7 @@ async def convert_lead(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        import logging
-        logging.getLogger(__name__).error(f"Unexpected error during lead conversion: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error during lead conversion: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -269,17 +348,17 @@ async def get_conversion_suggestions(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.post("/change-owner", response_model=Dict[str, Any])
+@router.post("/{lead_id}/change-owner", response_model=Dict[str, Any])
 async def change_lead_owner(
-    lead_id: str = Query(...),
-    new_owner_id: str = Query(...),
+    lead_id: str,
+    owner_change: LeadOwnerChange,
     current_user: User = Depends(check_permission("edit_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Change lead owner"""
     lead = await service.change_owner(
         lead_id,
-        ObjectId(new_owner_id),
+        ObjectId(owner_change.new_owner_id),
         current_user.id,
         current_user.tenant_id
     )
@@ -287,10 +366,20 @@ async def change_lead_owner(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
+    # Resolve creator, modifier and owner names for the response
+    creator = await User.get(lead.created_by)
+    modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
+    owner = await User.get(lead.owner_id)
+    
+    lead_response = LeadResponse.model_validate(lead)
+    lead_response.created_by_name = creator.name if creator else "Unknown"
+    lead_response.last_modified_by_name = modifier.name if modifier else None
+    lead_response.owner_name = owner.name if owner else "Unknown"
+    
     return {
         "error": False,
         "message": "Lead ownership updated successfully",
-        "lead": lead
+        "lead": lead_response
     }
 
 
@@ -396,3 +485,4 @@ async def bulk_change_lead_owner(
         current_user.id
     )
     return result
+

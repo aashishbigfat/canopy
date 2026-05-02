@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 from app.models.lead import Lead
 from app.models.destination import DestinationLead
 from app.schemas.lead import LeadCreate, LeadUpdate, LeadConvert
+from app.schemas.lead import LeadConvert
 from app.services.activity_log_service import ActivityLogService
 from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
@@ -16,6 +17,7 @@ from app.models.picklists import Industry
 from app.models.lead_custom_fields import UserLeadView
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.lead_repository import LeadRepository
+from app.services.webhook_service import webhook_service
 
 
 class LeadService(ActivityMixin):
@@ -69,7 +71,6 @@ class LeadService(ActivityMixin):
         tenant_id: ObjectId,
         user_name: str = None,
         custom_fields: list = None,
-        destination_ids: list = None,
         auto_assign: bool = False
     ) -> Lead:
         """Create a new lead with comprehensive activity logging and deduplication"""
@@ -94,7 +95,7 @@ class LeadService(ActivityMixin):
         original_data = lead_data.model_dump(exclude_unset=True)
         
         lead = Lead(
-            **lead_data.model_dump(exclude_unset=True, exclude={'destination_ids'}),
+            **lead_data.model_dump(exclude_unset=True),
             tenant_id=tenant_id,
             owner_id=owner_id,
             created_by=user_id
@@ -102,10 +103,10 @@ class LeadService(ActivityMixin):
         
         await lead.insert()
         
-        # Link destinations
-        if destination_ids or lead_data.destination_ids:
-            dest_ids = destination_ids or lead_data.destination_ids
-            for dest_id in dest_ids:
+        # Link destinations if provided in industry_data (travel only)
+        industry_dest_ids = (lead.industry_data or {}).get('destination_ids', [])
+        if industry_dest_ids:
+            for dest_id in industry_dest_ids:
                 pivot = DestinationLead(
                     lead_id=lead.id,
                     destination_id=ObjectId(dest_id),
@@ -128,13 +129,12 @@ class LeadService(ActivityMixin):
                 )
                 await custom_field.insert()
         
-        # 🚨 COMPREHENSIVE ACTIVITY LOGGING using ActivityMixin
+        # Activity logging
         await self.log_entity_created(
             entity=lead,
             entity_type="lead",
             additional_data={
                 "created_fields": original_data,
-                "destination_ids": destination_ids or lead_data.destination_ids,
                 "custom_fields_count": len(custom_fields) if custom_fields else 0
             }
         )
@@ -153,6 +153,26 @@ class LeadService(ActivityMixin):
         
         # Invalidate dashboard cache
         await invalidate_tenant_cache(str(tenant_id))
+        
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="lead.created",
+                payload={
+                    "lead_id": str(lead.id),
+                    "name": lead.full_name,
+                    "email": lead.email,
+                    "phone": lead.phone,
+                    "source": str(lead.source_id) if lead.source_id else None,
+                    "industry_data": lead.industry_data,
+                },
+                tenant_id=str(tenant_id),
+                entity_id=str(lead.id),
+                entity_type="lead",
+                triggered_by=str(user_id)
+            )
+        except Exception:
+            pass  # Webhook failures should never block core operations
         
         return lead
     async def get_lead(self, lead_id: str, tenant_id: ObjectId) -> Optional[Lead]:
@@ -235,6 +255,25 @@ class LeadService(ActivityMixin):
         # Invalidate dashboard cache
         await invalidate_tenant_cache(str(tenant_id))
         
+        # Fire webhook event
+        if updated_fields:
+            try:
+                await webhook_service.trigger_event(
+                    event_type="lead.updated",
+                    payload={
+                        "lead_id": str(lead.id),
+                        "name": lead.full_name,
+                        "updated_fields": updated_fields,
+                        "previous_values": original_values,
+                    },
+                    tenant_id=str(tenant_id),
+                    entity_id=str(lead.id),
+                    entity_type="lead",
+                    triggered_by=str(user_id)
+                )
+            except Exception:
+                pass
+        
         return lead
     
     async def delete_lead(
@@ -270,6 +309,19 @@ class LeadService(ActivityMixin):
         
         # Invalidate dashboard cache
         await invalidate_tenant_cache(str(tenant_id))
+        
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="lead.deleted",
+                payload=lead_info,
+                tenant_id=str(tenant_id),
+                entity_id=str(lead.id),
+                entity_type="lead",
+                triggered_by=str(user_id)
+            )
+        except Exception:
+            pass
         
         return True
     
@@ -394,7 +446,7 @@ class LeadService(ActivityMixin):
     async def convert_lead(
         self,
         lead_id: str,
-        conversion_data: LeadConvert,
+        conversion_data,  # LeadConvert (unified for all industries)
         user_id: ObjectId,
         tenant_id: ObjectId
     ) -> Dict:
@@ -653,44 +705,48 @@ class LeadService(ActivityMixin):
                     sales_stage_id = None  # Fall through to default lookup
             
             if not sales_stage_id:
-                # Try to find 'Receive' stage first
-                receive_stage = await SalesStage.find_one(
-                    SalesStage.name == "Receive",
-                    SalesStage.is_active == True
-                )
-                if receive_stage:
-                    sales_stage_id = receive_stage.id
-                    stage_probability = receive_stage.probability or 0
-
-            if not sales_stage_id:
-                # Try tenant-specific default stage first, then global
+                # Try to find default stage for this tenant first
                 default_stage = await SalesStage.find_one(
+                    SalesStage.tenant_id == tenant_id,
                     SalesStage.is_default == True,
                     SalesStage.is_active == True
                 )
-                if not default_stage:
-                    # Try first tenant-specific stage
-                    first_stage = await SalesStage.find_one(
-                        SalesStage.is_active == True
-                    )
-                    if first_stage:
-                        sales_stage_id = first_stage.id
-                        stage_probability = first_stage.probability or 0
-                    # If no stages at all, still proceed (stage is optional)
-                else:
+                if default_stage:
                     sales_stage_id = default_stage.id
                     stage_probability = default_stage.probability or 0
 
-            # FINAL FALLBACK: If still no sales stage found, try to get ANY active stage
             if not sales_stage_id:
-                any_stage = await SalesStage.find_one(SalesStage.is_active == True)
+                # Try first tenant-specific active stage
+                first_stage = await SalesStage.find_one(
+                    SalesStage.tenant_id == tenant_id,
+                    SalesStage.is_active == True
+                )
+                if first_stage:
+                    sales_stage_id = first_stage.id
+                    stage_probability = first_stage.probability or 0
+
+            if not sales_stage_id:
+                # Fall back to global default (tenant_id == None)
+                global_default = await SalesStage.find_one(
+                    SalesStage.tenant_id == None,
+                    SalesStage.is_default == True,
+                    SalesStage.is_active == True
+                )
+                if global_default:
+                    sales_stage_id = global_default.id
+                    stage_probability = global_default.probability or 0
+
+            # FINAL FALLBACK: If still no sales stage found, try global active stage
+            if not sales_stage_id:
+                any_stage = await SalesStage.find_one(
+                    SalesStage.tenant_id == None,
+                    SalesStage.is_active == True
+                )
                 if any_stage:
                     sales_stage_id = any_stage.id
                     stage_probability = any_stage.probability or 0
                 else:
-                    # If absolutely no stages exist in the system, we must raise a helpful error
-                    # but the model requires it, so a descriptive ValueError is better than a 500 crash.
-                    raise ValueError("No Sales Stages found in the system. Please configure Sales Stages first.")
+                    raise ValueError("No Sales Stages found for this tenant. Please configure Sales Stages first.")
 
             # Handle close date
             from datetime import datetime, time, timedelta
@@ -723,117 +779,124 @@ class LeadService(ActivityMixin):
                 # Default close date to 30 days from now
                 close_date = datetime.utcnow() + timedelta(days=30)
 
-            # Handle travel date - use from conversion or inherit from lead
-            travel_date = None
-            if conversion_data.travel_date:
-                if isinstance(conversion_data.travel_date, datetime):
-                    travel_date = conversion_data.travel_date
-                elif hasattr(conversion_data.travel_date, 'date'):
-                    travel_date = datetime.combine(conversion_data.travel_date, time.min)
-                elif isinstance(conversion_data.travel_date, str) and conversion_data.travel_date.strip():
-                    try:
-                        clean_date = conversion_data.travel_date.replace('Z', '+00:00')
-                        travel_date = datetime.fromisoformat(clean_date)
-                    except (ValueError, TypeError):
-                        try:
-                            travel_date = datetime.strptime(conversion_data.travel_date[:10], "%Y-%m-%d")
-                        except (ValueError, TypeError):
-                            logger.warning(f"Could not parse conversion travel_date: {conversion_data.travel_date}")
+            # ── Industry-aware opportunity creation ──────────────────────
+            from app.models.tenant import Tenant
+            tenant = await Tenant.get(tenant_id)
+            industry = tenant.industry if tenant else "travel"
+            is_travel = (industry == "travel")
             
-            # Inheritance if travel_date still None
-            if not travel_date and lead.travel_date:
-                if isinstance(lead.travel_date, datetime):
-                    travel_date = lead.travel_date
-                elif hasattr(lead.travel_date, 'date'):
-                    travel_date = datetime.combine(lead.travel_date, time.min)
-                elif isinstance(lead.travel_date, str) and lead.travel_date.strip():
+            if is_travel:
+                # === TRAVEL LOGIC ===
+                # Get travel data from industry_data (migrated from top-level fields)
+                lead_industry = lead.industry_data or {}
+                conv_industry = getattr(conversion_data, 'industry_data', {}) or {}
+                
+                # Handle travel date
+                travel_date = None
+                raw_travel_date = conv_industry.get('travel_date') or lead_industry.get('travel_date')
+                if raw_travel_date:
+                    if isinstance(raw_travel_date, datetime):
+                        travel_date = raw_travel_date
+                    elif isinstance(raw_travel_date, str) and raw_travel_date.strip():
+                        try:
+                            clean_date = raw_travel_date.replace('Z', '+00:00')
+                            travel_date = datetime.fromisoformat(clean_date)
+                        except (ValueError, TypeError):
+                            try:
+                                travel_date = datetime.strptime(raw_travel_date[:10], "%Y-%m-%d")
+                            except (ValueError, TypeError):
+                                logger.warning(f"Could not parse travel_date: {raw_travel_date}")
+
+                # Dest IDs from industry_data
+                dest_ids = []
+                dest_names = []
+                conv_dest_ids = conv_industry.get('destination_ids') or lead_industry.get('destination_ids') or []
+                for d in conv_dest_ids:
                     try:
-                        # Lead travel_date might be simple YYYY-MM-DD
-                        travel_date = datetime.strptime(lead.travel_date[:10], "%Y-%m-%d")
-                    except (ValueError, TypeError):
+                        dest_ids.append(ObjectId(str(d)))
+                    except Exception:
                         pass
 
-            # Dest IDs - use from conversion data, or fall back to lead's destinations
-            dest_ids = []
-            dest_names = []
-            if conversion_data.destination_ids:
-                for d in conversion_data.destination_ids:
-                    try:
-                        dest_ids.append(ObjectId(d))
-                    except Exception:
-                        pass # Skip invalid IDs
-            elif lead.destination_ids:
-                dest_ids = lead.destination_ids or []
-            
-            # Final safety check to ensure dest_ids is a list of ObjectIds
-            if dest_ids and isinstance(dest_ids, list):
-                clean_dest_ids = []
-                for d in dest_ids:
-                    if isinstance(d, ObjectId):
-                        clean_dest_ids.append(d)
-                    elif isinstance(d, str) and d.strip():
-                        try:
-                            clean_dest_ids.append(ObjectId(d))
-                        except:
-                            pass
-                dest_ids = clean_dest_ids
+                if dest_ids:
+                    from app.models.destination import Destination
+                    destinations_objs = await Destination.find({"_id": {"$in": dest_ids}}).to_list()
+                    dest_names = [d.name for d in destinations_objs]
+
+                # Travel-style opportunity name: [Destination]_[Pax]Pax_[TravelDate]
+                no_of_pax = conv_industry.get('no_of_pax') or lead_industry.get('no_of_pax') or 0
+                if not conversion_data.opportunity_name:
+                    dest_str = dest_names[0] if dest_names else (lead.company or lead.full_name or "Opportunity")
+                    date_str = f"_{travel_date.strftime('%d%b')}" if travel_date else ""
+                    opportunity_name = f"{dest_str}_{no_of_pax}Pax{date_str}"
+                else:
+                    opportunity_name = conversion_data.opportunity_name
+
+                # Build travel industry_data for the opportunity
+                opp_industry_data = {
+                    'travel_date': travel_date.isoformat() if travel_date else None,
+                    'no_of_pax': no_of_pax,
+                    'no_of_adults': conv_industry.get('no_of_adults') or lead_industry.get('no_of_adults'),
+                    'no_of_childs': conv_industry.get('no_of_childs') if conv_industry.get('no_of_childs') is not None else lead_industry.get('no_of_childs'),
+                    'no_of_infants': conv_industry.get('no_of_infants') if conv_industry.get('no_of_infants') is not None else lead_industry.get('no_of_infants'),
+                    'no_of_nights': conv_industry.get('no_of_nights') or lead_industry.get('no_of_nights'),
+                    'destination_ids': [str(d) for d in dest_ids],
+                    'destination_names': dest_names,
+                }
+                # Copy experience_id if present
+                exp_id = conv_industry.get('experience_id') or lead_industry.get('experience_id')
+                if exp_id:
+                    opp_industry_data['experience_id'] = str(exp_id)
+
+                opportunity = Opportunity(
+                    name=opportunity_name,
+                    amount=conversion_data.opportunity_amount,
+                    close_date=close_date,
+                    description=conversion_data.description,
+                    sales_stage_id=sales_stage_id,
+                    probability=stage_probability,
+                    account_id=account_id,
+                    contact_id=contact_id,
+                    opportunitable_type="Account" if not is_person_account else "PersonalAccount",
+                    opportunitable_id=account_id,
+                    lead_id=lead.id,
+                    segment=lead.segment,
+                    source_id=lead.source_id,
+                    source_medium_id=lead.source_medium_id,
+                    industry_data=opp_industry_data,
+                    tenant_id=tenant_id,
+                    owner_id=user_id,
+                    created_by=user_id
+                )
             else:
-                dest_ids = []
+                # === NON-TRAVEL LOGIC ===
+                # Simple opportunity name for non-travel industries
+                if not conversion_data.opportunity_name:
+                    opportunity_name = f"{lead.full_name} - Opportunity"
+                else:
+                    opportunity_name = conversion_data.opportunity_name
 
-            if dest_ids:
-                from app.models.destination import Destination
-                destinations_objs = await Destination.find({"_id": {"$in": dest_ids}}).to_list()
-                dest_names = [d.name for d in destinations_objs]
-
-            # Standardized Opportunity Name: [Destination]_[Pax]Pax_[TravelDate]
-            if not conversion_data.opportunity_name:
-                dest_str = dest_names[0] if dest_names else (lead.company or lead.full_name or "Opportunity")
-                pax = conversion_data.no_of_pax or lead.no_of_pax or 0
-                date_str = f"_{travel_date.strftime('%d%b')}" if travel_date else ""
-                opportunity_name = f"{dest_str}_{pax}Pax{date_str}"
-            else:
-                opportunity_name = conversion_data.opportunity_name
-
-            opportunity = Opportunity(
-                name=opportunity_name,
-                amount=conversion_data.opportunity_amount,
-                close_date=close_date,
-                travel_date=travel_date,
-                no_of_pax=conversion_data.no_of_pax or lead.no_of_pax,
-                no_of_adults=conversion_data.no_of_adults or lead.no_of_adults,
-                no_of_childs=conversion_data.no_of_childs if conversion_data.no_of_childs is not None else lead.no_of_childs,
-                no_of_infants=conversion_data.no_of_infants if conversion_data.no_of_infants is not None else lead.no_of_infants,
-                no_of_nights=conversion_data.no_of_nights or lead.no_of_nights,
-                description=conversion_data.description,
-                destination_ids=dest_ids,
-                experience_id=None, # Set below with safe conversion
-                sales_stage_id=sales_stage_id,
-                probability=stage_probability,  # Auto-set from stage
-                account_id=account_id,
-                contact_id=contact_id,
-                # Add polymorphic relationship fields
-                opportunitable_type="Account" if not is_person_account else "PersonalAccount",
-                opportunitable_id=account_id,
-                lead_id=lead.id,
-                segment=lead.segment,
-                source_id=lead.source_id,
-                source_medium_id=lead.source_medium_id,
-                tenant_id=tenant_id,
-                owner_id=user_id, # Default to current user
-                created_by=user_id
-            )
+                opportunity = Opportunity(
+                    name=opportunity_name,
+                    amount=conversion_data.opportunity_amount,
+                    close_date=close_date,
+                    description=getattr(conversion_data, 'description', None),
+                    sales_stage_id=sales_stage_id,
+                    probability=stage_probability,
+                    account_id=account_id,
+                    contact_id=contact_id,
+                    opportunitable_type="Account" if not is_person_account else "PersonalAccount",
+                    opportunitable_id=account_id,
+                    lead_id=lead.id,
+                    segment=lead.segment,
+                    source_id=lead.source_id,
+                    source_medium_id=lead.source_medium_id,
+                    industry_data=getattr(conversion_data, 'industry_data', {}) or {},
+                    tenant_id=tenant_id,
+                    owner_id=user_id,
+                    created_by=user_id
+                )
             
-            # Safe conversion for experience_id
-            if conversion_data.experience_id and conversion_data.experience_id not in ("no-experiences", ""):
-                try:
-                    opportunity.experience_id = ObjectId(conversion_data.experience_id)
-                except Exception:
-                    pass # Keep None if invalid
-            elif lead.experience_id:
-                opportunity.experience_id = lead.experience_id
-            
-            # Safe conversion for other optional IDs from conversion_data if they were added
-            # (Ensuring any string IDs are converted to ObjectIds for the model)
+            # Safe conversion for other optional IDs from conversion_data
             if isinstance(opportunity.tenant_id, str):
                 opportunity.tenant_id = ObjectId(opportunity.tenant_id)
             if isinstance(opportunity.owner_id, str):
@@ -1086,6 +1149,12 @@ class LeadService(ActivityMixin):
         lead.last_modified_by_id = current_user_id
         await lead.save()
         
+        # Populate owner name for the response
+        from app.models.user import User
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(lead, 'owner_name', owner.name)
+        
         # 🚨 COMPREHENSIVE ACTIVITY LOGGING using ActivityMixin
         await self.log_assignment_changed(
             entity=lead,
@@ -1197,7 +1266,7 @@ class LeadService(ActivityMixin):
         
         # Fetch regular metadata in parallel
         metadata_tasks = [
-            LeadStatus.find(LeadStatus.is_active == True).sort("+sorting").to_list(),
+            LeadStatus.find(LeadStatus.tenant_id == tenant_id, LeadStatus.is_active == True).sort("+sorting").to_list(),
             Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
             User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
             Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
@@ -1207,10 +1276,11 @@ class LeadService(ActivityMixin):
         metadata_results = await asyncio.gather(*metadata_tasks)
         lead_statuses, sources, users, industries, experiences = metadata_results
         
-        # Fetch both tenant-specific and global sales stages
-        tenant_stages = await SalesStage.find(SalesStage.tenant_id == tenant_id, SalesStage.is_active == True).sort("+sorting").to_list()
-        global_stages = await SalesStage.find(SalesStage.tenant_id == None, SalesStage.is_active == True).sort("+sorting").to_list()
-        sales_stages = tenant_stages + global_stages
+        # All stages are now tenant-specific — simple direct query
+        sales_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_id,
+            SalesStage.is_active == True
+        ).sort("+sorting").to_list()
 
         return {
             "leads": leads,
@@ -1431,3 +1501,25 @@ class LeadService(ActivityMixin):
                     f"{', '.join(duplicate_names)}. "
                     f"Please use existing contact or verify this is not a duplicate."
                 )
+    async def change_owner(
+        self,
+        lead_id: str,
+        new_owner_id: ObjectId,
+        current_user_id: ObjectId,
+        tenant_id: ObjectId
+    ) -> Optional[Lead]:
+        """Change lead owner"""
+        lead = await self.get_lead(lead_id, tenant_id)
+        if not lead:
+            return None
+        
+        lead.owner_id = new_owner_id
+        lead.last_modified_by_id = current_user_id
+        await lead.save()
+        
+        # Populate owner name for response
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(lead, "owner_name", owner.name)
+            
+        return lead

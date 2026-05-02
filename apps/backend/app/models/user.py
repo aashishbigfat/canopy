@@ -1,6 +1,6 @@
 from beanie import Indexed, PydanticObjectId
-from pydantic import EmailStr, Field
-from typing import Optional, List
+from pydantic import EmailStr, Field, model_validator
+from typing import Optional, List, Any
 from datetime import datetime
 from passlib.context import CryptContext
 from app.models.base import BaseDocument
@@ -90,6 +90,16 @@ class User(BaseDocument):
                 "tenant_id": "507f1f77bcf86cd799439011"
             }
         }
+    
+    @model_validator(mode="before")
+    @classmethod
+    def empty_strings_to_none(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            # Convert empty strings to None for ObjectId fields
+            for field in ["department_id", "role_hierarchy_id", "created_by", "last_modified_by_id"]:
+                if field in data and data[field] == "":
+                    data[field] = None
+        return data
     
     def verify_password(self, plain_password: str) -> bool:
         """Verify password against hash"""

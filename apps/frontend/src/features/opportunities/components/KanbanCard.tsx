@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { Calendar, GripVertical, Star, MapPin, Users } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Badge } from "@/components/ui/badge";
+import { useIndustry } from "@/lib/industry-labels";
 
 interface KanbanCardProps {
     opportunity: Opportunity;
@@ -16,6 +17,7 @@ interface KanbanCardProps {
 }
 
 export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps) {
+    const industry = useIndustry();
     const {
         attributes,
         listeners,
@@ -73,11 +75,11 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
                     </div>
                 ) : null}
 
-                {/* Destinations */}
-                {(opportunity.destination_names?.length ?? 0) > 0 && (
+                {/* Destinations (travel only) */}
+                {industry === "travel" && (opportunity.industry_data?.destination_names?.length ?? 0) > 0 && (
                     <div className="flex items-center gap-1.5 text-xs text-slate-500">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                        <span className="truncate">{opportunity.destination_names!.join(", ")}</span>
+                        <span className="truncate">{opportunity.industry_data!.destination_names.join(", ")}</span>
                     </div>
                 )}
 
@@ -89,10 +91,10 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
                             <span>{formatDate(opportunity.close_date)}</span>
                         </div>
                     )}
-                    {opportunity.no_of_pax && (
+                    {industry === "travel" && opportunity.industry_data?.no_of_pax && (
                         <div className="flex items-center gap-1">
                             <Users className="h-3.5 w-3.5" />
-                            <span>{opportunity.no_of_pax} pax</span>
+                            <span>{opportunity.industry_data.no_of_pax} pax</span>
                         </div>
                     )}
                 </div>

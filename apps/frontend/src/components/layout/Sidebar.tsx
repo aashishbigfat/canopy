@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
-import { navItems } from "./nav-items";
+import { getNavItems } from "./nav-items";
 import { filterNavItemsForPermissions } from "@/lib/rbac";
 import { Button } from "@/components/ui/button";
 import { useSession } from "next-auth/react";
 import { useMemo } from "react";
+import type { IndustryType } from "@/lib/industry-labels";
 
 interface SidebarProps extends React.HTMLAttributes<HTMLDivElement> { }
 
@@ -15,11 +16,14 @@ export function Sidebar({ className }: SidebarProps) {
     const pathname = usePathname();
     const { data: session } = useSession();
 
-    // Filter nav items based on user's permissions — memoized to avoid recalc on every render
+    // Build industry-aware nav items and filter by permissions
     const userPermissions = (session?.user as any)?.permissions as string[] | undefined;
+    const industry = ((session?.user as any)?.industry ?? "travel") as IndustryType;
+    const modules = ((session?.user as any)?.modules ?? {}) as Record<string, boolean>;
+    
     const visibleNavItems = useMemo(
-        () => filterNavItemsForPermissions(navItems, userPermissions),
-        [userPermissions]
+        () => filterNavItemsForPermissions(getNavItems(industry, modules), userPermissions),
+        [userPermissions, industry, modules]
     );
 
     return (

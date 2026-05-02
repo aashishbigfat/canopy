@@ -19,17 +19,16 @@ import { Briefcase, X } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { useIndustry } from "@/lib/industry-labels";
 
 interface Opportunity {
     id: string;
     name: string;
     amount?: number;
     sales_stage_name?: string;
-    no_of_pax?: number;
-    no_of_nights?: number;
-    travel_date?: string;
     close_date?: string;
     owner_name?: string;
+    industry_data?: Record<string, any>;
 }
 
 interface OpportunitiesViewAllDialogProps {
@@ -47,6 +46,7 @@ export function OpportunitiesViewAllDialog({
     accountId,
     onNew
 }: OpportunitiesViewAllDialogProps) {
+    const industry = useIndustry();
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent showCloseButton={false} className="max-w-[95vw] sm:max-w-[95vw] p-0 overflow-hidden border-none shadow-2xl rounded-lg">
@@ -89,8 +89,12 @@ export function OpportunitiesViewAllDialog({
                                 <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[18%]">Name</TableHead>
                                 <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[14%] truncate">Sales Stage</TableHead>
                                 <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[12%] text-right">Amount</TableHead>
-                                <TableHead className="text-[11px] font-bold text-slate-800 h-10 py-0 w-[12%] text-center">No. Of Pax</TableHead>
-                                <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[14%]">Date of Travel</TableHead>
+                                <TableHead className="text-[11px] font-bold text-slate-800 h-10 py-0 w-[12%] text-center">
+                                    {industry === "travel" ? "No. Of Pax" : industry === "healthcare" ? "Urgency" : industry === "education" ? "GPA" : "Quantity"}
+                                </TableHead>
+                                <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[14%]">
+                                    {industry === "travel" ? "Date of Travel" : "Key Date"}
+                                </TableHead>
                                 <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[14%]">Close Date</TableHead>
                                 <TableHead className="text-[12px] font-bold text-slate-800 h-10 py-0 w-[16%]">Owner</TableHead>
                             </TableRow>
@@ -119,10 +123,10 @@ export function OpportunitiesViewAllDialog({
                                         {opp.amount ? formatCurrency(opp.amount) : formatCurrency(0)}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-center font-bold text-slate-600 text-[12px]">
-                                        {opp.no_of_pax || "0"}
+                                        {(opp as any).industry_data?.no_of_pax || "0"}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-[12px] font-bold text-slate-600 whitespace-nowrap">
-                                        {formatDate(opp.travel_date)}
+                                        {formatDate((opp as any).industry_data?.travel_date)}
                                     </TableCell>
                                     <TableCell className="py-2 px-3 text-[12px] font-bold text-slate-600 whitespace-nowrap">
                                         {formatDate(opp.close_date)}

@@ -16,16 +16,20 @@ router = APIRouter()
 
 @router.get("/form-data")
 async def get_supplier_form_data(current_user: User = Depends(get_current_user)):
-    """Get metadata for supplier creation/editing forms"""
+    """Get metadata for supplier creation/editing forms (industry-aware)"""
     import logging
     logger = logging.getLogger(__name__)
     # Use alias to avoid shadowing the SupplierService class imported from services
     from app.models.picklists import SupplierService as SupplierServicePicklist
+    from app.models.tenant import Tenant
 
-    # Auto-seed logic for dynamic picklists based on screenshot requirements
-    service_count = await SupplierServicePicklist.find({"tenant_id": current_user.tenant_id}).count()
-    if service_count == 0:
-        DEFAULT_SERVICES = [
+    # Determine industry for this tenant
+    tenant = await Tenant.get(current_user.tenant_id)
+    industry = tenant.industry if tenant else "travel"
+
+    # Industry-specific default services to auto-seed
+    INDUSTRY_SERVICES = {
+        "travel": [
             "Accommodation", "Air Tickets", "Amusement Park", "Angling", "Biking", "Bungee Jumping",
             "Camping", "Casino", "Chopper Ride", "Currency Exchange", "Cycling",
             "Desert Safari", "Escorting", "Event Management", "Fixed Departures",
@@ -36,7 +40,50 @@ async def get_supplier_form_data(current_user: User = Depends(get_current_user))
             "Skydiving", "Snorkeling and Scuba Diving", "Souvenirs", "Surfing",
             "Transportation", "Travel Accessories", "Travel Insurance", "Travel Publication",
             "Travel Technology", "Trekking", "Visa", "Wild Life Safari", "Zip-lining", "Yacht Rental"
-        ]
+        ],
+        "healthcare": [
+            "Lab Services", "Radiology", "Pharmacy", "Surgery Center", "Consultation",
+            "Physical Therapy", "Home Care", "Medical Devices", "Ambulance Service",
+            "Medical Supplies", "Pathology", "Nursing Services", "Rehabilitation",
+            "Mental Health Services", "Dental Services", "Optometry",
+        ],
+        "education": [
+            "Tutoring", "Counseling", "Test Prep", "Placement Services", "Library Services",
+            "Lab Access", "Campus Housing", "Certification", "Student Transport",
+            "E-Learning Platform", "Publishing", "Career Guidance", "Scholarship Admin",
+        ],
+        "manufacturing": [
+            "Raw Materials", "Machining", "Casting", "Tooling", "Logistics",
+            "Quality Testing", "Assembly", "Packaging", "Warehousing",
+            "Surface Treatment", "Welding", "CNC Services", "3D Printing",
+        ],
+    }
+
+    # Industry-specific supplier types
+    INDUSTRY_SUPPLIER_TYPES = {
+        "travel": [
+            "DMC", "Airlines", "Hotel", "Tour Operator", "Visa Facilitator",
+            "Transporters", "Embassy", "Travel Insurance", "Miscellaneous",
+        ],
+        "healthcare": [
+            "Hospital", "Clinic", "Laboratory", "Pharmacy", "Medical Device Supplier",
+            "Insurance Company", "Ambulance Service", "Specialist Practice", "Miscellaneous",
+        ],
+        "education": [
+            "University", "College", "Coaching Center", "Testing Agency",
+            "Publisher", "Ed-Tech Platform", "Placement Agency", "Miscellaneous",
+        ],
+        "manufacturing": [
+            "Raw Material Supplier", "Component Vendor", "OEM", "Contract Manufacturer",
+            "Logistics Provider", "Quality Lab", "Tooling Supplier", "Miscellaneous",
+        ],
+    }
+
+    DEFAULT_SERVICES = INDUSTRY_SERVICES.get(industry, INDUSTRY_SERVICES["travel"])
+
+    # Auto-seed logic for dynamic picklists
+    service_count = await SupplierServicePicklist.find({"tenant_id": current_user.tenant_id}).count()
+    if service_count == 0:
         services_to_insert = [
             SupplierServicePicklist(
                 name=service,
@@ -62,7 +109,9 @@ async def get_supplier_form_data(current_user: User = Depends(get_current_user))
     return {
         "users": [{"id": str(u.id), "name": u.name} for u in users],
         "services": [{"id": str(s.id), "name": s.name} for s in services],
-        "current_user_name": current_user.name
+        "current_user_name": current_user.name,
+        "supplier_types": INDUSTRY_SUPPLIER_TYPES.get(industry, INDUSTRY_SUPPLIER_TYPES["travel"]),
+        "industry": industry,
     }
 
 @router.post("/", response_model=SupplierResponse, status_code=201)

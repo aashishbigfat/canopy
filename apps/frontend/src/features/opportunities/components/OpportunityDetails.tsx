@@ -82,6 +82,7 @@ import { templatesService, Template } from "@/lib/api/services/templates.service
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { EmailEditor } from "@/components/shared/EmailEditor";
 import { Input } from "@/components/ui/input";
+import { useIndustry } from "@/lib/industry-labels";
 
 interface OpportunityDetailsProps {
     opportunity: Opportunity;
@@ -94,6 +95,7 @@ export function OpportunityDetails({
 }: OpportunityDetailsProps) {
     const router = useRouter();
     const queryClient = useQueryClient();
+    const industry = useIndustry();
     const [isCloseLostDialogOpen, setIsCloseLostDialogOpen] = useState(false);
     const [pendingCloseLostStageId, setPendingCloseLostStageId] = useState<string>("");
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -343,14 +345,25 @@ export function OpportunityDetails({
                                         {record.contact_email || "-"} | {record.contact_phone || "-"}
                                     </p>
                                 </div>
-                                <div className="space-y-1">
-                                    <p className="text-xs text-slate-400">Travel Date | No of Pax</p>
-                                    <p className="font-medium text-slate-700">
-                                        {record.travel_date
-                                            ? formatDate(record.travel_date)
-                                            : "-"} | {record.no_of_pax || "-"}
-                                    </p>
-                                </div>
+                                {industry === "travel" ? (
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-slate-400">Travel Date | No of Pax</p>
+                                        <p className="font-medium text-slate-700">
+                                            {record.industry_data?.travel_date
+                                                ? formatDate(record.industry_data.travel_date)
+                                                : "-"} | {record.industry_data?.no_of_pax || "-"}
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-1">
+                                        <p className="text-xs text-slate-400">Close Date | Amount</p>
+                                        <p className="font-medium text-slate-700">
+                                            {record.close_date
+                                                ? formatDate(record.close_date)
+                                                : "-"} | {record.amount ? formatCurrency(record.amount) : "-"}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -445,11 +458,11 @@ export function OpportunityDetails({
                     <Tabs defaultValue="activity" className="w-full bg-white rounded-lg border shadow-sm">
                         <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 max-w-full overflow-x-auto flex-nowrap scrollbar-hide">
                             <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Activity</TabsTrigger>
-                            <TabsTrigger value="departures" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Departures</TabsTrigger>
+                            {industry === "travel" && <TabsTrigger value="departures" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Departures</TabsTrigger>}
                             <TabsTrigger value="details" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Details</TabsTrigger>
-                            <TabsTrigger value="itineraries" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Itineraries</TabsTrigger>
+                            {industry === "travel" && <TabsTrigger value="itineraries" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Itineraries</TabsTrigger>}
                             <TabsTrigger value="financial" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Financial</TabsTrigger>
-                            <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Supplier</TabsTrigger>
+                            <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">{industry === "travel" ? "Supplier" : "Vendor"}</TabsTrigger>
                             <TabsTrigger value="attachments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Attachments</TabsTrigger>
                             <span className="flex items-center px-4 py-3">
                                 <button onClick={() => setIsEditDrawerOpen(true)} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
@@ -636,69 +649,123 @@ export function OpportunityDetails({
                                                 </Badge>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
-                                                <span className="text-sm font-medium pt-1 block text-slate-700">
-                                                    {record.experience_name || "-"}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
-                                                <span className="text-sm font-medium pt-1 block">
-                                                    {record.travel_date ? format(new Date(record.travel_date), "PPP") : "Not Set"}
-                                                </span>
-                                            </div>
-                                            <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
                                                 <span className="text-sm font-medium pt-1 block">
                                                     {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
                                                 </span>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
-                                                <p className="text-sm font-semibold pt-1">{record.no_of_pax || "-"}</p>
-                                            </div>
-                                            {(record as any).no_of_nights > 0 && (
-                                                <div className="space-y-1">
-                                                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
-                                                    <p className="text-sm font-semibold pt-1">{(record as any).no_of_nights}</p>
-                                                </div>
-                                            )}
-                                            <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Source</p>
                                                 <span className="text-sm font-medium pt-1 block text-blue-600 cursor-pointer hover:underline">
                                                     {(record as any).source_name || "-"}
                                                 </span>
                                             </div>
-                                            <div className="space-y-2 col-span-full mt-4">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
-                                                <div className="flex flex-wrap gap-2 pt-1">
-                                                    {record.destination_names && record.destination_names.length > 0 ? (
-                                                        record.destination_names.map((dest, i) => (
-                                                            <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
-                                                                <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
-                                                                {dest}
-                                                            </Badge>
-                                                        ))
-                                                    ) : (
-                                                        <p className="text-sm text-slate-400">No destinations specified</p>
+
+                                            {/* ── Industry-Specific Fields ── */}
+                                            {industry === "travel" && (
+                                                <>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
+                                                        <span className="text-sm font-medium pt-1 block text-slate-700">
+                                                            {record.experience_name || "-"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
+                                                        <span className="text-sm font-medium pt-1 block">
+                                                            {record.industry_data?.travel_date ? format(new Date(record.industry_data.travel_date), "PPP") : "Not Set"}
+                                                        </span>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
+                                                        <p className="text-sm font-semibold pt-1">{record.industry_data?.no_of_pax || "-"}</p>
+                                                    </div>
+                                                    {record.industry_data?.no_of_nights > 0 && (
+                                                        <div className="space-y-1">
+                                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
+                                                            <p className="text-sm font-semibold pt-1">{record.industry_data.no_of_nights}</p>
+                                                        </div>
                                                     )}
-                                                </div>
-                                            </div>
-                                            <div className="space-y-2 col-span-full mt-2">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inclusions</p>
-                                                <div className="flex flex-wrap gap-2 pt-1">
-                                                    {record.inclusions && record.inclusions.length > 0 ? (
-                                                        record.inclusions.map((inclusion, i) => (
-                                                            <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 font-medium">
-                                                                <CheckCircle2 className="h-3 w-3 mr-1.5 text-emerald-600" />
-                                                                {inclusion}
-                                                            </Badge>
-                                                        ))
-                                                    ) : (
-                                                        <p className="text-sm text-slate-400">No inclusions specified</p>
-                                                    )}
-                                                </div>
-                                            </div>
+                                                    <div className="space-y-2 col-span-full mt-4">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
+                                                        <div className="flex flex-wrap gap-2 pt-1">
+                                                            {record.industry_data?.destination_names && record.industry_data.destination_names.length > 0 ? (
+                                                                record.industry_data.destination_names.map((dest: string, i: number) => (
+                                                                    <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
+                                                                        <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
+                                                                        {dest}
+                                                                    </Badge>
+                                                                ))
+                                                            ) : (
+                                                                <p className="text-sm text-slate-400">No destinations specified</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-2 col-span-full mt-2">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inclusions</p>
+                                                        <div className="flex flex-wrap gap-2 pt-1">
+                                                            {record.industry_data?.inclusions && record.industry_data.inclusions.length > 0 ? (
+                                                                record.industry_data.inclusions.map((inclusion: string, i: number) => (
+                                                                    <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 font-medium">
+                                                                        <CheckCircle2 className="h-3 w-3 mr-1.5 text-emerald-600" />
+                                                                        {inclusion}
+                                                                    </Badge>
+                                                                ))
+                                                            ) : (
+                                                                <p className="text-sm text-slate-400">No inclusions specified</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </>
+                                            )}
+                                            {industry === "healthcare" && (
+                                                <>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Treatment Type</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.treatment_type || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Appointment Date</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.appointment_date ? format(new Date((record as any).industry_data.appointment_date), "PPP") : "Not Set"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Insurance Pre-Auth</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.insurance_preauth || "-"}</p>
+                                                    </div>
+                                                </>
+                                            )}
+                                            {industry === "education" && (
+                                                <>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Program / Course</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.program || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Admission Status</p>
+                                                        <p className="text-sm font-semibold pt-1 capitalize">{(record as any).industry_data?.admission_status || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Interview Date</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.interview_date ? format(new Date((record as any).industry_data.interview_date), "PPP") : "Not Set"}</p>
+                                                    </div>
+                                                </>
+                                            )}
+                                            {industry === "manufacturing" && (
+                                                <>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Product / SKU</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.product_category || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Quantity / UOM</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.quantity || "-"} {(record as any).industry_data?.uom || ""}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Delivery Date</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.delivery_date ? format(new Date((record as any).industry_data.delivery_date), "PPP") : "Not Set"}</p>
+                                                    </div>
+                                                </>
+                                            )}
                                             <div className="space-y-1 col-span-full mt-2">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
                                                 <p className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">

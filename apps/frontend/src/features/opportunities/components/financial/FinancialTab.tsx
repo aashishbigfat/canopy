@@ -56,17 +56,18 @@ export function FinancialTab({ opportunity }: Props) {
                 );
             })
             .catch(() => {
-                // Fallback: use opportunity.destination_names if API fails
-                if (opportunity.destination_names && opportunity.destination_names.length > 0) {
+                // Fallback: use opportunity.industry_data.destination_names if API fails
+                const destNames = opportunity.industry_data?.destination_names;
+                if (destNames && destNames.length > 0) {
                     setDestOptions(
-                        opportunity.destination_names.map((name) => ({
+                        destNames.map((name: string) => ({
                             label: name,
                             value: name,
                         }))
                     );
                 }
             });
-    }, [opportunity.id, opportunity.destination_names]);
+    }, [opportunity.id, opportunity.industry_data?.destination_names]);
 
     return (
         <div className="space-y-0">

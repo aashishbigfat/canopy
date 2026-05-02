@@ -12,8 +12,10 @@ import { LeaderBoardKPIs } from "@/features/dashboard/components/LeaderBoardKPIs
 import { SalesChart } from "@/features/dashboard/components/SalesChart";
 import { UserActivities } from "@/features/dashboard/components/UserActivities";
 import { PipelineChart } from "@/features/dashboard/components/PipelineChart";
+import { useIndustry } from "@/lib/industry-labels";
 
 export default function DashboardClientPage() {
+    const industry = useIndustry();
     const { data: queryData, isLoading: loading, error } = useQuery({
         queryKey: ["dashboard", "overview"],
         queryFn: async () => {
@@ -143,7 +145,7 @@ export default function DashboardClientPage() {
                     <div className="mb-6">
                         <h3 className="text-lg font-bold text-slate-900">Recent Tasks</h3>
                         <p className="text-sm font-semibold text-slate-400 mt-1">
-                            Missed ({taskSummary?.missed_count ?? 0}) | Payment ({taskSummary?.payment_reminder_count ?? 0})
+                            Missed ({taskSummary?.missed_count ?? 0}) | Reminders ({taskSummary?.payment_reminder_count ?? 0})
                         </p>
                     </div>
                     <div className="space-y-3">
@@ -167,7 +169,7 @@ export default function DashboardClientPage() {
                                 <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-200/60 text-blue-700">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                 </span>
-                                Today&apos;s Payment Reminder ({taskSummary?.payment_reminder_count ?? 0})
+                                Today&apos;s {industry === "travel" ? "Payment Reminder" : "Due Tasks"} ({taskSummary?.payment_reminder_count ?? 0})
                             </span>
                             <span className="text-blue-400 font-bold text-lg">→</span>
                         </Link>
@@ -184,41 +186,92 @@ export default function DashboardClientPage() {
                             <tr className="border-b border-slate-100 text-left text-slate-400">
                                 <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">ID</th>
                                 <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Name</th>
-                                <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Travel Date</th>
-                                <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Pax/Nights</th>
+                                {industry === "travel" && (
+                                    <>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Travel Date</th>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Pax / Nights</th>
+                                    </>
+                                )}
+                                {industry === "healthcare" && (
+                                    <>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Urgency</th>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Patient Type</th>
+                                    </>
+                                )}
+                                {industry === "education" && (
+                                    <>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Program</th>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Academic Term</th>
+                                    </>
+                                )}
+                                {industry === "manufacturing" && (
+                                    <>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Product</th>
+                                        <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Quantity</th>
+                                    </>
+                                )}
+                                <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Amount</th>
                                 <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Stage</th>
                                 <th className="pb-4 font-bold uppercase tracking-wider text-[11px]">Owner</th>
                             </tr>
                         </thead>
                         <tbody>
                             {safeKeyDeals.length > 0 ? (
-                                safeKeyDeals.map((deal: any) => (
-                                    <tr key={deal.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
-                                        <td className="py-3.5 pr-3 text-slate-500">
-                                            <Link href={`/opportunities/${deal.id}`} className="hover:text-indigo-600 hover:underline">
-                                                #{deal.id.substring(deal.id.length - 4)}
-                                            </Link>
-                                        </td>
-                                        <td className="py-3.5 pr-3 font-semibold text-slate-900">
-                                            <Link href={`/opportunities/${deal.id}`} className="hover:text-indigo-600 hover:underline">
-                                                {deal.name}
-                                            </Link>
-                                        </td>
-                                        <td className="py-3.5 pr-3 text-slate-500">{deal.travel_date || "-"}</td>
-                                        <td className="py-3.5 pr-3 text-slate-500">
-                                            {deal.pax || 0} / {deal.nights || 0}
-                                        </td>
-                                        <td className="py-3.5 pr-3">
-                                            <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
-                                                {deal.stage}
-                                            </span>
-                                        </td>
-                                        <td className="py-3.5 text-slate-500">{deal.owner_name}</td>
-                                    </tr>
-                                ))
+                                safeKeyDeals.map((deal: any) => {
+                                    const idata = deal.industry_data || {};
+                                    return (
+                                        <tr key={deal.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
+                                            <td className="py-3.5 pr-3 text-slate-500">
+                                                <Link href={`/opportunities/${deal.id}`} className="hover:text-indigo-600 hover:underline">
+                                                    #{deal.id.substring(deal.id.length - 4)}
+                                                </Link>
+                                            </td>
+                                            <td className="py-3.5 pr-3 font-semibold text-slate-900">
+                                                <Link href={`/opportunities/${deal.id}`} className="hover:text-indigo-600 hover:underline">
+                                                    {deal.name}
+                                                </Link>
+                                            </td>
+                                            {industry === "travel" && (
+                                                <>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.travel_date || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-slate-500">
+                                                        {idata.no_of_pax || 0} / {idata.no_of_nights || 0}
+                                                    </td>
+                                                </>
+                                            )}
+                                            {industry === "healthcare" && (
+                                                <>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.urgency || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.patient_type || "-"}</td>
+                                                </>
+                                            )}
+                                            {industry === "education" && (
+                                                <>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.program || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.academic_term || "-"}</td>
+                                                </>
+                                            )}
+                                            {industry === "manufacturing" && (
+                                                <>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.product_category || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.quantity || "-"}</td>
+                                                </>
+                                            )}
+                                            <td className="py-3.5 pr-3 font-semibold text-emerald-600">
+                                                {deal.amount ? `₹${Number(deal.amount).toLocaleString("en-IN")}` : "-"}
+                                            </td>
+                                            <td className="py-3.5 pr-3">
+                                                <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                                                    {deal.stage}
+                                                </span>
+                                            </td>
+                                            <td className="py-3.5 text-slate-500">{deal.owner_name}</td>
+                                        </tr>
+                                    );
+                                })
                             ) : (
                                 <tr className="border-b">
-                                    <td colSpan={6} className="py-8 text-center text-muted-foreground">
+                                    <td colSpan={7} className="py-8 text-center text-muted-foreground">
                                         No key deals.{" "}
                                         <Link href="/opportunities" className="text-indigo-600 hover:underline font-semibold">
                                             View opportunities

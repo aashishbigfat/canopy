@@ -127,7 +127,7 @@ app.include_router(products.router, prefix="/api/v1/products", tags=["Products"]
 app.include_router(quotes.router, prefix="/api/v1/quotes", tags=["Quotes"])
 app.include_router(invoices.router, prefix="/api/v1/invoices", tags=["Invoices"])
 app.include_router(countries.router, prefix="/api/v1/countries", tags=["Countries"])
-app.include_router(activity_logs.router, prefix="/api/v1/activity-logs", tags=["Activity Logs"])
+app.include_router(activity_logs.router, prefix="/api/v1/timeline", tags=["Timeline Events"])
 app.include_router(settings_routes.router, prefix="/api/v1/settings", tags=["Settings"])
 app.include_router(tags.router, prefix="/api/v1/tags", tags=["Tags"])
 app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["Notifications"])

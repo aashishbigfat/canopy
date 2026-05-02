@@ -1,8 +1,12 @@
 """
-Pydantic schemas for Quote API
+Pydantic schemas for Quote API — Industry-agnostic
+
+Travel-specific fields (travel_date, return_date, num_adults, etc.) are no
+longer on these schemas.  They live inside `industry_data` and are validated
+per-industry by schemas/industry_data/__init__.py.
 """
-from pydantic import BaseModel, Field
-from typing import Optional, List
+from pydantic import BaseModel, Field, BeforeValidator
+from typing import Optional, List, Dict, Any, Annotated
 from datetime import datetime
 
 
@@ -65,7 +69,7 @@ class QuoteItemResponse(QuoteItemBase):
 
 
 class QuoteBase(BaseModel):
-    """Base schema for Quote"""
+    """Base schema for Quote — universal across all industries"""
     name: str
     opportunity_id: Optional[str] = None
     contact_id: Optional[str] = None
@@ -76,12 +80,9 @@ class QuoteBase(BaseModel):
     tax_percent: float = 0.0
     terms_and_conditions: Optional[str] = None
     notes: Optional[str] = None
-    travel_date: datetime = Field(..., description="Travel date is required")
-    return_date: Optional[datetime] = None
-    num_adults: int = 0
-    num_children: int = 0
-    num_infants: int = 0
-    destinations: List[str] = Field(default_factory=list)
+
+    # Industry-specific data (validated per-industry via validate_industry_data)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class QuoteCreate(QuoteBase):
@@ -102,52 +103,42 @@ class QuoteUpdate(BaseModel):
     tax_percent: Optional[float] = None
     terms_and_conditions: Optional[str] = None
     notes: Optional[str] = None
-    travel_date: Optional[datetime] = None
-    return_date: Optional[datetime] = None
-    num_adults: Optional[int] = None
-    num_children: Optional[int] = None
-    num_infants: Optional[int] = None
-    destinations: Optional[List[str]] = None
+
+    # Industry-specific data
+    industry_data: Optional[Dict[str, Any]] = None
 
 
-class QuoteResponse(QuoteBase):
-    """Schema for quote response"""
-    id: str
+class QuoteResponse(BaseModel):
+    """Schema for quote response — industry-agnostic"""
+    id: Annotated[str, BeforeValidator(str)]
     quote_number: str
-    tenant_id: str
-    owner_id: str
+    name: str
+    tenant_id: Annotated[str, BeforeValidator(str)]
+    owner_id: Annotated[str, BeforeValidator(str)]
+    opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    contact_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     status: str
     quote_date: datetime
-    subtotal: float
-    discount_amount: float
-    tax_amount: float
-    total: float
+    valid_until: Optional[datetime] = None
+    currency: str = "USD"
+    discount_percent: float = 0.0
+    tax_percent: float = 0.0
+    terms_and_conditions: Optional[str] = None
+    notes: Optional[str] = None
+    subtotal: float = 0.0
+    discount_amount: float = 0.0
+    tax_amount: float = 0.0
+    total: float = 0.0
+
+    # Industry-specific data (all industries)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
     created_at: datetime
     updated_at: datetime
     
     class Config:
         from_attributes = True
-    
-    @classmethod
-    def from_orm(cls, obj):
-        """Convert ObjectId fields to strings for API response"""
-        if hasattr(obj, 'id'):
-            data = obj.model_dump()
-            # Convert ObjectId fields to strings
-            data['id'] = str(obj.id)
-            if hasattr(obj, 'tenant_id') and obj.tenant_id:
-                data['tenant_id'] = str(obj.tenant_id)
-            if hasattr(obj, 'owner_id') and obj.owner_id:
-                data['owner_id'] = str(obj.owner_id)
-            if hasattr(obj, 'opportunity_id') and obj.opportunity_id:
-                data['opportunity_id'] = str(obj.opportunity_id)
-            if hasattr(obj, 'contact_id') and obj.contact_id:
-                data['contact_id'] = str(obj.contact_id)
-            if hasattr(obj, 'account_id') and obj.account_id:
-                data['account_id'] = str(obj.account_id)
-            
-            return cls(**data)
-        return cls()
 
 
 class QuoteDetailResponse(QuoteResponse):

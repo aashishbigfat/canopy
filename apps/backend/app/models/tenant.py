@@ -1,6 +1,6 @@
 from beanie import Indexed, PydanticObjectId
 from pydantic import EmailStr, Field
-from typing import Optional, List
+from typing import Optional, List, Dict
 from datetime import datetime
 from app.models.base import BaseDocument
 
@@ -35,6 +35,10 @@ class Tenant(BaseDocument):
     # Limits
     max_users: int = 5
     max_storage_gb: int = 10
+    
+    # Industry Configuration (Multi-Industry CRM)
+    industry: str = "travel"  # travel | healthcare | education | manufacturing
+    modules: Dict[str, bool] = Field(default_factory=dict)
     
     class Settings:
         name = "tenants"

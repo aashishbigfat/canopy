@@ -13,7 +13,7 @@
 // Full absolute URL to the deployed backend, read from Vercel env vars.
 // NEXT_PUBLIC_API_URL must be set in Vercel project settings to:
 //   https://tutterfly-backend.bigfat.ai/api/v1
-const LOCAL_API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const LOCAL_API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
 
 // On Vercel/production the "remote" base must also be the real absolute URL.
 // Never use a relative path like "/api/v1" — server-side fetch() needs a full hostname.

@@ -5,13 +5,13 @@ import { toast } from 'sonner';
 
 // Token refresh management
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshSubscribers: ((token: string | null) => void)[] = [];
 
-const addRefreshSubscriber = (callback: (token: string) => void) => {
+const addRefreshSubscriber = (callback: (token: string | null) => void) => {
     refreshSubscribers.push(callback);
 };
 
-const onTokenRefreshed = (token: string) => {
+const onTokenRefreshed = (token: string | null) => {
     refreshSubscribers.forEach(callback => callback(token));
     refreshSubscribers = [];
 };
@@ -66,12 +66,16 @@ apiClient.interceptors.response.use(
             originalRequest._retry = true;
 
             if (isRefreshing) {
-                return new Promise((resolve) => {
-                    addRefreshSubscriber((token: string) => {
-                        if (originalRequest.headers) {
-                            originalRequest.headers.Authorization = `Bearer ${token}`;
+                return new Promise((resolve, reject) => {
+                    addRefreshSubscriber((token: string | null) => {
+                        if (token) {
+                            if (originalRequest.headers) {
+                                originalRequest.headers.Authorization = `Bearer ${token}`;
+                            }
+                            resolve(apiClient(originalRequest));
+                        } else {
+                            reject(new Error('Token refresh failed'));
                         }
-                        resolve(apiClient(originalRequest));
                     });
                 });
             }
@@ -99,8 +103,12 @@ apiClient.interceptors.response.use(
 
                 return apiClient(originalRequest);
             } catch (refreshError) {
-                // Refresh failed, sign out user
-                await signOut({ callbackUrl: '/login' });
+                // Refresh failed, notify subscribers and sign out user
+                onTokenRefreshed(null);
+                
+                // Start sign out immediately but do not await to unblock caller
+                signOut({ callbackUrl: '/login' });
+                
                 return Promise.reject(refreshError);
             } finally {
                 isRefreshing = false;

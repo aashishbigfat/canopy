@@ -1,5 +1,9 @@
 """
-Opportunity model matching Laravel Opportunity - Sales Pipeline Management
+Opportunity model - Industry-agnostic Sales Pipeline Management
+
+Travel-specific fields (travel_date, no_of_pax, destination_ids, etc.) have been
+migrated to the `industry_data` dict. All industries (including travel) now
+store their metadata in `industry_data`.
 """
 from beanie import Indexed
 from pydantic import Field
@@ -15,14 +19,6 @@ class Opportunity(BaseDocument):
     name: Indexed(str)
     amount: Optional[float] = None
     description: Optional[str] = None
-    
-    # Travel-specific fields (for travel CRM)
-    no_of_pax: Optional[int] = None  # Number of passengers
-    no_of_nights: Optional[int] = None
-    no_of_adults: Optional[int] = None
-    no_of_childs: Optional[int] = None
-    no_of_infants: Optional[int] = None
-    travel_date: Optional[datetime] = None
     close_date: Optional[datetime] = None
     
     # Sales Information
@@ -40,20 +36,13 @@ class Opportunity(BaseDocument):
     
     # Classification
     opportunity_type_id: Optional[PydanticObjectId] = None
-    experience_id: Optional[PydanticObjectId] = None
     
     # Source tracking
     source_id: Optional[PydanticObjectId] = None
     source_medium_id: Optional[PydanticObjectId] = None
     source_url: Optional[str] = None
     
-    # Destinations & Origins (many-to-many)
-    destination_ids: List[PydanticObjectId] = Field(default_factory=list)
-    origin_ids: List[PydanticObjectId] = Field(default_factory=list)
-    country_ids: List[PydanticObjectId] = Field(default_factory=list)
-    
-    # Inclusions & Close Lost Reason
-    inclusions: List[str] = Field(default_factory=list)  # e.g. ["Air Ticket", "Visa"]
+    # Close lost reason
     close_lost_reason: Optional[str] = None
     
     # Team & Operations
@@ -67,21 +56,22 @@ class Opportunity(BaseDocument):
     last_modified_by_id: Optional[PydanticObjectId] = None
     
     # Additional flags
-    is_fixed: bool = False
     is_queue: bool = False
     key_deal: bool = False
-    country_of_origin: Optional[str] = None
     segment: Optional[str] = "B2C"  # B2B or B2C
-    
-    # Departure
-    departure_id: Optional[PydanticObjectId] = None
-    custom_departure: Optional[str] = None
     
     # Financial year
     fyear: Optional[str] = None
     
     # Custom Fields
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
+    
+    # Industry-specific data — ALL industries store metadata here.
+    # Travel: travel_date, no_of_pax, destination_ids, inclusions, etc.
+    # Healthcare: treatment_type, insurance_id, etc.
+    # Education: course_id, enrollment_date, etc.
+    # Manufacturing: order_type, production_line, etc.
+    industry_data: Dict[str, Any] = Field(default_factory=dict)
     
     # Metadata
     view_count: int = 0

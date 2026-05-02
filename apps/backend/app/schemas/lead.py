@@ -1,10 +1,18 @@
 """
-Pydantic schemas for Lead API
+Pydantic schemas for Lead API — Industry-agnostic
+
+Travel-specific fields (travel_date, no_of_pax, destinations, etc.) are no
+longer on these schemas.  They live inside `industry_data` and are validated
+per-industry by schemas/industry_data/__init__.py.
 """
 from pydantic import BaseModel, EmailStr, Field, BeforeValidator
 from typing import Optional, Dict, List, Any, Union, Annotated
 from datetime import datetime, date
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE
+
+class LeadOwnerChange(BaseModel):
+    """Schema for changing lead owner"""
+    new_owner_id: str = Field(..., description="ID of the new owner user")
 import re
 
 def safe_phone_validator(v: Any) -> Optional[str]:
@@ -15,7 +23,7 @@ def safe_phone_validator(v: Any) -> Optional[str]:
     return str(v)
 
 class LeadBase(BaseModel):
-    """Base schema for Lead"""
+    """Base schema for Lead — universal across all industries"""
     salutation: Optional[str] = None
     first_name: str = Field(..., max_length=100)
     middle_name: Optional[str] = None
@@ -40,27 +48,20 @@ class LeadBase(BaseModel):
     industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
-    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
-    # New Fields
+    # Universal CRM fields
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
-    travel_date: str = Field(..., description="Travel date is required")
-    no_of_nights: Optional[int] = Field(None, ge=1)
-    no_of_adults: Optional[int] = Field(None, ge=1)
-    no_of_pax: Optional[int] = Field(None, ge=1)
-    no_of_childs: Optional[int] = Field(None, ge=0)
-    no_of_infants: Optional[int] = Field(None, ge=0)
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"
-    is_fixed: Optional[bool] = False
-    destinations: Optional[List[str]] = Field(default_factory=list)
     creation_type: Optional[str] = "manual"
+    
+    # Industry-specific data (validated per-industry via validate_industry_data)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class LeadCreate(LeadBase):
     """Schema for creating a lead"""
-    destination_ids: Optional[List[str]] = Field(default_factory=list)
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
@@ -86,22 +87,14 @@ class LeadUpdate(BaseModel):
     industry_id: Optional[str] = None
     source_id: Optional[str] = None
     source_medium_id: Optional[str] = None
-    experience_id: Optional[str] = None
     
-    # New Fields
+    # Universal CRM fields
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
-    travel_date: Optional[str] = None
-    no_of_nights: Optional[int] = Field(None, ge=1)
-    no_of_adults: Optional[int] = Field(None, ge=1)
-    no_of_pax: Optional[int] = Field(None, ge=1)
-    no_of_childs: Optional[int] = Field(None, ge=0)
-    no_of_infants: Optional[int] = Field(None, ge=0)
     ip_address: Optional[str] = None
-    is_fixed: Optional[bool] = None
-    destinations: Optional[List[str]] = None
     
-    destination_ids: Optional[List[str]] = None
+    # Industry-specific data
+    industry_data: Optional[Dict[str, Any]] = None
     custom_fields: Optional[Dict[str, Any]] = None
 
 
@@ -114,6 +107,7 @@ class LeadResponse(BaseModel):
     created_by_name: Optional[str] = None
     last_modified_by_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     last_modified_by_name: Optional[str] = None
+    owner_name: Optional[str] = None
 
     salutation: Optional[str] = None
     first_name: str
@@ -139,28 +133,37 @@ class LeadResponse(BaseModel):
     industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
-    experience_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
 
-    # New Fields - no ge=1 constraint here so legacy negative values don't crash the response
+    # Universal CRM fields
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
-    travel_date: Optional[str] = None
-    no_of_nights: Optional[int] = None
-    no_of_adults: Optional[int] = None
-    no_of_pax: Optional[int] = None
-    no_of_childs: Optional[int] = None
-    no_of_infants: Optional[int] = None
     ip_address: Optional[str] = None
     segment: Optional[str] = "B2C"
-    is_fixed: Optional[bool] = False
-    destinations: Optional[List[str]] = Field(default_factory=list)
     creation_type: Optional[str] = "manual"
 
     full_name: str
     is_converted: bool = False
     opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
-    destination_ids: Optional[List[str]] = Field(default_factory=list, description="List of destination IDs")
+    
+    # Industry-specific data (all industries including travel)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    
+    from pydantic import field_serializer
+    @field_serializer('industry_data', mode='plain')
+    def serialize_industry_data(self, value):
+        if not value:
+            return value
+        import bson
+        def convert_oids(val):
+            if isinstance(val, dict):
+                return {k: convert_oids(v) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [convert_oids(item) for item in val]
+            elif isinstance(val, bson.ObjectId):
+                return str(val)
+            return val
+        return convert_oids(value)
 
     created_at: datetime
     updated_at: datetime
@@ -183,19 +186,12 @@ class LeadConvert(BaseModel):
     opportunity_name: Optional[str] = None
     opportunity_amount: Optional[float] = None
     opportunity_close_date: Optional[Union[datetime, date]] = None
-    
-    # New Opportunity Fields
-    travel_date: Optional[Union[datetime, date]] = None
-    destination_ids: Optional[List[str]] = Field(default_factory=list)
-    experience_id: Optional[str] = None
-    no_of_adults: Optional[int] = Field(None, ge=1)
-    no_of_childs: Optional[int] = Field(None, ge=0)
-    no_of_infants: Optional[int] = Field(None, ge=0)
-    no_of_pax: Optional[int] = Field(None, ge=1)
     sales_stage_id: Optional[str] = None
-    no_of_nights: Optional[int] = Field(None, ge=0)
     description: Optional[str] = None
     opportunity_owner_id: Optional[str] = None
+    
+    # Industry-specific data for the new opportunity (travel_date, pax, etc.)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class LeadListResponse(BaseModel):

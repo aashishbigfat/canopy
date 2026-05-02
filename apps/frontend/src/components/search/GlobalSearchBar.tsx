@@ -4,7 +4,8 @@ import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SEARCH_MODULES, SearchModuleValue } from "@/lib/api/services/search.service";
+import { SEARCH_MODULES, getSearchModulesForIndustry, SearchModuleValue } from "@/lib/api/services/search.service";
+import { useIndustryLabels } from "@/lib/industry-labels";
 
 export function GlobalSearchBar() {
     const router = useRouter();
@@ -13,7 +14,10 @@ export function GlobalSearchBar() {
     const [dropdownOpen, setDropdownOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
-    const currentLabel = SEARCH_MODULES.find((m) => m.value === module)?.label ?? "Files";
+    const labels = useIndustryLabels();
+    const modules = getSearchModulesForIndustry(labels);
+
+    const currentLabel = modules.find((m) => m.value === module)?.label ?? "Files";
 
     const handleSearch = () => {
         const trimmed = query.trim();
@@ -53,12 +57,12 @@ export function GlobalSearchBar() {
 
                 {dropdownOpen && (
                     <div className="absolute left-0 top-full mt-2 w-48 rounded-md border border-slate-200 bg-white shadow-xl z-[200] overflow-hidden py-1">
-                        {SEARCH_MODULES.map((m) => (
+                        {modules.map((m) => (
                             <button
                                 key={m.value}
                                 type="button"
                                 onClick={() => {
-                                    setModule(m.value);
+                                    setModule(m.value as SearchModuleValue);
                                     setDropdownOpen(false);
                                 }}
                                 className={cn(

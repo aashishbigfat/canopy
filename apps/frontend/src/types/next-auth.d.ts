@@ -12,6 +12,8 @@ declare module "next-auth" {
             role?: string;
             tenantId?: string;
             permissions?: string[];
+            industry?: string;
+            modules?: Record<string, boolean>;
         };
     }
 
@@ -24,6 +26,8 @@ declare module "next-auth" {
         accessToken?: string;
         refreshToken?: string;
         permissions?: string[];
+        industry?: string;
+        modules?: Record<string, boolean>;
     }
 }
 
@@ -35,5 +39,7 @@ declare module "next-auth/jwt" {
         role?: string;
         tenantId?: string;
         permissions?: string[];
+        industry?: string;
+        modules?: Record<string, boolean>;
     }
 }

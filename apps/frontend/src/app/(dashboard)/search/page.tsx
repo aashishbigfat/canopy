@@ -18,6 +18,7 @@ import {
     SearchModuleValue,
 } from "@/lib/api/services/search.service";
 import { Button } from "@/components/ui/button";
+import { useIndustry } from "@/lib/industry-labels";
 
 // ─── Utility ──────────────────────────────────────────────────────────────────
 
@@ -198,34 +199,62 @@ function LeadsTable({ items }: { items: LeadSearchItem[] }) {
     );
 }
 
-function OpportunitiesTable({ items }: { items: OpportunitySearchItem[] }) {
+function OpportunitiesTable({ items, industry }: { items: OpportunitySearchItem[]; industry: string }) {
+    // Industry-aware column headers and cells
+    const industryColHeaders = industry === "travel"
+        ? ["Experience", "Travel Date"]
+        : industry === "healthcare"
+        ? ["Treatment Type", "Urgency"]
+        : industry === "education"
+        ? ["Program", "Admission Status"]
+        : industry === "manufacturing"
+        ? ["Product", "Quantity"]
+        : ["Details", "Status"];
+
+    function getIndustryCells(row: OpportunitySearchItem) {
+        const idata = (row as any).industry_data || {};
+        if (industry === "travel") {
+            return [row.experience || "-", formatDate(row.travel_date)];
+        } else if (industry === "healthcare") {
+            return [idata.treatment_type || "-", idata.urgency || "-"];
+        } else if (industry === "education") {
+            return [idata.program || "-", idata.admission_status || "-"];
+        } else if (industry === "manufacturing") {
+            return [idata.product_category || "-", idata.quantity_ordered || "-"];
+        }
+        return ["-", "-"];
+    }
+
     return (
         <table className="w-full">
             <thead>
                 <tr className="bg-muted/30">
                     <Th>Opportunity Name</Th>
-                    <Th>Experience</Th>
+                    <Th>{industryColHeaders[0]}</Th>
                     <Th>Account Name</Th>
                     <Th>Sales Stage</Th>
-                    <Th>Travel Date</Th>
+                    <Th>{industryColHeaders[1]}</Th>
                     <Th>Close Date</Th>
                     <Th>Owner</Th>
                     <Th>Create Date</Th>
                 </tr>
             </thead>
             <tbody>
-                {items.map((row) => (
-                    <tr key={row.id} className="hover:bg-muted/20 transition-colors">
-                        <Td><ResultLink href={row.url}>{row.opportunity_name}</ResultLink></Td>
-                        <Td>{row.experience || "-"}</Td>
-                        <Td>{row.account_name || "-"}</Td>
-                        <Td>{row.sales_stage || "-"}</Td>
-                        <Td>{formatDate(row.travel_date)}</Td>
-                        <Td>{formatDate(row.close_date)}</Td>
-                        <Td>{row.owner || "-"}</Td>
-                        <Td>{formatDate(row.create_date)}</Td>
-                    </tr>
-                ))}
+                {items.map((row) => {
+                    const cells = getIndustryCells(row);
+                    return (
+                        <tr key={row.id} className="hover:bg-muted/20 transition-colors">
+                            <Td><ResultLink href={row.url}>{row.opportunity_name}</ResultLink></Td>
+                            <Td>{cells[0]}</Td>
+                            <Td>{row.account_name || "-"}</Td>
+                            <Td>{row.sales_stage || "-"}</Td>
+                            <Td>{cells[1]}</Td>
+                            <Td>{formatDate(row.close_date)}</Td>
+                            <Td>{row.owner || "-"}</Td>
+                            <Td>{formatDate(row.create_date)}</Td>
+                        </tr>
+                    );
+                })}
             </tbody>
         </table>
     );
@@ -295,6 +324,7 @@ function SearchResultsContent() {
     const searchParams = useSearchParams();
     const module = (searchParams.get("module") ?? "files") as SearchModuleValue;
     const q = searchParams.get("q") ?? "";
+    const industry = useIndustry();
 
     const moduleLabel =
         SEARCH_MODULES.find((m) => m.value === module)?.label ?? module;
@@ -367,7 +397,7 @@ function SearchResultsContent() {
                                 <LeadsTable items={allItems as LeadSearchItem[]} />
                             )}
                             {module === "opportunities" && (
-                                <OpportunitiesTable items={allItems as OpportunitySearchItem[]} />
+                                <OpportunitiesTable items={allItems as OpportunitySearchItem[]} industry={industry} />
                             )}
                             {module === "person_accounts" && (
                                 <PersonAccountsTable items={allItems as PersonAccountSearchItem[]} />

@@ -15,8 +15,8 @@ from app.api.deps import get_current_user, check_permission
 router = APIRouter()
 
 
-@router.get("/activity/", response_model=ActivityLogListResponse)
-@router.get("/activity", response_model=ActivityLogListResponse)
+@router.get("/events/", response_model=ActivityLogListResponse)
+@router.get("/events", response_model=ActivityLogListResponse)
 async def get_activity_logs(
     user_id: Optional[str] = None,
     entity_type: Optional[str] = None,
@@ -56,7 +56,7 @@ async def get_activity_logs(
         return ActivityLogListResponse(logs=[], total=0) # Return empty list on error to avoid crash
 
 
-@router.get("/activity/entity/{entity_type}/{entity_id}")
+@router.get("/events/entity/{entity_type}/{entity_id}")
 async def get_entity_history(
     entity_type: str,
     entity_id: str,
@@ -68,7 +68,7 @@ async def get_entity_history(
     return {"logs": [ActivityLogResponse.from_orm(l) for l in logs], "total": len(logs)}
 
 
-@router.get("/activity/user/{user_id}")
+@router.get("/events/user/{user_id}")
 async def get_user_activity(
     user_id: str,
     limit: int = 50,

@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.account import AccountCreate, AccountUpdate, AccountSearch
 from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
+from app.services.webhook_service import webhook_service
 import json
 
 class AccountService(ActivityMixin):
@@ -111,6 +112,25 @@ class AccountService(ActivityMixin):
         # Track user view
         await self._track_user_view(user_id, account.id, tenant_id)
         
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="account.created",
+                payload={
+                    "account_id": str(account.id),
+                    "name": account.name,
+                    "email": account.email,
+                    "phone": account.phone,
+                    "is_person_account": account.is_person_account,
+                },
+                tenant_id=str(tenant_id),
+                entity_id=str(account.id),
+                entity_type="account",
+                triggered_by=str(user_id)
+            )
+        except Exception:
+            pass
+        
         return account
     
     async def get_account(self, account_id: str, tenant_id: ObjectId) -> Optional[Account]:
@@ -198,6 +218,7 @@ class AccountService(ActivityMixin):
             for opp in opportunities:
                 stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
                 owner_name = users_map.get(str(opp.owner_id)) if opp.owner_id else None
+                ind = opp.industry_data or {}
                 
                 related_opportunities.append({
                     "id": str(opp.id),
@@ -209,9 +230,9 @@ class AccountService(ActivityMixin):
                     "owner_name": owner_name,
                     "close_date": opp.close_date.isoformat() if opp.close_date else None,
                     "probability": opp.probability,
-                    "no_of_pax": opp.no_of_pax,
-                    "no_of_nights": opp.no_of_nights,
-                    "travel_date": opp.travel_date.isoformat() if opp.travel_date else None,
+                    "no_of_pax": ind.get('no_of_pax'),
+                    "no_of_nights": ind.get('no_of_nights'),
+                    "travel_date": ind.get('travel_date'),
                     "created_at": opp.created_at.isoformat()
                 })
         except Exception as e:
@@ -353,6 +374,23 @@ class AccountService(ActivityMixin):
             updated_fields=updated_fields
         )
         
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="account.updated",
+                payload={
+                    "account_id": str(account.id),
+                    "name": account.name,
+                    "updated_fields": {k: str(v) for k, v in updated_fields.items()},
+                },
+                tenant_id=str(tenant_id),
+                entity_id=str(account.id),
+                entity_type="account",
+                triggered_by=str(user_id)
+            )
+        except Exception:
+            pass
+        
         return account
     
     async def delete_account(self, account_id: str, tenant_id: ObjectId, user_id: ObjectId = None) -> bool:
@@ -434,6 +472,23 @@ class AccountService(ActivityMixin):
                 "email": account.email
             }
         )
+        
+        # Fire webhook event
+        try:
+            await webhook_service.trigger_event(
+                event_type="account.deleted",
+                payload={
+                    "account_id": str(account.id),
+                    "name": account.name,
+                    "email": account.email,
+                },
+                tenant_id=str(tenant_id),
+                entity_id=str(account.id),
+                entity_type="account",
+                triggered_by=str(user_id) if user_id else None
+            )
+        except Exception:
+            pass
         
         return True
     
@@ -571,6 +626,11 @@ class AccountService(ActivityMixin):
         account.owner_id = new_owner_id
         account.last_modified_by_id = current_user_id
         await account.save()
+        
+        # Populate owner name for the response
+        owner = await User.get(new_owner_id)
+        if owner:
+            setattr(account, 'owner_name', owner.name)
         
         # TODO: Send email notification about owner change
         # TODO: Dispatch background job for owner change tracking

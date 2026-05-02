@@ -41,13 +41,104 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingState, LoadingTable } from "@/components/ui/loading";
 import Link from "next/link";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
+import { useIndustry, type IndustryType } from "@/lib/industry-labels";
 
 export const getColumns = (
     statuses: LeadStatus[],
     sources: Source[],
     users: User[],
-    experiences: { id: string; name: string }[]
-): ColumnDef<Lead>[] => [
+    experiences: { id: string; name: string }[],
+    industry: IndustryType = "travel"
+): ColumnDef<Lead>[] => {
+    // Industry-specific columns that replace travel columns
+    const industryColumns: ColumnDef<Lead>[] = industry === "travel" ? [
+        {
+            id: "travel_date",
+            header: "Travel Date",
+            cell: ({ row }) => {
+                const travelDate = row.original.industry_data?.travel_date;
+                return <div className="text-sm text-gray-700">{travelDate ? travelDate : "-"}</div>;
+            },
+        },
+        {
+            id: "no_of_pax",
+            header: "No of Pax",
+            cell: ({ row }) => {
+                const pax = row.original.industry_data?.no_of_pax;
+                return <div className="text-sm text-gray-700">{pax ?? "-"}</div>;
+            },
+        },
+        {
+            id: "destinations",
+            header: "Destination(s)",
+            cell: ({ row }) => {
+                const dests = row.original.industry_data?.destination_names;
+                return <div className="text-sm text-gray-700">{Array.isArray(dests) ? dests.join(", ") : (dests || "-")}</div>;
+            },
+        },
+        {
+            id: "experience",
+            header: "Experience",
+            cell: ({ row }) => {
+                const experienceId = row.original.industry_data?.experience_id;
+                const experience = experiences.find(e => e.id === experienceId || e.name === experienceId);
+                return <div className="text-sm text-gray-700">{experience?.name || experienceId || "-"}</div>;
+            },
+        },
+    ] : industry === "healthcare" ? [
+        {
+            id: "chief_complaint",
+            header: "Chief Complaint",
+            cell: ({ row }) => {
+                const data = (row.original as any).industry_data;
+                return <div className="text-sm text-gray-700">{data?.chief_complaint || "-"}</div>;
+            },
+        },
+        {
+            id: "urgency",
+            header: "Urgency",
+            cell: ({ row }) => {
+                const data = (row.original as any).industry_data;
+                return <div className="text-sm text-gray-700 capitalize">{data?.urgency || "-"}</div>;
+            },
+        },
+    ] : industry === "education" ? [
+        {
+            id: "qualification",
+            header: "Qualification",
+            cell: ({ row }) => {
+                const data = (row.original as any).industry_data;
+                return <div className="text-sm text-gray-700">{data?.highest_qualification || "-"}</div>;
+            },
+        },
+        {
+            id: "start_date",
+            header: "Start Date",
+            cell: ({ row }) => {
+                const data = (row.original as any).industry_data;
+                return <div className="text-sm text-gray-700">{data?.preferred_start_date || "-"}</div>;
+            },
+        },
+    ] : industry === "manufacturing" ? [
+        {
+            id: "rfq_number",
+            header: "RFQ Number",
+            cell: ({ row }) => {
+                const data = (row.original as any).industry_data;
+                return <div className="text-sm text-gray-700">{data?.rfq_number || "-"}</div>;
+            },
+        },
+        {
+            id: "product_category",
+            header: "Product Category",
+            cell: ({ row }) => {
+                const data = (row.original as any).industry_data;
+                return <div className="text-sm text-gray-700">{data?.product_category || "-"}</div>;
+            },
+        },
+    ] : [];
+
+    return [
         {
             id: "select",
             header: ({ table }) => (
@@ -137,43 +228,7 @@ export const getColumns = (
                 return <div className="text-sm font-medium text-gray-700">{label}</div>;
             },
         },
-        {
-            id: "travel_date",
-            header: "Travel Date",
-            cell: ({ row }) => {
-                const travelDate = row.original.travel_date;
-                return (
-                    <div className="text-sm text-gray-700">
-                        {travelDate ? travelDate : "-"}
-                    </div>
-                );
-            },
-        },
-        {
-            id: "no_of_pax",
-            header: "No of Pax",
-            cell: ({ row }) => {
-                const pax = row.original.no_of_pax;
-                return <div className="text-sm text-gray-700">{pax ?? "-"}</div>;
-            },
-        },
-        {
-            id: "destinations",
-            header: "Destination(s)",
-            cell: ({ row }) => {
-                const dests = row.original.destinations;
-                return <div className="text-sm text-gray-700">{Array.isArray(dests) ? dests.join(", ") : (dests || "-")}</div>;
-            },
-        },
-        {
-            id: "experience",
-            header: "Experience",
-            cell: ({ row }) => {
-                const experienceId = row.original.experience_id;
-                const experience = experiences.find(e => e.id === experienceId || e.name === experienceId);
-                return <div className="text-sm text-gray-700">{experience?.name || experienceId || "-"}</div>;
-            },
-        },
+        ...industryColumns,
         {
             id: "segment",
             header: "Segment",
@@ -239,6 +294,7 @@ export const getColumns = (
             },
         },
     ];
+};
 
 interface LeadTableProps {
     data: Lead[];
@@ -276,6 +332,7 @@ export function LeadTable({
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [isPending, startTransition] = React.useTransition();
+    const industry = useIndustry();
 
     const rowSelection = React.useMemo(() => {
         const selection: Record<string, boolean> = {};
@@ -292,7 +349,7 @@ export function LeadTable({
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
 
     const columns = React.useMemo(() => {
-        const baseColumns = getColumns(lead_statuses, sources, users, experiences);
+        const baseColumns = getColumns(lead_statuses, sources, users, experiences, industry);
 
         if (baseColumns[0].id === "select") {
             baseColumns[0] = {

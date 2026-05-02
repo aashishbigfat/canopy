@@ -4,6 +4,10 @@ Pydantic schemas for Contact API
 from pydantic import BaseModel, EmailStr, Field, BeforeValidator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
+
+class ContactOwnerChange(BaseModel):
+    """Schema for changing contact owner"""
+    new_owner_id: str = Field(..., description="ID of the new owner user")
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
 import re
 

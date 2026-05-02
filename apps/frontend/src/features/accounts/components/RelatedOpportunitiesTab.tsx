@@ -57,6 +57,8 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                                 <TableHead>Name</TableHead>
                                 <TableHead>Stage</TableHead>
                                 <TableHead>Amount</TableHead>
+                                <TableHead>Travel Date</TableHead>
+                                <TableHead>Pax</TableHead>
                                 <TableHead>Probability</TableHead>
                                 <TableHead>Close Date</TableHead>
                                 <TableHead className="text-right">Actions</TableHead>
@@ -81,6 +83,14 @@ export function RelatedOpportunitiesTab({ accountId, opportunities }: RelatedOpp
                                         <div className="flex items-center gap-1">
                                             {formatCurrency(opp.amount)}
                                         </div>
+                                    </TableCell>
+                                    <TableCell>
+                                        {opp.industry_data?.travel_date
+                                            ? formatDate(opp.industry_data.travel_date)
+                                            : "-"}
+                                    </TableCell>
+                                    <TableCell>
+                                        {opp.industry_data?.no_of_pax || "-"}
                                     </TableCell>
                                     <TableCell>{opp.probability ? `${opp.probability}%` : "-"}</TableCell>
                                     <TableCell>

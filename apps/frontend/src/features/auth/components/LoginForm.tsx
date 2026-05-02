@@ -6,7 +6,7 @@ import * as z from "zod";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Plane, Stethoscope, GraduationCap, Factory } from "lucide-react";
 import { Suspense } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -29,15 +29,15 @@ import {
 import { toast } from "sonner";
 
 const INDUSTRIES = [
-    { value: "travel", label: "Travel" },
-    { value: "it", label: "IT" },
-    { value: "finance", label: "Finance" },
-    { value: "education", label: "Education" },
+    { value: "travel", label: "Travel", icon: Plane, color: "text-blue-600", email: "admin@tutterfly.com" },
+    { value: "healthcare", label: "Healthcare", icon: Stethoscope, color: "text-emerald-600", email: "admin-health@tutterfly.com" },
+    { value: "education", label: "Education", icon: GraduationCap, color: "text-violet-600", email: "admin-edu@tutterfly.com" },
+    { value: "manufacturing", label: "Manufacturing", icon: Factory, color: "text-orange-600", email: "admin-mfg@tutterfly.com" },
 ] as const;
 
 const loginSchema = z.object({
     industry: z.string().min(1, "Please select an industry"),
-    email: z.string().email("Invalid email address"),
+    email: z.string().trim().email("Invalid email address"),
     password: z.string().min(1, "Password is required"),
 });
 
@@ -58,13 +58,9 @@ function LoginFormContent() {
         },
     });
 
-    async function onSubmit(data: LoginValues) {
-        // Non-travel industries show a "coming soon" page — no backend call needed
-        if (data.industry !== "travel") {
-            router.push(`/coming-soon?industry=${data.industry}`);
-            return;
-        }
+    const selectedIndustry = form.watch("industry");
 
+    async function onSubmit(data: LoginValues) {
         setIsLoading(true);
 
         try {
@@ -81,8 +77,11 @@ function LoginFormContent() {
                 return;
             }
 
+            toast.success("Login successful", {
+                description: `Welcome to ${INDUSTRIES.find(i => i.value === data.industry)?.label || ""} CRM`,
+            });
             router.push(callbackUrl);
-            router.refresh(); // Refresh to update session in server components
+            router.refresh();
         } catch (error) {
             toast.error("Error", {
                 description: "Something went wrong. Please try again.",
@@ -91,6 +90,9 @@ function LoginFormContent() {
             setIsLoading(false);
         }
     }
+
+    // Get current industry config for styling
+    const currentIndustry = INDUSTRIES.find(i => i.value === selectedIndustry);
 
     return (
         <div className="grid gap-6">
@@ -114,11 +116,17 @@ function LoginFormContent() {
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        {INDUSTRIES.map((ind) => (
-                                            <SelectItem key={ind.value} value={ind.value}>
-                                                {ind.label}
-                                            </SelectItem>
-                                        ))}
+                                        {INDUSTRIES.map((ind) => {
+                                            const Icon = ind.icon;
+                                            return (
+                                                <SelectItem key={ind.value} value={ind.value}>
+                                                    <span className="flex items-center gap-2">
+                                                        <Icon className={`h-4 w-4 ${ind.color}`} />
+                                                        {ind.label}
+                                                    </span>
+                                                </SelectItem>
+                                            );
+                                        })}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -169,3 +177,4 @@ export function LoginForm() {
         </Suspense>
     );
 }
+

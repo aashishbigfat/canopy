@@ -8,17 +8,19 @@ from beanie import PydanticObjectId
 from datetime import datetime
 
 class LeadStatus(Document):
-    """Lead status picklist"""
+    """Lead status picklist — tenant-isolated"""
     name: Indexed(str)
     description: Optional[str] = None
     color: Optional[str] = None  # For UI display
     sorting: int = 0
     is_active: bool = True
     is_default: bool = False
-    
+    tenant_id: Optional[PydanticObjectId] = None  # tenant-scoped
+
     class Settings:
         name = "lead_statuses"
-        # indexes = ["sorting", "is_active"]
+        # indexes = ["tenant_id", "sorting", "is_active"]
+
 
 
 class Source(Document):
