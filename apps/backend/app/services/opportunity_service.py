@@ -52,10 +52,14 @@ class OpportunityService(ActivityMixin):
             if 'source_medium_id' in opp_dict and opp_dict['source_medium_id']:
                 opp_dict['source_medium_id'] = ObjectId(opp_dict['source_medium_id'])
             
+            if 'owner_id' in opp_dict and opp_dict['owner_id']:
+                opp_dict['owner_id'] = ObjectId(opp_dict['owner_id'])
+            else:
+                opp_dict['owner_id'] = user_id
+            
             opportunity = Opportunity(
                 **opp_dict,
                 tenant_id=tenant_id,
-                owner_id=user_id,
                 created_by=user_id
             )
             

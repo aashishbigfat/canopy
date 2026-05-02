@@ -46,6 +46,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useCreateOpportunity, useSalesStages, useExperiences } from "../api/useOpportunities";
+import { useGetUsers } from "@/features/admin/api/use-users";
 import { normalizeSalesStages, getProbabilityForStageId, getCloseLostReasons } from "@/features/opportunities/utils/stageConfig";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { accountsService } from "@/lib/api/services/accounts.service";
@@ -70,6 +71,7 @@ const opportunityFormSchema = z.object({
     amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Amount must be a positive number.").optional().or(z.literal("")),
     sales_stage_id: z.string().min(1, "Sales stage is required."),
     probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
+    owner_id: z.string().optional(),
     close_date: z.string().optional(),
     travel_date: z.string().optional(),
     experience_id: z.string().optional(),
@@ -106,6 +108,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     const createOpportunity = useCreateOpportunity();
     const { data: stages } = useSalesStages();
     const { data: experiences } = useExperiences();
+    const { data: usersData, isLoading: isLoadingUsers } = useGetUsers();
     const industry = useIndustry();
     const isTravel = industry === "travel";
 
@@ -190,6 +193,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
             amount: "0",
             sales_stage_id: "",
             probability: "10",
+            owner_id: "",
             close_date: new Date().toISOString().split('T')[0],
             travel_date: "",
             experience_id: "",
@@ -340,6 +344,10 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                         account_id: data.account_id || undefined,
                         contact_id: data.contact_id || undefined,
                     };
+
+                    if (data.owner_id) payload.owner_id = data.owner_id;
+                    if (data.description?.trim()) payload.description = data.description.trim();
+                    if (data.close_lost_reason) payload.close_lost_reason = data.close_lost_reason;
 
                     if (data.amount !== undefined && data.amount !== "") payload.amount = Number(data.amount);
                     if (data.probability) payload.probability = Number(data.probability);
@@ -593,6 +601,28 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                                         readOnly
                                         disabled
                                         className="bg-slate-50 text-slate-500 cursor-not-allowed"
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="owner_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Opportunity Owner</FormLabel>
+                                <FormControl>
+                                    <SearchableSelect
+                                        options={(usersData?.users || usersData?.data || []).map((user: any) => ({
+                                            label: user.name,
+                                            value: user.id
+                                        }))}
+                                        value={field.value || ""}
+                                        onValueChange={field.onChange}
+                                        disabled={isLoadingUsers}
+                                        placeholder={isLoadingUsers ? "Loading users..." : "Select owner (optional)"}
                                     />
                                 </FormControl>
                                 <FormMessage />

@@ -105,7 +105,9 @@ class SupplierResponse(SupplierBase):
     def from_orm(cls, obj):
         """Convert ObjectId fields to strings for API response"""
         if hasattr(obj, 'id'):
-            data = obj.model_dump()
+            # Exclude embedded contacts from list/detail responses
+            # (contacts are fetched via dedicated /contacts endpoint)
+            data = obj.model_dump(exclude={'contacts'})
             # Convert ObjectId fields to strings
             data['id'] = str(obj.id)
             if hasattr(obj, 'tenant_id') and obj.tenant_id:

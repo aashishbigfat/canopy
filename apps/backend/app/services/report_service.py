@@ -512,9 +512,13 @@ class ReportService:
         leads_this_month = await Lead.find(month_query).count()
         opportunities_this_month = await Opportunity.find(month_query).count()
         
-        # Won opportunities this month
+        # Won opportunities this month — scoped to THIS tenant
         from app.models.opportunity_picklists import SalesStage
-        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        tenant_obj_id = PydanticObjectId(tenant_id)
+        won_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_won == True
+        ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         won_query = {
             **base_query,

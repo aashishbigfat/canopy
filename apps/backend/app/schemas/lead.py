@@ -155,15 +155,20 @@ class LeadResponse(BaseModel):
         if not value:
             return value
         import bson
-        def convert_oids(val):
+        from datetime import datetime as _dt, date as _date
+        def convert_non_serializable(val):
             if isinstance(val, dict):
-                return {k: convert_oids(v) for k, v in val.items()}
+                return {k: convert_non_serializable(v) for k, v in val.items()}
             elif isinstance(val, list):
-                return [convert_oids(item) for item in val]
+                return [convert_non_serializable(item) for item in val]
             elif isinstance(val, bson.ObjectId):
                 return str(val)
+            elif isinstance(val, _dt):
+                return val.isoformat()
+            elif isinstance(val, _date):
+                return val.isoformat()
             return val
-        return convert_oids(value)
+        return convert_non_serializable(value)
 
     created_at: datetime
     updated_at: datetime

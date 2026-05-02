@@ -72,6 +72,7 @@ import {
     useChangeOpportunityOwner
 } from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
+import { useGetUsers } from "@/features/admin/api/use-users";
 import { OpportunityFormDrawer } from "./OpportunityFormDrawer";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -135,6 +136,41 @@ export function OpportunityDetails({
     const [emailSubject, setEmailSubject] = useState<string>("");
     const [emailBody, setEmailBody] = useState<string>("");
     const [isLoadingData, setIsLoadingData] = useState(false);
+
+    // Inline Task Form State
+    const { data: usersData } = useGetUsers();
+    const users = (usersData as any)?.users || usersData?.data || [];
+    const { mutate: createOpportunityTask, isPending: isCreatingTask } = useCreateOpportunityTask(record.id);
+    
+    const [taskSubject, setTaskSubject] = useState("");
+    const [taskAssignedTo, setTaskAssignedTo] = useState(record.owner_id || "");
+    const [taskDueDate, setTaskDueDate] = useState("");
+    const [taskAddReminder, setTaskAddReminder] = useState(false);
+
+    const handleCreateTask = () => {
+        if (!taskSubject.trim()) {
+            toast.error("Subject is required");
+            return;
+        }
+        createOpportunityTask(
+            {
+                name: taskSubject,
+                due_date: taskDueDate ? new Date(taskDueDate).toISOString() : undefined,
+                assigned_user_id: taskAssignedTo || record.owner_id,
+            },
+            {
+                onSuccess: () => {
+                    toast.success("Task created successfully");
+                    setTaskSubject("");
+                    setTaskDueDate("");
+                    setTaskAddReminder(false);
+                },
+                onError: () => {
+                    toast.error("Failed to create task");
+                }
+            }
+        );
+    };
 
     useEffect(() => {
         const fetchData = async () => {
@@ -483,17 +519,37 @@ export function OpportunityDetails({
                             <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-6">
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Subject</label>
-                                    <input type="text" className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500" />
+                                    <input 
+                                        type="text" 
+                                        value={taskSubject}
+                                        onChange={(e) => setTaskSubject(e.target.value)}
+                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500" 
+                                        placeholder="e.g. Follow up with client"
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Assigned To</label>
-                                    <select className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-white">
-                                        <option>{record.owner_name}</option>
+                                    <select 
+                                        value={taskAssignedTo}
+                                        onChange={(e) => setTaskAssignedTo(e.target.value)}
+                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-white"
+                                    >
+                                        {users.map((user: any) => (
+                                            <option key={user.id || user._id} value={user.id || user._id}>
+                                                {user.name}
+                                            </option>
+                                        ))}
+                                        {!users.length && <option value={record.owner_id}>{record.owner_name}</option>}
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Select Due Date</label>
-                                    <input type="datetime-local" className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 text-slate-400" />
+                                    <input 
+                                        type="datetime-local" 
+                                        value={taskDueDate}
+                                        onChange={(e) => setTaskDueDate(e.target.value)}
+                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 text-slate-600" 
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-500 font-medium">Name</label>
@@ -509,14 +565,25 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1.5 mt-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
-                                        <input type="checkbox" className="rounded border-slate-300" />
+                                        <input 
+                                            type="checkbox" 
+                                            checked={taskAddReminder}
+                                            onChange={(e) => setTaskAddReminder(e.target.checked)}
+                                            className="rounded border-slate-300" 
+                                        />
                                         <span className="text-xs text-slate-600 font-medium">Add Reminder</span>
                                     </label>
                                 </div>
                             </div>
 
                             <div className="flex justify-end border-b pb-6 mb-6">
-                                <Button className="bg-blue-500 hover:bg-blue-600 px-8">Save</Button>
+                                <Button 
+                                    className="bg-blue-500 hover:bg-blue-600 px-8"
+                                    onClick={handleCreateTask}
+                                    disabled={isCreatingTask}
+                                >
+                                    {isCreatingTask ? "Saving..." : "Save"}
+                                </Button>
                             </div>
 
                             {/* Task List */}

@@ -60,6 +60,7 @@ export interface OpportunityCreateData {
 
     // Pipeline
     probability?: number;
+    owner_id?: string;
 
     // Relations
     account_id?: string;

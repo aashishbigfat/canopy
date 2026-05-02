@@ -6,8 +6,9 @@ from bson import ObjectId
 from datetime import datetime, date
 from app.models.task import Task
 from app.schemas.task import TaskCreate, TaskUpdate
+from app.mixins.activity_mixin import ActivityMixin
 
-class TaskService:
+class TaskService(ActivityMixin):
     """Service for Task business logic"""
     
     async def create_task(
@@ -49,6 +50,30 @@ class TaskService:
         )
         
         await task.insert()
+        
+        # Log task creation
+        await self.log_entity_created(
+            entity=task,
+            entity_type="Task",
+            additional_data={
+                "task_name": task.name,
+                "assigned_to": str(task.assigned_user_id) if task.assigned_user_id else None,
+                "related_to": str(task.taskable_id) if task.taskable_id else None
+            }
+        )
+        
+        # Also log against the parent entity so it shows in the entity's timeline
+        if task.taskable_type and task.taskable_id:
+            from types import SimpleNamespace
+            parent_entity = SimpleNamespace(id=task.taskable_id)
+            await self.log_custom_activity(
+                action="task_created",
+                entity_type=task.taskable_type.lower(),
+                entity=parent_entity,
+                description=f"Task created: {task.name}",
+                changes={"task_id": str(task.id), "task_name": task.name}
+            )
+        
         return task
     
     async def get_task(self, task_id: str, tenant_id: ObjectId) -> Optional[Task]:
@@ -72,6 +97,9 @@ class TaskService:
         if not task:
             return None
         
+        # Save old state for logging
+        old_values = task.model_dump()
+        
         # Update fields
         update_data = task_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
@@ -79,6 +107,14 @@ class TaskService:
         
         task.last_modified_by_id = user_id
         await task.save()
+        
+        # Log task update
+        await self.log_entity_updated(
+            entity=task,
+            entity_type="Task",
+            old_values=old_values,
+            updated_fields=update_data
+        )
         
         return task
     
@@ -90,6 +126,25 @@ class TaskService:
             return False
         
         await task.soft_delete()
+        
+        # Log task deletion
+        await self.log_entity_deleted(
+            entity=task,
+            entity_type="Task"
+        )
+        
+        # Log against parent
+        if task.taskable_type and task.taskable_id:
+            from types import SimpleNamespace
+            parent_entity = SimpleNamespace(id=task.taskable_id)
+            await self.log_custom_activity(
+                action="task_deleted",
+                entity_type=task.taskable_type.lower(),
+                entity=parent_entity,
+                description=f"Task deleted: {task.name}",
+                changes={"task_id": str(task.id), "task_name": task.name}
+            )
+        
         return True
     
     async def get_tasks_by_tenant(

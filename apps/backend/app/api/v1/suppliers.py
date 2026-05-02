@@ -314,3 +314,123 @@ async def get_opportunity_suppliers(
         ],
         "total": len(suppliers)
     }
+
+
+# ==================== Supplier Contacts (Embedded) ====================
+
+from app.models.supplier_contact import SupplierContact
+from app.schemas.supplier_contact import (
+    SupplierContactCreate, SupplierContactUpdate, SupplierContactResponse
+)
+from datetime import datetime
+
+
+@router.get("/{supplier_id}/contacts")
+async def get_supplier_contacts(
+    supplier_id: str,
+    current_user: User = Depends(check_permission("view_supplier"))
+):
+    """Get all contacts embedded in a supplier"""
+    service = SupplierService()
+    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    contacts = supplier.contacts or []
+    # Sort: primary first, then alphabetically
+    contacts_sorted = sorted(contacts, key=lambda c: (not c.is_primary, c.name.lower()))
+
+    return {
+        "contacts": [SupplierContactResponse.from_embedded(c, supplier_id) for c in contacts_sorted],
+        "total": len(contacts_sorted)
+    }
+
+
+@router.post("/{supplier_id}/contacts", status_code=201)
+async def create_supplier_contact(
+    supplier_id: str,
+    data: SupplierContactCreate,
+    current_user: User = Depends(check_permission("edit_supplier"))
+):
+    """Add a new contact to a supplier (embedded)"""
+    service = SupplierService()
+    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    if supplier.contacts is None:
+        supplier.contacts = []
+
+    # If this is marked primary, unset existing primary contacts
+    if data.is_primary:
+        for c in supplier.contacts:
+            c.is_primary = False
+
+    contact = SupplierContact(**data.model_dump())
+    supplier.contacts.append(contact)
+    await supplier.save()
+
+    return SupplierContactResponse.from_embedded(contact, supplier_id)
+
+
+@router.put("/{supplier_id}/contacts/{contact_id}")
+async def update_supplier_contact(
+    supplier_id: str,
+    contact_id: str,
+    data: SupplierContactUpdate,
+    current_user: User = Depends(check_permission("edit_supplier"))
+):
+    """Update a supplier contact (embedded)"""
+    service = SupplierService()
+    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    # Find the contact by ID in the embedded array
+    target = None
+    for c in (supplier.contacts or []):
+        if c.id == contact_id:
+            target = c
+            break
+
+    if not target:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    # If setting as primary, unset others
+    if update_data.get("is_primary"):
+        for c in supplier.contacts:
+            if c.id != contact_id:
+                c.is_primary = False
+
+    for key, value in update_data.items():
+        setattr(target, key, value)
+
+    target.updated_at = datetime.utcnow()
+    await supplier.save()
+
+    return SupplierContactResponse.from_embedded(target, supplier_id)
+
+
+@router.delete("/{supplier_id}/contacts/{contact_id}")
+async def delete_supplier_contact(
+    supplier_id: str,
+    contact_id: str,
+    current_user: User = Depends(check_permission("edit_supplier"))
+):
+    """Delete a supplier contact (embedded)"""
+    service = SupplierService()
+    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    original_len = len(supplier.contacts or [])
+    supplier.contacts = [c for c in (supplier.contacts or []) if c.id != contact_id]
+
+    if len(supplier.contacts) == original_len:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    await supplier.save()
+
+    return {"error": False, "message": "Supplier contact deleted successfully"}

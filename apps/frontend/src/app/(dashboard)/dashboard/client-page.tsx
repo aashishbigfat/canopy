@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import { useSession } from "next-auth/react";
 import {
     dashboardService,
     getLeaderBoardKPIs,
@@ -16,8 +17,10 @@ import { useIndustry } from "@/lib/industry-labels";
 
 export default function DashboardClientPage() {
     const industry = useIndustry();
+    const { data: session } = useSession();
+    // Include session user ID in query key so different tenants get separate cache entries
     const { data: queryData, isLoading: loading, error } = useQuery({
-        queryKey: ["dashboard", "overview"],
+        queryKey: ["dashboard", "overview", session?.user?.id ?? "anon"],
         queryFn: async () => {
             const [data, stats, activityLogs, deals, tasks, pipeline, chart] = await Promise.all([
                 dashboardService.getDashboardData(),

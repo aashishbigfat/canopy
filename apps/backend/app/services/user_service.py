@@ -432,7 +432,12 @@ class UserService(ActivityMixin):
         month_start = datetime(now.year, now.month, 1)
         
         # Build a stage lookup map: stage_id → SalesStage document
-        all_stages = await SalesStage.find(SalesStage.is_active == True).to_list()
+        # Convert ObjectId → PydanticObjectId for Beanie model comparison
+        from beanie import PydanticObjectId as _PydObjId
+        all_stages = await SalesStage.find(
+            SalesStage.tenant_id == _PydObjId(str(tenant_id)),
+            SalesStage.is_active == True
+        ).to_list()
         won_stage_ids = {s.id for s in all_stages if s.is_won}
         lost_stage_ids = {s.id for s in all_stages if s.is_lost}
         

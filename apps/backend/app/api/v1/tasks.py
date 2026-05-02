@@ -1,7 +1,7 @@
 """
 Task API endpoints - Production-grade CRM task management
 """
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional
 from bson import ObjectId
 from beanie.operators import In
@@ -111,11 +111,13 @@ async def search_opportunity_autocomplete(
 
 @router.post("/", response_model=dict, status_code=201)
 async def create_task(
+    request: Request,
     task_data: TaskCreate,
     current_user: User = Depends(check_permission("create_task"))
 ):
     """Create a new task."""
     service = TaskService()
+    service.set_request_context(request, current_user)
     task = await service.create_task(
         task_data,
         current_user.id,
@@ -246,6 +248,7 @@ async def get_task(
 
 @router.put("/{task_id}", response_model=dict)
 async def update_task(
+    request: Request,
     task_id: str,
     task_data: TaskUpdate,
     current_user: User = Depends(check_permission("edit_task"))
@@ -253,6 +256,7 @@ async def update_task(
     """Update a task."""
     from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
+    service.set_request_context(request, current_user)
     
     # Pre-check visibility
     existing = await service.get_task(task_id, current_user.tenant_id)
@@ -279,12 +283,14 @@ async def update_task(
 
 @router.delete("/{task_id}")
 async def delete_task(
+    request: Request,
     task_id: str,
     current_user: User = Depends(check_permission("delete_task"))
 ):
     """Delete a task (soft delete)."""
     from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
+    service.set_request_context(request, current_user)
     
     # Pre-check visibility
     existing = await service.get_task(task_id, current_user.tenant_id)
@@ -305,12 +311,14 @@ async def delete_task(
 
 @router.post("/{task_id}/complete")
 async def mark_task_completed(
+    request: Request,
     task_id: str,
     current_user: User = Depends(check_permission("edit_task"))
 ):
     """Mark task as completed."""
     from app.services.visibility_scope import get_visible_owner_ids, is_task_visible
     service = TaskService()
+    service.set_request_context(request, current_user)
     
     # Pre-check visibility
     existing = await service.get_task(task_id, current_user.tenant_id)
@@ -336,12 +344,14 @@ async def mark_task_completed(
 
 @router.post("/{task_id}/follow-up", response_model=dict, status_code=201)
 async def create_follow_up_task(
+    request: Request,
     task_id: str,
     task_data: TaskCreate,
     current_user: User = Depends(check_permission("create_task"))
 ):
     """Create a follow-up task inheriting the related entity from the parent task."""
     service = TaskService()
+    service.set_request_context(request, current_user)
 
     # Fetch parent task to inherit polymorphic relation
     parent_task = await service.get_task(task_id, current_user.tenant_id)

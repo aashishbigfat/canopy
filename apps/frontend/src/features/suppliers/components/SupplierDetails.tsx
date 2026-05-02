@@ -37,6 +37,7 @@ import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { Supplier } from "../types";
 import { SupplierFormDrawer } from "./SupplierFormDrawer";
+import { SupplierContactsTab } from "./SupplierContactsTab";
 import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -119,6 +120,12 @@ export function SupplierDetails({
                                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
                             >
                                 Details
+                            </TabsTrigger>
+                            <TabsTrigger
+                                value="contacts"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                            >
+                                Contacts
                             </TabsTrigger>
                             <TabsTrigger
                                 value="rfq"
@@ -212,6 +219,10 @@ export function SupplierDetails({
                                         </div>
                                     </CollapsibleDetailSection>
                                 </div>
+                            </TabsContent>
+
+                            <TabsContent value="contacts" className="mt-0">
+                                <SupplierContactsTab supplierId={supplier.id} />
                             </TabsContent>
 
                             <TabsContent value="rfq" className="mt-0">

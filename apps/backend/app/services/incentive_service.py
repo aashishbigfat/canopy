@@ -175,9 +175,10 @@ class IncentiveService:
         from beanie import PydanticObjectId
         tenant_obj_id = PydanticObjectId(tenant_id)
         
-        # 1. Fetch Sales Stages to find won stage (stages are global, not tenant-specific)
+        # Fetch won stage scoped to THIS tenant — prevents cross-industry leakage
         from app.models.opportunity_picklists import SalesStage
         won_stage = await SalesStage.find_one(
+            SalesStage.tenant_id == tenant_obj_id,
             SalesStage.is_won == True
         )
         

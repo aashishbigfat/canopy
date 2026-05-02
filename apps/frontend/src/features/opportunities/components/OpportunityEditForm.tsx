@@ -326,7 +326,8 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                         payload.industry_data = data.industry_data;
                     }
 
-                    if (data.description) payload.description = data.description;
+                    // Always send description so it can be saved or cleared
+                    payload.description = data.description || null;
                     if (data.account_id !== undefined) payload.account_id = data.account_id || null;
                     if (data.contact_id !== undefined) payload.contact_id = data.contact_id || null;
                     // Always send close_lost_reason (empty string clears it on backend)

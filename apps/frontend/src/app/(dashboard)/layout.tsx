@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
     Bell,
     ChevronDown,
@@ -47,7 +48,12 @@ export default function DashboardLayout({
         setMounted(true);
     }, []);
 
+    const queryClient = useQueryClient();
+
     const handleLogout = async () => {
+        // Clear ALL React Query cache before logout to prevent stale
+        // cross-tenant data from showing when a different user logs in
+        queryClient.clear();
         await signOut({ redirect: false });
         router.push("/login");
         router.refresh();

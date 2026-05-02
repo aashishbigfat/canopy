@@ -238,7 +238,9 @@ async def get_opportunities(
                  "$lte": now + timedelta(days=7)
              }
         elif view == "closed":
+             # Scoped to THIS tenant — critical for multi-industry isolation
              closed_stages = await SalesStage.find(
+                 SalesStage.tenant_id == current_user.tenant_id,
                  {"$or": [{"is_won": True}, {"is_lost": True}]}
              ).to_list()
              if closed_stages:
@@ -453,7 +455,12 @@ async def get_opportunity(
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
     except Exception as e:
+        import traceback
+        logger.error(f"GET /opportunities/{opportunity_id} failed: {e}")
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
@@ -1091,6 +1098,45 @@ async def create_opportunity_task(
         from app.schemas.task import TaskResponse
         
         await task.insert()
+        
+        # Log activity
+        from app.services.activity_log_service import ActivityLogService
+        activity_service = ActivityLogService()
+        await activity_service.log_activity(
+            user_id=current_user.id,
+            user_name=current_user.name or current_user.email,
+            tenant_id=current_user.tenant_id,
+            action="created",
+            entity_type="Task",
+            entity_id=task.id,
+            entity_name=task.name,
+            description=f"Created Task: {task.name}",
+            changes={
+                "action_type": "create",
+                "new_values": {
+                    "task_name": task.name,
+                    "assigned_to": str(task.assigned_user_id) if task.assigned_user_id else None,
+                    "related_to": str(task.taskable_id) if task.taskable_id else None
+                }
+            }
+        )
+        
+        # Log activity FOR THE OPPORTUNITY so it shows in the timeline
+        await activity_service.log_activity(
+            user_id=current_user.id,
+            user_name=current_user.name or current_user.email,
+            tenant_id=current_user.tenant_id,
+            action="task_created",
+            entity_type="opportunity",
+            entity_id=ObjectId(opportunity_id),
+            entity_name=task.name,
+            description=f"Task created: {task.name}",
+            changes={
+                "action_type": "task_create",
+                "task_id": str(task.id),
+                "task_name": task.name
+            }
+        )
         
         # Use schema to safely encode ObjectIds to strings
         task_resp = TaskResponse.from_orm(task)

@@ -29,6 +29,7 @@ import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 
 import { toast } from "sonner";
 import { tasksService } from "@/lib/api/services/activities.service";
+import { useGetUsers } from "@/features/admin/api/use-users";
 
 interface EntityActivitySidebarProps {
     entityType: "Contact" | "Account" | "Lead" | "Supplier";
@@ -44,8 +45,12 @@ export function EntityActivitySidebar({
     relatedTo
 }: EntityActivitySidebarProps) {
     const { data: session } = useSession();
+    const { data: usersData } = useGetUsers();
+    const users = (usersData as any)?.users || usersData?.data || [];
+    
     const [taskSubject, setTaskSubject] = useState("");
     const [dueDate, setDueDate] = useState("");
+    const [assignedTo, setAssignedTo] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
     const handleSaveTask = async () => {
@@ -63,7 +68,7 @@ export function EntityActivitySidebar({
             setIsSaving(true);
             await tasksService.createTask({
                 name: taskSubject,
-                assigned_user_id: session.user.id,
+                assigned_user_id: assignedTo || session.user.id,
                 due_date: dueDate ? new Date(dueDate).toISOString() : undefined,
                 status: "Not Started",
                 priority: "Normal",
@@ -159,12 +164,19 @@ export function EntityActivitySidebar({
                                         <div className="grid grid-cols-1 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-slate-500">Assigned To</label>
-                                                <Select defaultValue="me">
+                                                <Select value={assignedTo || session?.user?.id || ""} onValueChange={setAssignedTo}>
                                                     <SelectTrigger className="h-9">
-                                                        <SelectValue placeholder="Assgin To" />
+                                                        <SelectValue placeholder="Assign To" />
                                                     </SelectTrigger>
                                                     <SelectContent>
-                                                        <SelectItem value="me">Me</SelectItem>
+                                                        {users.map((u: any) => (
+                                                            <SelectItem key={u.id || u._id} value={u.id || u._id}>
+                                                                {u.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                        {!users.length && session?.user && (
+                                                            <SelectItem value={session.user.id}>{session.user.name || "Me"}</SelectItem>
+                                                        )}
                                                     </SelectContent>
                                                 </Select>
                                             </div>

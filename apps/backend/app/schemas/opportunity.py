@@ -45,6 +45,7 @@ class OpportunityBase(BaseModel):
 
 class OpportunityCreate(OpportunityBase):
     """Schema for creating an opportunity"""
+    owner_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     team_member_ids: Optional[List[str]] = Field(default_factory=list)
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
@@ -239,18 +240,23 @@ class OpportunityResponse(BaseModel):
                 if isinstance(obj.close_date, datetime):
                     data['close_date'] = obj.close_date.isoformat()
                     
-            # Convert ObjectIds inside industry_data to strings recursively
+            # Convert ObjectIds and datetimes inside industry_data to strings recursively
             if 'industry_data' in data and isinstance(data['industry_data'], dict):
                 import bson
-                def convert_oids(val):
+                from datetime import datetime as _dt, date as _date
+                def convert_non_serializable(val):
                     if isinstance(val, dict):
-                        return {k: convert_oids(v) for k, v in val.items()}
+                        return {k: convert_non_serializable(v) for k, v in val.items()}
                     elif isinstance(val, list):
-                        return [convert_oids(item) for item in val]
+                        return [convert_non_serializable(item) for item in val]
                     elif isinstance(val, bson.ObjectId):
                         return str(val)
+                    elif isinstance(val, _dt):
+                        return val.isoformat()
+                    elif isinstance(val, _date):
+                        return val.isoformat()
                     return val
-                data['industry_data'] = convert_oids(data['industry_data'])
+                data['industry_data'] = convert_non_serializable(data['industry_data'])
                     
             return cls(**data)
         return cls()

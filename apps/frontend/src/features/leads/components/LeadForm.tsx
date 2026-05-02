@@ -571,7 +571,9 @@ export function LeadForm({
             lead_status_id: initialData?.lead_status_id || "",
             source_id: initialData?.source_id || "",
             source_medium: initialData?.source_medium || "",
-            combined_source: initialData?.source_id || initialData?.creation_type || "manual",
+            combined_source: isTravel
+                ? (initialData?.source_id || "")
+                : (initialData?.source_id || initialData?.creation_type || "manual"),
             industry_id: initialData?.industry_id || "",
             street: initialData?.street || "",
             city: initialData?.city || "",
@@ -706,7 +708,9 @@ export function LeadForm({
                 website: data.website,
                 title: data.title,
                 lead_status_id: data.lead_status_id || undefined,
-                source_id: ["manual", "auto"].includes(data.combined_source) ? undefined : data.combined_source,
+                source_id: isTravel
+                    ? (data.combined_source || undefined)
+                    : (["manual", "auto"].includes(data.combined_source) ? undefined : data.combined_source),
                 source_medium: data.source_medium,
                 industry_id: data.industry_id || undefined,
                 street: data.street || undefined,
@@ -716,7 +720,9 @@ export function LeadForm({
                 country: data.country,
                 campaign_name: data.campaign_name,
                 segment: data.segment,
-                creation_type: ["manual", "auto"].includes(data.combined_source) ? data.combined_source : "manual",
+                creation_type: isTravel
+                    ? (data.creation_type || "manual")
+                    : (["manual", "auto"].includes(data.combined_source) ? data.combined_source : "manual"),
             };
 
             // ALL industries: wrap industry-specific fields inside industry_data
@@ -872,13 +878,38 @@ export function LeadForm({
                                         <FormMessage />
                                     </FormItem>
                                 )} />
-                                <FormField control={form.control as any} name="combined_source" render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Source Medium <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl><SearchableSelect options={[{ label: "Manual", value: "manual" }, { label: "Auto", value: "auto" }, ...sources.map(s => ({ label: s.name, value: s.id }))]} value={field.value} onValueChange={field.onChange} placeholder="Select Source" /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )} />
+                                {isTravel ? (
+                                    <>
+                                        <FormField control={form.control as any} name="creation_type" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Creation <span className="text-red-500">*</span></FormLabel>
+                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                    <FormControl><SelectTrigger className="h-8 bg-white text-xs"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
+                                                    <SelectContent>
+                                                        <SelectItem value="manual">Manual</SelectItem>
+                                                        <SelectItem value="auto">Auto</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                        <FormField control={form.control as any} name="combined_source" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Source Medium <span className="text-red-500">*</span></FormLabel>
+                                                <FormControl><SearchableSelect options={sources.map(s => ({ label: s.name, value: s.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select source Medium" /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
+                                    </>
+                                ) : (
+                                    <FormField control={form.control as any} name="combined_source" render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Source Medium <span className="text-red-500">*</span></FormLabel>
+                                            <FormControl><SearchableSelect options={[{ label: "Manual", value: "manual" }, { label: "Auto", value: "auto" }, ...sources.map(s => ({ label: s.name, value: s.id }))]} value={field.value} onValueChange={field.onChange} placeholder="Select Source" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
+                                )}
                                 <FormField control={form.control as any} name="industry_id" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Industry</FormLabel>
@@ -1201,30 +1232,78 @@ export function LeadForm({
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control as any}
-                                        name="combined_source"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                    Source Medium <span className="text-red-500">*</span>
-                                                </FormLabel>
-                                                <FormControl>
-                                                    <SearchableSelect
-                                                        options={[
-                                                            { label: "Manual", value: "manual" },
-                                                            { label: "Auto", value: "auto" },
-                                                            ...sources.map(s => ({ label: s.name, value: s.id }))
-                                                        ]}
-                                                        value={field.value}
-                                                        onValueChange={field.onChange}
-                                                        placeholder="Select Source"
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
+                                    {isTravel ? (
+                                        <>
+                                            <FormField
+                                                control={form.control as any}
+                                                name="creation_type"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                            Creation <span className="text-red-500">*</span>
+                                                        </FormLabel>
+                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                            <FormControl>
+                                                                <SelectTrigger className="h-9 bg-white">
+                                                                    <SelectValue placeholder="Select source" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="manual">Manual</SelectItem>
+                                                                <SelectItem value="auto">Auto</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control as any}
+                                                name="combined_source"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                            Source Medium <span className="text-red-500">*</span>
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <SearchableSelect
+                                                                options={sources.map(s => ({ label: s.name, value: s.id }))}
+                                                                value={field.value}
+                                                                onValueChange={field.onChange}
+                                                                placeholder="Select source Medium"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </>
+                                    ) : (
+                                        <FormField
+                                            control={form.control as any}
+                                            name="combined_source"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                        Source Medium <span className="text-red-500">*</span>
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <SearchableSelect
+                                                            options={[
+                                                                { label: "Manual", value: "manual" },
+                                                                { label: "Auto", value: "auto" },
+                                                                ...sources.map(s => ({ label: s.name, value: s.id }))
+                                                            ]}
+                                                            value={field.value}
+                                                            onValueChange={field.onChange}
+                                                            placeholder="Select Source"
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
                                     <FormField
                                         control={form.control as any}
                                         name="campaign_name"

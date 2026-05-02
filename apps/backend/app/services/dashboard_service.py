@@ -446,9 +446,15 @@ class DashboardService:
         leads_this_month = await Lead.find(month_query).count()
         opportunities_this_month = await Opportunity.find(month_query).count()
         
-        # Fetch won/lost stages for accurate filtering
-        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
-        lost_stages = await SalesStage.find(SalesStage.is_lost == True).to_list()
+        # Fetch won/lost stages scoped to THIS tenant (critical for multi-industry isolation)
+        won_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_won == True
+        ).to_list()
+        lost_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_lost == True
+        ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         lost_stage_ids = [s.id for s in lost_stages]
         
@@ -569,8 +575,10 @@ class DashboardService:
         
         opportunities = await Opportunity.find(query).to_list()
         
-        # Fetch stages to map names
-        all_stages = await SalesStage.find().to_list()
+        # Fetch stages scoped to THIS tenant to map names (prevents cross-industry leakage)
+        all_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id
+        ).to_list()
         stages_map = {str(s.id): s.name for s in all_stages}
         
         stages = {}
@@ -602,10 +610,14 @@ class DashboardService:
         from app.models.opportunity import Opportunity
         from app.models.opportunity_picklists import SalesStage
         
-        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        tenant_obj_id = PydanticObjectId(tenant_id)
+        # Scoped to THIS tenant — prevents data leakage across industries
+        won_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_won == True
+        ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         
-        tenant_obj_id = PydanticObjectId(tenant_id)
         query = {
             "tenant_id": tenant_obj_id,
             "deleted_at": None,
@@ -650,7 +662,11 @@ class DashboardService:
         else:
             last_month_start = now.replace(month=now.month - 1, day=1, hour=0, minute=0, second=0, microsecond=0)
             
-        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
+        # Scoped to THIS tenant — prevents data leakage across industries
+        won_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_won == True
+        ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         
         query = {
@@ -713,8 +729,16 @@ class DashboardService:
         from app.models.user import User
         from app.models.opportunity_picklists import SalesStage
         
-        won_stages = await SalesStage.find(SalesStage.is_won == True).to_list()
-        lost_stages = await SalesStage.find(SalesStage.is_lost == True).to_list()
+        tenant_obj_id = PydanticObjectId(tenant_id)
+        # Scoped to THIS tenant — prevents won/lost stage IDs from other industries bleeding in
+        won_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_won == True
+        ).to_list()
+        lost_stages = await SalesStage.find(
+            SalesStage.tenant_id == tenant_obj_id,
+            SalesStage.is_lost == True
+        ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         lost_stage_ids = [s.id for s in lost_stages]
         
