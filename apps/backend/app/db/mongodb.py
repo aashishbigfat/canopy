@@ -260,6 +260,10 @@ async def init_db():
             AccountType,
             AccountSource,
             SupplierServicePicklist,
+            # Entity Views (required for frontend page loads)
+            EntityView,
+            EntityColumn,
+            EntityFilter,
             # Missing models
             UserAccountView,
             UserContactView,
