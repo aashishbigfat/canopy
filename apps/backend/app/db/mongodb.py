@@ -43,11 +43,7 @@ from app.models.territory import Region, Territory
 from app.models.incentive import Incentive, IncentiveTarget, IncentiveAchievement
 from app.models.billing import SubscriptionPlan, TenantSubscription, BillingInvoice
 from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
-from app.models.consolidated_picklists import (
-    SalesStage, OpportunityType, Experience, OpportunityTag,
-    LeadStatus, Source, SourceMedium,
-    AccountType, Industry, Rating, AccountSource, SupplierServicePicklist
-)
+from app.models.consolidated_picklists import BasePicklist
 
 # Missing models causing 500 errors
 from app.models.user_account_view import UserAccountView
@@ -248,18 +244,7 @@ async def init_db():
             WebhookEvent,
             WebhookDelivery,
             # Consolidated picklists (single collection)
-            SalesStage,
-            OpportunityType,
-            Experience,
-            OpportunityTag,
-            LeadStatus,
-            Source,
-            SourceMedium,
-            Industry,
-            Rating,
-            AccountType,
-            AccountSource,
-            SupplierServicePicklist,
+            BasePicklist,
             # Entity Views (required for frontend page loads)
             EntityView,
             EntityColumn,

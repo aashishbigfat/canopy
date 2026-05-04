@@ -33,6 +33,7 @@ class BasePicklist(Document):
     
     class Settings:
         name = "picklists"
+        is_root = True
         indexes = [
             "picklist_type",
             "tenant_id",
