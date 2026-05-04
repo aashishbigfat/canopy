@@ -327,7 +327,7 @@ async def get_opportunity_suppliers(
     }
 
 
-# ==================== Supplier Contacts (Embedded) ====================
+# ==================== Supplier Contacts (Standalone Collection) ====================
 
 from app.models.supplier_contact import SupplierContact
 from app.schemas.supplier_contact import (
@@ -341,19 +341,21 @@ async def get_supplier_contacts(
     supplier_id: str,
     current_user: User = Depends(check_permission("view_supplier"))
 ):
-    """Get all contacts embedded in a supplier"""
+    """Get all contacts for a supplier"""
     service = SupplierService()
     supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
 
-    contacts = supplier.contacts or []
-    # Sort: primary first, then alphabetically
-    contacts_sorted = sorted(contacts, key=lambda c: (not c.is_primary, c.name.lower()))
+    contacts = await SupplierContact.find(
+        SupplierContact.supplier_id == ObjectId(supplier_id),
+        SupplierContact.tenant_id == current_user.tenant_id,
+        SupplierContact.deleted_at == None,
+    ).sort([("is_primary", -1), ("name", 1)]).to_list()
 
     return {
-        "contacts": [SupplierContactResponse.from_embedded(c, supplier_id) for c in contacts_sorted],
-        "total": len(contacts_sorted)
+        "contacts": [SupplierContactResponse.from_doc(c) for c in contacts],
+        "total": len(contacts)
     }
 
 
@@ -363,25 +365,32 @@ async def create_supplier_contact(
     data: SupplierContactCreate,
     current_user: User = Depends(check_permission("edit_supplier"))
 ):
-    """Add a new contact to a supplier (embedded)"""
+    """Add a new contact to a supplier"""
     service = SupplierService()
     supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
 
-    if supplier.contacts is None:
-        supplier.contacts = []
-
     # If this is marked primary, unset existing primary contacts
     if data.is_primary:
-        for c in supplier.contacts:
+        existing_primaries = await SupplierContact.find(
+            SupplierContact.supplier_id == ObjectId(supplier_id),
+            SupplierContact.tenant_id == current_user.tenant_id,
+            SupplierContact.is_primary == True,
+            SupplierContact.deleted_at == None,
+        ).to_list()
+        for c in existing_primaries:
             c.is_primary = False
+            await c.save()
 
-    contact = SupplierContact(**data.model_dump())
-    supplier.contacts.append(contact)
-    await supplier.save()
+    contact = SupplierContact(
+        **data.model_dump(),
+        supplier_id=ObjectId(supplier_id),
+        tenant_id=current_user.tenant_id,
+    )
+    await contact.insert()
 
-    return SupplierContactResponse.from_embedded(contact, supplier_id)
+    return SupplierContactResponse.from_doc(contact)
 
 
 @router.put("/{supplier_id}/contacts/{contact_id}")
@@ -391,37 +400,32 @@ async def update_supplier_contact(
     data: SupplierContactUpdate,
     current_user: User = Depends(check_permission("edit_supplier"))
 ):
-    """Update a supplier contact (embedded)"""
-    service = SupplierService()
-    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
-    if not supplier:
-        raise HTTPException(status_code=404, detail="Supplier not found")
-
-    # Find the contact by ID in the embedded array
-    target = None
-    for c in (supplier.contacts or []):
-        if c.id == contact_id:
-            target = c
-            break
-
-    if not target:
+    """Update a supplier contact"""
+    contact = await SupplierContact.get(ObjectId(contact_id))
+    if not contact or contact.supplier_id != ObjectId(supplier_id) or contact.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Contact not found")
 
     update_data = data.model_dump(exclude_unset=True)
 
     # If setting as primary, unset others
     if update_data.get("is_primary"):
-        for c in supplier.contacts:
-            if c.id != contact_id:
+        existing_primaries = await SupplierContact.find(
+            SupplierContact.supplier_id == ObjectId(supplier_id),
+            SupplierContact.tenant_id == current_user.tenant_id,
+            SupplierContact.is_primary == True,
+            SupplierContact.deleted_at == None,
+        ).to_list()
+        for c in existing_primaries:
+            if str(c.id) != contact_id:
                 c.is_primary = False
+                await c.save()
 
     for key, value in update_data.items():
-        setattr(target, key, value)
+        setattr(contact, key, value)
 
-    target.updated_at = datetime.utcnow()
-    await supplier.save()
+    await contact.save()
 
-    return SupplierContactResponse.from_embedded(target, supplier_id)
+    return SupplierContactResponse.from_doc(contact)
 
 
 @router.delete("/{supplier_id}/contacts/{contact_id}")
@@ -430,18 +434,12 @@ async def delete_supplier_contact(
     contact_id: str,
     current_user: User = Depends(check_permission("edit_supplier"))
 ):
-    """Delete a supplier contact (embedded)"""
-    service = SupplierService()
-    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
-    if not supplier:
-        raise HTTPException(status_code=404, detail="Supplier not found")
-
-    original_len = len(supplier.contacts or [])
-    supplier.contacts = [c for c in (supplier.contacts or []) if c.id != contact_id]
-
-    if len(supplier.contacts) == original_len:
+    """Delete a supplier contact"""
+    contact = await SupplierContact.get(ObjectId(contact_id))
+    if not contact or contact.supplier_id != ObjectId(supplier_id) or contact.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Contact not found")
 
-    await supplier.save()
+    await contact.delete()
 
     return {"error": False, "message": "Supplier contact deleted successfully"}
+

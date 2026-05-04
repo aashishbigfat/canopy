@@ -1250,6 +1250,7 @@ class LeadService(ActivityMixin):
         # 2. Fetch Metadata in parallel (except sales stages which need special handling)
         import asyncio
         from app.models.opportunity_picklists import Experience, SalesStage
+        from app.models.lead_picklists import SourceMedium
         
         # Fetch regular metadata in parallel
         metadata_tasks = [
@@ -1258,10 +1259,11 @@ class LeadService(ActivityMixin):
             User.find({"tenant_id": tenant_id, "is_active": True}).sort("+name").to_list(),
             Industry.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
             Experience.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
+            SourceMedium.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
-        lead_statuses, sources, users, industries, experiences = metadata_results
+        lead_statuses, sources, users, industries, experiences, source_mediums = metadata_results
         
         # All stages are now tenant-specific — simple direct query
         sales_stages = await SalesStage.find(
@@ -1283,6 +1285,10 @@ class LeadService(ActivityMixin):
             "sources": [
                 {"id": str(s.id), "name": s.name}
                 for s in sources
+            ],
+            "source_mediums": [
+                {"id": str(sm.id), "name": sm.name}
+                for sm in source_mediums
             ],
             "users": [
                 {"id": str(u.id), "name": u.name, "email": u.email}

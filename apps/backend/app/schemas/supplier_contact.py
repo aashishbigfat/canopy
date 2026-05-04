@@ -1,5 +1,5 @@
 """
-Pydantic schemas for Supplier Contact API (embedded model)
+Pydantic schemas for Supplier Contact API (standalone collection).
 Follows the same validation pattern as SupplierBase, ContactBase, etc.
 """
 from pydantic import BaseModel, EmailStr, BeforeValidator
@@ -49,8 +49,9 @@ class SupplierContactResponse(SupplierContactBase):
         from_attributes = True
 
     @classmethod
-    def from_embedded(cls, obj, supplier_id: str):
-        """Convert an embedded SupplierContact BaseModel to a response"""
+    def from_doc(cls, obj):
+        """Convert a SupplierContact Document to a response"""
         data = obj.model_dump()
-        data['supplier_id'] = str(supplier_id)
+        data['id'] = str(obj.id)
+        data['supplier_id'] = str(obj.supplier_id)
         return cls(**data)

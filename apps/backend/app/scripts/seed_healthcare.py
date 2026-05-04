@@ -30,6 +30,15 @@ HEALTHCARE_SEED: Dict[str, List[str]] = {
         "Social Media",
         "Phone Call",
     ],
+    "source_mediums": [
+        "Phone Call",
+        "Email",
+        "Patient Portal",
+        "Walk-in",
+        "Doctor Referral",
+        "Insurance Portal",
+        "WhatsApp",
+    ],
 }
 
 
@@ -86,6 +95,19 @@ async def seed_healthcare_tenant(tenant_id, db=None):
                 "is_default": i == 0,
                 "is_won": name == "Completed",
                 "is_lost": name == "Lost",
+                "tenant_id": tid,
+                "created_at": now,
+                "updated_at": now,
+            })
+
+    # Seed Source Mediums (has tenant_id)
+    for i, name in enumerate(HEALTHCARE_SEED["source_mediums"]):
+        existing = await database["source_mediums"].find_one({"name": name, "tenant_id": tid})
+        if not existing:
+            await database["source_mediums"].insert_one({
+                "name": name,
+                "sorting": i,
+                "is_active": True,
                 "tenant_id": tid,
                 "created_at": now,
                 "updated_at": now,

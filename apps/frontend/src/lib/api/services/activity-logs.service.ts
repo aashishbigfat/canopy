@@ -1,6 +1,6 @@
 import { apiClient } from "@/lib/api/client";
 
-const BASE_URL = "/logs";
+const BASE_URL = "/timeline/events";
 
 export interface ActivityLog {
     id: string;

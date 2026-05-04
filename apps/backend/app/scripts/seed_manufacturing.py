@@ -32,6 +32,15 @@ MANUFACTURING_SEED: Dict[str, List[str]] = {
         "Referral",
         "Online Marketplace",
     ],
+    "source_mediums": [
+        "Phone Call",
+        "Email",
+        "Trade Show Booth",
+        "WhatsApp",
+        "Online RFQ Form",
+        "Distributor",
+        "Direct Sales Rep",
+    ],
 }
 
 
@@ -85,6 +94,19 @@ async def seed_manufacturing_tenant(tenant_id, db=None):
                 "is_default": i == 0,
                 "is_won": name == "Delivered",
                 "is_lost": name == "Lost",
+                "tenant_id": tid,
+                "created_at": now,
+                "updated_at": now,
+            })
+
+    # Seed Source Mediums (has tenant_id)
+    for i, name in enumerate(MANUFACTURING_SEED["source_mediums"]):
+        existing = await database["source_mediums"].find_one({"name": name, "tenant_id": tid})
+        if not existing:
+            await database["source_mediums"].insert_one({
+                "name": name,
+                "sorting": i,
+                "is_active": True,
                 "tenant_id": tid,
                 "created_at": now,
                 "updated_at": now,

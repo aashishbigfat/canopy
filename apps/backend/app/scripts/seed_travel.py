@@ -38,6 +38,25 @@ TRAVEL_SEED: Dict[str, List[str]] = {
         "Visa",
         "AC",
     ],
+    "source_mediums": [
+        "Phone Call",
+        "WhatsApp",
+        "Email",
+        "Walk-in",
+        "Website Chat",
+        "Social Media DM",
+        "Travel Fair",
+        "Agency Referral",
+    ],
+    "experiences": [
+        "Budget",
+        "Standard",
+        "Luxury",
+        "Ultra-Luxury",
+        "Adventure",
+        "Honeymoon",
+        "Family",
+    ],
     "industries": [
         "Agriculture", "Apparel", "Banking", "Chemicals", "Communications",
         "Construction", "Consulting", "Education", "Electronics", "Energy",
@@ -117,6 +136,32 @@ async def seed_travel_tenant(tenant_id, db=None):
                 "sorting": i,
                 "is_active": True,
                 "tenant_id": tid,
+            })
+
+    # Seed Source Mediums (has tenant_id)
+    for i, name in enumerate(TRAVEL_SEED["source_mediums"]):
+        existing = await database["source_mediums"].find_one({"name": name, "tenant_id": tid})
+        if not existing:
+            await database["source_mediums"].insert_one({
+                "name": name,
+                "sorting": i,
+                "is_active": True,
+                "tenant_id": tid,
+                "created_at": now,
+                "updated_at": now,
+            })
+
+    # Seed Experiences (travel-specific: Budget, Luxury, etc.)
+    for i, name in enumerate(TRAVEL_SEED["experiences"]):
+        existing = await database["experiences"].find_one({"name": name, "tenant_id": tid})
+        if not existing:
+            await database["experiences"].insert_one({
+                "name": name,
+                "sorting": i,
+                "is_active": True,
+                "tenant_id": tid,
+                "created_at": now,
+                "updated_at": now,
             })
 
     client.close()

@@ -6,10 +6,9 @@ from pydantic import EmailStr, Field
 from typing import Optional, List
 from beanie import PydanticObjectId
 from app.models.base import BaseDocument
-from app.models.supplier_contact import SupplierContact
 
 class Supplier(BaseDocument):
-    """Supplier model for travel service providers"""
+    """Supplier model for multi-industry service providers"""
     
     # Basic Information
     name: Indexed(str)
@@ -64,9 +63,6 @@ class Supplier(BaseDocument):
     
     # Metadata
     notes: Optional[str] = None
-    
-    # Embedded contacts (avoids separate collection — Atlas 500 collection limit)
-    contacts: List[SupplierContact] = Field(default_factory=list)
     
     class Settings:
         name = "suppliers"
