@@ -63,13 +63,11 @@ class DestinationService:
         
         # Count relationships
         opportunity_count = await DestinationOpportunity.find(
-            DestinationOpportunity.destination_id == ObjectId(destination_id),
-            DestinationOpportunity.tenant_id == tenant_id
+            {"destination_id": ObjectId(destination_id), "tenant_id": tenant_id}
         ).count()
-        
+
         lead_count = await DestinationLead.find(
-            DestinationLead.destination_id == ObjectId(destination_id),
-            DestinationLead.tenant_id == tenant_id
+            {"destination_id": ObjectId(destination_id), "tenant_id": tenant_id}
         ).count()
         
         # Count itineraries (if DestinationItinerary exists)
@@ -245,8 +243,7 @@ class DestinationService:
         """Get all destinations linked to an opportunity"""
         
         links = await DestinationOpportunity.find(
-            DestinationOpportunity.opportunity_id == ObjectId(opportunity_id),
-            DestinationOpportunity.tenant_id == tenant_id
+            {"opportunity_id": ObjectId(opportunity_id), "tenant_id": tenant_id}
         ).to_list()
         
         result = []
@@ -322,8 +319,7 @@ class DestinationService:
         """Get all destinations linked to a lead"""
         
         links = await DestinationLead.find(
-            DestinationLead.lead_id == ObjectId(lead_id),
-            DestinationLead.tenant_id == tenant_id
+            {"lead_id": ObjectId(lead_id), "tenant_id": tenant_id}
         ).to_list()
         
         result = []
@@ -346,10 +342,7 @@ class DestinationService:
         """Get popular destinations"""
         
         destinations = await Destination.find(
-            Destination.tenant_id == tenant_id,
-            Destination.is_popular == True,
-            Destination.is_active == True,
-            Destination.deleted_at == None
+            {"tenant_id": tenant_id, "is_popular": True, "is_active": True, "deleted_at": None}
         ).limit(limit).sort("+name").to_list()
         
         return destinations
@@ -362,10 +355,7 @@ class DestinationService:
         """Get all destinations for a specific country"""
         
         destinations = await Destination.find(
-            Destination.country_id == country_id,
-            Destination.tenant_id == tenant_id,
-            Destination.is_active == True,
-            Destination.deleted_at == None
+            {"country_id": country_id, "tenant_id": tenant_id, "is_active": True, "deleted_at": None}
         ).sort("+name").to_list()
         
         return destinations

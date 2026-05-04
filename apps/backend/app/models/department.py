@@ -46,14 +46,12 @@ class Department(BaseDocument):
     async def get_children(self) -> List["Department"]:
         # """Get child departments"""
         return await Department.find(
-            Department.parent_id == self.id,
-            Department.deleted_at == None
+            {"parent_id": self.id, "deleted_at": None}
         ).to_list()
     
     async def get_all_users(self):
         # """Get all users in this department"""
         from app.models.user import User
         return await User.find(
-            User.department_id == self.id,
-            User.deleted_at == None
+            {"department_id": self.id, "deleted_at": None}
         ).to_list()

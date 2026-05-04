@@ -56,8 +56,7 @@ async def get_events(
     
     # Get users for assignment
     users = await User.find(
-        User.tenant_id == current_user.tenant_id,
-        User.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+name").to_list()
     
     return {

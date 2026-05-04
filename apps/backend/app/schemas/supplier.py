@@ -2,7 +2,7 @@
 Pydantic schemas for Supplier API
 """
 from pydantic import BaseModel, EmailStr, Field, BeforeValidator
-from typing import Optional, Annotated, List
+from typing import Optional, Annotated, List, Dict, Any
 from datetime import datetime
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
 
@@ -40,6 +40,9 @@ class SupplierBase(BaseModel):
     is_preferred: bool = False
     rating: Optional[int] = None
     notes: Optional[str] = None
+
+    # Custom field values (Phase 1 §C) — accepted on create, populated on read
+    custom_fields: Optional[Dict[str, Any]] = None
 
 
 class SupplierCreate(SupplierBase):
@@ -86,6 +89,9 @@ class SupplierUpdate(BaseModel):
     rating: Optional[int] = None
     notes: Optional[str] = None
     owner_id: Optional[str] = None
+
+    # Custom field values (Phase 1 §C)
+    custom_fields: Optional[Dict[str, Any]] = None
 
 
 class SupplierResponse(SupplierBase):

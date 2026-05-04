@@ -124,9 +124,10 @@ async def create_supplier(
     supplier = await service.create_supplier(
         supplier_data,
         current_user.id,
-        current_user.tenant_id
+        current_user.tenant_id,
+        custom_fields=getattr(supplier_data, "custom_fields", None),
     )
-    
+
     return SupplierResponse.from_orm(supplier)
 
 
@@ -193,11 +194,20 @@ async def get_supplier(
     """Get supplier by ID"""
     service = SupplierService()
     supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
-    
+
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
-    
-    return SupplierResponse.from_orm(supplier)
+
+    resp = SupplierResponse.from_orm(supplier)
+    # Sprint D — populate custom_fields
+    try:
+        from app.services import field_registry_service
+        resp.custom_fields = await field_registry_service.read_custom_field_values(
+            "supplier", supplier.id, current_user.tenant_id,
+        )
+    except Exception:
+        resp.custom_fields = {}
+    return resp
 
 
 @router.put("/{supplier_id}", response_model=SupplierResponse)
@@ -212,7 +222,8 @@ async def update_supplier(
         supplier_id,
         supplier_data,
         current_user.id,
-        current_user.tenant_id
+        current_user.tenant_id,
+        custom_fields=getattr(supplier_data, "custom_fields", None),
     )
     
     if not supplier:

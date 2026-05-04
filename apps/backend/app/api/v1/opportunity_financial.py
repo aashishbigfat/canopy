@@ -61,7 +61,7 @@ async def get_financial_config(
     if not supplier_name:
         try:
             settings = await TenantSettings.find_one(
-                TenantSettings.tenant_id == current_user.tenant_id
+                {"tenant_id": current_user.tenant_id}
             )
             if settings:
                 supplier_name = getattr(settings, 'default_tax_misc_supplier', None) or getattr(settings, 'company_name', None)
@@ -124,8 +124,7 @@ async def get_costing(
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     costing = await OpportunityCosting.find_one(
-        OpportunityCosting.opportunity_id == ObjectId(opportunity_id),
-        OpportunityCosting.tenant_id == current_user.tenant_id
+        {"opportunity_id": ObjectId(opportunity_id), "tenant_id": current_user.tenant_id}
     )
 
     if not costing:
@@ -194,8 +193,7 @@ async def upsert_costing(
 
     # Check if costing already exists
     costing = await OpportunityCosting.find_one(
-        OpportunityCosting.opportunity_id == ObjectId(opportunity_id),
-        OpportunityCosting.tenant_id == current_user.tenant_id
+        {"opportunity_id": ObjectId(opportunity_id), "tenant_id": current_user.tenant_id}
     )
 
     from app.models.opportunity_financial import CostingLineItem
@@ -261,8 +259,7 @@ async def get_payment_schedule(
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     items = await PaymentScheduleItem.find(
-        PaymentScheduleItem.opportunity_id == ObjectId(opportunity_id),
-        PaymentScheduleItem.tenant_id == current_user.tenant_id
+        {"opportunity_id": ObjectId(opportunity_id), "tenant_id": current_user.tenant_id}
     ).sort("+created_at").to_list()
 
     return [
@@ -479,8 +476,7 @@ async def get_transactions(
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     txns = await OpportunityTransaction.find(
-        OpportunityTransaction.opportunity_id == ObjectId(opportunity_id),
-        OpportunityTransaction.tenant_id == current_user.tenant_id
+        {"opportunity_id": ObjectId(opportunity_id), "tenant_id": current_user.tenant_id}
     ).sort("+created_at").to_list()
 
     return [_txn_to_response(t) for t in txns]

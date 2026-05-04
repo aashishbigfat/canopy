@@ -159,8 +159,7 @@ async def get_tasks(
 
     # Get users for the assignment dropdown in the UI
     users = await User.find(
-        User.tenant_id == current_user.tenant_id,
-        User.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+name").to_list()
 
     enriched = await _build_enriched_tasks(tasks)

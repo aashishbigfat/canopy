@@ -20,11 +20,9 @@ class ProductService:
         
         # Check if product code already exists for this tenant
         existing = await Product.find_one(
-            Product.product_code == product_data.product_code,
-            Product.tenant_id == tenant_id,
-            Product.deleted_at == None
+            {"product_code": product_data.product_code, "tenant_id": tenant_id, "deleted_at": None}
         )
-        
+
         if existing:
             raise ValueError(f"Product with code '{product_data.product_code}' already exists")
         
@@ -57,9 +55,7 @@ class ProductService:
     ) -> Optional[Product]:
         """Get product by product code"""
         product = await Product.find_one(
-            Product.product_code == product_code,
-            Product.tenant_id == tenant_id,
-            Product.deleted_at == None
+            {"product_code": product_code, "tenant_id": tenant_id, "deleted_at": None}
         )
         return product
     
@@ -79,10 +75,7 @@ class ProductService:
         # Check if product code is being changed to a different existing code
         if product_data.product_code and product_data.product_code != product.product_code:
             existing = await Product.find_one(
-                Product.product_code == product_data.product_code,
-                Product.tenant_id == tenant_id,
-                Product.deleted_at == None,
-                Product.id != ObjectId(product_id)  # Exclude current product
+                {"product_code": product_data.product_code, "tenant_id": tenant_id, "deleted_at": None, "_id": {"$ne": ObjectId(product_id)}}
             )
             if existing:
                 raise ValueError(f"Product with code '{product_data.product_code}' already exists")
@@ -170,10 +163,7 @@ class ProductService:
         """Get featured products"""
         
         products = await Product.find(
-            Product.tenant_id == tenant_id,
-            Product.is_featured == True,
-            Product.is_active == True,
-            Product.deleted_at == None
+            {"tenant_id": tenant_id, "is_featured": True, "is_active": True, "deleted_at": None}
         ).limit(limit).sort("+name").to_list()
         
         return products
@@ -186,10 +176,7 @@ class ProductService:
         """Get all products for a specific category"""
         
         products = await Product.find(
-            Product.category == category,
-            Product.tenant_id == tenant_id,
-            Product.is_active == True,
-            Product.deleted_at == None
+            {"category": category, "tenant_id": tenant_id, "is_active": True, "deleted_at": None}
         ).sort("+name").to_list()
         
         return products

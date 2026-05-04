@@ -30,11 +30,9 @@ class UserService(ActivityMixin):
         
         # Check if email already exists
         existing = await User.find_one(
-            User.email == user_data.email,
-            User.tenant_id == tenant_id,
-            User.deleted_at == None
+            {"email": user_data.email, "tenant_id": tenant_id, "deleted_at": None}
         )
-        
+
         if existing:
             raise ValueError(f"User with email {user_data.email} already exists")
         
@@ -166,9 +164,7 @@ class UserService(ActivityMixin):
         # Check email uniqueness if being updated
         if user_data.email and user_data.email != user.email:
             existing = await User.find_one(
-                User.email == user_data.email,
-                User.tenant_id == tenant_id,
-                User.deleted_at == None
+                {"email": user_data.email, "tenant_id": tenant_id, "deleted_at": None}
             )
             if existing:
                 raise ValueError(f"User with email {user_data.email} already exists")
@@ -435,17 +431,14 @@ class UserService(ActivityMixin):
         # Convert ObjectId → PydanticObjectId for Beanie model comparison
         from beanie import PydanticObjectId as _PydObjId
         all_stages = await SalesStage.find(
-            SalesStage.tenant_id == _PydObjId(str(tenant_id)),
-            SalesStage.is_active == True
+            {"tenant_id": _PydObjId(str(tenant_id)), "is_active": True}
         ).to_list()
         won_stage_ids = {s.id for s in all_stages if s.is_won}
         lost_stage_ids = {s.id for s in all_stages if s.is_lost}
-        
+
         # Get opportunities
         all_opps = await Opportunity.find(
-            Opportunity.owner_id == ObjectId(user_id),
-            Opportunity.tenant_id == tenant_id,
-            Opportunity.deleted_at == None
+            {"owner_id": ObjectId(user_id), "tenant_id": tenant_id, "deleted_at": None}
         ).to_list()
         
         # Current month opportunities
@@ -537,10 +530,7 @@ class UserService(ActivityMixin):
         
         # Get all users in the same hierarchy
         team_users = await User.find(
-            User.role_hierarchy_id == user.role_hierarchy_id,
-            User.tenant_id == tenant_id,
-            User.deleted_at == None,
-            User.is_active == True
+            {"role_hierarchy_id": user.role_hierarchy_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
         ).to_list()
         
         return team_users

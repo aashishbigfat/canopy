@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import Link from "next/link";
 import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
+import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +58,9 @@ export default async function PersonAccountsPage({
                 <CreateAccountButton isPerson />
             </div>
 
-            <PersonAccountTable 
+            <EntityListToolbar entity="personal_account" />
+
+            <PersonAccountTable
                 data={accountsData.accounts} 
                 pagination={accountsData.pagination} 
             />

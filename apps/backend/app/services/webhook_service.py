@@ -41,8 +41,7 @@ class WebhookService:
     ) -> Optional[WebhookEndpoint]:
         """Get an endpoint by ID."""
         return await WebhookEndpoint.find_one(
-            WebhookEndpoint.id == PydanticObjectId(endpoint_id),
-            WebhookEndpoint.tenant_id == tenant_id
+            {"_id": PydanticObjectId(endpoint_id), "tenant_id": tenant_id}
         )
     
     async def update_endpoint(
@@ -121,10 +120,7 @@ class WebhookService:
         
         # 2. Find matching active endpoints
         endpoints = await WebhookEndpoint.find(
-            WebhookEndpoint.tenant_id == tenant_id,
-            WebhookEndpoint.is_active == True,
-            # Either subscribe to all (*) or specific event
-            {"$or": [{"events": "*"}, {"events": event_type}]}
+            {"tenant_id": tenant_id, "is_active": True, "$or": [{"events": "*"}, {"events": event_type}]}
         ).to_list()
         
         # 3. Deliver (Async in a real worker, but here simplified)

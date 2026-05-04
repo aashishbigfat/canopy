@@ -29,6 +29,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
+import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
 import { useIndustryLabels } from "@/lib/industry-labels";
 
@@ -72,6 +73,7 @@ export default function OpportunitiesPageClient() {
 
     return (
         <div className="flex-1 min-w-0 w-full space-y-6">
+            <EntityListToolbar entity="opportunity" />
             {/* Header & Toolbar */}
             <div className="bg-slate-50/50 p-4 rounded-t-lg border border-b-0 space-y-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

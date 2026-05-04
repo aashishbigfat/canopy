@@ -48,8 +48,7 @@ class IncentiveService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         
         return await Incentive.find_one(
-            Incentive.id == PydanticObjectId(incentive_id),
-            Incentive.tenant_id == tenant_obj_id
+            {"_id": PydanticObjectId(incentive_id), "tenant_id": tenant_obj_id}
         )
     
     async def update_incentive(
@@ -123,10 +122,7 @@ class IncentiveService:
         
         # Check if target exists for period/user
         existing = await IncentiveTarget.find_one(
-            IncentiveTarget.tenant_id == tenant_obj_id,
-            IncentiveTarget.user_id == data.user_id,
-            IncentiveTarget.start_date == data.start_date,
-            IncentiveTarget.end_date == data.end_date
+            {"tenant_id": tenant_obj_id, "user_id": data.user_id, "start_date": data.start_date, "end_date": data.end_date}
         )
         
         if existing:
@@ -155,10 +151,7 @@ class IncentiveService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         
         return await IncentiveTarget.find_one(
-            IncentiveTarget.tenant_id == tenant_obj_id,
-            IncentiveTarget.user_id == user_id,
-            IncentiveTarget.start_date <= period_start,
-            IncentiveTarget.end_date >= period_start
+            {"tenant_id": tenant_obj_id, "user_id": user_id, "start_date": {"$lte": period_start}, "end_date": {"$gte": period_start}}
         )
 
     # ==================== Achievement Calculation ====================
@@ -178,8 +171,7 @@ class IncentiveService:
         # Fetch won stage scoped to THIS tenant — prevents cross-industry leakage
         from app.models.opportunity_picklists import SalesStage
         won_stage = await SalesStage.find_one(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_won == True
+            {"tenant_id": tenant_obj_id, "is_won": True}
         )
         
         if not won_stage:
@@ -197,11 +189,7 @@ class IncentiveService:
         
         # 2. Fetch Deals (opportunities) that are won
         deals = await Opportunity.find(
-            Opportunity.tenant_id == tenant_obj_id,
-            Opportunity.owner_id == PydanticObjectId(user_id),
-            Opportunity.sales_stage_id == won_stage.id,
-            Opportunity.close_date >= period_start,
-            Opportunity.close_date <= period_end
+            {"tenant_id": tenant_obj_id, "owner_id": PydanticObjectId(user_id), "sales_stage_id": won_stage.id, "close_date": {"$gte": period_start, "$lte": period_end}}
         ).to_list()
         
         achieved_amount = sum(d.amount for d in deals if d.amount)
@@ -210,10 +198,7 @@ class IncentiveService:
         
         # 3. Match Active Incentives
         incentives = await Incentive.find(
-            Incentive.tenant_id == tenant_obj_id,
-            Incentive.is_active == True,
-            Incentive.start_date <= period_start,
-            Incentive.end_date >= period_end
+            {"tenant_id": tenant_obj_id, "is_active": True, "start_date": {"$lte": period_start}, "end_date": {"$gte": period_end}}
         ).to_list()
         
         commission = 0.0
@@ -249,10 +234,7 @@ class IncentiveService:
             
         # 3. Save Achievement
         achievement = await IncentiveAchievement.find_one(
-            IncentiveAchievement.tenant_id == tenant_obj_id,
-            IncentiveAchievement.user_id == user_id,
-            IncentiveAchievement.period_start == period_start,
-            IncentiveAchievement.period_end == period_end
+            {"tenant_id": tenant_obj_id, "user_id": user_id, "period_start": period_start, "period_end": period_end}
         )
         
         if not achievement:

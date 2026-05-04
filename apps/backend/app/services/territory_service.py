@@ -41,8 +41,7 @@ class TerritoryService:
     ) -> Optional[Region]:
         """Get a region by ID."""
         return await Region.find_one(
-            Region.id == PydanticObjectId(region_id),
-            Region.tenant_id == tenant_id
+            {"_id": PydanticObjectId(region_id), "tenant_id": tenant_id}
         )
     
     async def update_region(
@@ -77,16 +76,14 @@ class TerritoryService:
         
         # Check for child territories
         child_territories = await Territory.find(
-            Territory.region_id == region_id,
-            Territory.tenant_id == tenant_id
+            {"region_id": region_id, "tenant_id": tenant_id}
         ).count()
         if child_territories > 0:
             raise ValueError("Cannot delete region with associated territories")
-        
+
         # Check for child regions
         child_regions = await Region.find(
-            Region.parent_id == region_id,
-            Region.tenant_id == tenant_id
+            {"parent_id": region_id, "tenant_id": tenant_id}
         ).count()
         if child_regions > 0:
             raise ValueError("Cannot delete region with child regions")
@@ -155,8 +152,7 @@ class TerritoryService:
     ) -> Optional[Territory]:
         """Get a territory by ID."""
         return await Territory.find_one(
-            Territory.id == PydanticObjectId(territory_id),
-            Territory.tenant_id == tenant_id
+            {"_id": PydanticObjectId(territory_id), "tenant_id": tenant_id}
         )
     
     async def update_territory(
@@ -191,8 +187,7 @@ class TerritoryService:
             
         # Check parent relationship
         child_territories = await Territory.find(
-            Territory.parent_territory_id == territory_id,
-            Territory.tenant_id == tenant_id
+            {"parent_territory_id": territory_id, "tenant_id": tenant_id}
         ).count()
         if child_territories > 0:
             raise ValueError("Cannot delete territory with child territories")
@@ -253,8 +248,7 @@ class TerritoryService:
             
         # Fetch active territories with rules
         territories = await Territory.find(
-            Territory.tenant_id == tenant_id,
-            Territory.is_active == True
+            {"tenant_id": tenant_id, "is_active": True}
         ).to_list()
         
         # Priority 1: Postal Code Match (Exact)

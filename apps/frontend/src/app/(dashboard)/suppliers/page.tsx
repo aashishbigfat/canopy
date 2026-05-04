@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
 import { useIndustryLabels } from "@/lib/industry-labels";
+import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export default function SuppliersPage() {
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -24,6 +25,8 @@ export default function SuppliersPage() {
                     </PermissionGate>
                 </div>
             </div>
+            <EntityListToolbar entity="supplier" />
+
             <div className="flex-1 flex-col space-y-8 flex">
                 <SupplierList />
             </div>

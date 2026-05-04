@@ -51,8 +51,7 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         
         return await Dashboard.find_one(
-            Dashboard.id == PydanticObjectId(dashboard_id),
-            Dashboard.tenant_id == tenant_obj_id
+            {"_id": PydanticObjectId(dashboard_id), "tenant_id": tenant_obj_id}
         )
     
     async def update_dashboard(
@@ -136,8 +135,7 @@ class DashboardService:
         
         # Fall back to system default
         return await Dashboard.find_one(
-            Dashboard.tenant_id == tenant_obj_id,
-            Dashboard.is_default == True
+            {"tenant_id": tenant_obj_id, "is_default": True}
         )
     
     async def set_default_dashboard(
@@ -186,8 +184,7 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         
         return await DashboardWidget.find_one(
-            DashboardWidget.id == PydanticObjectId(widget_id),
-            DashboardWidget.tenant_id == tenant_obj_id
+            {"_id": PydanticObjectId(widget_id), "tenant_id": tenant_obj_id}
         )
     
     async def update_widget(
@@ -364,8 +361,7 @@ class DashboardService:
     ) -> Optional[DashboardUserPreference]:
         """Get dashboard preferences for a user."""
         return await DashboardUserPreference.find_one(
-            DashboardUserPreference.user_id == user_id,
-            DashboardUserPreference.tenant_id == tenant_id
+            {"user_id": user_id, "tenant_id": tenant_id}
         )
     
     async def get_or_create_preferences(
@@ -448,16 +444,14 @@ class DashboardService:
         
         # Fetch won/lost stages scoped to THIS tenant (critical for multi-industry isolation)
         won_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_won == True
+            {"tenant_id": tenant_obj_id, "is_won": True}
         ).to_list()
         lost_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_lost == True
+            {"tenant_id": tenant_obj_id, "is_lost": True}
         ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         lost_stage_ids = [s.id for s in lost_stages]
-        
+
         # Won this month
         won_month_query = {
             **base_query, 
@@ -577,7 +571,7 @@ class DashboardService:
         
         # Fetch stages scoped to THIS tenant to map names (prevents cross-industry leakage)
         all_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id
+            {'tenant_id': tenant_obj_id}
         ).to_list()
         stages_map = {str(s.id): s.name for s in all_stages}
         
@@ -613,11 +607,10 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         # Scoped to THIS tenant — prevents data leakage across industries
         won_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_won == True
+            {"tenant_id": tenant_obj_id, "is_won": True}
         ).to_list()
         won_stage_ids = [s.id for s in won_stages]
-        
+
         query = {
             "tenant_id": tenant_obj_id,
             "deleted_at": None,
@@ -625,7 +618,7 @@ class DashboardService:
         }
         if user_id:
             query["owner_id"] = PydanticObjectId(user_id)
-        
+
         opportunities = await Opportunity.find(query).sort("-close_date").limit(limit).to_list()
         
         return [
@@ -664,11 +657,10 @@ class DashboardService:
             
         # Scoped to THIS tenant — prevents data leakage across industries
         won_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_won == True
+            {"tenant_id": tenant_obj_id, "is_won": True}
         ).to_list()
         won_stage_ids = [s.id for s in won_stages]
-        
+
         query = {
             "tenant_id": tenant_obj_id,
             "deleted_at": None,
@@ -732,12 +724,10 @@ class DashboardService:
         tenant_obj_id = PydanticObjectId(tenant_id)
         # Scoped to THIS tenant — prevents won/lost stage IDs from other industries bleeding in
         won_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_won == True
+            {"tenant_id": tenant_obj_id, "is_won": True}
         ).to_list()
         lost_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_lost == True
+            {"tenant_id": tenant_obj_id, "is_lost": True}
         ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         lost_stage_ids = [s.id for s in lost_stages]

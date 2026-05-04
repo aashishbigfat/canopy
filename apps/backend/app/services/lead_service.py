@@ -18,6 +18,8 @@ from app.models.lead_custom_fields import UserLeadView
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.lead_repository import LeadRepository
 from app.services.webhook_service import webhook_service
+from app.services import field_registry_service
+from app.schemas.field_registry import CustomFieldValuePayload
 
 
 class LeadService(ActivityMixin):
@@ -50,9 +52,7 @@ class LeadService(ActivityMixin):
         # Pick a user who is active and available for assignment
         # Sort by last_assigned_at ascending to get the one who hasn't been assigned for the longest
         available_users = await User.find(
-            User.tenant_id == tenant_id,
-            User.is_active == True,
-            User.is_available_for_assignment == True
+            {"tenant_id": tenant_id, "is_active": True, "is_available_for_assignment": True}
         ).sort("+last_assigned_at").to_list()
         
         if not available_users:
@@ -114,20 +114,19 @@ class LeadService(ActivityMixin):
                 )
                 await pivot.insert()
         
-        # Save custom fields
+        # Save custom fields via unified registry (Phase 1 §A)
         if custom_fields:
-            from app.models.lead_custom_fields import LeadCustomField
             import json
-            
-            for field in custom_fields:
-                custom_field = LeadCustomField(
-                    lead_id=lead.id,
-                    lead_additional_field_id=ObjectId(field['id']),
-                    field_value=json.dumps(field['value']),
-                    type=field.get('type', 'text'),
-                    tenant_id=tenant_id
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
                 )
-                await custom_field.insert()
+                for f in custom_fields if f.get("id") is not None
+            ]
+            await field_registry_service.write_custom_field_values(
+                "lead", lead.id, payloads, tenant_id,
+            )
         
         # Activity logging
         await self.log_entity_created(
@@ -180,8 +179,7 @@ class LeadService(ActivityMixin):
         # We allow converted leads here to avoid 404 errors in the UI after conversion
         try:
             return await Lead.find_one(
-                Lead.id == ObjectId(lead_id),
-                Lead.tenant_id == tenant_id
+                {"_id": ObjectId(lead_id), "tenant_id": tenant_id}
             )
         except Exception:
             return None
@@ -192,7 +190,8 @@ class LeadService(ActivityMixin):
         lead_data: LeadUpdate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        user_name: str = None
+        user_name: str = None,
+        custom_fields: list = None,
     ) -> Optional[Lead]:
         """Update a lead with comprehensive activity logging"""
         lead = await self.get_lead(lead_id, tenant_id)
@@ -228,14 +227,28 @@ class LeadService(ActivityMixin):
         
         lead.last_modified_by_id = user_id
         await lead.save()
-        
+
+        # Write custom field values via unified registry (Phase 1 §A)
+        custom_field_changes = 0
+        if custom_fields:
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=str(f.get("value", "")),
+                )
+                for f in custom_fields if f.get("id") is not None
+            ]
+            custom_field_changes = await field_registry_service.write_custom_field_values(
+                "lead", lead.id, payloads, tenant_id,
+            )
+
         # 🚨 COMPREHENSIVE ACTIVITY LOGGING using ActivityMixin
-        if updated_fields:
+        if updated_fields or custom_field_changes:
             await self.log_entity_updated(
                 entity=lead,
                 entity_type="lead",
                 old_values=original_values,
-                updated_fields=updated_fields
+                updated_fields={**updated_fields, "custom_fields_updated": custom_field_changes} if custom_field_changes else updated_fields,
             )
         
         # Create notification for lead assignment if owner changed
@@ -392,10 +405,7 @@ class LeadService(ActivityMixin):
         # 1. Check exact name match first
         if account_name:
             account = await Account.find_one(
-                Account.tenant_id == tenant_id,
-                Account.name == account_name,
-                Account.is_person_account == is_person_account,
-                Account.deleted_at == None
+                {"tenant_id": tenant_id, "name": account_name, "is_person_account": is_person_account, "deleted_at": None}
             )
             if account:
                 return account.id
@@ -403,10 +413,7 @@ class LeadService(ActivityMixin):
         # 2. Check email if provided
         if email:
             account = await Account.find_one(
-                Account.tenant_id == tenant_id,
-                Account.email == email,
-                Account.is_person_account == is_person_account,
-                Account.deleted_at == None
+                {"tenant_id": tenant_id, "email": email, "is_person_account": is_person_account, "deleted_at": None}
             )
             if account:
                 return account.id
@@ -414,10 +421,7 @@ class LeadService(ActivityMixin):
         # 3. Check phone as last resort
         if phone:
             account = await Account.find_one(
-                Account.tenant_id == tenant_id,
-                Account.phone == phone,
-                Account.is_person_account == is_person_account,
-                Account.deleted_at == None
+                {"tenant_id": tenant_id, "phone": phone, "is_person_account": is_person_account, "deleted_at": None}
             )
             if account:
                 return account.id
@@ -428,10 +432,10 @@ class LeadService(ActivityMixin):
             if domain:
                 # Search for accounts with same domain in website or email
                 account = await Account.find_one(
-                    Account.tenant_id == tenant_id,
-                    Account.is_person_account == False,
-                    Account.deleted_at == None,
                     {
+                        "tenant_id": tenant_id,
+                        "is_person_account": False,
+                        "deleted_at": None,
                         "$or": [
                             {"email": {"$regex": f"@{domain}$", "$options": "i"}},
                             {"website": {"$regex": domain, "$options": "i"}}
@@ -603,9 +607,7 @@ class LeadService(ActivityMixin):
             existing_contact_dup = None
             if lead.email:
                 existing_contact_dup = await Contact.find_one(
-                    Contact.tenant_id == tenant_id,
-                    Contact.email == lead.email,
-                    Contact.deleted_at == None
+                    {"tenant_id": tenant_id, "email": lead.email, "deleted_at": None}
                 )
             
             if existing_contact_dup:
@@ -707,9 +709,7 @@ class LeadService(ActivityMixin):
             if not sales_stage_id:
                 # Try to find default stage for this tenant first
                 default_stage = await SalesStage.find_one(
-                    SalesStage.tenant_id == tenant_id,
-                    SalesStage.is_default == True,
-                    SalesStage.is_active == True
+                    {"tenant_id": tenant_id, "is_default": True, "is_active": True}
                 )
                 if default_stage:
                     sales_stage_id = default_stage.id
@@ -718,8 +718,7 @@ class LeadService(ActivityMixin):
             if not sales_stage_id:
                 # Try first tenant-specific active stage
                 first_stage = await SalesStage.find_one(
-                    SalesStage.tenant_id == tenant_id,
-                    SalesStage.is_active == True
+                    {"tenant_id": tenant_id, "is_active": True}
                 )
                 if first_stage:
                     sales_stage_id = first_stage.id
@@ -728,9 +727,7 @@ class LeadService(ActivityMixin):
             if not sales_stage_id:
                 # Fall back to global default (tenant_id == None)
                 global_default = await SalesStage.find_one(
-                    SalesStage.tenant_id == None,
-                    SalesStage.is_default == True,
-                    SalesStage.is_active == True
+                    {"tenant_id": None, "is_default": True, "is_active": True}
                 )
                 if global_default:
                     sales_stage_id = global_default.id
@@ -739,8 +736,7 @@ class LeadService(ActivityMixin):
             # FINAL FALLBACK: If still no sales stage found, try global active stage
             if not sales_stage_id:
                 any_stage = await SalesStage.find_one(
-                    SalesStage.tenant_id == None,
-                    SalesStage.is_active == True
+                    {"tenant_id": None, "is_active": True}
                 )
                 if any_stage:
                     sales_stage_id = any_stage.id
@@ -916,7 +912,21 @@ class LeadService(ActivityMixin):
             except Exception as e:
                 logger.error(f"Error inserting opportunity during conversion: {str(e)}")
                 raise ValueError(f"Failed to create opportunity: {str(e)}")
-            
+
+            # Copy lead custom fields to opportunity (Phase 1 §B)
+            try:
+                copied = await field_registry_service.copy_custom_field_values(
+                    src_entity_type="lead",
+                    src_entity_id=lead.id,
+                    dst_entity_type="opportunity",
+                    dst_entity_id=opportunity.id,
+                    tenant_id=tenant_id,
+                )
+                if copied:
+                    logger.info(f"Copied {copied} custom field values lead→opportunity")
+            except Exception as e:
+                logger.warning(f"Custom field copy lead→opportunity failed: {str(e)}")
+
             # Log Opportunity creation
             try:
                 await self.log_entity_created(
@@ -1015,17 +1025,14 @@ class LeadService(ActivityMixin):
         if lead.company:
             # Exact match first
             accounts = await Account.find(
-                Account.tenant_id == tenant_id,
-                Account.name == lead.company,
-                Account.deleted_at == None
+                {"tenant_id": tenant_id, "name": lead.company, "deleted_at": None}
             ).to_list()
-            
+
             if not accounts:
                 # Fuzzy match
                 accounts = await Account.find(
-                    Account.tenant_id == tenant_id,
-                    Account.name.regex(f"(?i){lead.company}"),
-                    Account.deleted_at == None
+                    {"tenant_id": tenant_id, "deleted_at": None},
+                    Account.name.regex(f"(?i){lead.company}")
                 ).limit(5).to_list()
                 
             for a in accounts:
@@ -1038,9 +1045,7 @@ class LeadService(ActivityMixin):
         # 1b. Search for accounts by email (critical for person accounts with no company)
         if lead.email:
             accounts_by_email = await Account.find(
-                Account.tenant_id == tenant_id,
-                Account.email == lead.email,
-                Account.deleted_at == None
+                {"tenant_id": tenant_id, "email": lead.email, "deleted_at": None}
             ).to_list()
             for a in accounts_by_email:
                 if str(a.id) not in seen_account_ids:
@@ -1054,9 +1059,7 @@ class LeadService(ActivityMixin):
         if lead_phones:
             for phone in lead_phones:
                 accounts_by_phone = await Account.find(
-                    Account.tenant_id == tenant_id,
-                    Account.phone == phone,
-                    Account.deleted_at == None
+                    {"tenant_id": tenant_id, "phone": phone, "deleted_at": None}
                 ).to_list()
                 for a in accounts_by_phone:
                     if str(a.id) not in seen_account_ids:
@@ -1070,10 +1073,10 @@ class LeadService(ActivityMixin):
             domain = self._extract_domain(lead.email)
             if domain:
                 accounts_by_domain = await Account.find(
-                    Account.tenant_id == tenant_id,
-                    Account.is_person_account == False,
-                    Account.deleted_at == None,
                     {
+                        "tenant_id": tenant_id,
+                        "is_person_account": False,
+                        "deleted_at": None,
                         "$or": [
                             {"email": {"$regex": f"@{domain}$", "$options": "i"}},
                             {"website": {"$regex": domain, "$options": "i"}}
@@ -1091,9 +1094,7 @@ class LeadService(ActivityMixin):
         # 2. Search for contacts (by email or full name)
         if lead.email:
             contacts = await Contact.find(
-                Contact.tenant_id == tenant_id,
-                Contact.email == lead.email,
-                Contact.deleted_at == None
+                {"tenant_id": tenant_id, "email": lead.email, "deleted_at": None}
             ).to_list()
             
             for c in contacts:
@@ -1107,10 +1108,7 @@ class LeadService(ActivityMixin):
         # Search by name if lead email didn't yield enough results
         if len(suggestions["contacts"]) < 3:
             contacts_by_name = await Contact.find(
-                Contact.tenant_id == tenant_id,
-                Contact.first_name == lead.first_name,
-                Contact.last_name == lead.last_name,
-                Contact.deleted_at == None
+                {"tenant_id": tenant_id, "first_name": lead.first_name, "last_name": lead.last_name, "deleted_at": None}
             ).limit(5).to_list()
             
             existing_ids = [c["id"] for c in suggestions["contacts"]]
@@ -1180,10 +1178,7 @@ class LeadService(ActivityMixin):
         """Get leads with metadata (statuses, sources, users, etc.)"""
         
         # 1. Build base query / special view queries
-        filters = [
-            Lead.tenant_id == tenant_id,
-            Lead.deleted_at == None,  # noqa: E711
-        ]
+        base_filter: dict = {"tenant_id": tenant_id, "deleted_at": None}
 
         # Handle explicit owner filter + visibility scoping securely
         if owner_id:
@@ -1200,16 +1195,16 @@ class LeadService(ActivityMixin):
                     "experiences": [],
                     "sales_stages": []
                 }
-            filters.append(Lead.owner_id == requested_oid)
+            base_filter["owner_id"] = requested_oid
         elif visible_owner_ids is not None:
             # Apply hierarchy-based visibility scoping natively
-            filters.append({"owner_id": {"$in": visible_owner_ids}})
+            base_filter["owner_id"] = {"$in": visible_owner_ids}
 
         if is_converted is not None:
-            filters.append(Lead.is_converted == is_converted)
+            base_filter["is_converted"] = is_converted
 
         all_leads: List[Lead] = []
-        
+
         # Date-based views
         now = datetime.utcnow()
         today_start = datetime(now.year, now.month, now.day)
@@ -1218,41 +1213,33 @@ class LeadService(ActivityMixin):
         last_week_start = today_start - timedelta(days=7)
 
         if view in ("today", "todays_lead", "todays"):
-            filters.append(Lead.created_at >= today_start)
-            filters.append(Lead.created_at < tomorrow_start)
+            base_filter["created_at"] = {"$gte": today_start, "$lt": tomorrow_start}
         elif view == "yesterday":
-            filters.append(Lead.created_at >= yesterday_start)
-            filters.append(Lead.created_at < today_start)
+            base_filter["created_at"] = {"$gte": yesterday_start, "$lt": today_start}
         elif view == "last_week":
-            filters.append(Lead.created_at >= last_week_start)
-            filters.append(Lead.created_at < tomorrow_start)
+            base_filter["created_at"] = {"$gte": last_week_start, "$lt": tomorrow_start}
 
         # Recently viewed: use UserLeadView ordering
         if view in ("recent", "recently_viewed") and current_user_id:
             recent_views = await UserLeadView.find(
-                UserLeadView.user_id == current_user_id,
-                UserLeadView.tenant_id == tenant_id,
+                {"user_id": current_user_id, "tenant_id": tenant_id}
             ).sort("-updated_at").limit(200).to_list()
             
             lead_ids = [rv.lead_id for rv in recent_views]
             if lead_ids:
-                recent_query_filters = [
-                    {"_id": {"$in": lead_ids}},
-                    Lead.tenant_id == tenant_id,
-                    Lead.deleted_at == None,  # noqa: E711
-                ]
+                recent_filter: dict = {"_id": {"$in": lead_ids}, "tenant_id": tenant_id, "deleted_at": None}
                 # Apply visibility to recent view too
                 if visible_owner_ids is not None:
-                    recent_query_filters.append({"owner_id": {"$in": visible_owner_ids}})
-                
-                leads = await Lead.find(*recent_query_filters).to_list()
+                    recent_filter["owner_id"] = {"$in": visible_owner_ids}
+
+                leads = await Lead.find(recent_filter).to_list()
                 lead_map = {l.id: l for l in leads}
                 all_leads = [lead_map[lid] for lid in lead_ids if lid in lead_map]
             else:
                 all_leads = []
         else:
             # Sort by created_at desc for all other views
-            all_leads = await Lead.find(*filters).sort("-created_at").to_list()
+            all_leads = await Lead.find(base_filter).sort("-created_at").to_list()
 
         # Paginate
         total = len(all_leads)
@@ -1266,11 +1253,11 @@ class LeadService(ActivityMixin):
         
         # Fetch regular metadata in parallel
         metadata_tasks = [
-            LeadStatus.find(LeadStatus.tenant_id == tenant_id, LeadStatus.is_active == True).sort("+sorting").to_list(),
-            Source.find(Source.tenant_id == tenant_id, Source.is_active == True).sort("+sorting").to_list(),
-            User.find(User.tenant_id == tenant_id, User.is_active == True).sort("+name").to_list(),
-            Industry.find(Industry.tenant_id == tenant_id, Industry.is_active == True).sort("+sorting").to_list(),
-            Experience.find(Experience.tenant_id == tenant_id, Experience.is_active == True).sort("+sorting").to_list(),
+            LeadStatus.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
+            Source.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
+            User.find({"tenant_id": tenant_id, "is_active": True}).sort("+name").to_list(),
+            Industry.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
+            Experience.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
@@ -1278,8 +1265,7 @@ class LeadService(ActivityMixin):
         
         # All stages are now tenant-specific — simple direct query
         sales_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_id,
-            SalesStage.is_active == True
+            {"tenant_id": tenant_id, "is_active": True}
         ).sort("+sorting").to_list()
 
         return {
@@ -1328,11 +1314,9 @@ class LeadService(ActivityMixin):
         
         # Verify leads belong to tenant
         leads = await Lead.find(
-            {"_id": {"$in": ids}},
-            Lead.tenant_id == tenant_id,
-            Lead.deleted_at == None
+            {"_id": {"$in": ids}, "tenant_id": tenant_id, "deleted_at": None}
         ).to_list()
-        
+
         if not leads:
             return {"deleted": 0, "total": 0}
             
@@ -1357,11 +1341,9 @@ class LeadService(ActivityMixin):
         
         # Verify leads belong to tenant
         leads = await Lead.find(
-            {"_id": {"$in": ids}},
-            Lead.tenant_id == tenant_id,
-            Lead.deleted_at == None
+            {"_id": {"$in": ids}, "tenant_id": tenant_id, "deleted_at": None}
         ).to_list()
-        
+
         if not leads:
             return {"updated": 0, "total": 0}
             

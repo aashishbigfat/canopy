@@ -119,11 +119,9 @@ class RoleService(ActivityMixin):
         
         # Check if role name already exists
         existing = await Role.find_one(
-            Role.name == role_data.name,
-            Role.tenant_id == tenant_id,
-            Role.deleted_at == None
+            {"name": role_data.name, "tenant_id": tenant_id, "deleted_at": None}
         )
-        
+
         if existing:
             raise ValueError(f"Role with name '{role_data.name}' already exists")
         
@@ -191,9 +189,7 @@ class RoleService(ActivityMixin):
         # Check name uniqueness if being updated
         if role_data.name and role_data.name != role.name:
             existing = await Role.find_one(
-                Role.name == role_data.name,
-                Role.tenant_id == tenant_id,
-                Role.deleted_at == None
+                {"name": role_data.name, "tenant_id": tenant_id, "deleted_at": None}
             )
             if existing:
                 raise ValueError(f"Role with name '{role_data.name}' already exists")
@@ -241,9 +237,7 @@ class RoleService(ActivityMixin):
         
         # Check if any users have this role
         users_with_role = await User.find(
-            User.role_ids == ObjectId(role_id),
-            User.tenant_id == tenant_id,
-            User.deleted_at == None
+            {"role_ids": ObjectId(role_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
         
         if users_with_role > 0:
@@ -273,8 +267,7 @@ class RoleService(ActivityMixin):
         """Get roles for a tenant"""
         
         roles = await Role.find(
-            Role.tenant_id == tenant_id,
-            Role.deleted_at == None
+            {"tenant_id": tenant_id, "deleted_at": None}
         ).skip(skip).limit(limit).sort("+name").to_list()
         
         return roles
@@ -336,9 +329,7 @@ class RoleService(ActivityMixin):
         """Get all users with a specific role"""
         
         users = await User.find(
-            User.role_ids == ObjectId(role_id),
-            User.tenant_id == tenant_id,
-            User.deleted_at == None
+            {"role_ids": ObjectId(role_id), "tenant_id": tenant_id, "deleted_at": None}
         ).to_list()
         
         return users

@@ -66,20 +66,14 @@ class CommentService:
     ) -> List[Comment]:
         # Get top-level comments
         comments = await Comment.find(
-            Comment.entity_type == entity_type,
-            Comment.entity_id == ObjectId(entity_id),
-            Comment.tenant_id == tenant_id,
-            Comment.parent_id == None,
-            Comment.deleted_at == None
+            {"entity_type": entity_type, "entity_id": ObjectId(entity_id), "tenant_id": tenant_id, "parent_id": None, "deleted_at": None}
         ).sort("-created_at").to_list()
         
         return comments
     
     async def get_comment_replies(self, parent_id: str, tenant_id: ObjectId) -> List[Comment]:
         return await Comment.find(
-            Comment.parent_id == ObjectId(parent_id),
-            Comment.tenant_id == tenant_id,
-            Comment.deleted_at == None
+            {"parent_id": ObjectId(parent_id), "tenant_id": tenant_id, "deleted_at": None}
         ).sort("+created_at").to_list()
     
     async def get_comments_with_replies(

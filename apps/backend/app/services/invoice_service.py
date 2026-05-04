@@ -32,20 +32,18 @@ class InvoiceService(ActivityMixin):
     
     async def _recalculate_invoice_totals(self, invoice: Invoice) -> Invoice:
         items = await InvoiceItem.find(
-            InvoiceItem.invoice_id == invoice.id,
-            InvoiceItem.deleted_at == None
+            {"invoice_id": invoice.id, "deleted_at": None}
         ).to_list()
-        
+
         invoice.subtotal = sum(item.quantity * item.unit_price for item in items)
         invoice.discount_amount = invoice.subtotal * (invoice.discount_percent / 100)
         after_discount = invoice.subtotal - invoice.discount_amount
         invoice.tax_amount = after_discount * (invoice.tax_percent / 100)
         invoice.total = after_discount + invoice.tax_amount
-        
+
         # Calculate payments
         payments = await Payment.find(
-            Payment.invoice_id == invoice.id,
-            Payment.deleted_at == None
+            {"invoice_id": invoice.id, "deleted_at": None}
         ).to_list()
         invoice.amount_paid = sum(p.amount for p in payments)
         invoice.balance_due = invoice.total - invoice.amount_paid
@@ -125,13 +123,11 @@ class InvoiceService(ActivityMixin):
             return None
         
         items = await InvoiceItem.find(
-            InvoiceItem.invoice_id == invoice.id,
-            InvoiceItem.deleted_at == None
+            {"invoice_id": invoice.id, "deleted_at": None}
         ).sort("+sort_order").to_list()
-        
+
         payments = await Payment.find(
-            Payment.invoice_id == invoice.id,
-            Payment.deleted_at == None
+            {"invoice_id": invoice.id, "deleted_at": None}
         ).sort("-payment_date").to_list()
         
         return {"invoice": invoice, "items": items, "payments": payments}

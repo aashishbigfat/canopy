@@ -13,6 +13,8 @@ from app.mixins.activity_mixin import ActivityMixin
 from app.core.cache import invalidate_tenant_cache
 from app.repositories.opportunity_repository import OpportunityRepository
 from app.services.webhook_service import webhook_service
+from app.services import field_registry_service
+from app.schemas.field_registry import CustomFieldValuePayload
 
 class OpportunityService(ActivityMixin):
     """Service for Opportunity business logic"""
@@ -91,7 +93,21 @@ class OpportunityService(ActivityMixin):
                         tenant_id=tenant_id
                     )
                     await pivot.insert()
-            
+
+            # Save custom fields via unified registry (Phase 1 §A — fixes dead-code bug)
+            if custom_fields:
+                import json
+                payloads = [
+                    CustomFieldValuePayload(
+                        additional_field_id=ObjectId(f["id"]),
+                        field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
+                    )
+                    for f in custom_fields if f.get("id") is not None
+                ]
+                await field_registry_service.write_custom_field_values(
+                    "opportunity", opportunity.id, payloads, tenant_id,
+                )
+
             # Create notification for opportunity creation
             await self.notification_service.notify_user(
                 user_id=user_id,
@@ -130,24 +146,7 @@ class OpportunityService(ActivityMixin):
             
         except Exception as e:
             raise ValueError(f"Failed to create opportunity: {str(e)}")
-        
-        # Save custom fields
-        if custom_fields:
-            from app.models.opportunity_custom_fields import OpportunityCustomField
-            import json
-            
-            for field in custom_fields:
-                custom_field = OpportunityCustomField(
-                    opportunity_id=opportunity.id,
-                    opp_additional_field_id=ObjectId(field['id']),
-                    field_value=json.dumps(field['value']),
-                    type=field.get('type', 'text'),
-                    tenant_id=tenant_id
-                )
-                await custom_field.insert()
-        
-        return opportunity
-    
+
     async def get_opportunity(self, opp_id: str, tenant_id: ObjectId) -> Optional[Opportunity]:
         """Get opportunity by ID"""
         return await self.repository.get_by_id(id=opp_id, tenant_id=tenant_id)
@@ -157,7 +156,8 @@ class OpportunityService(ActivityMixin):
         opp_id: str,
         opp_data,  # OpportunityUpdate (unified for all industries)
         user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
+        custom_fields: list = None,
     ) -> Optional[Opportunity]:
         """Update an opportunity"""
         opp = await self.get_opportunity(opp_id, tenant_id)
@@ -212,7 +212,24 @@ class OpportunityService(ActivityMixin):
         
         opp.last_modified_by_id = user_id
         await opp.save()
-        
+
+        # Custom fields write (Phase 1 §A)
+        custom_field_changes = 0
+        if custom_fields:
+            import json
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
+                )
+                for f in custom_fields if f.get("id") is not None
+            ]
+            custom_field_changes = await field_registry_service.write_custom_field_values(
+                "opportunity", opp.id, payloads, tenant_id,
+            )
+            if custom_field_changes:
+                updated_fields["custom_fields_updated"] = custom_field_changes
+
         # Log update
         await self.log_entity_updated(
             entity=opp,
@@ -256,8 +273,7 @@ class OpportunityService(ActivityMixin):
         if new_industry.get("inclusions") and new_industry.get("inclusions") != old_industry.get("inclusions"):
             from app.models.opportunity_financial import OpportunityCosting
             costing = await OpportunityCosting.find_one(
-                OpportunityCosting.opportunity_id == opp.id,
-                OpportunityCosting.tenant_id == tenant_id
+                {"opportunity_id": opp.id, "tenant_id": tenant_id}
             )
             if costing:
                 new_inclusions = new_industry.get("inclusions", [])

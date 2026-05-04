@@ -181,7 +181,10 @@ class OpportunityResponse(BaseModel):
     
     # Industry-specific data (all industries including travel)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
-    
+
+    # Custom field values (Phase 1 §C)
+    custom_fields: Optional[Dict[str, Any]] = None
+
     class Config:
         from_attributes = True
 

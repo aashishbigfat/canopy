@@ -23,37 +23,32 @@ async def get_create_form_data(
     
     # Get account types
     account_types = await AccountType.find(
-        AccountType.tenant_id == current_user.tenant_id,
-        AccountType.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
-    
+
     # Get industries
     industries = await Industry.find(
-        Industry.tenant_id == current_user.tenant_id,
-        Industry.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
-    
+
     # Get ratings
     ratings = await Rating.find(
-        Rating.is_active == True
+        {"is_active": True}
     ).sort("+sorting").to_list()
-    
+
     # Get account sources
     sources = await AccountSource.find(
-        AccountSource.tenant_id == current_user.tenant_id,
-        AccountSource.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
-    
+
     # Get users for owner selection
     users = await User.find(
-        User.tenant_id == current_user.tenant_id,
-        User.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+name").to_list()
-    
+
     # Get custom fields
     custom_fields = await AdditionalFieldAccount.find(
-        AdditionalFieldAccount.tenant_id == current_user.tenant_id,
-        AdditionalFieldAccount.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
     
     return {
@@ -91,22 +86,19 @@ async def get_edit_form_data(
     
     # Get form data
     account_types = await AccountType.find(
-        AccountType.tenant_id == current_user.tenant_id,
-        AccountType.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
-    
+
     industries = await Industry.find(
-        Industry.tenant_id == current_user.tenant_id,
-        Industry.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
-    
+
     ratings = await Rating.find(
-        Rating.is_active == True
+        {"is_active": True}
     ).sort("+sorting").to_list()
-    
+
     users = await User.find(
-        User.tenant_id == current_user.tenant_id,
-        User.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+name").to_list()
     
     # Get custom field values for this account
@@ -161,8 +153,7 @@ async def export_accounts(
     
     # Get all accounts for export
     accounts = await Account.find(
-        Account.tenant_id == current_user.tenant_id,
-        Account.deleted_at == None
+        {"tenant_id": current_user.tenant_id, "deleted_at": None}
     ).to_list()
     
     service = ImportExportService()

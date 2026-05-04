@@ -87,8 +87,7 @@ class PackageService:
         
         # Get pricing tiers
         tiers = await PackagePricing.find(
-            PackagePricing.package_id == ObjectId(package_id),
-            PackagePricing.tenant_id == tenant_id
+            {"package_id": ObjectId(package_id), "tenant_id": tenant_id}
         ).to_list()
         
         return {
@@ -239,8 +238,7 @@ class PackageService:
         """Get all packages linked to an opportunity"""
         
         links = await PackageOpportunity.find(
-            PackageOpportunity.opportunity_id == ObjectId(opportunity_id),
-            PackageOpportunity.tenant_id == tenant_id
+            {"opportunity_id": ObjectId(opportunity_id), "tenant_id": tenant_id}
         ).to_list()
         
         result = []

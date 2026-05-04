@@ -100,10 +100,7 @@ class NoteService:
     ) -> List[Note]:
         """Get all notes for a specific entity (respecting privacy)"""
         all_notes = await Note.find(
-            Note.noteable_type == noteable_type,
-            Note.noteable_id == ObjectId(noteable_id),
-            Note.tenant_id == tenant_id,
-            Note.deleted_at == None
+            {"noteable_type": noteable_type, "noteable_id": ObjectId(noteable_id), "tenant_id": tenant_id, "deleted_at": None}
         ).sort("-created_at").to_list()
         
         # Filter private notes
@@ -121,9 +118,7 @@ class NoteService:
     ) -> List[Note]:
         """Get all notes created by user"""
         notes = await Note.find(
-            Note.tenant_id == tenant_id,
-            Note.owner_id == user_id,
-            Note.deleted_at == None
+            {"tenant_id": tenant_id, "owner_id": user_id, "deleted_at": None}
         ).sort("-created_at").to_list()
         
         return notes

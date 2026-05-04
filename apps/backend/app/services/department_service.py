@@ -21,11 +21,9 @@ class DepartmentService:
         
         # Check if department name already exists
         existing = await Department.find_one(
-            Department.name == department_data.name,
-            Department.tenant_id == tenant_id,
-            Department.deleted_at == None
+            {"name": department_data.name, "tenant_id": tenant_id, "deleted_at": None}
         )
-        
+
         if existing:
             raise ValueError(f"Department '{department_data.name}' already exists")
         
@@ -70,16 +68,12 @@ class DepartmentService:
         
         # Count users
         user_count = await User.find(
-            User.department_id == ObjectId(department_id),
-            User.tenant_id == tenant_id,
-            User.deleted_at == None
+            {"department_id": ObjectId(department_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
-        
+
         # Count child departments
         child_count = await Department.find(
-            Department.parent_id == ObjectId(department_id),
-            Department.tenant_id == tenant_id,
-            Department.deleted_at == None
+            {"parent_id": ObjectId(department_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
         
         # Get manager name
@@ -112,9 +106,7 @@ class DepartmentService:
         # Check name uniqueness if being updated
         if department_data.name and department_data.name != department.name:
             existing = await Department.find_one(
-                Department.name == department_data.name,
-                Department.tenant_id == tenant_id,
-                Department.deleted_at == None
+                {"name": department_data.name, "tenant_id": tenant_id, "deleted_at": None}
             )
             if existing:
                 raise ValueError(f"Department '{department_data.name}' already exists")
@@ -148,19 +140,15 @@ class DepartmentService:
         
         # Check if department has users
         user_count = await User.find(
-            User.department_id == ObjectId(department_id),
-            User.tenant_id == tenant_id,
-            User.deleted_at == None
+            {"department_id": ObjectId(department_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
-        
+
         if user_count > 0:
             raise ValueError(f"Cannot delete department: {user_count} users are assigned to it")
-        
+
         # Check if department has child departments
         child_count = await Department.find(
-            Department.parent_id == ObjectId(department_id),
-            Department.tenant_id == tenant_id,
-            Department.deleted_at == None
+            {"parent_id": ObjectId(department_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
         
         if child_count > 0:
@@ -249,10 +237,7 @@ class DepartmentService:
     ) -> List[User]:
         """Get all users in a department"""
         users = await User.find(
-            User.department_id == ObjectId(department_id),
-            User.tenant_id == tenant_id,
-            User.deleted_at == None,
-            User.is_active == True
+            {"department_id": ObjectId(department_id), "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
         ).sort("+name").to_list()
         
         return users

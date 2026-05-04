@@ -9,6 +9,9 @@ from app.models.account_contact import AccountContact
 from app.schemas.contact import ContactCreate, ContactUpdate
 from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
+from app.services import field_registry_service
+from app.schemas.field_registry import CustomFieldValuePayload
+import json
 
 class ContactService(ActivityMixin):
     """Service for Contact business logic"""
@@ -139,9 +142,7 @@ class ContactService(ActivityMixin):
         # Handle primary account linkage if not present in account_ids
         if contact_data.account_id and not (account_ids and contact_data.account_id in [str(a) for a in account_ids]):
             exist_pivot = await AccountContact.find_one(
-                AccountContact.contact_id == contact.id,
-                AccountContact.account_id == ObjectId(contact_data.account_id),
-                AccountContact.tenant_id == tenant_id
+                {"contact_id": contact.id, "account_id": ObjectId(contact_data.account_id), "tenant_id": tenant_id}
             )
             if not exist_pivot:
                 pivot = AccountContact(
@@ -151,20 +152,18 @@ class ContactService(ActivityMixin):
                 )
                 await pivot.insert()
         
-        # Save custom fields
+        # Save custom fields via unified registry (Phase 1 §A — also fixes wrong-import bug)
         if custom_fields:
-            from app.models.custom_fields import ContactCustomField
-            import json
-            
-            for field in custom_fields:
-                custom_field = ContactCustomField(
-                    contact_id=contact.id,
-                    contact_additional_field_id=ObjectId(field['id']),
-                    field_value=json.dumps(field['value']),
-                    type=field.get('type', 'text'),
-                    tenant_id=tenant_id
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
                 )
-                await custom_field.insert()
+                for f in custom_fields if f.get("id") is not None
+            ]
+            await field_registry_service.write_custom_field_values(
+                "contact", contact.id, payloads, tenant_id,
+            )
         
         # Track user view
         await self._track_user_view(user_id, contact.id, tenant_id)
@@ -213,9 +212,7 @@ class ContactService(ActivityMixin):
         related_opportunities = []
         try:
             opportunities = await Opportunity.find(
-                Opportunity.contact_id == contact.id,
-                Opportunity.tenant_id == tenant_id,
-                Opportunity.deleted_at == None
+                {"contact_id": contact.id, "tenant_id": tenant_id, "deleted_at": None}
             ).to_list()
             
             # --- N+1 OPTIMIZATION: Bulk fetch SalesStages ---
@@ -251,10 +248,7 @@ class ContactService(ActivityMixin):
         related_tasks = []
         try:
             tasks = await Task.find(
-                Task.taskable_type == "Contact",
-                Task.taskable_id == contact.id,
-                Task.tenant_id == tenant_id,
-                Task.deleted_at == None
+                {"taskable_type": "Contact", "taskable_id": contact.id, "tenant_id": tenant_id, "deleted_at": None}
             ).to_list()
             
             # --- N+1 OPTIMIZATION: Bulk fetch assigned Users ---
@@ -329,7 +323,8 @@ class ContactService(ActivityMixin):
         contact_id: str,
         contact_data: ContactUpdate,
         user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
+        custom_fields: list = None,
     ) -> Optional[Contact]:
         """Update a contact"""
         from fastapi import HTTPException
@@ -395,9 +390,7 @@ class ContactService(ActivityMixin):
                 # Remove old pivot row
                 if old_account_id:
                     old_pivot = await AccountContact.find_one(
-                        AccountContact.contact_id == contact.id,
-                        AccountContact.account_id == old_account_id,
-                        AccountContact.tenant_id == tenant_id
+                        {"contact_id": contact.id, "account_id": old_account_id, "tenant_id": tenant_id}
                     )
                     if old_pivot:
                         await old_pivot.delete()
@@ -405,9 +398,7 @@ class ContactService(ActivityMixin):
                 # Insert new pivot row
                 if new_account_id:
                     exists = await AccountContact.find_one(
-                        AccountContact.contact_id == contact.id,
-                        AccountContact.account_id == new_account_id,
-                        AccountContact.tenant_id == tenant_id
+                        {"contact_id": contact.id, "account_id": new_account_id, "tenant_id": tenant_id}
                     )
                     if not exists:
                         await AccountContact(
@@ -427,8 +418,7 @@ class ContactService(ActivityMixin):
                     
                     # Find and update all opportunities for this contact
                     opportunities = await Opportunity.find(
-                        Opportunity.contact_id == contact.id,
-                        Opportunity.deleted_at == None
+                        {"contact_id": contact.id, "deleted_at": None}
                     ).to_list()
                     
                     for opp in opportunities:
@@ -461,6 +451,21 @@ class ContactService(ActivityMixin):
         contact.last_modified_by_id = user_id
         await contact.save()
 
+        # Custom fields write (Phase 1 §A)
+        if custom_fields:
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
+                )
+                for f in custom_fields if f.get("id") is not None
+            ]
+            n = await field_registry_service.write_custom_field_values(
+                "contact", contact.id, payloads, tenant_id,
+            )
+            if n:
+                updated_fields["custom_fields_updated"] = n
+
         # Log update
         await self.log_entity_updated(
             entity=contact,
@@ -483,9 +488,7 @@ class ContactService(ActivityMixin):
         
         # Check hierarchy constraints: Can't delete if active opportunities exist
         active_opps_count = await Opportunity.find(
-            Opportunity.contact_id == contact.id,
-            Opportunity.tenant_id == tenant_id,
-            Opportunity.deleted_at == None
+            {"contact_id": contact.id, "tenant_id": tenant_id, "deleted_at": None}
         ).count()
         
         if active_opps_count > 0:
@@ -632,9 +635,7 @@ class ContactService(ActivityMixin):
         """Link contact to an account"""
         # Check if already linked using ODM syntax
         existing = await AccountContact.find_one(
-            AccountContact.contact_id == ObjectId(contact_id),
-            AccountContact.account_id == ObjectId(account_id),
-            AccountContact.tenant_id == tenant_id
+            {"contact_id": ObjectId(contact_id), "account_id": ObjectId(account_id), "tenant_id": tenant_id}
         )
         
         if not existing:
@@ -670,9 +671,7 @@ class ContactService(ActivityMixin):
         
         # Check if view exists using ODM syntax
         view = await UserContactView.find_one(
-            UserContactView.user_id == user_id,
-            UserContactView.contact_id == contact_id,
-            UserContactView.tenant_id == tenant_id
+            {"user_id": user_id, "contact_id": contact_id, "tenant_id": tenant_id}
         )
         
         if view:

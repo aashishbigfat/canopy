@@ -10,6 +10,8 @@ from app.schemas.account import AccountCreate, AccountUpdate, AccountSearch
 from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
 from app.services.webhook_service import webhook_service
+from app.services import field_registry_service
+from app.schemas.field_registry import CustomFieldValuePayload
 import json
 
 class AccountService(ActivityMixin):
@@ -66,20 +68,18 @@ class AccountService(ActivityMixin):
             action_url=f"/accounts/{account.id}"
         )
         
-        # Save custom fields
+        # Save custom fields via unified registry (Phase 1 §A)
         if custom_fields:
-            from app.models.custom_fields import AccountCustomField
-            import json
-            
-            for field in custom_fields:
-                custom_field = AccountCustomField(
-                    account_id=account.id,
-                    account_additional_field_id=ObjectId(field['id']),
-                    field_value=json.dumps(field['value']),
-                    type=field.get('type', 'text'),
-                    tenant_id=tenant_id
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
                 )
-                await custom_field.insert()
+                for f in custom_fields if f.get("id") is not None
+            ]
+            await field_registry_service.write_custom_field_values(
+                "account", account.id, payloads, tenant_id,
+            )
         
         # Save attachments
         if attachments:
@@ -172,8 +172,7 @@ class AccountService(ActivityMixin):
             contact_ids = [p.contact_id for p in pivots]
             if contact_ids:
                 contacts = await Contact.find(
-                    {"_id": {"$in": contact_ids}},
-                    Contact.deleted_at == None
+                    {"_id": {"$in": contact_ids}, "deleted_at": None}
                 ).to_list()
                 
                 for contact in contacts:
@@ -195,9 +194,7 @@ class AccountService(ActivityMixin):
             from app.models.opportunity_picklists import SalesStage
             
             opportunities = await Opportunity.find(
-                Opportunity.account_id == account.id,
-                Opportunity.tenant_id == tenant_id,
-                Opportunity.deleted_at == None
+                {"account_id": account.id, "tenant_id": tenant_id, "deleted_at": None}
             ).to_list()
             
             # --- N+1 OPTIMIZATION: Bulk fetch SalesStages and Owners ---
@@ -244,10 +241,7 @@ class AccountService(ActivityMixin):
             from app.models.task import Task
             
             tasks = await Task.find(
-                Task.taskable_type == "Account",
-                Task.taskable_id == account.id,
-                Task.tenant_id == tenant_id,
-                Task.deleted_at == None
+                {"taskable_type": "Account", "taskable_id": account.id, "tenant_id": tenant_id, "deleted_at": None}
             ).to_list()
             
             # --- N+1 OPTIMIZATION: Bulk fetch assigned Users ---
@@ -336,7 +330,8 @@ class AccountService(ActivityMixin):
         account_id: str,
         account_data: AccountUpdate,
         user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
+        custom_fields: Optional[List[Dict[str, Any]]] = None,
     ) -> Optional[Account]:
         """Update an account"""
         account = await self.get_account(account_id, tenant_id)
@@ -365,7 +360,22 @@ class AccountService(ActivityMixin):
         
         account.last_modified_by_id = user_id
         await account.save()
-        
+
+        # Custom fields write (Phase 1 §A)
+        if custom_fields:
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
+                )
+                for f in custom_fields if f.get("id") is not None
+            ]
+            n = await field_registry_service.write_custom_field_values(
+                "account", account.id, payloads, tenant_id,
+            )
+            if n:
+                updated_fields["custom_fields_updated"] = n
+
         # Log update
         await self.log_entity_updated(
             entity=account,
@@ -373,7 +383,7 @@ class AccountService(ActivityMixin):
             old_values=old_values,
             updated_fields=updated_fields
         )
-        
+
         # Fire webhook event
         try:
             await webhook_service.trigger_event(
@@ -409,9 +419,7 @@ class AccountService(ActivityMixin):
         if account.is_person_account:
             # Person Account: Check for active opportunities
             active_opps_count = await Opportunity.find(
-                Opportunity.account_id == account.id,
-                Opportunity.tenant_id == tenant_id,
-                Opportunity.deleted_at == None
+                {"account_id": account.id, "tenant_id": tenant_id, "deleted_at": None}
             ).count()
             
             if active_opps_count > 0:
@@ -423,9 +431,7 @@ class AccountService(ActivityMixin):
             # Regular Account: Check for active contacts
             # Check primary link
             active_contacts_count = await Contact.find(
-                Contact.account_id == account.id,
-                Contact.tenant_id == tenant_id,
-                Contact.deleted_at == None
+                {"account_id": account.id, "tenant_id": tenant_id, "deleted_at": None}
             ).count()
             
             if active_contacts_count > 0:
@@ -436,21 +442,17 @@ class AccountService(ActivityMixin):
             
             # Check pivot links
             pivots_count = await AccountContact.find(
-                AccountContact.account_id == account.id,
-                AccountContact.tenant_id == tenant_id
+                {"account_id": account.id, "tenant_id": tenant_id}
             ).count()
-            
+
             if pivots_count > 0:
                 # Double check if any of these pivot contacts are active
                 pivots = await AccountContact.find(
-                    AccountContact.account_id == account.id,
-                    AccountContact.tenant_id == tenant_id
+                    {"account_id": account.id, "tenant_id": tenant_id}
                 ).to_list()
                 contact_ids = [p.contact_id for p in pivots]
                 active_pivot_contacts = await Contact.find(
-                    {"_id": {"$in": contact_ids}},
-                    Contact.tenant_id == tenant_id,
-                    Contact.deleted_at == None
+                    {"_id": {"$in": contact_ids}, "tenant_id": tenant_id, "deleted_at": None}
                 ).count()
                 
                 if active_pivot_contacts > 0:
@@ -644,9 +646,7 @@ class AccountService(ActivityMixin):
     ) -> List[Account]:
         """Get accounts that can be parents (no parent themselves)"""
         return await Account.find(
-            Account.tenant_id == tenant_id,
-            Account.acc_parent_id == None,
-            Account.deleted_at == None
+            {"tenant_id": tenant_id, "acc_parent_id": None, "deleted_at": None}
         ).limit(limit).to_list()
     
     async def _track_user_view(

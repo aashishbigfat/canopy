@@ -38,8 +38,7 @@ async def get_sales_stages(
     the travel tenant's ID. Non-travel tenants use their own stage sets.
     """
     tenant_stages = await SalesStage.find(
-        SalesStage.tenant_id == current_user.tenant_id,
-        SalesStage.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
 
     return [
@@ -66,8 +65,7 @@ async def get_experiences(
     Get all travel experiences for the opportunity form
     """
     experiences = await Experience.find(
-        Experience.tenant_id == current_user.tenant_id,
-        Experience.is_active == True
+        {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
     
     return [
@@ -158,9 +156,10 @@ async def create_opportunity(
         opportunity = await service.create_opportunity(
             opp_data=opp_data,
             user_id=current_user.id,
-            tenant_id=current_user.tenant_id
+            tenant_id=current_user.tenant_id,
+            custom_fields=opp_data.custom_fields if hasattr(opp_data, 'custom_fields') else None,
         )
-        
+
         return OpportunityResponse.from_orm(opportunity)
     
     except ValueError as e:
@@ -240,7 +239,7 @@ async def get_opportunities(
         elif view == "closed":
              # Scoped to THIS tenant — critical for multi-industry isolation
              closed_stages = await SalesStage.find(
-                 SalesStage.tenant_id == current_user.tenant_id,
+                 {"tenant_id": current_user.tenant_id},
                  {"$or": [{"is_won": True}, {"is_lost": True}]}
              ).to_list()
              if closed_stages:
@@ -450,9 +449,18 @@ async def get_opportunity(
         opp_response.last_modified_by_name = last_modified_by_name
         opp_response.segment = segment
         opp_response.creation_type = creation_type
-            
+
+        # Sprint D — populate custom_fields
+        try:
+            from app.services import field_registry_service
+            opp_response.custom_fields = await field_registry_service.read_custom_field_values(
+                "opportunity", opportunity.id, current_user.tenant_id,
+            )
+        except Exception:
+            opp_response.custom_fields = {}
+
         return opp_response
-    
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
@@ -516,7 +524,8 @@ async def update_opportunity(
             opportunity_id,
             opp_data,
             current_user.id,
-            current_user.tenant_id
+            current_user.tenant_id,
+            custom_fields=opp_data.custom_fields if hasattr(opp_data, 'custom_fields') else None,
         )
         
         if not opportunity:
@@ -952,8 +961,7 @@ async def get_opportunity_history(
         
         # Get history records sorted by newest first
         history_records = await OpportunityHistory.find(
-            OpportunityHistory.opportunity_id == ObjectId(opportunity_id),
-            OpportunityHistory.tenant_id == current_user.tenant_id
+            {"opportunity_id": ObjectId(opportunity_id), "tenant_id": current_user.tenant_id}
         ).sort("-changed_at").to_list()
         
         from beanie.operators import In
@@ -1017,9 +1025,7 @@ async def get_opportunity_tasks(
         from app.models.task import Task
         
         tasks = await Task.find(
-            Task.taskable_id == ObjectId(opportunity_id),
-            Task.taskable_type == "Opportunity",
-            Task.tenant_id == current_user.tenant_id
+            {"taskable_id": ObjectId(opportunity_id), "taskable_type": "Opportunity", "tenant_id": current_user.tenant_id}
         ).sort("-created_at").to_list()
         
         # Need to fetch assigned users and created by users

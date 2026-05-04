@@ -12,7 +12,7 @@ class TagService:
     
     async def create_tag(self, data: TagCreate, user_id: ObjectId, tenant_id: ObjectId) -> Tag:
         existing = await Tag.find_one(
-            Tag.name == data.name, Tag.tenant_id == tenant_id, Tag.deleted_at == None
+            {"name": data.name, "tenant_id": tenant_id, "deleted_at": None}
         )
         if existing:
             raise ValueError(f"Tag '{data.name}' already exists")
@@ -110,9 +110,7 @@ class TagService:
     
     async def get_entity_tags(self, entity_type: str, entity_id: str, tenant_id: ObjectId) -> List[Tag]:
         entity_tags = await EntityTag.find(
-            EntityTag.entity_type == entity_type,
-            EntityTag.entity_id == ObjectId(entity_id),
-            EntityTag.tenant_id == tenant_id
+            {"entity_type": entity_type, "entity_id": ObjectId(entity_id), "tenant_id": tenant_id}
         ).to_list()
         
         tag_ids = [et.tag_id for et in entity_tags]

@@ -315,10 +315,7 @@ class FileService:
     ) -> List[File]:
         """Get all files for a specific entity"""
         files = await File.find(
-            File.fileable_type == fileable_type,
-            File.fileable_id == ObjectId(fileable_id),
-            File.tenant_id == tenant_id,
-            File.deleted_at == None
+            {"fileable_type": fileable_type, "fileable_id": ObjectId(fileable_id), "tenant_id": tenant_id, "deleted_at": None}
         ).sort("-created_at").to_list()
         
         return files

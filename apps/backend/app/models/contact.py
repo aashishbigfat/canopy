@@ -101,8 +101,7 @@ class Contact(BaseDocument):
         from app.models.account_contact import AccountContact
         
         pivots = await AccountContact.find(
-            AccountContact.contact_id == self.id,
-            AccountContact.tenant_id == self.tenant_id
+            {"contact_id": self.id, "tenant_id": self.tenant_id}
         ).to_list()
         
         if not pivots:
@@ -110,9 +109,7 @@ class Contact(BaseDocument):
             
         account_ids = [p.account_id for p in pivots]
         return await Account.find(
-            {"_id": {"$in": account_ids}},
-            Account.tenant_id == self.tenant_id,
-            Account.deleted_at == None
+            {"_id": {"$in": account_ids}, "tenant_id": self.tenant_id, "deleted_at": None}
         ).to_list()
     
     async def get_opportunities(self):
@@ -120,8 +117,7 @@ class Contact(BaseDocument):
         from app.models.opportunity import Opportunity
         
         return await Opportunity.find(
-            Opportunity.contact_id == self.id,
-            Opportunity.tenant_id == self.tenant_id
+            {"contact_id": self.id, "tenant_id": self.tenant_id}
         ).to_list()
     
     async def increment_view_count(self):

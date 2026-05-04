@@ -120,7 +120,8 @@ async def create_account(
         account = await service.create_account(
             account_data,
             current_user.id,
-            current_user.tenant_id
+            current_user.tenant_id,
+            custom_fields=getattr(account_data, "custom_fields", None),
         )
         
         from app.core.cache import invalidate_tenant_cache
@@ -486,8 +487,17 @@ async def get_account(
         
         # Increment view count
         await account.increment_view_count()
-        
-        return account_to_response(account)
+
+        # Sprint D — populate custom_fields
+        resp = account_to_response(account)
+        try:
+            from app.services import field_registry_service
+            resp.custom_fields = await field_registry_service.read_custom_field_values(
+                "account", account.id, current_user.tenant_id,
+            )
+        except Exception:
+            resp.custom_fields = {}
+        return resp
 
 
 @router.get("/{account_id}/address-to-contact")
@@ -539,7 +549,8 @@ async def update_account(
             account_id,
             account_data,
             current_user.id,
-            current_user.tenant_id
+            current_user.tenant_id,
+            custom_fields=getattr(account_data, "custom_fields", None),
         )
         
         if not account:

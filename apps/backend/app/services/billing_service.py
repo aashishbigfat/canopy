@@ -81,8 +81,7 @@ class BillingService:
     ) -> Optional[TenantSubscription]:
         """Get active subscription for a tenant."""
         return await TenantSubscription.find_one(
-            TenantSubscription.tenant_id == tenant_id,
-            TenantSubscription.status != "canceled"
+            {"tenant_id": tenant_id, "status": {"$ne": "canceled"}}
         )
     
     async def create_subscription(

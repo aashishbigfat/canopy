@@ -114,10 +114,7 @@ class EventService:
     ) -> List[Event]:
         """Get all events for a specific entity"""
         events = await Event.find(
-            Event.eventable_type == eventable_type,
-            Event.eventable_id == ObjectId(eventable_id),
-            Event.tenant_id == tenant_id,
-            Event.deleted_at == None
+            {"eventable_type": eventable_type, "eventable_id": ObjectId(eventable_id), "tenant_id": tenant_id, "deleted_at": None}
         ).sort("-start_datetime").to_list()
         
         return events

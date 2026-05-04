@@ -7,6 +7,7 @@ import { Plus } from "lucide-react";
 import Link from "next/link";
 import { CreateContactButton } from "@/features/contacts/components/CreateContactButton";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
+import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,9 @@ export default async function ContactsPage({
                 </PermissionGate>
             </div>
 
-            <ContactTable 
+            <EntityListToolbar entity="contact" />
+
+            <ContactTable
                 data={contactsData.contacts} 
                 pagination={contactsData.pagination} 
             />

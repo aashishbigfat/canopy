@@ -101,6 +101,38 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial, hierarchies
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
+# Phase 1 — Field registry + picklists
+from app.api.v1 import custom_fields, standard_fields, picklists
+# Phase 2 — Admin settings hub
+from app.api.v1 import admin_settings
+# Phase 4 — Entity views/columns/filters/pinned
+from app.api.v1 import entity_views
+# Phase 6 — Opportunity workflow
+from app.api.v1 import opportunity_workflow
+# Phase 7 — Messaging (Gmail/Email/WhatsApp/Chatbot)
+from app.api.v1 import messaging
+# Phase 8 — Reports extras (standard reports, folders, preview, clone)
+from app.api.v1 import reports_extra
+# Phase 14 — FCM tokens + reminder cron
+from app.api.v1 import fcm
+# Phase 15 — Subscription / Razorpay parity
+from app.api.v1 import subscription
+# Phase 11 — Dashboard extras
+from app.api.v1 import dashboards_extra
+# Phase 10 — User mgmt extras
+from app.api.v1 import users_extra
+# Phase 12 — Search modules + supplier templates
+from app.api.v1 import search_extras
+# Phase 13 — Imports / Exports
+from app.api.v1 import imports_exports
+# Phase 9 — Files extras (folders, shares, versions, public links)
+from app.api.v1 import files_extra
+# Phase 5 — Itinerary engine extension
+from app.api.v1 import itineraries_extra
+# Phase 16 — Mobile API
+from app.api.v1 import mobile
+# Phase 17 — Misc / utility
+from app.api.v1 import misc
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication (Alias)"]) # Fallback for misconfigured clients
@@ -141,6 +173,40 @@ app.include_router(incentives.router, prefix="/api/v1/incentives", tags=["Incent
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
 app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])
 app.include_router(search.router, prefix="/api/v1/search", tags=["Search"])
+# Phase 1 — Field registry + picklists
+app.include_router(custom_fields.router, prefix="/api/v1/custom_fields", tags=["Custom Fields"])
+app.include_router(standard_fields.router, prefix="/api/v1/standard_fields", tags=["Standard Fields"])
+app.include_router(picklists.router, prefix="/api/v1/picklists", tags=["Picklists"])
+# Phase 2 — Admin settings hub
+app.include_router(admin_settings.router, prefix="/api/v1/admin", tags=["Admin Settings"])
+# Phase 4 — Entity views/columns/filters/pinned
+app.include_router(entity_views.router, prefix="/api/v1/entity_views", tags=["Entity Views"])
+# Phase 6 — Opportunity workflow (vouchers, departures, ledger, claims, handover, external capture)
+app.include_router(opportunity_workflow.router, prefix="/api/v1/opportunities", tags=["Opportunity Workflow"])
+# Phase 7 — Messaging (Gmail / WhatsApp / Chatbot)
+app.include_router(messaging.router, prefix="/api/v1/messaging", tags=["Messaging"])
+# Phase 8 — Reports extras (standard, folders, preview, clone, sample)
+app.include_router(reports_extra.router, prefix="/api/v1/reports", tags=["Reports Extras"])
+# Phase 14 — FCM tokens + reminder cron
+app.include_router(fcm.router, prefix="/api/v1/fcm", tags=["FCM"])
+# Phase 15 — Subscription / Razorpay parity
+app.include_router(subscription.router, prefix="/api/v1/subscription", tags=["Subscription"])
+# Phase 11 — Dashboard extras (BD/legacy aggregates + quick links)
+app.include_router(dashboards_extra.router, prefix="/api/v1/dashboards", tags=["Dashboards Extras"])
+# Phase 10 — User mgmt extras (profile, targets, directory, login logs)
+app.include_router(users_extra.router, prefix="/api/v1/users", tags=["Users Extras"])
+# Phase 12 — Search modules + supplier templates
+app.include_router(search_extras.router, prefix="/api/v1/search_extras", tags=["Search Extras"])
+# Phase 13 — Imports / Exports per entity
+app.include_router(imports_exports.router, prefix="/api/v1/imports", tags=["Imports/Exports"])
+# Phase 9 — Files extras (folders, shares, versions, public links)
+app.include_router(files_extra.router, prefix="/api/v1/files", tags=["Files Extras"])
+# Phase 5 — Itinerary engine extension (categories, schedule, hotels, flights, PDF, proforma)
+app.include_router(itineraries_extra.router, prefix="/api/v1/itineraries", tags=["Itineraries Extras"])
+# Phase 16 — Mobile API (thin shim for mobile clients)
+app.include_router(mobile.router, prefix="/api/v1/mobile", tags=["Mobile"])
+# Phase 17 — Misc / utility (s3 url, lat-long, country, FB stubs, public verify)
+app.include_router(misc.router, prefix="/api/v1/misc", tags=["Misc"])
 
 @app.get("/")
 async def root():

@@ -1,70 +1,23 @@
 """
-Picklist models for Account module
+Account-related picklist models — re-export shim.
+
+Canonical defs live in `consolidated_picklists` (single 'picklists'
+collection w/ discriminator). This module re-exports them for back-compat.
+
+`SupplierService` aliased to `SupplierServicePicklist` from consolidated.
 """
-from beanie import Indexed
-from pydantic import Field
-from typing import Optional
-from beanie import PydanticObjectId
-from app.models.base import BaseDocument
+from app.models.consolidated_picklists import (
+    AccountType,
+    Industry,
+    Rating,
+    AccountSource,
+    SupplierServicePicklist as SupplierService,
+)
 
-class AccountType(BaseDocument):
-    """Account type picklist"""
-    name: Indexed(str)
-    description: Optional[str] = None
-    tenant_id: Indexed(PydanticObjectId)
-    sorting: int = 0
-    is_active: bool = True
-    
-    class Settings:
-        name = "account_types"
-        indexes = ["tenant_id", "sorting"]
-
-
-class Industry(BaseDocument):
-    """Industry picklist"""
-    name: Indexed(str)
-    description: Optional[str] = None
-    tenant_id: Indexed(PydanticObjectId)
-    sorting: int = 0
-    is_active: bool = True
-    
-    class Settings:
-        name = "industries"
-        indexes = ["tenant_id", "sorting"]
-
-
-class Rating(BaseDocument):
-    """Account rating/category picklist"""
-    name: Indexed(str)
-    description: Optional[str] = None
-    sorting: int = 0
-    is_active: bool = True
-    
-    class Settings:
-        name = "ratings"
-        indexes = ["sorting"]
-
-
-class AccountSource(BaseDocument):
-    """Account source picklist"""
-    name: Indexed(str)
-    description: Optional[str] = None
-    tenant_id: Indexed(PydanticObjectId)
-    sorting: int = 0
-    is_active: bool = True
-    
-    class Settings:
-        name = "account_sources"
-        indexes = ["tenant_id", "sorting"]
-
-class SupplierService(BaseDocument):
-    """Supplier Service Types picklist"""
-    name: Indexed(str)
-    description: Optional[str] = None
-    tenant_id: Indexed(PydanticObjectId)
-    sorting: int = 0
-    is_active: bool = True
-    
-    class Settings:
-        name = "supplier_services"
-        indexes = ["tenant_id", "sorting"]
+__all__ = [
+    "AccountType",
+    "Industry",
+    "Rating",
+    "AccountSource",
+    "SupplierService",
+]

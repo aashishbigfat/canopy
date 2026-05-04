@@ -192,11 +192,20 @@ async def get_lead(
     modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
     
     lead_response = LeadResponse.model_validate(lead)
-    
+
+    # Sprint D — populate custom_fields via bulk read helper
+    try:
+        from app.services import field_registry_service
+        lead_response.custom_fields = await field_registry_service.read_custom_field_values(
+            "lead", lead.id, current_user.tenant_id,
+        )
+    except Exception:
+        lead_response.custom_fields = {}
+
     # Resolve destinations if in travel industry
     if lead_response.industry_data and "destination_ids" in lead_response.industry_data:
         lead_response.industry_data = await _resolve_destinations(lead_response.industry_data)
-        
+
     lead_response.created_by_name = creator.name if creator else "Unknown"
     lead_response.last_modified_by_name = modifier.name if modifier else None
     
@@ -245,7 +254,8 @@ async def update_lead(
             lead_data=lead_data,
             user_id=current_user.id,
             tenant_id=current_user.tenant_id,
-            user_name=current_user.name.strip() or current_user.email
+            user_name=current_user.name.strip() or current_user.email,
+            custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None,
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -447,8 +457,7 @@ async def export_leads(
     
     # Get all leads for export
     leads = await Lead.find(
-        Lead.tenant_id == current_user.tenant_id,
-        Lead.deleted_at == None
+        {"tenant_id": current_user.tenant_id, "deleted_at": None}
     ).to_list()
     
     # TODO: Implement export_leads_to_excel method

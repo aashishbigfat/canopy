@@ -259,9 +259,7 @@ async def search_by_module(
         account_map: Dict[str, str] = {}
         if account_ids:
             accounts = await Account.find(
-                {"_id": {"$in": account_ids}},
-                Account.tenant_id == tenant_id,
-                Account.deleted_at == None
+                {"_id": {"$in": account_ids}, "tenant_id": tenant_id, "deleted_at": None}
             ).to_list()
             account_map = {str(a.id): a.name or "" for a in accounts}
 

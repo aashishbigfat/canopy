@@ -71,16 +71,13 @@ class ActivityLogService:
     async def get_entity_history(self, entity_type: str, entity_id: str, tenant_id: ObjectId) -> List[ActivityLog]:
         """Get all activity for a specific entity"""
         return await ActivityLog.find(
-            ActivityLog.entity_type == entity_type,
-            ActivityLog.entity_id == ObjectId(entity_id),
-            ActivityLog.tenant_id == tenant_id
+            {"entity_type": entity_type, "entity_id": ObjectId(entity_id), "tenant_id": tenant_id}
         ).sort("-created_at").to_list()
     
     async def get_user_activity(self, user_id: str, tenant_id: ObjectId, limit: int = 50) -> List[ActivityLog]:
         """Get recent activity for a user"""
         return await ActivityLog.find(
-            ActivityLog.user_id == ObjectId(user_id),
-            ActivityLog.tenant_id == tenant_id
+            {"user_id": ObjectId(user_id), "tenant_id": tenant_id}
         ).limit(limit).sort("-created_at").to_list()
     
     # Login Log methods
@@ -143,6 +140,5 @@ class ActivityLogService:
     async def get_user_login_history(self, user_id: str, tenant_id: ObjectId, limit: int = 20) -> List[LoginLog]:
         """Get login history for a user"""
         return await LoginLog.find(
-            LoginLog.user_id == ObjectId(user_id),
-            LoginLog.tenant_id == tenant_id
+            {"user_id": ObjectId(user_id), "tenant_id": tenant_id}
         ).limit(limit).sort("-created_at").to_list()

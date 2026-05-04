@@ -51,10 +51,7 @@ class HierarchyService:
         # Same name may exist under different parents; uniqueness is per (tenant, parent, name).
         parent_key = parent.id if parent else None
         existing = await RoleHierarchy.find_one(
-            RoleHierarchy.name == hierarchy_data.name,
-            RoleHierarchy.tenant_id == tenant_id,
-            RoleHierarchy.deleted_at == None,
-            RoleHierarchy.parent_id == parent_key,
+            {"name": hierarchy_data.name, "tenant_id": tenant_id, "deleted_at": None, "parent_id": parent_key}
         )
         if existing:
             raise ValueError(
@@ -92,10 +89,7 @@ class HierarchyService:
 
         if hierarchy_data.name and hierarchy_data.name != hierarchy.name:
             existing = await RoleHierarchy.find_one(
-                RoleHierarchy.name == hierarchy_data.name,
-                RoleHierarchy.tenant_id == tenant_id,
-                RoleHierarchy.deleted_at == None,
-                RoleHierarchy.parent_id == hierarchy.parent_id,
+                {"name": hierarchy_data.name, "tenant_id": tenant_id, "deleted_at": None, "parent_id": hierarchy.parent_id}
             )
             if existing and existing.id != hierarchy.id:
                 raise ValueError(
@@ -134,9 +128,7 @@ class HierarchyService:
 
         # Prevent delete if users are assigned to this hierarchy.
         user_count = await User.find(
-            User.role_hierarchy_id == ObjectId(hierarchy_id),
-            User.tenant_id == tenant_id,
-            User.deleted_at == None,
+            {"role_hierarchy_id": ObjectId(hierarchy_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
         if user_count > 0:
             raise ValueError(f"Cannot delete hierarchy: {user_count} users are assigned to it")
@@ -148,6 +140,5 @@ class HierarchyService:
         self, tenant_id: ObjectId, skip: int = 0, limit: int = 100
     ) -> List[RoleHierarchy]:
         return await RoleHierarchy.find(
-            RoleHierarchy.tenant_id == tenant_id,
-            RoleHierarchy.deleted_at == None,
+            {"tenant_id": tenant_id, "deleted_at": None}
         ).skip(skip).limit(limit).sort("+name").to_list()

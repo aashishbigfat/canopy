@@ -83,20 +83,12 @@ class ReminderService:
         now = datetime.utcnow()
         future = now + timedelta(days=days)
         return await Reminder.find(
-            Reminder.user_id == user_id,
-            Reminder.remind_at >= now,
-            Reminder.remind_at <= future,
-            Reminder.is_completed == False,
-            Reminder.deleted_at == None
+            {"user_id": user_id, "remind_at": {"$gte": now, "$lte": future}, "is_completed": False, "deleted_at": None}
         ).sort("+remind_at").to_list()
     
     async def get_due_reminders(self, user_id: ObjectId) -> List[Reminder]:
         """Get reminders that are due now"""
         now = datetime.utcnow()
         return await Reminder.find(
-            Reminder.user_id == user_id,
-            Reminder.remind_at <= now,
-            Reminder.is_completed == False,
-            Reminder.is_sent == False,
-            Reminder.deleted_at == None
+            {"user_id": user_id, "remind_at": {"$lte": now}, "is_completed": False, "is_sent": False, "deleted_at": None}
         ).sort("+remind_at").to_list()

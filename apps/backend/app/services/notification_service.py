@@ -60,10 +60,7 @@ class NotificationService:
     
     async def get_unread_count(self, user_id: ObjectId, tenant_id: ObjectId) -> int:
         return await Notification.find(
-            Notification.user_id == user_id,
-            Notification.tenant_id == tenant_id,
-            Notification.is_read == False,
-            Notification.deleted_at == None
+            {"user_id": user_id, "tenant_id": tenant_id, "is_read": False, "deleted_at": None}
         ).count()
     
     async def mark_as_read(self, notification_id: str, user_id: ObjectId) -> Optional[Notification]:
@@ -76,9 +73,7 @@ class NotificationService:
     
     async def mark_all_as_read(self, user_id: ObjectId, tenant_id: ObjectId) -> int:
         notifications = await Notification.find(
-            Notification.user_id == user_id,
-            Notification.tenant_id == tenant_id,
-            Notification.is_read == False
+            {"user_id": user_id, "tenant_id": tenant_id, "is_read": False}
         ).to_list()
         
         count = 0
@@ -98,9 +93,7 @@ class NotificationService:
     
     async def clear_all_notifications(self, user_id: ObjectId, tenant_id: ObjectId) -> int:
         notifications = await Notification.find(
-            Notification.user_id == user_id,
-            Notification.tenant_id == tenant_id,
-            Notification.deleted_at == None
+            {"user_id": user_id, "tenant_id": tenant_id, "deleted_at": None}
         ).to_list()
         
         count = 0

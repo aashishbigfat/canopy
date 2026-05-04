@@ -84,11 +84,11 @@ class ImportExportService:
         
         # Get picklist mappings
         account_types = {at.name: at.id for at in await AccountType.find(
-            AccountType.tenant_id == tenant_id
+            {"tenant_id": tenant_id}
         ).to_list()}
-        
+
         industries = {ind.name: ind.id for ind in await Industry.find(
-            Industry.tenant_id == tenant_id
+            {"tenant_id": tenant_id}
         ).to_list()}
         
         ratings = {rat.name: rat.id for rat in await Rating.find_all().to_list()}

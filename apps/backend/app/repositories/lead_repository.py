@@ -36,9 +36,8 @@ class LeadRepository(BaseRepository[Lead]):
             return None
             
         return await self.model.find_one(
-            Lead.tenant_id == tenant_obj_id,
+            {"tenant_id": tenant_obj_id, "deleted_at": None},
             Or(*query_parts),
-            Lead.deleted_at == None
         )
 
     async def get_filtered_leads(

@@ -136,6 +136,22 @@ function trailingNavItems(): NavItem[] {
                 { title: "Departments", href: "/admin/departments", requiredPermission: "manage_system" },
             ],
         },
+        {
+            title: "Settings",
+            href: "/settings",
+            icon: Settings,
+            requiredPermission: "manage_system",
+            submenu: [
+                { title: "Company Profile", href: "/settings/company", requiredPermission: "manage_system" },
+                { title: "Custom Fields", href: "/settings/custom-fields/lead", requiredPermission: "manage_system" },
+                { title: "Standard Fields", href: "/settings/standard-fields/lead", requiredPermission: "manage_system" },
+                { title: "Picklists", href: "/settings/picklists/lead_status", requiredPermission: "manage_system" },
+                { title: "Auto-Assignment", href: "/settings/auto-assignment", requiredPermission: "manage_system" },
+                { title: "Leaderboard", href: "/settings/leaderboard", requiredPermission: "manage_system" },
+                { title: "Email Footer", href: "/settings/email-footer", requiredPermission: "manage_system" },
+                { title: "Territory", href: "/settings/territory", requiredPermission: "manage_system" },
+            ],
+        },
     ];
 }
 

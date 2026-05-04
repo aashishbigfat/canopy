@@ -112,7 +112,8 @@ async def create_contact(
         contact = await service.create_contact(
             contact_data,
             current_user.id,
-            current_user.tenant_id
+            current_user.tenant_id,
+            custom_fields=getattr(contact_data, "custom_fields", None),
         )
         
         from app.core.cache import invalidate_tenant_cache
@@ -169,8 +170,7 @@ async def get_contacts(
             Contact.find(query).count(),
             Contact.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list(),
             User.find(
-                User.tenant_id == current_user.tenant_id,
-                User.is_active == True
+                {"tenant_id": current_user.tenant_id, "is_active": True}
             ).sort("+name").to_list(),
         )
 
@@ -274,7 +274,23 @@ async def get_contact(
     contact = await Contact.get(ObjectId(contact_id))
     if contact:
         await contact.increment_view_count()
-            
+
+    # Sprint D — populate custom_fields
+    try:
+        from app.services import field_registry_service
+        cf = await field_registry_service.read_custom_field_values(
+            "contact", ObjectId(contact_id), current_user.tenant_id,
+        )
+        if isinstance(contact_data, dict):
+            contact_data["custom_fields"] = cf
+        else:
+            try:
+                contact_data.custom_fields = cf
+            except Exception:
+                pass
+    except Exception:
+        pass
+
     return contact_data
 
 
@@ -302,7 +318,8 @@ async def update_contact(
         contact_id,
         contact_data,
         current_user.id,
-        current_user.tenant_id
+        current_user.tenant_id,
+        custom_fields=getattr(contact_data, "custom_fields", None),
     )
     
     if not contact:

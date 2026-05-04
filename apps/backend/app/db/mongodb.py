@@ -20,18 +20,18 @@ from app.models.note import Note
 from app.models.email import Email
 from app.models.file import File
 from app.models.supplier import Supplier
-from app.models.itinerary import Itinerary, ItineraryDay, ItineraryOpportunity
-from app.models.package import Package, PackagePricing, PackageOpportunity
-from app.models.role import Role, RoleHierarchy
-from app.models.destination import Destination, DestinationOpportunity, DestinationLead
+from app.models.itinerary import Itinerary, ItineraryDay
+from app.models.package import Package, PackagePricing
+from app.models.role import Role
 from app.models.department import Department
+from app.models.destination import Destination
 from app.models.product import Product
 from app.models.quote import Quote, QuoteItem
 from app.models.invoice import Invoice, InvoiceItem, Payment
 from app.models.country import Country, State, City
 from app.models.activity_log import ActivityLog, LoginLog
-from app.models.settings import TenantSettings, UserSettings
-from app.models.tag import Tag, EntityTag
+from app.models.consolidated_settings import TenantSettings, UserSettings, CompanySettings, LeaderboardConfig, OpportunityWorkflowSettings, EmailFooter
+from app.models.tag import Tag
 from app.models.notification import Notification
 from app.models.comment import Comment
 from app.models.reminder import Reminder
@@ -42,19 +42,89 @@ from app.models.territory import Region, Territory
 from app.models.incentive import Incentive, IncentiveTarget, IncentiveAchievement
 from app.models.billing import SubscriptionPlan, TenantSubscription, BillingInvoice
 from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
-from app.models.opportunity_picklists import SalesStage, OpportunityType, Experience, OpportunityTag, OpportunityHistory, OpportunityLock
-from app.models.lead_picklists import LeadStatus, Source, SourceMedium
+from app.models.consolidated_picklists import (
+    SalesStage, OpportunityType, Experience, OpportunityTag,
+    LeadStatus, Source, SourceMedium,
+    AccountType, Industry, Rating, AccountSource, SupplierServicePicklist
+)
 
 # Missing models causing 500 errors
 from app.models.user_account_view import UserAccountView
-from app.models.user_contact_view import UserContactView, ContactCustomField
-from app.models.account_views import AccountView, AccountColumn, AccountPinView
-from app.models.account_contact import AccountContact
-from app.models.contact_views import ContactView, ContactColumn, AdditionalFieldContact
-from app.models.picklists import Industry, Rating, AccountType, AccountSource, SupplierService as SupplierServicePicklist
-from app.models.custom_fields import AccountCustomField
+from app.models.user_contact_view import UserContactView
+from app.models.account_views import AccountView, AccountColumn
+# AccountContact imported via consolidated_pivots
+from app.models.contact_views import ContactView, ContactColumn
+# Consolidated picklists imported above
+# AccountCustomField imported via consolidated_fields
 from app.models.module_attachment import ModuleAttachment
 from app.models.opportunity_financial import OpportunityCosting, PaymentScheduleItem, OpportunityTransaction
+# Phase 1 — Field registry (consolidated - single collection)
+from app.models.consolidated_fields import (
+    AdditionalFieldLead,
+    AdditionalFieldOpportunity,
+    AdditionalFieldSupplier,
+    AdditionalFieldPersonalAccount,
+    AdditionalFieldTask,
+    AdditionalFieldContact,
+    AccountCustomField,
+    SupplierCustomField,
+    PersonalAccountCustomField,
+    TaskCustomField,
+    ContactCustomField,
+    StandardField,
+)
+# Phase 2 — Admin settings hub (consolidated)
+from app.models.admin_settings import (
+    AutoAssignmentRule,
+    UserAssignmentRule,
+    CountryUserAssignment,
+    DepartmentMapping,
+    AgentConnection,
+)
+# Phase 4 — Polymorphic views/columns/filters/pinned
+from app.models.entity_views import (
+    EntityView, EntityColumn, EntityFilter,
+)
+# Phase 6 — Opportunity workflow
+from app.models.opportunity_workflow import (
+    Voucher, Departure, LedgerAccount, OpportunityClaim,
+    HandoverRequest, ExternalLead, OpportunityPaymentSchedule,
+)
+# Phase 7 — Messaging (Gmail / Email / WhatsApp / Chatbot)
+from app.models.messaging import (
+    GmailIntegration, EmailMessage, WhatsAppTemplate,
+    WhatsAppMessage, ChatbotWebhookEvent,
+)
+# Phase 8 — Report folders & shares
+from app.models.report_folders import ReportFolder
+# Phase 14 — FCM tokens
+from app.models.fcm import FCMToken
+# Consolidated pivot relations
+from app.models.consolidated_pivots import (
+    DestinationOpportunity, DestinationLead, ItineraryOpportunity, PackageOpportunity,
+    AccountContact, EntityTag, OpportunityTeamMember, AccountPinView, EntityPinView,
+    ReportFolderShare, FileShare, RoleHierarchy
+)
+# Phase 11 — Dashboard quick links
+from app.models.quick_link import QuickLink
+# Phase 12 — Search modules + supplier templates
+from app.models.search_extras import (
+    SearchModuleConfig, SearchNote, SupplierEmailTemplate,
+)
+# Phase 9 — File folders / shares / versions / public links
+from app.models.file_extras import (
+    FileFolder, FileVersion, FilePublicLink,
+)
+# Phase 5 — Itinerary engine extension
+from app.models.itinerary_extras import (
+    ItineraryCategory, ItinerarySubCategory,
+    ItineraryScheduleItem, ItineraryHotel, ItineraryFlight,
+    ItineraryInclusion, UserItineraryInclusion,
+    ItineraryHeaderFooter, ProformaInvoice, TourItinerary,
+    ItineraryPDFJob,
+)
+# Phase 17 — Email tokens
+from app.models.email_token import EmailToken
 
 async def init_db():
     """Initialize database connection"""
@@ -103,13 +173,9 @@ async def init_db():
             Supplier,
             Itinerary,
             ItineraryDay,
-            ItineraryOpportunity,
             Package,
             PackagePricing,
-            PackageOpportunity,
             Destination,
-            DestinationOpportunity,
-            DestinationLead,
             Product,
             Quote,
             QuoteItem,
@@ -118,7 +184,6 @@ async def init_db():
             Payment,
             # Organization
             Role,
-            RoleHierarchy,
             Department,
             # Geographic
             Country,
@@ -127,12 +192,28 @@ async def init_db():
             # Activity Logs
             ActivityLog,
             LoginLog,
-            # Settings
+            # Settings (consolidated - single collection)
             TenantSettings,
             UserSettings,
+            CompanySettings,
+            LeaderboardConfig,
+            OpportunityWorkflowSettings,
+            EmailFooter,
             # Tags
             Tag,
+            # Relations (consolidated - single collection)
             EntityTag,
+            DestinationOpportunity,
+            DestinationLead,
+            ItineraryOpportunity,
+            PackageOpportunity,
+            AccountContact,
+            OpportunityTeamMember,
+            AccountPinView,
+            EntityPinView,
+            ReportFolderShare,
+            FileShare,
+            RoleHierarchy,
             # Notifications
             Notification,
             # Comments
@@ -164,40 +245,36 @@ async def init_db():
             WebhookEndpoint,
             WebhookEvent,
             WebhookDelivery,
-            # Sales Pipeline
+            # Consolidated picklists (single collection)
             SalesStage,
-            # Opportunity picklists
             OpportunityType,
             Experience,
             OpportunityTag,
-            OpportunityHistory,
-            OpportunityLock,
-            # Lead picklists
             LeadStatus,
             Source,
             SourceMedium,
-            # Missing models
-            UserAccountView,
-            UserContactView,
-            ContactCustomField,
-            AccountView,
-            AccountColumn,
-            AccountPinView,
-            AccountContact,
-            ContactView,
-            ContactColumn,
-            AdditionalFieldContact,
             Industry,
             Rating,
             AccountType,
             AccountSource,
             SupplierServicePicklist,
-            AccountCustomField,
+            # Missing models
+            UserAccountView,
+            UserContactView,
+            AccountView,
+            AccountColumn,
+            ContactView,
+            ContactColumn,
             ModuleAttachment,
             # Opportunity Financial
             OpportunityCosting,
             PaymentScheduleItem,
             OpportunityTransaction,
+            # NOTE: Sprint A-G new doc registrations DISABLED to fit Atlas
+            # free-tier 500-namespace cap. Beanie creates collections lazily
+            # on first write — these models still work, they just don't get
+            # eager indexes/collections at boot. Re-enable on cluster upgrade.
+            # See: PARITY_SCORE.md and COMPLETION_PLAN.md.
         ],
         recreate_views=False,
         allow_index_dropping=False,

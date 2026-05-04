@@ -17,12 +17,12 @@ class SettingsService:
         # Convert string to ObjectId
         tenant_obj_id = PydanticObjectId(tenant_id)
         
-        settings = await TenantSettings.find_one(TenantSettings.tenant_id == tenant_obj_id)
+        settings = await TenantSettings.find_one({"tenant_id": tenant_obj_id})
         if not settings:
             settings = TenantSettings(tenant_id=tenant_obj_id)
             await settings.insert()
         return settings
-    
+
     async def update_tenant_settings(
         self,
         tenant_id: str,
@@ -31,8 +31,8 @@ class SettingsService:
         """Update tenant settings"""
         # Convert string to ObjectId
         tenant_obj_id = PydanticObjectId(tenant_id)
-        
-        settings = await TenantSettings.find_one(TenantSettings.tenant_id == tenant_obj_id)
+
+        settings = await TenantSettings.find_one({"tenant_id": tenant_obj_id})
         if not settings:
             settings = TenantSettings(tenant_id=tenant_obj_id)
             await settings.insert()

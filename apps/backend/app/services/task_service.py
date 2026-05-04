@@ -203,10 +203,7 @@ class TaskService(ActivityMixin):
     ) -> List[Task]:
         """Get all tasks for a specific entity"""
         tasks = await Task.find(
-            Task.taskable_type == taskable_type,
-            Task.taskable_id == ObjectId(taskable_id),
-            Task.tenant_id == tenant_id,
-            Task.deleted_at == None
+            {"taskable_type": taskable_type, "taskable_id": ObjectId(taskable_id), "tenant_id": tenant_id, "deleted_at": None}
         ).sort("-created_at").to_list()
         
         return tasks

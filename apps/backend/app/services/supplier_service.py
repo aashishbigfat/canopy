@@ -3,8 +3,11 @@ Supplier service layer - Business logic for supplier management
 """
 from typing import List, Optional, Tuple
 from bson import ObjectId
+import json
 from app.models.supplier import Supplier, OpportunitySupplier
 from app.schemas.supplier import SupplierCreate, SupplierUpdate
+from app.services import field_registry_service
+from app.schemas.field_registry import CustomFieldValuePayload
 
 class SupplierService:
     """Service for Supplier business logic"""
@@ -13,18 +16,33 @@ class SupplierService:
         self,
         supplier_data: SupplierCreate,
         user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
+        custom_fields: list = None,
     ) -> Supplier:
         """Create a new supplier"""
-        
+
         supplier = Supplier(
             **supplier_data.model_dump(exclude_unset=True),
             tenant_id=tenant_id,
             owner_id=user_id,
             created_by=user_id
         )
-        
+
         await supplier.insert()
+
+        # Custom fields write (Phase 1 §A)
+        if custom_fields:
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
+                )
+                for f in custom_fields if f.get("id") is not None
+            ]
+            await field_registry_service.write_custom_field_values(
+                "supplier", supplier.id, payloads, tenant_id,
+            )
+
         return supplier
     
     async def get_supplier(
@@ -44,22 +62,36 @@ class SupplierService:
         supplier_id: str,
         supplier_data: SupplierUpdate,
         user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
+        custom_fields: list = None,
     ) -> Optional[Supplier]:
         """Update a supplier"""
         supplier = await self.get_supplier(supplier_id, tenant_id)
-        
+
         if not supplier:
             return None
-        
+
         # Update fields
         update_data = supplier_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(supplier, field, value)
-        
+
         supplier.last_modified_by_id = user_id
         await supplier.save()
-        
+
+        # Custom fields write (Phase 1 §A)
+        if custom_fields:
+            payloads = [
+                CustomFieldValuePayload(
+                    additional_field_id=ObjectId(f["id"]),
+                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
+                )
+                for f in custom_fields if f.get("id") is not None
+            ]
+            await field_registry_service.write_custom_field_values(
+                "supplier", supplier.id, payloads, tenant_id,
+            )
+
         return supplier
     
     async def delete_supplier(

@@ -42,8 +42,7 @@ class ReportService:
     ) -> Optional[Report]:
         """Get a report by ID."""
         return await Report.find_one(
-            Report.id == PydanticObjectId(report_id),
-            Report.tenant_id == tenant_id
+            {"_id": PydanticObjectId(report_id), "tenant_id": tenant_id}
         )
     
     async def update_report(
@@ -78,8 +77,7 @@ class ReportService:
         
         # Delete associated schedules
         await ReportSchedule.find(
-            ReportSchedule.report_id == report_id,
-            ReportSchedule.tenant_id == tenant_id
+            {"report_id": report_id, "tenant_id": tenant_id}
         ).delete()
         
         await report.delete()
@@ -137,9 +135,7 @@ class ReportService:
     ) -> List[Report]:
         """Get favorite reports for a user."""
         return await Report.find(
-            Report.tenant_id == tenant_id,
-            Report.is_favorite == True,
-            {"$or": [
+            {"tenant_id": tenant_id, "is_favorite": True, "$or": [
                 {"created_by": user_id},
                 {"owner_id": user_id}
             ]}
@@ -348,8 +344,7 @@ class ReportService:
     ) -> List[ReportExecution]:
         """Get execution history for a report."""
         return await ReportExecution.find(
-            ReportExecution.report_id == report_id,
-            ReportExecution.tenant_id == tenant_id
+            {"report_id": report_id, "tenant_id": tenant_id}
         ).sort(-ReportExecution.created_at).limit(limit).to_list()
     
     # ==================== Report Schedules ====================
@@ -384,8 +379,7 @@ class ReportService:
     ) -> Optional[ReportSchedule]:
         """Get a schedule by ID."""
         return await ReportSchedule.find_one(
-            ReportSchedule.id == PydanticObjectId(schedule_id),
-            ReportSchedule.tenant_id == tenant_id
+            {"_id": PydanticObjectId(schedule_id), "tenant_id": tenant_id}
         )
     
     async def update_schedule(
@@ -516,8 +510,7 @@ class ReportService:
         from app.models.opportunity_picklists import SalesStage
         tenant_obj_id = PydanticObjectId(tenant_id)
         won_stages = await SalesStage.find(
-            SalesStage.tenant_id == tenant_obj_id,
-            SalesStage.is_won == True
+            {"tenant_id": tenant_obj_id, "is_won": True}
         ).to_list()
         won_stage_ids = [s.id for s in won_stages]
         won_query = {

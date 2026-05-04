@@ -120,14 +120,17 @@ class AccountResponse(AccountBase):
     last_modified_by_id: Optional[str] = None
     last_modified_by_name: Optional[str] = None
     account_type_name: Optional[str] = None
-    
+
     view_count: int = 0
     is_favorite: bool = False
-    
+
     created_at: datetime
     updated_at: datetime
     deleted_at: Optional[datetime] = None
-    
+
+    # Custom field values (Phase 1 §C)
+    custom_fields: Optional[Dict[str, Any]] = None
+
     class Config:
         from_attributes = True
 

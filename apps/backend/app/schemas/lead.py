@@ -148,6 +148,9 @@ class LeadResponse(BaseModel):
     
     # Industry-specific data (all industries including travel)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+    # Custom field values (Phase 1 §C) — populated by service join from lead_custom_fields
+    custom_fields: Optional[Dict[str, Any]] = None
     
     from pydantic import field_serializer
     @field_serializer('industry_data', mode='plain')

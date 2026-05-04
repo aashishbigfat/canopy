@@ -86,10 +86,7 @@ class EmailService:
     ) -> List[Email]:
         """Get all emails for a specific entity"""
         emails = await Email.find(
-            Email.emailable_type == emailable_type,
-            Email.emailable_id == ObjectId(emailable_id),
-            Email.tenant_id == tenant_id,
-            Email.deleted_at == None
+            {"emailable_type": emailable_type, "emailable_id": ObjectId(emailable_id), "tenant_id": tenant_id, "deleted_at": None}
         ).sort("-created_at").to_list()
         
         return emails

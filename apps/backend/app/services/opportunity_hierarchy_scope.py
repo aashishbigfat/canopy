@@ -22,9 +22,7 @@ async def collect_descendant_hierarchy_node_ids(
     while frontier:
         cur = frontier.pop(0)
         children = await RoleHierarchy.find(
-            RoleHierarchy.tenant_id == tenant_id,
-            RoleHierarchy.parent_id == cur,
-            RoleHierarchy.deleted_at == None,
+            {"tenant_id": tenant_id, "parent_id": cur, "deleted_at": None}
         ).to_list()
         for ch in children:
             out.append(ch.id)

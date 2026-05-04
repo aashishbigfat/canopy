@@ -88,8 +88,7 @@ class ItineraryService:
         
         # Get all days
         days = await ItineraryDay.find(
-            ItineraryDay.itinerary_id == ObjectId(itinerary_id),
-            ItineraryDay.tenant_id == tenant_id
+            {"itinerary_id": ObjectId(itinerary_id), "tenant_id": tenant_id}
         ).sort("+day_number").to_list()
         
         return {
@@ -211,8 +210,7 @@ class ItineraryService:
         """Get all itineraries linked to an opportunity"""
         
         links = await ItineraryOpportunity.find(
-            ItineraryOpportunity.opportunity_id == ObjectId(opportunity_id),
-            ItineraryOpportunity.tenant_id == tenant_id
+            {"opportunity_id": ObjectId(opportunity_id), "tenant_id": tenant_id}
         ).to_list()
         
         result = []

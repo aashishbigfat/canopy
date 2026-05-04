@@ -106,9 +106,7 @@ class Account(BaseDocument):
     async def get_children(self):
         """Get child accounts"""
         return await Account.find(
-            Account.acc_parent_id == self.id,
-            Account.tenant_id == self.tenant_id,
-            Account.deleted_at == None
+            {"acc_parent_id": self.id, "tenant_id": self.tenant_id, "deleted_at": None}
         ).to_list()
     
     async def get_contacts(self):
@@ -118,8 +116,7 @@ class Account(BaseDocument):
         
         # Get contact IDs from pivot collection
         pivots = await AccountContact.find(
-            AccountContact.account_id == self.id,
-            AccountContact.tenant_id == self.tenant_id
+            {"account_id": self.id, "tenant_id": self.tenant_id}
         ).to_list()
         
         if not pivots:
@@ -127,9 +124,7 @@ class Account(BaseDocument):
             
         contact_ids = [p.contact_id for p in pivots]
         return await Contact.find(
-            {"_id": {"$in": contact_ids}},
-            Contact.tenant_id == self.tenant_id,
-            Contact.deleted_at == None
+            {"_id": {"$in": contact_ids}, "tenant_id": self.tenant_id, "deleted_at": None}
         ).to_list()
     
     async def get_opportunities(self):
@@ -137,8 +132,7 @@ class Account(BaseDocument):
         from app.models.opportunity import Opportunity
         
         return await Opportunity.find(
-            Opportunity.account_id == self.id,
-            Opportunity.tenant_id == self.tenant_id
+            {"account_id": self.id, "tenant_id": self.tenant_id}
         ).to_list()
     
     async def get_tasks(self):
@@ -146,9 +140,7 @@ class Account(BaseDocument):
         from app.models.task import Task
         
         return await Task.find(
-            Task.taskable_type == "Account",
-            Task.taskable_id == self.id,
-            Task.tenant_id == self.tenant_id
+            {"taskable_type": "Account", "taskable_id": self.id, "tenant_id": self.tenant_id}
         ).to_list()
     
     async def increment_view_count(self):

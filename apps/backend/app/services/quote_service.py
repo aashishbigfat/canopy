@@ -35,8 +35,7 @@ class QuoteService(ActivityMixin):
     async def _recalculate_quote_totals(self, quote: Quote) -> Quote:
         """Recalculate quote totals from items"""
         items = await QuoteItem.find(
-            QuoteItem.quote_id == quote.id,
-            QuoteItem.deleted_at == None
+            {"quote_id": quote.id, "deleted_at": None}
         ).to_list()
         
         quote.subtotal = sum(item.quantity * item.unit_price for item in items)
@@ -131,8 +130,7 @@ class QuoteService(ActivityMixin):
             return None
         
         items = await QuoteItem.find(
-            QuoteItem.quote_id == quote.id,
-            QuoteItem.deleted_at == None
+            {"quote_id": quote.id, "deleted_at": None}
         ).sort("+sort_order").to_list()
         
         return {"quote": quote, "items": items}

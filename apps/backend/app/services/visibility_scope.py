@@ -40,9 +40,7 @@ async def _collect_descendant_user_ids(tenant_id: ObjectId, hierarchy_node_id: O
     while frontier:
         current_node_id = frontier.pop(0)
         children = await RoleHierarchy.find(
-            RoleHierarchy.tenant_id == tenant_id,
-            RoleHierarchy.parent_id == current_node_id,
-            RoleHierarchy.deleted_at == None,
+            {"tenant_id": tenant_id, "parent_id": current_node_id, "deleted_at": None}
         ).to_list()
         for child in children:
             # Collect users from child nodes

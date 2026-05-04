@@ -30,6 +30,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 
 import { LeadTable } from "@/features/leads/components/LeadTable";
+import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 import { useLeads } from "@/features/leads/api/useLeads";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFormDrawer } from "@/features/leads/components/LeadFormDrawer";
@@ -249,6 +250,8 @@ export default function LeadsClientPage() {
                     </PermissionGate>
                 </div>
             </div>
+
+            <EntityListToolbar entity="lead" />
 
             <LeadTable
                 data={response.leads}

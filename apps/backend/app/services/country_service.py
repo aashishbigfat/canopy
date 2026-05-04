@@ -25,7 +25,7 @@ class CountryService:
         return country if country and not country.deleted_at else None
     
     async def get_country_by_code(self, code: str) -> Optional[Country]:
-        return await Country.find_one(Country.code == code.upper(), Country.deleted_at == None)
+        return await Country.find_one({"code": code.upper(), "deleted_at": None})
     
     async def get_all_countries(self, is_popular: Optional[bool] = None) -> List[Country]:
         """Get all countries"""
@@ -56,9 +56,7 @@ class CountryService:
     async def get_states_by_country(self, country_id: str) -> List[State]:
         """Get states for a country"""
         return await State.find(
-            State.country_id == ObjectId(country_id),
-            State.deleted_at == None,
-            State.is_active == True
+            {"country_id": ObjectId(country_id), "deleted_at": None, "is_active": True}
         ).sort("+name").to_list()
     
     async def search_states(self, query: str, country_id: Optional[str] = None) -> List[State]:
@@ -91,9 +89,7 @@ class CountryService:
     async def get_cities_by_state(self, state_id: str) -> List[City]:
         """Get cities for a state"""
         return await City.find(
-            City.state_id == ObjectId(state_id),
-            City.deleted_at == None,
-            City.is_active == True
+            {"state_id": ObjectId(state_id), "deleted_at": None, "is_active": True}
         ).sort("+name").to_list()
     
     async def search_cities(self, query: str, country_id: Optional[str] = None, state_id: Optional[str] = None) -> List[City]:
@@ -108,7 +104,5 @@ class CountryService:
     async def get_popular_cities(self, limit: int = 20) -> List[City]:
         """Get popular cities"""
         return await City.find(
-            City.is_popular == True,
-            City.is_active == True,
-            City.deleted_at == None
+            {"is_popular": True, "is_active": True, "deleted_at": None}
         ).limit(limit).sort("+name").to_list()

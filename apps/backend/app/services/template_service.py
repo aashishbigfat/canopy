@@ -66,10 +66,7 @@ class TemplateService:
     
     async def get_default_template(self, type: str, tenant_id: ObjectId) -> Optional[Template]:
         return await Template.find_one(
-            Template.type == type,
-            Template.tenant_id == tenant_id,
-            Template.is_default == True,
-            Template.deleted_at == None
+            {"type": type, "tenant_id": tenant_id, "is_default": True, "deleted_at": None}
         )
     
     def render_template(self, template: Template, data: Dict[str, Any]) -> Dict[str, str]:
