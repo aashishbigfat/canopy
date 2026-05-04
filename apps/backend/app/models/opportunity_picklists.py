@@ -46,7 +46,7 @@ class OpportunityType(Document):
 
 
 class Experience(Document):
-    """Travel experience type"""
+    """Industry-specific segment/experience type (e.g. Luxury for travel, Premium for healthcare)"""
     name: Indexed(str)
     description: Optional[str] = None
     tenant_id: Indexed(PydanticObjectId)

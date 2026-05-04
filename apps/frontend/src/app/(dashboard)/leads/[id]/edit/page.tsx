@@ -41,6 +41,7 @@ export default async function EditLeadPage(props: {
                     leadId={leadId}
                     statuses={metadataResponse.lead_statuses}
                     sources={metadataResponse.sources}
+                    source_mediums={metadataResponse.source_mediums}
                     industries={metadataResponse.industries}
                     experiences={metadataResponse.experiences}
                 />

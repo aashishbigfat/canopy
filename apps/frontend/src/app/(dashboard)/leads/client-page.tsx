@@ -270,6 +270,7 @@ export default function LeadsClientPage() {
                 metadata={response ? {
                     statuses: response.lead_statuses || [],
                     sources: response.sources || [],
+                    source_mediums: response.source_mediums || [],
                     industries: response.industries || [],
                     experiences: response.experiences || [],
                 } : undefined}

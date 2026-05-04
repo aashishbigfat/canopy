@@ -205,6 +205,7 @@ class LeadListResponse(BaseModel):
     pagination: Dict[str, Any]
     lead_statuses: List[Dict[str, Any]] = Field(default_factory=list)
     sources: List[Dict[str, Any]] = Field(default_factory=list)
+    source_mediums: List[Dict[str, Any]] = Field(default_factory=list)
     users: List[Dict[str, Any]] = Field(default_factory=list)
     industries: List[Dict[str, Any]] = Field(default_factory=list)
     experiences: List[Dict[str, Any]] = Field(default_factory=list)

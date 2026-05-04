@@ -486,6 +486,7 @@ interface LeadFormProps {
     leadId?: string;
     statuses?: LeadStatus[];
     sources?: Source[];
+    source_mediums?: any[];
     industries?: Industry[];
     experiences?: { id: string; name: string }[];
     /** Called after successful create/update instead of router.push */
@@ -507,6 +508,7 @@ export function LeadForm({
     leadId,
     statuses = [],
     sources = [],
+    source_mediums = [],
     industries = [],
     experiences = [],
     onSuccess,
@@ -658,13 +660,10 @@ export function LeadForm({
         form.setValue("segment", detectedSegment);
     }, [email, form]);
 
-    // Set default experience to Luxury in create mode
+    // Set default experience to first available in create mode
     useEffect(() => {
         if (!initialData && experiences.length > 0 && !form.getValues("experience_id")) {
-            const luxuryExp = experiences.find(exp => exp.name.toLowerCase() === "luxury");
-            if (luxuryExp) {
-                form.setValue("experience_id", luxuryExp.id);
-            }
+            form.setValue("experience_id", experiences[0].id);
         }
     }, [experiences, initialData, form]);
 
@@ -1263,14 +1262,34 @@ export function LeadForm({
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                            Source Medium <span className="text-red-500">*</span>
+                                                            Source <span className="text-red-500">*</span>
                                                         </FormLabel>
                                                         <FormControl>
                                                             <SearchableSelect
                                                                 options={sources.map(s => ({ label: s.name, value: s.id }))}
                                                                 value={field.value}
                                                                 onValueChange={field.onChange}
-                                                                placeholder="Select source Medium"
+                                                                placeholder="Select Source"
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control as any}
+                                                name="source_medium"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                            Source Medium
+                                                        </FormLabel>
+                                                        <FormControl>
+                                                            <SearchableSelect
+                                                                options={source_mediums.map(s => ({ label: s.name, value: s.name }))}
+                                                                value={field.value}
+                                                                onValueChange={field.onChange}
+                                                                placeholder="Select Source Medium"
                                                             />
                                                         </FormControl>
                                                         <FormMessage />
@@ -1279,13 +1298,14 @@ export function LeadForm({
                                             />
                                         </>
                                     ) : (
+                                        <>
                                         <FormField
                                             control={form.control as any}
                                             name="combined_source"
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                                                        Source Medium <span className="text-red-500">*</span>
+                                                        Source <span className="text-red-500">*</span>
                                                     </FormLabel>
                                                     <FormControl>
                                                         <SearchableSelect
@@ -1303,6 +1323,27 @@ export function LeadForm({
                                                 </FormItem>
                                             )}
                                         />
+                                        <FormField
+                                            control={form.control as any}
+                                            name="source_medium"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
+                                                        Source Medium
+                                                    </FormLabel>
+                                                    <FormControl>
+                                                        <SearchableSelect
+                                                            options={source_mediums.map(s => ({ label: s.name, value: s.name }))}
+                                                            value={field.value}
+                                                            onValueChange={field.onChange}
+                                                            placeholder="Select Source Medium"
+                                                        />
+                                                    </FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        </>
                                     )}
                                     <FormField
                                         control={form.control as any}

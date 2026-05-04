@@ -34,6 +34,15 @@ EDUCATION_SEED: Dict[str, List[str]] = {
         "Advertisement",
         "Phone Call",
     ],
+    "source_mediums": [
+        "Phone Call",
+        "Email",
+        "Website Form",
+        "WhatsApp",
+        "Education Fair Booth",
+        "Counselor Chat",
+        "Social Media DM",
+    ],
 }
 
 
@@ -87,6 +96,19 @@ async def seed_education_tenant(tenant_id, db=None):
                 "is_default": i == 0,
                 "is_won": name == "Enrolled",
                 "is_lost": name in ("Withdrawn", "Lost"),
+                "tenant_id": tid,
+                "created_at": now,
+                "updated_at": now,
+            })
+
+    # Seed Source Mediums (has tenant_id)
+    for i, name in enumerate(EDUCATION_SEED["source_mediums"]):
+        existing = await database["source_mediums"].find_one({"name": name, "tenant_id": tid})
+        if not existing:
+            await database["source_mediums"].insert_one({
+                "name": name,
+                "sorting": i,
+                "is_active": True,
                 "tenant_id": tid,
                 "created_at": now,
                 "updated_at": now,

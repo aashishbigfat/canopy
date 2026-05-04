@@ -1,18 +1,24 @@
 """
-Supplier Contact embedded model - contacts stored inside the Supplier document.
-This avoids creating a new MongoDB collection (Atlas has a 500 collection limit).
+Supplier Contact model — standalone MongoDB collection.
+
+Previously embedded inside Supplier documents; migrated to its own collection
+to enable proper pagination, global search, and scalable multi-industry usage.
 """
-from pydantic import BaseModel, EmailStr, Field
+from beanie import Indexed
+from pydantic import EmailStr, Field
 from typing import Optional
-from datetime import datetime
-import uuid
+from beanie import PydanticObjectId
+from app.models.base import BaseDocument
 
 
-class SupplierContact(BaseModel):
-    """Embedded contact person within a supplier document (NOT a standalone collection)"""
+class SupplierContact(BaseDocument):
+    """Standalone contact person linked to a supplier (own collection)"""
 
-    # Unique ID for each contact (generated, not a MongoDB ObjectId)
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    # FK to parent supplier
+    supplier_id: Indexed(PydanticObjectId)
+
+    # Tenant isolation
+    tenant_id: Indexed(PydanticObjectId)
 
     # Contact identity
     name: str
@@ -31,6 +37,5 @@ class SupplierContact(BaseModel):
     # Notes
     notes: Optional[str] = None
 
-    # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    class Settings:
+        name = "supplier_contacts"
