@@ -543,64 +543,91 @@ class OpportunityService(ActivityMixin):
         
         return opp
 
-    async def seed_standard_stages(self, tenant_id: ObjectId):
+    # Industry-specific default pipeline definitions
+    INDUSTRY_STAGE_SETS = {
+        "travel": [
+            {"name": "Received",    "probability": 10,  "sorting": 10, "is_default": True,  "is_won": False, "is_lost": False, "color": "#3B82F6"},
+            {"name": "Qualified",   "probability": 20,  "sorting": 20, "is_default": False, "is_won": False, "is_lost": False, "color": "#8B5CF6"},
+            {"name": "Proposal",    "probability": 30,  "sorting": 30, "is_default": False, "is_won": False, "is_lost": False, "color": "#F59E0B"},
+            {"name": "Closed Won",  "probability": 100, "sorting": 40, "is_default": False, "is_won": True,  "is_lost": False, "color": "#10B981"},
+            {"name": "Closed Lost", "probability": 0,   "sorting": 50, "is_default": False, "is_won": False, "is_lost": True,  "color": "#EF4444"},
+            {"name": "Refunded",    "probability": 0,   "sorting": 60, "is_default": False, "is_won": False, "is_lost": True,  "color": "#6B7280"},
+        ],
+        "healthcare": [
+            {"name": "Inquiry",      "probability": 10,  "sorting": 10, "is_default": True,  "is_won": False, "is_lost": False, "color": "#3B82F6"},
+            {"name": "Consultation", "probability": 30,  "sorting": 20, "is_default": False, "is_won": False, "is_lost": False, "color": "#8B5CF6"},
+            {"name": "Treatment",    "probability": 60,  "sorting": 30, "is_default": False, "is_won": False, "is_lost": False, "color": "#F59E0B"},
+            {"name": "Follow-up",    "probability": 80,  "sorting": 40, "is_default": False, "is_won": False, "is_lost": False, "color": "#14B8A6"},
+            {"name": "Closed Won",   "probability": 100, "sorting": 50, "is_default": False, "is_won": True,  "is_lost": False, "color": "#10B981"},
+            {"name": "Closed Lost",  "probability": 0,   "sorting": 60, "is_default": False, "is_won": False, "is_lost": True,  "color": "#EF4444"},
+        ],
+        "education": [
+            {"name": "Inquiry",     "probability": 10,  "sorting": 10, "is_default": True,  "is_won": False, "is_lost": False, "color": "#3B82F6"},
+            {"name": "Applied",     "probability": 30,  "sorting": 20, "is_default": False, "is_won": False, "is_lost": False, "color": "#8B5CF6"},
+            {"name": "Enrolled",    "probability": 80,  "sorting": 30, "is_default": False, "is_won": False, "is_lost": False, "color": "#F59E0B"},
+            {"name": "Deferred",    "probability": 20,  "sorting": 40, "is_default": False, "is_won": False, "is_lost": False, "color": "#14B8A6"},
+            {"name": "Closed Won",  "probability": 100, "sorting": 50, "is_default": False, "is_won": True,  "is_lost": False, "color": "#10B981"},
+            {"name": "Closed Lost", "probability": 0,   "sorting": 60, "is_default": False, "is_won": False, "is_lost": True,  "color": "#EF4444"},
+        ],
+        "manufacturing": [
+            {"name": "RFQ",          "probability": 10,  "sorting": 10, "is_default": True,  "is_won": False, "is_lost": False, "color": "#3B82F6"},
+            {"name": "Quoted",       "probability": 25,  "sorting": 20, "is_default": False, "is_won": False, "is_lost": False, "color": "#8B5CF6"},
+            {"name": "Negotiation",  "probability": 50,  "sorting": 30, "is_default": False, "is_won": False, "is_lost": False, "color": "#F59E0B"},
+            {"name": "PO Received",  "probability": 80,  "sorting": 40, "is_default": False, "is_won": False, "is_lost": False, "color": "#14B8A6"},
+            {"name": "Closed Won",   "probability": 100, "sorting": 50, "is_default": False, "is_won": True,  "is_lost": False, "color": "#10B981"},
+            {"name": "Closed Lost",  "probability": 0,   "sorting": 60, "is_default": False, "is_won": False, "is_lost": True,  "color": "#EF4444"},
+        ],
+    }
+
+    async def seed_standard_stages(self, tenant_id: ObjectId, industry: str = "travel"):
         """
-        Seed/normalize sales stages.
+        Seed/normalize sales stages for a specific tenant and industry.
 
-        After this runs, the system will have these active stages:
-        - Received (10%)
-        - Qualified (20%)
-        - Proposal (30%)
-        - Closed Won (100%, won)
-        - Closed Lost (0%, lost)
-        - Refunded (0%, lost)
-
-        Stages are global (shared across tenants). This method will upsert
-        existing stages by name, regardless of whether they have a tenant_id
-        or not, to avoid creating duplicates.
+        Stages are tenant-scoped (not global). Each tenant gets their own
+        copy of the stages appropriate for their industry vertical.
+        This prevents cross-industry stage leakage.
         """
         from app.models.opportunity_picklists import SalesStage
 
-        desired_stages = [
-            {"name": "Received", "probability": 10, "sorting": 10, "is_default": True, "is_won": False, "is_lost": False},
-            {"name": "Qualified", "probability": 20, "sorting": 20, "is_default": False, "is_won": False, "is_lost": False},
-            {"name": "Proposal", "probability": 30, "sorting": 30, "is_default": False, "is_won": False, "is_lost": False},
-            {"name": "Closed Won", "probability": 100, "sorting": 40, "is_default": False, "is_won": True, "is_lost": False},
-            {"name": "Closed Lost", "probability": 0, "sorting": 50, "is_default": False, "is_won": False, "is_lost": True},
-            {"name": "Refunded", "probability": 0, "sorting": 60, "is_default": False, "is_won": False, "is_lost": True},
-        ]
-
+        # Select industry-specific stage set, default to travel if unknown
+        desired_stages = self.INDUSTRY_STAGE_SETS.get(industry, self.INDUSTRY_STAGE_SETS["travel"])
         desired_names = {s["name"] for s in desired_stages}
 
-        # Upsert desired stages — search by name only (stages are global)
+        # Upsert desired stages — always scoped by tenant_id
         for stage_data in desired_stages:
             existing = await SalesStage.find_one(
-                SalesStage.name == stage_data["name"],
+                {"tenant_id": tenant_id, "name": stage_data["name"]}
             )
 
             if existing:
+                # Update all fields to ensure they match the current definition
                 existing.probability = stage_data["probability"]
                 existing.sorting = stage_data["sorting"]
                 existing.is_default = stage_data["is_default"]
                 existing.is_won = stage_data["is_won"]
                 existing.is_lost = stage_data["is_lost"]
                 existing.is_active = True
+                if stage_data.get("color"):
+                    existing.color = stage_data["color"]
                 await existing.save()
             else:
                 stage = SalesStage(
                     **stage_data,
+                    tenant_id=tenant_id,
                     is_active=True,
                 )
                 await stage.insert()
 
-        # Deactivate any other stages that aren't in the desired set
+        # Deactivate any other tenant-scoped stages not in the desired set
+        # (don't touch other tenants' stages)
         other_stages_cursor = SalesStage.find(
-            SalesStage.name.not_in(list(desired_names)),
+            {"tenant_id": tenant_id, "name": {"$nin": list(desired_names)}}
         )
         async for stage in other_stages_cursor:
             if stage.is_active:
                 stage.is_active = False
                 await stage.save()
+
     async def change_owner(
         self,
         opportunity_id: str,

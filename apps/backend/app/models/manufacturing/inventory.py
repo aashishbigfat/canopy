@@ -46,7 +46,7 @@ class Warehouse(BaseDocument):
     class Settings:
         name = "manufacturing_warehouses"
         indexes = [
-            [(("tenant_id", 1), ("code", 1))],
+            [("tenant_id", 1), ("code", 1)],
         ]
 
 
@@ -79,7 +79,7 @@ class InventoryItem(BaseDocument):
     class Settings:
         name = "manufacturing_inventory"
         indexes = [
-            [(("tenant_id", 1), ("product_id", 1), ("warehouse_id", 1))],
+            [("tenant_id", 1), ("product_id", 1), ("warehouse_id", 1)],
         ]
 
 
@@ -119,6 +119,6 @@ class InventoryTransaction(BaseDocument):
     class Settings:
         name = "manufacturing_inventory_transactions"
         indexes = [
-            [(("tenant_id", 1), ("transaction_date", -1))],
-            [(("tenant_id", 1), ("product_id", 1))],
+            [("tenant_id", 1), ("transaction_date", -1)],
+            [("tenant_id", 1), ("product_id", 1)],
         ]

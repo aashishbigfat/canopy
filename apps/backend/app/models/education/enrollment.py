@@ -41,8 +41,8 @@ class Course(BaseDocument):
     class Settings:
         name = "education_courses"
         indexes = [
-            [(("tenant_id", 1), ("code", 1))],
-            [(("tenant_id", 1), ("program_id", 1))],
+            [("tenant_id", 1), ("code", 1)],
+            [("tenant_id", 1), ("program_id", 1)],
         ]
 
 
@@ -101,9 +101,9 @@ class Enrollment(BaseDocument):
     class Settings:
         name = "education_enrollments"
         indexes = [
-            [(("tenant_id", 1), ("student_contact_id", 1))],
-            [(("tenant_id", 1), ("course_id", 1))],
-            [(("tenant_id", 1), ("status", 1))],
+            [("tenant_id", 1), ("student_contact_id", 1)],
+            [("tenant_id", 1), ("course_id", 1)],
+            [("tenant_id", 1), ("status", 1)],
         ]
 
 
@@ -131,8 +131,8 @@ class Faculty(BaseDocument):
     class Settings:
         name = "education_faculty"
         indexes = [
-            [(("tenant_id", 1), ("employee_id", 1))],
-            [(("tenant_id", 1), ("department", 1))],
+            [("tenant_id", 1), ("employee_id", 1)],
+            [("tenant_id", 1), ("department", 1)],
         ]
 
 
@@ -170,7 +170,7 @@ class AcademicTerm(BaseDocument):
     class Settings:
         name = "education_academic_terms"
         indexes = [
-            [(("tenant_id", 1), ("is_current", 1))],
+            [("tenant_id", 1), ("is_current", 1)],
         ]
 
 
@@ -218,6 +218,6 @@ class Scholarship(BaseDocument):
     class Settings:
         name = "education_scholarships"
         indexes = [
-            [(("tenant_id", 1), ("scholarship_type", 1))],
-            [(("tenant_id", 1), ("is_active", 1))],
+            [("tenant_id", 1), ("scholarship_type", 1)],
+            [("tenant_id", 1), ("is_active", 1)],
         ]

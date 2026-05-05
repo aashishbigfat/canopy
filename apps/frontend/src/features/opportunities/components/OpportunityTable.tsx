@@ -98,13 +98,31 @@ export const columns: ColumnDef<Opportunity>[] = [
         },
     },
     {
-        accessorKey: "sales_stage_id",
+        accessorKey: "sales_stage_name",
         header: "Stage",
-        cell: ({ row }) => (
-            <Badge variant="outline" className="capitalize">
-                {row.getValue("sales_stage_id") || "New"}
-            </Badge>
-        ),
+        cell: ({ row }) => {
+            const opp = row.original as any;
+            const stageName = opp.sales_stage_name || opp.sales_stage_id?.slice(-4) || "—";
+            const isWon = stageName?.toLowerCase().includes("won");
+            const isLost = stageName?.toLowerCase().includes("lost") || stageName?.toLowerCase().includes("refunded");
+            return (
+                <Badge
+                    variant="outline"
+                    className={`capitalize font-medium ${
+                        isWon
+                            ? "border-green-200 bg-green-50 text-green-700"
+                            : isLost
+                            ? "border-red-200 bg-red-50 text-red-600"
+                            : "border-blue-200 bg-blue-50 text-blue-700"
+                    }`}
+                >
+                    <span className={`mr-1.5 h-1.5 w-1.5 rounded-full inline-block ${
+                        isWon ? "bg-green-500" : isLost ? "bg-red-500" : "bg-blue-500"
+                    }`} />
+                    {stageName}
+                </Badge>
+            );
+        },
     },
     {
         accessorKey: "close_date",

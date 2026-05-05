@@ -53,10 +53,14 @@ function priorityBadge(priority: string) {
     return <span className="text-xs text-muted-foreground">{priority}</span>;
 }
 
+import { useSession } from "next-auth/react";
+
 export function TaskList() {
+    const { data: session } = useSession();
     const [page, setPage] = React.useState(1);
     const [statusFilter, setStatusFilter] = React.useState<string>("__all__");
     const [priorityFilter, setPriorityFilter] = React.useState<string>("__all__");
+    const [assigneeFilter, setAssigneeFilter] = React.useState<string>("__my_tasks__");
     const [editTask, setEditTask] = React.useState<Task | null>(null);
     const [addOpen, setAddOpen] = React.useState(false);
 
@@ -65,6 +69,7 @@ export function TaskList() {
         per_page: 20,
         status: statusFilter === "__all__" ? undefined : statusFilter,
         priority: priorityFilter === "__all__" ? undefined : priorityFilter,
+        assigned_user_id: assigneeFilter === "__my_tasks__" ? (session?.user as any)?.id : (assigneeFilter === "__all__" ? undefined : assigneeFilter),
     });
 
     const deleteTask = useDeleteTask();
@@ -98,6 +103,15 @@ export function TaskList() {
             {/* Toolbar */}
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
                 <div className="flex gap-2 flex-wrap">
+                    <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
+                        <SelectTrigger className="h-8 text-xs w-36">
+                            <SelectValue placeholder="Assignee" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="__my_tasks__">My Tasks</SelectItem>
+                            <SelectItem value="__all__">All Tasks</SelectItem>
+                        </SelectContent>
+                    </Select>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
                         <SelectTrigger className="h-8 text-xs w-36">
                             <SelectValue placeholder="All Status" />

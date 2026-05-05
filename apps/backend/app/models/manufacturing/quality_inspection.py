@@ -76,7 +76,7 @@ class QualityInspection(BaseDocument):
     class Settings:
         name = "manufacturing_quality_inspections"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("status", 1))],
-            [(("tenant_id", 1), ("product_id", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("status", 1)],
+            [("tenant_id", 1), ("product_id", 1)],
         ]

@@ -68,6 +68,7 @@ function LoginFormContent() {
                 redirect: false,
                 email: data.email,
                 password: data.password,
+                industry: data.industry,
             });
 
             if (!result?.ok) {

@@ -4,15 +4,17 @@ import { getApiBaseUrlNoSlash } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
 export const authOptions: NextAuthOptions = {
+    secret: process.env.NEXTAUTH_SECRET,
     providers: [
         CredentialsProvider({
             name: "Credentials",
             credentials: {
                 email: { label: "Email", type: "text" },
                 password: { label: "Password", type: "password" },
+                industry: { label: "Industry", type: "text" },
             },
             async authorize(credentials) {
-                if (!credentials?.email || !credentials?.password) return null;
+                if (!credentials?.email || !credentials?.password || !credentials?.industry) return null;
 
                 // The backend has an alias for /auth/login at the root domain.
                 // We strip out the "/api/v1" suffix from the base URL so we hit the root.
@@ -26,6 +28,7 @@ export const authOptions: NextAuthOptions = {
                         body: JSON.stringify({
                             email: credentials.email,
                             password: credentials.password,
+                            industry: credentials.industry,
                         }),
                     });
                     const data = await res.json();
@@ -59,6 +62,7 @@ export const authOptions: NextAuthOptions = {
     ],
     session: {
         strategy: "jwt",
+        maxAge: 24 * 60 * 60, // 24 hours (align this with your backend token expiration if possible)
     },
     callbacks: {
         async jwt({ token, user }) {
@@ -91,4 +95,21 @@ export const authOptions: NextAuthOptions = {
     pages: {
         signIn: "/login",
     },
+    logger: {
+        error(code, metadata) {
+            if (code === "JWT_SESSION_ERROR") {
+                // NextAuth uses console.error by default, which triggers the Next.js error overlay.
+                // We log it as a warning instead to prevent the dev overlay from crashing the screen.
+                console.warn(`[NextAuth] Session invalid or expired (decryption failed)`);
+            } else {
+                console.error(`[NextAuth] ${code}`, metadata);
+            }
+        },
+        warn(code) {
+            console.warn(`[NextAuth] ${code}`);
+        },
+        debug(code, metadata) {
+            console.debug(`[NextAuth] ${code}`, metadata);
+        }
+    }
 };

@@ -134,25 +134,9 @@ from app.models.role import RoleHierarchy
 
 # Missing Industry Models
 from app.models.supplier import OpportunitySupplier
-from app.models.education.admission import Admission
-from app.models.education.enrollment import Course, Enrollment, Faculty, AcademicTerm, Scholarship
-from app.models.education.program import Program
-from app.models.healthcare.appointment import Appointment
-from app.models.healthcare.care_plan import CarePlan
-from app.models.healthcare.insurance_verification import InsuranceVerification
-from app.models.healthcare.patient import Patient
-from app.models.healthcare.provider import Provider
-from app.models.healthcare.referral import Referral
-from app.models.manufacturing.bom import BOMItem, BillOfMaterials
-from app.models.manufacturing.inventory import Warehouse, InventoryItem, InventoryTransaction
-from app.models.manufacturing.production_order import ProductionOrder, WorkOrder
-from app.models.manufacturing.product_catalog import ManufacturingProduct
-from app.models.manufacturing.quality_inspection import QualityInspection
-
-from app.models.custom_fields import AdditionalFieldAccount
-from app.models.lead_custom_fields import LeadCustomField, UserLeadView
-from app.models.opportunity_custom_fields import OpportunityCustomField, UserOpportunityView
-from app.models.opportunity_picklists import OpportunityHistory, OpportunityLock
+from app.models.education import Admission, Course, Enrollment, Faculty, AcademicTerm, Scholarship, Program
+from app.models.healthcare import Appointment, CarePlan, InsuranceVerification, Patient, Provider, Referral
+from app.models.manufacturing import BOMItem, BillOfMaterials, Warehouse, InventoryItem, InventoryTransaction, ProductionOrder, WorkOrder, ManufacturingProduct, QualityInspection
 
 async def init_db():
     """Initialize database connection"""
@@ -251,12 +235,6 @@ async def init_db():
             Admission, Course, Enrollment, Faculty, AcademicTerm, Scholarship, Program,
             Appointment, CarePlan, InsuranceVerification, Patient, Provider, Referral,
             BOMItem, BillOfMaterials, Warehouse, InventoryItem, InventoryTransaction, ProductionOrder, WorkOrder, ManufacturingProduct, QualityInspection,
-            
-            # Missing Custom Fields and Views
-            AdditionalFieldAccount,
-            LeadCustomField, UserLeadView,
-            OpportunityCustomField, UserOpportunityView,
-            OpportunityHistory, OpportunityLock,
 
             # Notifications
             Notification,

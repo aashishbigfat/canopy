@@ -70,6 +70,13 @@ class AuthService:
         if not user.is_active:
             raise ValueError("User account is inactive")
         
+        # Verify industry access if provided
+        if login_data.industry:
+            tenant = await Tenant.get(user.tenant_id)
+            tenant_industry = tenant.industry if tenant and tenant.industry else "travel"
+            if tenant_industry.lower() != login_data.industry.lower():
+                raise ValueError(f"Invalid credentials for the {login_data.industry.capitalize()} CRM")
+        
         # Generate tokens
         access_token = self._create_access_token(user)
         refresh_token = self._create_refresh_token(user)

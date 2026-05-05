@@ -82,8 +82,8 @@ class Admission(BaseDocument):
     class Settings:
         name = "education_admissions"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("status", 1))],
-            [(("tenant_id", 1), ("program_id", 1))],
-            [(("tenant_id", 1), ("application_number", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("status", 1)],
+            [("tenant_id", 1), ("program_id", 1)],
+            [("tenant_id", 1), ("application_number", 1)],
         ]

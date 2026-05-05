@@ -65,7 +65,7 @@ class Provider(BaseDocument):
     class Settings:
         name = "healthcare_providers"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("specialty", 1))],
-            [(("tenant_id", 1), ("owner_id", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("specialty", 1)],
+            [("tenant_id", 1), ("owner_id", 1)],
         ]

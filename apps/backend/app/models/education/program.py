@@ -62,7 +62,7 @@ class Program(BaseDocument):
     class Settings:
         name = "education_programs"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("code", 1))],
-            [(("tenant_id", 1), ("degree_type", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("code", 1)],
+            [("tenant_id", 1), ("degree_type", 1)],
         ]

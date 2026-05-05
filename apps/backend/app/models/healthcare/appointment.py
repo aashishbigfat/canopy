@@ -83,8 +83,8 @@ class Appointment(BaseDocument):
     class Settings:
         name = "healthcare_appointments"
         indexes = [
-            [(("tenant_id", 1), ("appointment_date", -1))],
-            [(("tenant_id", 1), ("patient_id", 1))],
-            [(("tenant_id", 1), ("provider_id", 1))],
-            [(("tenant_id", 1), ("status", 1))],
+            [("tenant_id", 1), ("appointment_date", -1)],
+            [("tenant_id", 1), ("patient_id", 1)],
+            [("tenant_id", 1), ("provider_id", 1)],
+            [("tenant_id", 1), ("status", 1)],
         ]

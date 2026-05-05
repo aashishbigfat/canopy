@@ -28,6 +28,7 @@ class BaseRelation(Document):
     
     class Settings:
         name = "relations"
+        is_root = True
         indexes = [
             "relation_type",
             "tenant_id",

@@ -251,36 +251,44 @@ export function ConvertLeadDialog({
         }
     }, [suggestions, suggestionsLoading]);
 
-    // Fetch experiences and sales stages if not provided via props
+    // Always re-fetch stages fresh when the dialog opens so they stay tenant-scoped
     useEffect(() => {
         if (!open) return;
 
-        if (localExperiences.length === 0) {
-            apiClient.get("opportunities/experiences")
-                .then(res => {
-                    if (Array.isArray(res.data) && res.data.length > 0) {
-                        setLocalExperiences(res.data);
-                    }
-                })
-                .catch(() => {/* silently ignore – experiences are optional */ });
-        }
+        apiClient.get("opportunities/experiences")
+            .then(res => {
+                if (Array.isArray(res.data) && res.data.length > 0) {
+                    setLocalExperiences(res.data);
+                }
+            })
+            .catch(() => {/* silently ignore – experiences are optional */ });
 
-        if (localSalesStages.length === 0) {
-            apiClient.get("opportunities/sales-stages")
-                .then(res => {
-                    if (Array.isArray(res.data) && res.data.length > 0) {
-                        setLocalSalesStages(res.data);
-                        // Update form default stage to the fetched default
-                        const receiveStage = res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.name.toLowerCase() === 'received');
-                        const defaultStage = receiveStage || res.data.find((s: { id: string; name: string; is_default?: boolean }) => s.is_default) || res.data[0];
-                        if (defaultStage) {
-                            form.setValue("sales_stage_id", defaultStage.id);
-                        }
-                    }
-                })
-                .catch(() => {/* silently ignore */ });
+        // Always fetch — backend auto-seeds stages for this tenant if none exist
+        apiClient.get("opportunities/sales-stages")
+            .then(res => {
+                if (Array.isArray(res.data) && res.data.length > 0) {
+                    setLocalSalesStages(res.data);
+                }
+            })
+            .catch(() => {/* silently ignore */ });
+    }, [open]);
+
+    // Reactively set default stage whenever localSalesStages changes (covers both
+    // prop-provided and async-fetched cases). Only sets if no stage is currently selected.
+    useEffect(() => {
+        if (localSalesStages.length === 0) return;
+        const currentStageId = form.getValues("sales_stage_id");
+        // If current value is invalid (empty, placeholder, or not in the list), reset it
+        const isValid = currentStageId && localSalesStages.some(s => s.id === currentStageId);
+        if (!isValid) {
+            const defaultStage =
+                localSalesStages.find(s => s.is_default) ||
+                localSalesStages[0];
+            if (defaultStage) {
+                form.setValue("sales_stage_id", defaultStage.id, { shouldValidate: true });
+            }
         }
-    }, [open, localExperiences.length, localSalesStages.length, form]);
+    }, [localSalesStages, form]);
 
     // Set default experience to Luxury when experiences are loaded (travel only)
     useEffect(() => {

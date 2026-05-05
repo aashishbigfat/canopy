@@ -70,6 +70,6 @@ class InsuranceVerification(BaseDocument):
     class Settings:
         name = "healthcare_insurance_verifications"
         indexes = [
-            [(("tenant_id", 1), ("patient_id", 1))],
-            [(("tenant_id", 1), ("status", 1))],
+            [("tenant_id", 1), ("patient_id", 1)],
+            [("tenant_id", 1), ("status", 1)],
         ]

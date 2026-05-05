@@ -67,7 +67,7 @@ class ManufacturingProduct(BaseDocument):
     class Settings:
         name = "manufacturing_products"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("sku", 1))],
-            [(("tenant_id", 1), ("category", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("sku", 1)],
+            [("tenant_id", 1), ("category", 1)],
         ]

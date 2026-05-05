@@ -30,16 +30,26 @@ async def get_sales_stages(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all sales stages for the tenant's pipeline/kanban view.
+    Get all active sales stages for the tenant's pipeline/kanban view.
 
-    All industries (travel, healthcare, education, manufacturing) now store
-    their stages with a proper tenant_id. Travel has 6 stages (Received,
-    Qualified, Proposal, Closed Won, Closed Lost, Refunded) all seeded under
-    the travel tenant's ID. Non-travel tenants use their own stage sets.
+    Each tenant has their own industry-specific stage set. If a tenant has
+    no stages yet (e.g. newly created), they are auto-seeded from the
+    industry defaults and returned immediately.
     """
     tenant_stages = await SalesStage.find(
         {"tenant_id": current_user.tenant_id, "is_active": True}
     ).sort("+sorting").to_list()
+
+    # Auto-seed industry-specific stages for this tenant if none exist
+    if not tenant_stages:
+        tenant = await Tenant.get(current_user.tenant_id)
+        industry = tenant.industry if tenant else "travel"
+        service = OpportunityService()
+        await service.seed_standard_stages(current_user.tenant_id, industry)
+        # Re-fetch after seeding
+        tenant_stages = await SalesStage.find(
+            {"tenant_id": current_user.tenant_id, "is_active": True}
+        ).sort("+sorting").to_list()
 
     return [
         {

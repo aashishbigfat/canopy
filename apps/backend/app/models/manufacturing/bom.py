@@ -30,7 +30,7 @@ class BOMItem(BaseDocument):
     class Settings:
         name = "manufacturing_bom_items"
         indexes = [
-            [(("tenant_id", 1), ("bom_id", 1))],
+            [("tenant_id", 1), ("bom_id", 1)],
         ]
 
 
@@ -64,7 +64,7 @@ class BillOfMaterials(BaseDocument):
     class Settings:
         name = "manufacturing_boms"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("bom_number", 1))],
-            [(("tenant_id", 1), ("product_id", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("bom_number", 1)],
+            [("tenant_id", 1), ("product_id", 1)],
         ]

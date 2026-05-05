@@ -76,9 +76,9 @@ class ProductionOrder(BaseDocument):
     class Settings:
         name = "manufacturing_production_orders"
         indexes = [
-            [(("tenant_id", 1), ("deleted_at", 1), ("created_at", -1))],
-            [(("tenant_id", 1), ("status", 1))],
-            [(("tenant_id", 1), ("order_number", 1))],
+            [("tenant_id", 1), ("deleted_at", 1), ("created_at", -1)],
+            [("tenant_id", 1), ("status", 1)],
+            [("tenant_id", 1), ("order_number", 1)],
         ]
 
 
@@ -131,6 +131,6 @@ class WorkOrder(BaseDocument):
     class Settings:
         name = "manufacturing_work_orders"
         indexes = [
-            [(("tenant_id", 1), ("production_order_id", 1))],
-            [(("tenant_id", 1), ("status", 1))],
+            [("tenant_id", 1), ("production_order_id", 1)],
+            [("tenant_id", 1), ("status", 1)],
         ]

@@ -9,6 +9,7 @@ class UserLogin(BaseModel):
     """Schema for user login"""
     email: EmailStr
     password: str
+    industry: Optional[str] = None
     remember_me: bool = False
 
 
