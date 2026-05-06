@@ -1,5 +1,0 @@
-﻿src/__tests__/integration/backend.test.ts(1,61): error TS2307: Cannot find module 'vitest' or its corresponding type declarations.
-src/features/opportunities/components/financial/CostingTab.tsx(8,34): error TS2307: Cannot find module '@/components/ui/searchable-select' or its corresponding type declarations.
-src/features/opportunities/components/financial/CostingTab.tsx(100,36): error TS2339: Property 'suppliers' does not exist on type 'SupplierResponse'.
-src/features/opportunities/components/financial/CostingTab.tsx(467,61): error TS7006: Parameter 'val' implicitly has an 'any' type.
-src/features/opportunities/components/financial/FinancialTab.tsx(6,36): error TS2307: Cannot find module './ProformaInvoiceTab' or its corresponding type declarations.
