@@ -3,7 +3,6 @@ import { contactsService } from "@/lib/api/services/contacts.service";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import Link from "next/link";
 import { CreateContactButton } from "@/features/contacts/components/CreateContactButton";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
@@ -48,11 +47,11 @@ export default async function ContactsPage({
     );
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="crm-page">
+            <div className="crm-surface flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Contacts</h1>
-                    <p className="text-muted-foreground">
+                    <h1>Contacts</h1>
+                    <p className="text-sm text-muted-foreground">
                         Manage your key contacts and people.
                     </p>
                 </div>
@@ -63,10 +62,12 @@ export default async function ContactsPage({
 
             <EntityListToolbar entity="contact" />
 
-            <ContactTable
-                data={contactsData.contacts} 
-                pagination={contactsData.pagination} 
-            />
+            <div className="crm-surface overflow-hidden">
+                <ContactTable
+                    data={contactsData.contacts}
+                    pagination={contactsData.pagination}
+                />
+            </div>
         </div>
     );
 }

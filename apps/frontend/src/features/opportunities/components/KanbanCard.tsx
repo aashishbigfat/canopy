@@ -41,8 +41,8 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
             ref={setNodeRef}
             style={style}
             className={cn(
-                "relative bg-white rounded-lg border shadow-sm group",
-                "hover:shadow-md hover:border-blue-200 transition-all duration-150",
+                "group relative rounded-lg border border-border bg-card shadow-sm",
+                "transition-all duration-150 hover:border-primary/40 hover:shadow-md",
                 isActiveDragging && "opacity-50 shadow-lg"
             )}
             onClick={!isActiveDragging ? onClick : undefined}
@@ -51,16 +51,16 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
             <div
                 {...attributes}
                 {...listeners}
-                className="absolute top-2 right-2 p-1 rounded cursor-grab active:cursor-grabbing text-slate-700 bg-slate-100 hover:bg-slate-200 hover:text-slate-900 z-10 transition-colors"
+                className="absolute right-2 top-2 z-10 cursor-grab rounded bg-muted p-1 text-foreground/80 transition-colors hover:bg-accent hover:text-foreground active:cursor-grabbing"
                 onClick={e => e.stopPropagation()}
             >
                 <GripVertical className="h-4 w-4" />
             </div>
 
-            <div className="p-4 pr-8 space-y-3">
+            <div className="space-y-3 p-4 pr-8">
                 {/* Title + Star */}
                 <div className="flex items-start gap-2">
-                    <h4 className="font-semibold text-slate-800 text-sm leading-snug flex-1 line-clamp-2">
+                    <h4 className="line-clamp-2 flex-1 text-sm font-semibold leading-snug text-foreground">
                         {opportunity.name}
                     </h4>
                     {opportunity.key_deal && (
@@ -70,21 +70,21 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
 
                 {/* Amount */}
                 {opportunity.amount ? (
-                    <div className="text-green-600 font-bold text-sm">
+                    <div className="text-sm font-bold text-emerald-600">
                         {formatCurrency(opportunity.amount)}
                     </div>
                 ) : null}
 
                 {/* Destinations (travel only) */}
                 {industry === "travel" && (opportunity.industry_data?.destination_names?.length ?? 0) > 0 && (
-                    <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                    <div className="flex items-center gap-1.5 text-xs text-foreground/80">
                         <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
                         <span className="truncate">{opportunity.industry_data!.destination_names.join(", ")}</span>
                     </div>
                 )}
 
                 {/* Meta: date + pax */}
-                <div className="flex items-center gap-4 text-xs text-slate-400 flex-wrap">
+                <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
                     {opportunity.close_date && (
                         <div className="flex items-center gap-1">
                             <Calendar className="h-3.5 w-3.5" />
@@ -103,10 +103,10 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
                 {opportunity.probability !== undefined && opportunity.probability > 0 && (
                     <div>
                         <div className="flex items-center justify-between text-xs mb-1">
-                            <span className="text-slate-400">Probability</span>
-                            <span className="font-semibold text-slate-600">{opportunity.probability}%</span>
+                            <span className="text-muted-foreground">Probability</span>
+                            <span className="font-semibold text-foreground/90">{opportunity.probability}%</span>
                         </div>
-                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
                             <div
                                 className={cn(
                                     "h-full rounded-full transition-all duration-500",
@@ -121,7 +121,7 @@ export function KanbanCard({ opportunity, isDragging, onClick }: KanbanCardProps
 
                 {/* Account name footer */}
                 {opportunity.account_name && (
-                    <div className="text-xs text-slate-400 truncate pt-1.5 border-t border-slate-100">
+                    <div className="truncate border-t border-border pt-1.5 text-xs text-muted-foreground">
                         {opportunity.account_name}
                     </div>
                 )}

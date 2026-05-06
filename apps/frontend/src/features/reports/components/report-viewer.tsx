@@ -21,22 +21,22 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
         }
     }, [reportId, refetch]);
 
-    if (isLoadingMeta) return <div>Loading report details...</div>;
-    if (!report) return <div>Report not found</div>;
+    if (isLoadingMeta) return <div className="crm-surface p-4">Loading report details...</div>;
+    if (!report) return <div className="crm-surface p-4">Report not found</div>;
 
     return (
-        <div className="space-y-6">
-            <div className="flex justify-between items-center">
+        <div className="space-y-4">
+            <div className="crm-surface flex items-center justify-between px-4 py-3">
                 <div>
-                    <h2 className="text-2xl font-bold">{report.name}</h2>
-                    <p className="text-muted-foreground">Module: {report.entity_type} | Type: {report.report_type}</p>
+                    <h2>{report.name}</h2>
+                    <p className="text-sm text-muted-foreground">Module: {report.entity_type} | Type: {report.report_type}</p>
                 </div>
                 <Button onClick={() => refetch()} disabled={isFetching}>
                     {isFetching ? "Running..." : "Refresh Data"}
                 </Button>
             </div>
 
-            <div className="border rounded-md p-4 min-h-[200px]">
+            <div className="crm-surface min-h-[200px] p-4">
                 {/* Chart Placeholder */}
                 <div className="h-40 bg-muted/20 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-md mb-4">
                     Chart Visualization (Feature Placeholder)

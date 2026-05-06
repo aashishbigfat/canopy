@@ -28,7 +28,7 @@ export function EntityListToolbar({
   rightExtra?: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center justify-between gap-2 border-b pb-2">
+    <div className="crm-toolbar justify-between">
       <ViewBar
         entity={entity}
         currentFilters={currentFilters}

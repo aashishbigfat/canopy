@@ -123,7 +123,7 @@ export default function DashboardClientPage() {
     const safePipelineStages = Array.isArray(pipelineStages) ? pipelineStages : [];
 
     return (
-        <div className="space-y-6">
+        <div className="crm-page">
             {/* Leader Board KPIs */}
             <LeaderBoardKPIs kpis={kpis} />
 
@@ -146,44 +146,44 @@ export default function DashboardClientPage() {
             <div className="grid gap-6 lg:grid-cols-2">
                 <PipelineChart stages={safePipelineStages} />
 
-                <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm">
+                <div className="crm-surface p-6">
                     <div className="mb-6">
-                        <h3 className="text-lg font-bold text-slate-900">Recent Tasks</h3>
-                        <p className="text-sm font-semibold text-slate-400 mt-1">
+                        <h3 className="text-lg font-semibold text-foreground">Recent Tasks</h3>
+                        <p className="mt-1 text-sm font-medium text-muted-foreground">
                             Missed ({taskSummary?.missed_count ?? 0}) | Reminders ({taskSummary?.payment_reminder_count ?? 0})
                         </p>
                     </div>
                     <div className="space-y-3">
                         <Link
                             href="/tasks"
-                            className="flex w-full items-center justify-between rounded-xl bg-amber-50 border border-amber-100 px-5 py-4 text-sm font-bold text-amber-900 transition-all hover:bg-amber-100 hover:shadow-sm"
+                            className="flex w-full items-center justify-between rounded-xl border border-border bg-card/80 px-5 py-4 text-sm font-semibold text-foreground transition-all hover:bg-accent/50 hover:shadow-sm"
                         >
                             <span className="flex items-center gap-2">
-                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-200/60 text-amber-700">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </span>
                                 Missed Tasks ({taskSummary?.missed_count ?? 0})
                             </span>
-                            <span className="text-amber-400 font-bold text-lg">→</span>
+                            <span className="text-muted-foreground font-bold text-lg">→</span>
                         </Link>
                         <Link
                             href="/tasks"
-                            className="flex w-full items-center justify-between rounded-xl bg-blue-50 border border-blue-100 px-5 py-4 text-sm font-bold text-blue-900 transition-all hover:bg-blue-100 hover:shadow-sm"
+                            className="flex w-full items-center justify-between rounded-xl border border-border bg-card/80 px-5 py-4 text-sm font-semibold text-foreground transition-all hover:bg-accent/50 hover:shadow-sm"
                         >
                             <span className="flex items-center gap-2">
-                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-200/60 text-blue-700">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                 </span>
                                 Today&apos;s {industry === "travel" ? "Payment Reminder" : "Due Tasks"} ({taskSummary?.payment_reminder_count ?? 0})
                             </span>
-                            <span className="text-blue-400 font-bold text-lg">→</span>
+                            <span className="text-muted-foreground font-bold text-lg">→</span>
                         </Link>
                     </div>
                 </div>
             </div>
 
             {/* Key Deals table */}
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-6 shadow-sm overflow-hidden">
+            <div className="crm-surface overflow-hidden p-6">
                 <h3 className="mb-5 text-lg font-bold text-slate-900">Key Deals</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm font-medium">

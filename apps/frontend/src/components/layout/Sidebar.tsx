@@ -27,12 +27,12 @@ export function Sidebar({ className }: SidebarProps) {
     );
 
     return (
-        <div className={cn("h-full flex flex-col w-[260px] bg-white text-slate-900 border-r", className)}>
+        <div className={cn("h-full flex flex-col w-[264px] bg-sidebar text-sidebar-foreground", className)}>
             <div className="flex-1 overflow-y-auto py-6 px-3">
                 <div className="mb-6 px-4">
                     <div className="flex items-center gap-2">
-                        <div className="h-2 w-2 rounded-full bg-blue-600" />
-                        <span className="text-xl font-bold text-blue-600">Tutterfly</span>
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                        <span className="text-base font-semibold tracking-tight text-primary">Workspace</span>
                     </div>
                 </div>
 
@@ -45,24 +45,24 @@ export function Sidebar({ className }: SidebarProps) {
                                     asChild
                                     variant="ghost"
                                     className={cn(
-                                        "w-full justify-start h-10 px-4 rounded-xl transition-all duration-200",
+                                        "w-full justify-start h-9 px-3 rounded-md transition-colors",
                                         isActive
-                                            ? "bg-blue-50 text-blue-600 hover:bg-blue-100 hover:text-blue-700 shadow-sm"
-                                            : "text-slate-500 hover:bg-slate-50 hover:text-slate-900"
+                                            ? "bg-sidebar-accent text-primary hover:bg-sidebar-accent"
+                                            : "text-sidebar-foreground/75 hover:bg-sidebar-accent/70 hover:text-sidebar-foreground"
                                     )}
                                 >
                                     <Link href={item.href} className="flex items-center w-full">
                                         <item.icon className={cn(
-                                            "mr-3 size-[20px]",
-                                            isActive ? "text-blue-600" : "text-slate-400"
+                                            "mr-3 size-4.5",
+                                            isActive ? "text-primary" : "text-sidebar-foreground/60"
                                         )} />
-                                        <span className="text-[14px] font-semibold flex-1">
+                                        <span className="flex-1 text-sm font-medium">
                                             {item.title}
                                         </span>
                                     </Link>
                                 </Button>
                                 {item.submenu && isActive && (
-                                    <div className="ml-10 mt-1 flex flex-col gap-1 border-l-2 border-slate-100 pl-3 py-1">
+                                    <div className="ml-8 mt-1 flex flex-col gap-1 border-l border-sidebar-border pl-3 py-1">
                                         {item.submenu.map((sub) => {
                                             const isSubActive = pathname === sub.href || pathname.startsWith(`${sub.href}/`);
                                             return (
@@ -70,10 +70,10 @@ export function Sidebar({ className }: SidebarProps) {
                                                     key={sub.href}
                                                     href={sub.href}
                                                     className={cn(
-                                                        "text-[13px] font-medium px-3 py-1.5 rounded-lg transition-colors",
+                                                        "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors",
                                                         isSubActive 
-                                                            ? "text-blue-600 bg-blue-50/50" 
-                                                            : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
+                                                            ? "bg-sidebar-accent/70 text-primary"
+                                                            : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
                                                     )}
                                                 >
                                                     {sub.title}
@@ -88,19 +88,18 @@ export function Sidebar({ className }: SidebarProps) {
                 </div>
             </div>
 
-            {/* Premium Footer */}
-            <div className="mt-auto p-4 border-t bg-slate-50/30">
-                <div className="flex items-center gap-3 p-3 rounded-2xl bg-white shadow-sm border border-slate-100">
-                    <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+            <div className="mt-auto border-t border-sidebar-border p-4">
+                <div className="flex items-center gap-3 rounded-md border border-sidebar-border bg-card p-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary">
                         <span className="text-white font-bold text-sm">
                             {session?.user?.name?.[0] || 'A'}
                         </span>
                     </div>
                     <div className="overflow-hidden">
-                        <p className="text-[13px] font-bold text-slate-800 truncate leading-tight mb-0.5">
+                        <p className="truncate text-xs font-semibold leading-tight text-sidebar-foreground">
                             {session?.user?.name || 'Admin User'}
                         </p>
-                        <p className="text-[11px] text-slate-500 truncate leading-tight">
+                        <p className="truncate text-[11px] leading-tight text-sidebar-foreground/70">
                             {session?.user?.email || 'admin@tutterfly.com'}
                         </p>
                     </div>

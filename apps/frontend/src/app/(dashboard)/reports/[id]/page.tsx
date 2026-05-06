@@ -11,8 +11,10 @@ export default function ReportPage({ params }: ReportPageProps) {
     const { id } = use(params);
 
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <ReportViewer reportId={id} />
+        <div className="crm-page">
+            <div className="crm-surface p-4">
+                <ReportViewer reportId={id} />
+            </div>
         </div>
     );
 }

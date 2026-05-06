@@ -21,7 +21,7 @@ export function FormDrawer({
     title,
     children,
     subtitle,
-    widthClass = "w-[480px]",
+    widthClass = "w-[560px]",
 }: FormDrawerProps) {
     // Close on Escape key
     React.useEffect(() => {
@@ -55,7 +55,7 @@ export function FormDrawer({
             {/* Backdrop overlay */}
             <div
                 className={cn(
-                    "fixed inset-0 z-50 bg-black/5",
+                    "fixed inset-0 z-50 bg-slate-900/20",
                     "animate-in fade-in-0 duration-300"
                 )}
                 onClick={() => onOpenChange(false)}
@@ -66,7 +66,7 @@ export function FormDrawer({
             <div
                 className={cn(
                     "fixed inset-y-0 right-0 z-50 flex flex-col",
-                    "bg-white shadow-2xl border-l border-slate-200",
+                    "bg-card shadow-2xl border-l border-border",
                     "animate-in slide-in-from-right duration-300 ease-out",
                     widthClass,
                     "max-w-[90vw]" // never wider than viewport on mobile
@@ -75,21 +75,20 @@ export function FormDrawer({
                 aria-modal="true"
                 aria-label={title}
             >
-                {/* Header - dark themed matching client design */}
-                <div className="flex items-center justify-between px-5 py-4 bg-slate-800 text-white shrink-0">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b bg-card px-5 py-4 shrink-0">
                     <div>
-                        <h2 className="text-base font-semibold tracking-tight">
+                        <h2 className="text-base font-semibold tracking-tight text-foreground">
                             {title}
                         </h2>
                         {subtitle && (
-                            <p className="text-xs text-slate-300 mt-0.5">
+                            <p className="mt-0.5 text-xs text-muted-foreground">
                                 {subtitle}
                             </p>
                         )}
                     </div>
                     <button
                         onClick={() => onOpenChange(false)}
-                        className="p-1.5 rounded-md hover:bg-slate-700 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-400"
+                        className="rounded-md p-1.5 transition-colors hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
                         aria-label="Close"
                     >
                         <X className="h-4 w-4" />

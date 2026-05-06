@@ -5,9 +5,12 @@ export const dynamic = "force-dynamic";
 
 export default function TasksPage() {
     return (
-        <div className="flex-1 min-w-0 w-full space-y-4 p-3 sm:p-6 pt-4">
-            <div className="flex items-center justify-between">
-                <h2 className="text-2xl font-bold tracking-tight">Tasks</h2>
+        <div className="crm-page">
+            <div className="crm-surface flex items-center justify-between px-4 py-3">
+                <div>
+                    <h1>Tasks</h1>
+                    <p className="text-sm text-muted-foreground">Track activities, follow-ups, and ownership priorities.</p>
+                </div>
             </div>
             <EntityListToolbar entity="task" />
             {/* TaskList renders its own New button and filter toolbar */}

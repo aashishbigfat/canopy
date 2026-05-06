@@ -4,11 +4,11 @@ import { TaskForm } from "@/features/tasks/components/task-form";
 
 export default function NewTaskPage() {
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Create Task</h2>
+        <div className="crm-page">
+            <div className="crm-surface flex items-center justify-between px-4 py-3">
+                <h1>Create Task</h1>
             </div>
-            <div className="rounded-md border p-4 bg-background">
+            <div className="crm-surface p-4">
                 <TaskForm />
             </div>
         </div>

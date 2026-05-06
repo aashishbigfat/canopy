@@ -37,13 +37,13 @@ export function UserActivities({ activities }: { activities: ActivityLog[] }) {
 
     return (
         <div className="rounded-lg border bg-card p-4 text-card-foreground shadow-sm">
-            <div className="flex items-center justify-between font-bold text-slate-800 pb-2 border-b border-slate-100">
+            <div className="flex items-center justify-between border-b pb-2 font-semibold text-foreground">
                 <span className="text-lg tracking-tight">Recent Activity Stream</span>
                 <button
                     type="button"
                     onClick={handleRefresh}
                     disabled={refreshing}
-                    className="text-slate-400 hover:text-cyan-500 transition-colors"
+                    className="text-muted-foreground transition-colors hover:text-primary"
                     aria-label="Refresh activities"
                 >
                     <svg

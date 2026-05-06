@@ -91,7 +91,7 @@ export function LoadingSkeleton({ className, lines = 3 }: LoadingSkeletonProps) 
       {Array.from({ length: lines }).map((_, i) => (
         <div
           key={i}
-          className="h-4 bg-gray-200 rounded-md animate-pulse"
+          className="h-4 rounded-md bg-muted animate-pulse"
           style={{
             animationDelay: `${i * 0.1}s`,
             width: `${Math.random() * 40 + 60}%`,
@@ -108,12 +108,12 @@ interface LoadingCardProps {
 
 export function LoadingCard({ className }: LoadingCardProps) {
   return (
-    <div className={cn("border rounded-lg p-6 space-y-4", className)}>
-      <div className="h-6 bg-gray-200 rounded-md animate-pulse w-3/4" />
+    <div className={cn("space-y-4 rounded-lg border p-6", className)}>
+      <div className="h-6 w-3/4 rounded-md bg-muted animate-pulse" />
       <LoadingSkeleton lines={2} />
       <div className="flex justify-between items-center pt-4">
-        <div className="h-8 bg-gray-200 rounded-md animate-pulse w-24" />
-        <div className="h-8 bg-gray-200 rounded-md animate-pulse w-20" />
+        <div className="h-8 w-24 rounded-md bg-muted animate-pulse" />
+        <div className="h-8 w-20 rounded-md bg-muted animate-pulse" />
       </div>
     </div>
   );
@@ -135,7 +135,7 @@ export function LoadingTable({ rows = 5, columns = 4, className }: LoadingTableP
               key={`header-${i}`}
               className="flex-1 p-4"
             >
-              <div className="h-4 bg-gray-200 rounded animate-pulse" />
+              <div className="h-4 rounded bg-muted animate-pulse" />
             </div>
           ))}
         </div>
@@ -149,7 +149,7 @@ export function LoadingTable({ rows = 5, columns = 4, className }: LoadingTableP
                 className="flex-1 p-4"
               >
                 <div 
-                  className="h-4 bg-gray-200 rounded animate-pulse"
+                  className="h-4 rounded bg-muted animate-pulse"
                   style={{
                     animationDelay: `${(rowIndex * columns + colIndex) * 0.05}s`,
                     width: `${Math.random() * 40 + 60}%`,

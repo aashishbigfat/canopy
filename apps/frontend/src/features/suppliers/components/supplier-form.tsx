@@ -438,7 +438,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 pb-4">
                 {/* Supplier Information Section */}
                 <div>
-                    <h3 className="text-sm font-semibold bg-[#FFF9E5] text-[#333] py-2 px-3 mb-4 rounded-sm border-l-4 border-yellow-400">
+                    <h3 className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
                         Supplier Information
                     </h3>
                     <div className="grid grid-cols-2 gap-x-6 gap-y-4">
@@ -478,7 +478,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                         ) : (
                             <div className="flex flex-col space-y-2 mt-2">
                                 <FormLabel>Supplier Owner</FormLabel>
-                                <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
                                     {session?.user?.name || "Automatically assigned to you"}
                                 </p>
                             </div>
@@ -630,7 +630,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
 
                 {/* Supplier Service Area */}
                 <div>
-                     <h3 className="text-sm font-semibold bg-[#FFF9E5] text-[#333] py-2 px-3 mb-4 rounded-sm border-l-4 border-yellow-400">
+                     <h3 className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
                         Supplier Service Area
                     </h3>
                     <div className="flex flex-col gap-4">
@@ -817,7 +817,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
 
                 {/* Address Information */}
                 <div>
-                     <h3 className="text-sm font-semibold bg-[#FFF9E5] text-[#333] py-2 px-3 mb-4 rounded-sm border-l-4 border-yellow-400">
+                     <h3 className="mb-4 rounded-md border border-border bg-muted/40 px-3 py-2 text-sm font-semibold text-foreground">
                         Address Information
                     </h3>
                     <div className="space-y-4">
@@ -961,11 +961,11 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                     </div>
                 </div>
 
-                <div className={cn("flex justify-end gap-2 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]")}>
+                <div className={cn("flex justify-end gap-2 border-t pt-4", isDrawer && "sticky bottom-0 z-10 -mx-5 -mb-5 bg-card/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/85")}>
                     <Button type="button" variant="outline" onClick={onCancel || (() => router.back())}>
                         {isDrawer ? "Close" : "Cancel"}
                     </Button>
-                    <Button type="submit" className="bg-blue-600 hover:bg-blue-700 font-normal px-6 text-white" disabled={isLoading}>
+                    <Button type="submit" className="px-6 font-medium" disabled={isLoading}>
                         {isLoading ? (initialData ? "Updating..." : "Creating...") : (initialData ? "Update" : "Save")}
                     </Button>
                 </div>

@@ -3,7 +3,6 @@ import { accountService } from "../../../features/accounts/services/accountServi
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import Link from "next/link";
 import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
 import { EntityListToolbar } from "@/features/views/EntityListToolbar";
@@ -47,11 +46,11 @@ export default async function PersonAccountsPage({
     );
 
     return (
-        <div className="flex-1 min-w-0 w-full space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="crm-page">
+            <div className="crm-surface flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Person Accounts</h1>
-                    <p className="text-muted-foreground">
+                    <h1>Person Accounts</h1>
+                    <p className="text-sm text-muted-foreground">
                         Manage individual customers and personal accounts.
                     </p>
                 </div>
@@ -60,10 +59,12 @@ export default async function PersonAccountsPage({
 
             <EntityListToolbar entity="personal_account" />
 
-            <PersonAccountTable
-                data={accountsData.accounts} 
-                pagination={accountsData.pagination} 
-            />
+            <div className="crm-surface overflow-hidden">
+                <PersonAccountTable
+                    data={accountsData.accounts}
+                    pagination={accountsData.pagination}
+                />
+            </div>
         </div>
     );
 }

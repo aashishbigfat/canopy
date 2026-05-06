@@ -33,11 +33,11 @@ import { PermissionGate } from "@/components/permissions/PermissionGate";
 function statusBadge(status: string) {
     const lower = status?.toLowerCase();
     if (lower === "completed")
-        return <span className="text-xs text-green-600 font-medium">{status}</span>;
+        return <span className="text-xs font-medium text-emerald-600">{status}</span>;
     if (lower === "open" || lower === "not started")
-        return <span className="text-xs text-blue-600 font-medium">{status}</span>;
+        return <span className="text-xs font-medium text-primary">{status}</span>;
     if (lower === "in progress")
-        return <span className="text-xs text-orange-600 font-medium">{status}</span>;
+        return <span className="text-xs font-medium text-amber-600">{status}</span>;
     if (lower === "deferred")
         return <span className="text-xs text-gray-500 font-medium">{status}</span>;
     return <span className="text-xs text-muted-foreground">{status || "—"}</span>;
@@ -47,7 +47,7 @@ function priorityBadge(priority: string) {
     if (!priority) return <span className="text-xs text-muted-foreground">—</span>;
     const lower = priority?.toLowerCase();
     if (lower === "high" || lower === "urgent")
-        return <span className="text-xs text-red-600 font-medium">{priority}</span>;
+        return <span className="text-xs font-medium text-red-600">{priority}</span>;
     if (lower === "normal")
         return <span className="text-xs text-muted-foreground">{priority}</span>;
     return <span className="text-xs text-muted-foreground">{priority}</span>;
@@ -101,7 +101,7 @@ export function TaskList() {
     return (
         <div>
             {/* Toolbar */}
-            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+            <div className="crm-toolbar mb-4 justify-between gap-3 flex-wrap">
                 <div className="flex gap-2 flex-wrap">
                     <Select value={assigneeFilter} onValueChange={setAssigneeFilter}>
                         <SelectTrigger className="h-8 text-xs w-36">
@@ -140,7 +140,7 @@ export function TaskList() {
                 <PermissionGate permission="create_task">
                     <Button
                         size="sm"
-                        className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs"
+                        className="h-8 text-xs"
                         onClick={() => setAddOpen(true)}
                     >
                         <Plus className="h-3.5 w-3.5 mr-1" />
@@ -150,21 +150,21 @@ export function TaskList() {
             </div>
 
             {/* Table */}
-            <div className="rounded-md border overflow-hidden">
+            <div className="crm-surface overflow-hidden">
                 <Table>
                     <TableHeader>
-                        <TableRow className="bg-gray-50 hover:bg-gray-50">
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Subject</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Due Date</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Task Type</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Related To</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Priority</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Status</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Concerned Contact</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Assigned To</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Created By</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2">Create Date</TableHead>
-                            <TableHead className="text-xs font-semibold text-gray-500 py-2 text-right">Actions</TableHead>
+                        <TableRow>
+                            <TableHead className="py-2">Subject</TableHead>
+                            <TableHead className="py-2">Due Date</TableHead>
+                            <TableHead className="py-2">Task Type</TableHead>
+                            <TableHead className="py-2">Related To</TableHead>
+                            <TableHead className="py-2">Priority</TableHead>
+                            <TableHead className="py-2">Status</TableHead>
+                            <TableHead className="py-2">Concerned Contact</TableHead>
+                            <TableHead className="py-2">Assigned To</TableHead>
+                            <TableHead className="py-2">Created By</TableHead>
+                            <TableHead className="py-2">Create Date</TableHead>
+                            <TableHead className="py-2 text-right">Actions</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -195,7 +195,7 @@ export function TaskList() {
                                 <TableCell className="py-2 font-medium max-w-[180px]">
                                     <Link
                                         href={`/tasks/${task.id}`}
-                                        className="text-blue-600 hover:underline truncate block"
+                                        className="block truncate text-primary hover:underline"
                                     >
                                         {task.name}
                                     </Link>
@@ -214,7 +214,7 @@ export function TaskList() {
                                 </TableCell>
 
                                 {/* Related To (resolved entity name) */}
-                                <TableCell className="py-2 text-xs text-blue-600">
+                                <TableCell className="py-2 text-xs text-primary">
                                     {task.taskable_name || "—"}
                                 </TableCell>
 
@@ -234,12 +234,12 @@ export function TaskList() {
                                 </TableCell>
 
                                 {/* Assigned To */}
-                                <TableCell className="py-2 text-xs text-blue-600">
+                                <TableCell className="py-2 text-xs text-primary">
                                     {task.assigned_user_name || "—"}
                                 </TableCell>
 
                                 {/* Created By */}
-                                <TableCell className="py-2 text-xs text-blue-600">
+                                <TableCell className="py-2 text-xs text-primary">
                                     {task.created_by_name || "—"}
                                 </TableCell>
 

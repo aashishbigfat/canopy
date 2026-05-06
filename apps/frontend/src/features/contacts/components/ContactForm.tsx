@@ -311,7 +311,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                     />
 
                 </div>
-                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10")}>
+                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 z-10 -mx-5 -mb-5 bg-card/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/85")}>
                     <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>
                         {isDrawer ? "Close" : "Cancel"}
                     </Button>

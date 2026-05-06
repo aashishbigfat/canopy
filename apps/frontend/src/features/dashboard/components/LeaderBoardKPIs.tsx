@@ -97,7 +97,7 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
 
     return (
         <div className="space-y-5">
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
                 Dashboard Leader Board Incentive
             </h2>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8">
@@ -111,7 +111,7 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
                     return (
                         <div
                             key={key}
-                            className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:shadow-lg hover:-translate-y-1"
+                            className="group relative overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5"
                         >
                             {/* Gradient accent bar */}
                             <div
@@ -133,16 +133,13 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
                                 </div>
 
                                 {/* Label */}
-                                <div className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 transition-colors group-hover:text-slate-600">
+                                <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground transition-colors group-hover:text-foreground">
                                     {label}
                                 </div>
 
                                 {/* Value */}
                                 <div
-                                    className={cn(
-                                        "text-2xl font-black tracking-tight md:text-3xl bg-gradient-to-r bg-clip-text text-transparent",
-                                        gradient
-                                    )}
+                                    className={cn("text-2xl font-bold tracking-tight md:text-3xl text-foreground")}
                                 >
                                     {display}
                                 </div>

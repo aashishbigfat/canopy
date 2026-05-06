@@ -3,9 +3,7 @@ import { accountService } from "../../../features/accounts/services/accountServi
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
 import Link from "next/link";
-import { CreateAccountButton } from "@/features/accounts/components/CreateAccountButton";
 import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export const dynamic = "force-dynamic";
@@ -47,16 +45,17 @@ export default async function AccountsPage({
     );
 
     return (
-        <div className="flex-1 min-w-0 w-full space-y-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="crm-page">
+            <div className="crm-surface px-4 py-3">
                 <div>
-                    <h1 className="text-xl font-bold tracking-tight text-gray-800">Account</h1>
+                    <h1>Accounts</h1>
+                    <p className="text-sm text-muted-foreground">Manage company records, ownership, and account activity.</p>
                 </div>
             </div>
 
             <EntityListToolbar entity="account" />
 
-            <div className="bg-white rounded-md shadow-sm border border-gray-200">
+            <div className="crm-surface overflow-hidden">
                 <AccountTable
                     data={accountsData.accounts} 
                     pagination={accountsData.pagination} 

@@ -358,7 +358,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-4">
             {!isDrawer && (
                 <div className="flex items-center gap-4">
                     <Button variant="ghost" size="icon" asChild className="h-8 w-8">
@@ -370,8 +370,8 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
             )}
 
             <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                    <div className="flex items-center gap-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <div className="crm-surface mb-1 flex items-center gap-2 p-3">
                         <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
                         <Badge variant="outline" className={cn(
                             "px-2 py-0.5 font-bold text-[10px] transition-colors",
@@ -382,7 +382,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
                         </Badge>
                     </div>
-                    <div className="flex items-center gap-4 mb-4">
+                    <div className="crm-surface mb-1 flex items-center gap-4 p-3">
                         <div className="flex items-center gap-2">
                             <input
                                 type="radio"
@@ -436,7 +436,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             <label htmlFor="account-type-person" className="text-sm font-medium text-slate-700 cursor-pointer">Personal Account</label>
                         </div>
                     </div>
-                    <div className="grid gap-6 md:grid-cols-2">
+                    <div className="crm-surface grid gap-6 p-4 md:grid-cols-2">
                         <FormField
                             control={form.control}
                             name="name"
@@ -573,6 +573,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                     <IndustryOpportunityFields industry={useIndustry()} form={form} />
 
 
+                    <div className="crm-surface p-4">
                     <FormField
                         control={form.control}
                         name="description"
@@ -590,6 +591,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             </FormItem>
                         )}
                     />
+                    </div>
 
                     {/* Inclusions Multi-Select — Travel only */}
                     {isTravel && (
@@ -718,7 +720,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                         />
                     )}
 
-                    <div className="flex gap-4">
+                    <div className="sticky bottom-0 z-10 flex gap-4 border-t bg-card py-3">
                         <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
                             {isLoading ? "Saving..." : isDrawer ? "Update" : "Save Changes"}
                         </Button>

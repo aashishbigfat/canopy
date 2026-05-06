@@ -90,25 +90,25 @@ export function EntityActivitySidebar({
 
     return (
         <div className="space-y-6">
-            <Card className="border shadow-sm">
+            <Card className="glass border-border/70">
                 <Tabs defaultValue="activity" className="w-full">
-                    <CardHeader className="pb-0 border-b bg-slate-50/50">
+                    <CardHeader className="border-b pb-0 bg-muted/30">
                         <div className="flex items-center justify-between mb-4">
                             <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                                <Activity className="h-4 w-4 text-blue-600" />
+                                <Activity className="h-4 w-4 text-primary" />
                                 Activity
                             </CardTitle>
                         </div>
-                        <TabsList className="w-full justify-start rounded-md bg-slate-100/50 p-1 gap-2">
+                        <TabsList className="w-full justify-start gap-2 rounded-md bg-muted/40 p-1">
                             <TabsTrigger
                                 value="activity"
-                                className="relative h-8 rounded-md bg-transparent px-4 font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:text-foreground"
+                                className="relative h-8 rounded-md bg-transparent px-4 font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm hover:text-foreground"
                             >
                                 Activity
                             </TabsTrigger>
                             <TabsTrigger
                                 value="history"
-                                className="relative h-8 rounded-md bg-transparent px-4 font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-white data-[state=active]:text-primary data-[state=active]:shadow-sm hover:text-foreground"
+                                className="relative h-8 rounded-md bg-transparent px-4 font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm hover:text-foreground"
                             >
                                 Activities Log
                             </TabsTrigger>
@@ -121,28 +121,28 @@ export function EntityActivitySidebar({
                                     <TabsList className="bg-transparent h-12 w-full grid grid-cols-4 p-1 gap-1">
                                         <TabsTrigger
                                             value="task"
-                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:text-foreground focus-visible:ring-0"
+                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary hover:text-foreground focus-visible:ring-0"
                                         >
                                             <CheckCircle2 className="h-4 w-4 mr-2" />
                                             Task
                                         </TabsTrigger>
                                         <TabsTrigger
                                             value="call"
-                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:text-foreground focus-visible:ring-0"
+                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary hover:text-foreground focus-visible:ring-0"
                                         >
                                             <Phone className="h-4 w-4 mr-2" />
                                             Log a Call
                                         </TabsTrigger>
                                         <TabsTrigger
                                             value="email"
-                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:text-foreground focus-visible:ring-0"
+                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary hover:text-foreground focus-visible:ring-0"
                                         >
                                             <Mail className="h-4 w-4 mr-2" />
                                             Email
                                         </TabsTrigger>
                                         <TabsTrigger
                                             value="whatsapp"
-                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-blue-50 data-[state=active]:text-blue-700 hover:text-foreground focus-visible:ring-0"
+                                            className="relative h-10 rounded-md bg-transparent px-2 text-xs font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-primary/10 data-[state=active]:text-primary hover:text-foreground focus-visible:ring-0"
                                         >
                                             <MessageSquare className="h-4 w-4 mr-2" />
                                             Whatsapp
@@ -153,7 +153,7 @@ export function EntityActivitySidebar({
                                 <div className="p-4">
                                     <TabsContent value="task" className="mt-0 space-y-4">
                                         <div className="space-y-1">
-                                            <label className="text-xs font-medium text-slate-500">Subject</label>
+                                            <label className="text-xs font-medium text-muted-foreground">Subject</label>
                                             <Input
                                                 placeholder="Subject"
                                                 value={taskSubject}
@@ -163,7 +163,7 @@ export function EntityActivitySidebar({
                                         </div>
                                         <div className="grid grid-cols-1 gap-4">
                                             <div className="space-y-1">
-                                                <label className="text-xs font-medium text-slate-500">Assigned To</label>
+                                                <label className="text-xs font-medium text-muted-foreground">Assigned To</label>
                                                 <Select value={assignedTo || session?.user?.id || ""} onValueChange={setAssignedTo}>
                                                     <SelectTrigger className="h-9">
                                                         <SelectValue placeholder="Assign To" />
@@ -181,7 +181,7 @@ export function EntityActivitySidebar({
                                                 </Select>
                                             </div>
                                             <div className="space-y-1">
-                                                <label className="text-xs font-medium text-slate-500">Select Due Date</label>
+                                                <label className="text-xs font-medium text-muted-foreground">Select Due Date</label>
                                                 <div className="relative">
                                                     <Input
                                                         type="datetime-local"
@@ -193,29 +193,29 @@ export function EntityActivitySidebar({
                                             </div>
                                         </div>
                                         <div className="space-y-1">
-                                            <label className="text-xs font-medium text-slate-500">Name</label>
-                                            <Input disabled value={entityName || "None"} className="h-9 bg-slate-50 font-medium text-slate-700" />
+                                            <label className="text-xs font-medium text-muted-foreground">Name</label>
+                                            <Input disabled value={entityName || "None"} className="h-9 bg-muted/40 font-medium text-foreground" />
                                         </div>
                                         <div className="flex justify-end pt-2">
                                             <Button
                                                 onClick={handleSaveTask}
                                                 disabled={isSaving}
-                                                className="bg-blue-600 hover:bg-blue-700 h-9 px-6 text-xs font-semibold"
+                                                className="h-9 px-6 text-xs font-semibold"
                                             >
                                                 {isSaving ? "Saving..." : "Save"}
                                             </Button>
                                         </div>
                                     </TabsContent>
 
-                                    <TabsContent value="call" className="mt-0 py-8 text-center text-slate-400">
+                                    <TabsContent value="call" className="mt-0 py-8 text-center text-muted-foreground">
                                         <Phone className="h-12 w-12 mx-auto mb-2 opacity-20" />
                                         <p className="text-sm">Call logging functionality coming soon</p>
                                     </TabsContent>
-                                    <TabsContent value="email" className="mt-0 py-8 text-center text-slate-400">
+                                    <TabsContent value="email" className="mt-0 py-8 text-center text-muted-foreground">
                                         <Mail className="h-12 w-12 mx-auto mb-2 opacity-20" />
                                         <p className="text-sm">Email integration coming soon</p>
                                     </TabsContent>
-                                    <TabsContent value="whatsapp" className="mt-0 py-8 text-center text-slate-400">
+                                    <TabsContent value="whatsapp" className="mt-0 py-8 text-center text-muted-foreground">
                                         <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-20" />
                                         <p className="text-sm">WhatsApp integration coming soon</p>
                                     </TabsContent>

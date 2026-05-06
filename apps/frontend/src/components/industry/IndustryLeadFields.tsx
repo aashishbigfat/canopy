@@ -177,7 +177,7 @@ function DestinationMultiSelect({
                     type="button"
                     className={cn(
                         "w-full justify-between font-normal",
-                        compact ? "min-h-[32px] h-auto text-xs px-2 py-1 bg-white" : "min-h-[36px] h-auto px-3 py-1 bg-white",
+                        compact ? "min-h-[32px] h-auto bg-background px-2 py-1 text-xs" : "min-h-[36px] h-auto bg-background px-3 py-1",
                         selectedIds.length === 0 && "text-muted-foreground"
                     )}
                 >
@@ -219,7 +219,7 @@ function DestinationMultiSelect({
                     />
                     <CommandList>
                         {loadingSearch ? (
-                            <div className="py-2 px-3 text-xs text-slate-400">Searching...</div>
+                            <div className="px-3 py-2 text-xs text-muted-foreground">Searching...</div>
                         ) : filtered.length === 0 ? (
                             <CommandEmpty>No destinations found.</CommandEmpty>
                         ) : (
@@ -244,7 +244,7 @@ function DestinationMultiSelect({
                                             />
                                             <span className="text-sm">{dest.name}</span>
                                             {dest.country_name && (
-                                                <span className="ml-auto text-xs text-slate-400">{dest.country_name}</span>
+                                                <span className="ml-auto text-xs text-muted-foreground">{dest.country_name}</span>
                                             )}
                                         </CommandItem>
                                     );
@@ -266,9 +266,9 @@ function DestinationMultiSelect({
 function TravelLeadFields({ form, availableDestinations = [], handleDestinationSearch, loadingDestinations }: IndustryFieldsProps) {
     return (
         <div>
-            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                <Globe className="h-4 w-4 text-blue-600" />
-                <h3 className="text-sm font-semibold text-slate-700">Travel Requirements</h3>
+            <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+                <Globe className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground">Travel Requirements</h3>
             </div>
             <div className="grid gap-3 grid-cols-2">
                 <FormField control={form.control as any} name="travel_date" render={({ field }) => (
@@ -332,14 +332,14 @@ function TravelLeadFields({ form, availableDestinations = [], handleDestinationS
                 <FormField control={form.control as any} name="no_of_pax" render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Total Pax</FormLabel>
-                        <FormControl><Input type="number" readOnly disabled className="h-8 bg-slate-50 text-slate-500 cursor-not-allowed text-xs" {...field} /></FormControl>
+                        <FormControl><Input type="number" readOnly disabled className="h-8 cursor-not-allowed bg-muted/40 text-foreground/80 text-xs" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control as any} name="is_fixed" render={({ field }) => (
-                    <FormItem className="flex flex-row items-center space-x-2 space-y-0 rounded-md border p-2 bg-slate-50/50 h-8 col-span-2">
-                        <FormControl><Input type="checkbox" className="h-3 w-3" checked={field.value} onChange={field.onChange} /></FormControl>
-                        <FormLabel className="text-xs font-medium cursor-pointer mb-0 pb-0">Fixed Departure?</FormLabel>
+                    <FormItem className="col-span-2 flex h-9 flex-row items-center space-x-2 space-y-0 rounded-md border border-border bg-muted/40 px-2.5">
+                        <FormControl><Input type="checkbox" className="h-3.5 w-3.5 accent-primary" checked={field.value} onChange={field.onChange} /></FormControl>
+                        <FormLabel className="mb-0 cursor-pointer pb-0 text-xs font-medium text-foreground">Fixed Departure?</FormLabel>
                     </FormItem>
                 )} />
             </div>
@@ -599,16 +599,28 @@ function ManufacturingLeadFields({ form }: IndustryFieldsProps) {
  *   <IndustryLeadFields industry="healthcare" form={form} />
  */
 export function IndustryLeadFields(props: IndustryFieldsProps) {
+    let content: JSX.Element | null = null;
+
     switch (props.industry) {
         case "travel":
-            return <TravelLeadFields {...props} />;
+            content = <TravelLeadFields {...props} />;
+            break;
         case "healthcare":
-            return <HealthcareLeadFields {...props} />;
+            content = <HealthcareLeadFields {...props} />;
+            break;
         case "education":
-            return <EducationLeadFields {...props} />;
+            content = <EducationLeadFields {...props} />;
+            break;
         case "manufacturing":
-            return <ManufacturingLeadFields {...props} />;
+            content = <ManufacturingLeadFields {...props} />;
+            break;
         default:
-            return null;
+            content = null;
     }
+
+    return (
+        <div className="[&_[data-slot=form-label]]:!text-foreground/85 [&_input]:text-foreground [&_textarea]:text-foreground [&_[data-slot=select-trigger]]:text-foreground [&_.text-slate-700]:!text-foreground [&_.text-slate-500]:!text-foreground/80 [&_.bg-white]:!bg-background">
+            {content}
+        </div>
+    );
 }

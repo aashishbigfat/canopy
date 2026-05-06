@@ -27,8 +27,8 @@ const formatCurrency = (v: number) => {
 const CustomTooltip = ({ active, payload, label }: any) => {
     if (!active || !payload || payload.length === 0) return null;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur-sm">
-            <p className="mb-1.5 text-xs font-bold text-slate-500">Day {label}</p>
+        <div className="rounded-xl border bg-popover px-4 py-3 shadow-xl">
+            <p className="mb-1.5 text-xs font-semibold text-muted-foreground">Day {label}</p>
             {payload.map((entry: any, idx: number) => (
                 <p key={idx} className="text-sm font-semibold" style={{ color: entry.color }}>
                     {entry.name}: {formatCurrency(Number(entry.value || 0))}
@@ -50,36 +50,36 @@ export function SalesChart({
     const [activeTab, setActiveTab] = useState<"my" | "team">("my");
 
     return (
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border bg-card p-5 shadow-sm">
             {/* Header */}
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-6">
                     <div className="flex items-center gap-2">
                         <span className="h-3 w-3 rounded-full bg-gradient-to-r from-indigo-500 to-violet-500 shadow-[0_0_8px_rgba(99,102,241,0.4)]" />
-                        <span className="text-sm font-bold text-slate-600">
+                        <span className="text-sm font-semibold text-foreground">
                             Closed {formatCurrency(closedAmount)}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="h-3 w-3 rounded-full bg-gradient-to-r from-cyan-400 to-teal-400 shadow-[0_0_8px_rgba(34,211,238,0.4)]" />
-                        <span className="text-sm font-bold text-slate-600">
+                        <span className="text-sm font-semibold text-foreground">
                             Open {formatCurrency(openAmount)}
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="h-3 w-3 rounded-full bg-slate-300" />
-                        <span className="text-sm font-bold text-slate-400">Target</span>
+                        <span className="text-sm font-semibold text-muted-foreground">Target</span>
                     </div>
                 </div>
-                <div className="flex rounded-full border border-slate-200 bg-slate-50 p-1">
+                <div className="flex rounded-full border bg-muted/40 p-1">
                     <button
                         type="button"
                         onClick={() => setActiveTab("my")}
                         className={cn(
                             "rounded-full px-5 py-1.5 text-sm font-bold transition-all duration-300",
                             activeTab === "my"
-                                ? "bg-white text-indigo-600 shadow-md ring-1 ring-indigo-100"
-                                : "text-slate-500 hover:text-slate-700"
+                                ? "bg-card text-primary shadow-sm ring-1 ring-border"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                     >
                         My Sales
@@ -90,8 +90,8 @@ export function SalesChart({
                         className={cn(
                             "rounded-full px-5 py-1.5 text-sm font-bold transition-all duration-300",
                             activeTab === "team"
-                                ? "bg-white text-indigo-600 shadow-md ring-1 ring-indigo-100"
-                                : "text-slate-500 hover:text-slate-700"
+                                ? "bg-card text-primary shadow-sm ring-1 ring-border"
+                                : "text-muted-foreground hover:text-foreground"
                         )}
                     >
                         Team Sales
@@ -102,13 +102,13 @@ export function SalesChart({
             {/* Chart */}
             {data.length === 0 ? (
                 <div className="flex h-[280px] flex-col items-center justify-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-                        <BarChart3 className="h-8 w-8 text-slate-300" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+                        <BarChart3 className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-400">
+                    <p className="text-sm font-semibold text-muted-foreground">
                         No chart data available yet
                     </p>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-xs text-muted-foreground">
                         Sales data will appear here as deals are closed
                     </p>
                 </div>

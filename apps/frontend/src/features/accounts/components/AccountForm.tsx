@@ -683,7 +683,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                         ) : (
                             <div className="flex flex-col space-y-2 mt-2">
                                 <FormLabel>Owner</FormLabel>
-                                <p className="text-sm border rounded-md px-3 py-2 bg-slate-50 text-slate-500 min-h-[40px] flex items-center">
+                                <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
                                     {session?.user?.name || "Automatically assigned to you"}
                                 </p>
                             </div>
@@ -777,7 +777,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                     </div>
                 </div>
 
-                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 bg-white px-5 py-3 -mx-5 -mb-5 z-10")}>
+                <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 z-10 -mx-5 -mb-5 bg-card/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/85")}>
                     <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>
                         {isDrawer ? "Close" : "Cancel"}
                     </Button>

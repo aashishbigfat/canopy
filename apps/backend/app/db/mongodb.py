@@ -291,6 +291,8 @@ async def init_db():
             Dashboard,
             DashboardWidget,
             DashboardUserPreference,
+            # Dashboard extras
+            QuickLink,
             # Territories
             Region,
             Territory,

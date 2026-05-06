@@ -5,10 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-    Bell,
     ChevronDown,
-    Mail,
     Menu,
+    Search,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,6 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode;
 }) {
-    const pathname = usePathname();
     const router = useRouter();
     const { data: session } = useSession();
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -64,30 +62,32 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="flex min-h-screen flex-col bg-muted/40 text-foreground">
+        <div className="flex min-h-screen flex-col bg-background text-foreground">
             <CommandPalette />
-            {/* Premium Midnight Header */}
-            <header className="sticky top-0 z-50 flex h-[56px] sm:h-[72px] items-center gap-1 sm:gap-4 border-b border-indigo-950/20 bg-gradient-to-r from-[#0a0a2e] to-[#1a1a4a] px-2 sm:px-6 text-white shadow-lg">
+            <header className="sticky top-0 z-50 flex h-14 items-center gap-2 border-b bg-card px-3 sm:px-5">
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="text-white hover:bg-white/10 h-10 w-10 transition-colors"
+                    className="h-9 w-9"
                     onClick={() => setIsSidebarOpen(!isSidebarOpen)}
                 >
-                    <Menu className="h-5 w-5 sm:h-6 sm:w-6" />
+                    <Menu className="h-5 w-5" />
                 </Button>
-                <Link href="/dashboard" className="flex shrink-0 items-center gap-2 font-extrabold tracking-tighter">
-                    <span className="text-xl sm:text-2xl bg-gradient-to-br from-white to-cyan-300 bg-clip-text text-transparent">Tutterfly</span>
+                <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
+                    <span className="text-base font-semibold tracking-tight text-primary">Tutterfly CRM</span>
                 </Link>
-                <div className="flex-1 min-w-0 px-2 sm:px-8 hidden sm:block">
+                <div className="hidden min-w-0 flex-1 px-4 lg:block">
                     <GlobalSearchBar />
                 </div>
-                <div className="flex items-center gap-1 sm:gap-3 ml-auto">
-                    <div className="hidden md:block">
+                <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+                    <Button variant="ghost" size="icon" className="lg:hidden h-9 w-9">
+                        <Search className="h-4 w-4" />
+                    </Button>
+                    <div className="hidden xl:block">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="gap-1 sm:gap-2.5 text-slate-100 hover:bg-white/10 text-base font-semibold h-10 sm:h-11 px-2 sm:px-4 rounded-full border border-white/5 transition-all">
-                                    <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.6)] animate-pulse" />
+                                <Button variant="outline" className="h-9 gap-2 rounded-md px-3 text-xs font-medium">
+                                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
                                     Available <ChevronDown className="h-4 w-4 opacity-50" />
                                 </Button>
                             </DropdownMenuTrigger>
@@ -99,18 +99,16 @@ export default function DashboardLayout({
                         </DropdownMenu>
                     </div>
                     <NotificationBell />
-                    <Button variant="ghost" size="icon" className="hidden md:flex text-slate-300 hover:bg-white/10 hover:text-white h-11 w-11 rounded-full items-center justify-center transition-all bg-white/5 border border-white/5">
-                        <span className="text-lg font-bold">W</span>
-                    </Button>
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="gap-1 sm:gap-3 text-white hover:bg-white/10 text-base font-semibold h-10 sm:h-11 px-2 sm:px-4 rounded-full transition-all">
-                                <Avatar className="h-7 w-7 sm:h-8 sm:w-8 border-2 border-cyan-500/30">
-                                    <AvatarFallback className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-xs sm:text-sm text-white font-bold">
+                            <Button variant="ghost" className="h-9 gap-2 rounded-md px-2.5">
+                                <Avatar className="h-7 w-7 border">
+                                    <AvatarFallback className="bg-primary text-xs text-primary-foreground">
                                         {session?.user?.name?.[0] ?? "U"}
                                     </AvatarFallback>
                                 </Avatar>
-                                <span className="hidden xl:inline">{session?.user?.name ?? "User"}</span> <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4 opacity-50" />
+                                <span className="hidden xl:inline">{session?.user?.name ?? "User"}</span>
+                                <ChevronDown className="h-3.5 w-3.5 opacity-50" />
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-56">
@@ -121,9 +119,6 @@ export default function DashboardLayout({
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
-                    <Button variant="ghost" size="icon" className="hidden md:flex text-amber-400 hover:bg-white/10 hover:text-amber-300 h-11 w-11 rounded-full transition-all">
-                        <Mail className="h-6 w-6" />
-                    </Button>
                 </div>
             </header>
 
@@ -138,15 +133,15 @@ export default function DashboardLayout({
 
                 {/* Sidebar */}
                 <aside className={cn(
-                    "fixed inset-y-0 left-0 z-50 w-[260px] transform transition-transform duration-300 ease-in-out bg-background shadow-2xl",
+                    "fixed inset-y-0 left-0 z-50 w-[264px] transform border-r bg-sidebar transition-transform duration-300 ease-in-out",
                     isSidebarOpen ? "translate-x-0" : "-translate-x-full"
                 )}>
                     <Sidebar />
                 </aside>
 
                 {/* Main content — wrapped with RouteGuard for permission enforcement */}
-                <main className="flex-1 overflow-y-auto bg-muted/20 min-w-0">
-                    <div className="p-3 sm:p-6"><RouteGuard>{children}</RouteGuard></div>
+                <main className="min-w-0 flex-1 overflow-y-auto bg-background">
+                    <div className="p-3 sm:p-4 lg:p-5"><RouteGuard>{children}</RouteGuard></div>
                 </main>
             </div>
         </div>

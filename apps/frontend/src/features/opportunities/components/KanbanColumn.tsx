@@ -33,14 +33,14 @@ export function KanbanColumn({ stage, opportunities, total, onOpportunityClick }
         <div
             ref={setNodeRef}
             className={cn(
-                "flex flex-col w-80 min-w-[320px] shrink-0 rounded-lg border bg-slate-50 h-full transition-all duration-150",
-                isOver && "ring-2 ring-blue-400 ring-offset-1 bg-blue-50/30",
+                "flex h-full w-80 min-w-[320px] shrink-0 flex-col rounded-lg border border-border bg-card transition-all duration-150",
+                isOver && "bg-primary/5 ring-2 ring-primary/40 ring-offset-1",
                 getHeaderStyle()
             )}
         >
             {/* Column Header */}
             <div
-                className="p-4 border-b rounded-t-lg"
+                className="rounded-t-lg border-b border-border p-4"
                 style={{ backgroundColor: stage.color ? `${stage.color}15` : undefined }}
             >
                 <div className="flex items-center justify-between mb-2">
@@ -49,15 +49,15 @@ export function KanbanColumn({ stage, opportunities, total, onOpportunityClick }
                             className="w-3 h-3 rounded-full flex-shrink-0"
                             style={{ backgroundColor: stageColor }}
                         />
-                        <h3 className="font-semibold text-slate-800 text-sm truncate">{stage.name}</h3>
+                        <h3 className="truncate text-sm font-semibold text-foreground">{stage.name}</h3>
                     </div>
-                    <span className="text-xs font-bold px-2 py-0.5 bg-white rounded-full shadow-sm text-slate-600 border">
+                    <span className="rounded-full border border-border bg-background px-2 py-0.5 text-xs font-bold text-foreground">
                         {total.count}
                     </span>
                 </div>
 
                 {/* Amount + Probability */}
-                <div className="flex items-center gap-4 text-xs text-slate-500">
+                <div className="flex items-center gap-4 text-xs text-foreground/80">
                     <span className="font-medium">{formatCurrency(total.amount)}</span>
                     {stage.probability !== undefined && (
                         <div className="flex items-center gap-1 ml-auto">
@@ -71,7 +71,7 @@ export function KanbanColumn({ stage, opportunities, total, onOpportunityClick }
 
                 {/* Probability bar */}
                 {stage.probability !== undefined && (
-                    <div className="mt-2 h-1.5 bg-white/70 rounded-full overflow-hidden">
+                    <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/80">
                         <div
                             className="h-full rounded-full transition-all duration-500"
                             style={{ width: `${stage.probability}%`, backgroundColor: stageColor }}
@@ -85,7 +85,7 @@ export function KanbanColumn({ stage, opportunities, total, onOpportunityClick }
                 <div
                     className={cn(
                         "flex-1 p-3 space-y-3 overflow-y-auto transition-colors duration-150",
-                        isOver && "bg-blue-50/20"
+                        isOver && "bg-primary/5"
                     )}
                 >
                     {opportunities.map(opportunity => (
@@ -100,8 +100,8 @@ export function KanbanColumn({ stage, opportunities, total, onOpportunityClick }
                         <div className={cn(
                             "flex items-center justify-center h-28 text-sm rounded-lg border-2 border-dashed transition-colors duration-150",
                             isOver
-                                ? "border-blue-400 bg-blue-50 text-blue-500 font-medium"
-                                : "border-slate-200 text-slate-400"
+                                ? "border-primary/60 bg-primary/10 font-medium text-primary"
+                                : "border-border text-muted-foreground"
                         )}>
                             {isOver ? "↓ Drop here" : "Drop here"}
                         </div>

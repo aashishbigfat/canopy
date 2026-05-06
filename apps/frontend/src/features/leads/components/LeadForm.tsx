@@ -239,7 +239,7 @@ function LocationFields({ form }: { form: any }) {
                 name="country"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Country *</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Country *</FormLabel>
                         <FormControl>
                             <SearchableSelect
                                 options={countries.map(c => ({ label: c.name, value: c.name }))}
@@ -277,7 +277,7 @@ function LocationFields({ form }: { form: any }) {
                 name="state"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">State *</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">State *</FormLabel>
                         <FormControl>
                             <SearchableSelect
                                 options={states.map(s => ({ label: s.name, value: s.name }))}
@@ -314,7 +314,7 @@ function LocationFields({ form }: { form: any }) {
                 name="city"
                 render={({ field }) => (
                     <FormItem className="flex flex-col">
-                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">City *</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">City *</FormLabel>
                         <FormControl>
                             <SearchableSelect
                                 options={cities.map(c => ({ label: c.name, value: c.name }))}
@@ -787,21 +787,21 @@ export function LeadForm({
             <Form {...(form as any)} className="w-full">
                 <form
                     onSubmit={form.handleSubmit(onSubmit as any)}
-                    className="w-full"
+                    className="w-full [&_[data-slot=form-label]]:!text-foreground/85 [&_input]:text-foreground [&_textarea]:text-foreground [&_[data-slot=select-trigger]]:text-foreground"
                 >
                     <div className="px-5 py-4 space-y-5">
                         {/* Section: Client Information */}
                         <div>
-                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                                <User className="h-4 w-4 text-blue-600" />
-                                <h3 className="text-sm font-semibold text-slate-700">Client Information</h3>
+                            <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+                                <User className="h-4 w-4 text-primary" />
+                                <h3 className="text-sm font-semibold text-foreground">Client Information</h3>
                             </div>
                             <div className="grid gap-3 grid-cols-2">
                                 <FormField control={form.control as any} name="salutation" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Salutation</FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Salutation</FormLabel>
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                            <FormControl><SelectTrigger className="h-8 bg-white text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                                            <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                                             <SelectContent>
                                                 <SelectItem value="Mr.">Mr.</SelectItem>
                                                 <SelectItem value="Mrs.">Mrs.</SelectItem>
@@ -814,9 +814,9 @@ export function LeadForm({
                                 )} />
                                 <FormField control={form.control as any} name="segment" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Segment</FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Segment</FormLabel>
                                         <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger className="h-8 bg-white text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                                            <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                                             <SelectContent>
                                                 <SelectItem value="B2C">B2C (Individual)</SelectItem>
                                                 <SelectItem value="B2B">B2B (Corporate)</SelectItem>
@@ -827,35 +827,35 @@ export function LeadForm({
                                 )} />
                                 <FormField control={form.control as any} name="first_name" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">First Name</FormLabel>
-                                        <FormControl><Input placeholder="John" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">First Name</FormLabel>
+                                        <FormControl><Input placeholder="John" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="last_name" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Last Name <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl><Input placeholder="Doe" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Last Name <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><Input placeholder="Doe" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="email" render={({ field }) => (
                                     <FormItem className="col-span-2">
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Email <span className="text-red-500">*</span></FormLabel>
-                                        <FormControl><Input type="email" placeholder="john@example.com" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Email <span className="text-red-500">*</span></FormLabel>
+                                        <FormControl><Input type="email" placeholder="john@example.com" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="phone" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Phone <span className="text-red-500">*</span></FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Phone <span className="text-red-500">*</span></FormLabel>
                                         <FormControl><PhoneInput {...field} placeholder="Phone" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="mobile" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Mobile <span className="text-red-500">*</span></FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Mobile <span className="text-red-500">*</span></FormLabel>
                                         <FormControl><PhoneInput {...field} placeholder="Mobile" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -865,14 +865,14 @@ export function LeadForm({
 
                         {/* Section: Company & Source */}
                         <div>
-                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                                <Building2 className="h-4 w-4 text-blue-600" />
-                                <h3 className="text-sm font-semibold text-slate-700">Company & Source</h3>
+                            <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+                                <Building2 className="h-4 w-4 text-primary" />
+                                <h3 className="text-sm font-semibold text-foreground">Company & Source</h3>
                             </div>
                             <div className="grid gap-3 grid-cols-2">
                                 <FormField control={form.control as any} name="lead_status_id" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Lead Status</FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Lead Status</FormLabel>
                                         <FormControl><SearchableSelect options={statuses.map(s => ({ label: s.name, value: s.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select Status" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -881,9 +881,9 @@ export function LeadForm({
                                     <>
                                         <FormField control={form.control as any} name="creation_type" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Creation <span className="text-red-500">*</span></FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Creation <span className="text-red-500">*</span></FormLabel>
                                                 <Select onValueChange={field.onChange} value={field.value}>
-                                                    <FormControl><SelectTrigger className="h-8 bg-white text-xs"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
+                                                    <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
                                                     <SelectContent>
                                                         <SelectItem value="manual">Manual</SelectItem>
                                                         <SelectItem value="auto">Auto</SelectItem>
@@ -894,7 +894,7 @@ export function LeadForm({
                                         )} />
                                         <FormField control={form.control as any} name="combined_source" render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Source Medium <span className="text-red-500">*</span></FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Source Medium <span className="text-red-500">*</span></FormLabel>
                                                 <FormControl><SearchableSelect options={sources.map(s => ({ label: s.name, value: s.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select source Medium" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -903,7 +903,7 @@ export function LeadForm({
                                 ) : (
                                     <FormField control={form.control as any} name="combined_source" render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Source Medium <span className="text-red-500">*</span></FormLabel>
+                                            <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Source Medium <span className="text-red-500">*</span></FormLabel>
                                             <FormControl><SearchableSelect options={[{ label: "Manual", value: "manual" }, { label: "Auto", value: "auto" }, ...sources.map(s => ({ label: s.name, value: s.id }))]} value={field.value} onValueChange={field.onChange} placeholder="Select Source" /></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -911,7 +911,7 @@ export function LeadForm({
                                 )}
                                 <FormField control={form.control as any} name="industry_id" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Industry</FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Industry</FormLabel>
                                         <FormControl><SearchableSelect options={industries.map(i => ({ label: i.name, value: i.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -919,7 +919,7 @@ export function LeadForm({
                                 {isTravel && (
                                 <FormField control={form.control as any} name="experience_id" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Experience</FormLabel>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Experience</FormLabel>
                                         <FormControl><SearchableSelect options={experiences.map(e => ({ label: e.name, value: e.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select" /></FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -927,29 +927,29 @@ export function LeadForm({
                                 )}
                                 <FormField control={form.control as any} name="company" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Company</FormLabel>
-                                        <FormControl><Input placeholder="Acme Inc." className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Company</FormLabel>
+                                        <FormControl><Input placeholder="Acme Inc." className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="title" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Job Title</FormLabel>
-                                        <FormControl><Input placeholder="Manager" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Job Title</FormLabel>
+                                        <FormControl><Input placeholder="Manager" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="website" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Website</FormLabel>
-                                        <FormControl><Input placeholder="https://..." className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Website</FormLabel>
+                                        <FormControl><Input placeholder="https://..." className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
                                 <FormField control={form.control as any} name="campaign_name" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Campaign</FormLabel>
-                                        <FormControl><Input placeholder="Summer Sale" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Campaign</FormLabel>
+                                        <FormControl><Input placeholder="Summer Sale" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -958,16 +958,16 @@ export function LeadForm({
 
                         {/* Section: Location */}
                         <div>
-                            <div className="flex items-center gap-2 mb-3 pb-2 border-b border-blue-100">
-                                <MapPin className="h-4 w-4 text-blue-600" />
-                                <h3 className="text-sm font-semibold text-slate-700">Location</h3>
+                            <div className="mb-3 flex items-center gap-2 border-b border-border pb-2">
+                                <MapPin className="h-4 w-4 text-primary" />
+                                <h3 className="text-sm font-semibold text-foreground">Location</h3>
                             </div>
                             <div className="grid gap-3 grid-cols-1">
                                 <LocationFields form={form} />
                                 <FormField control={form.control as any} name="street" render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Street Address</FormLabel>
-                                        <FormControl><Input placeholder="123 Main St" className="h-8 bg-white text-xs" {...field} /></FormControl>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Street Address</FormLabel>
+                                        <FormControl><Input placeholder="123 Main St" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -979,7 +979,7 @@ export function LeadForm({
                     </div>
 
                     {/* Sticky footer */}
-                    <div className="sticky bottom-0 bg-white border-t border-slate-200 px-5 py-3 flex justify-end gap-3">
+                    <div className="sticky bottom-0 z-10 flex justify-end gap-3 border-t bg-card/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/85">
                         <Button type="button" variant="outline" size="sm" onClick={onCancel} disabled={isLoading}>
                             Close
                         </Button>
@@ -996,7 +996,7 @@ export function LeadForm({
         <Form {...(form as any)} className="w-full">
             <form
                 onSubmit={form.handleSubmit(onSubmit as any)}
-                className="w-full space-y-6"
+                className="w-full space-y-6 [&_[data-slot=form-label]]:!text-foreground/85 [&_input]:text-foreground [&_textarea]:text-foreground [&_[data-slot=select-trigger]]:text-foreground"
             >
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                     <div className="space-y-6 xl:col-span-8">

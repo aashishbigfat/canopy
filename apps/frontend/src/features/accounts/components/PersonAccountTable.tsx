@@ -92,7 +92,7 @@ export const personAccountColumns: ColumnDef<Account>[] = [
                 }
             }
             return (
-                <Link href={`/person-accounts/${account.id}`} className="text-blue-600 hover:underline font-medium">
+                <Link href={`/person-accounts/${account.id}`} className="font-medium text-primary hover:underline">
                     {firstName}
                 </Link>
             );
@@ -121,7 +121,7 @@ export const personAccountColumns: ColumnDef<Account>[] = [
                 }
             }
             return (
-                <Link href={`/person-accounts/${account.id}`} className="text-blue-600 hover:underline font-medium">
+                <Link href={`/person-accounts/${account.id}`} className="font-medium text-primary hover:underline">
                     {lastName}
                 </Link>
             );
@@ -131,14 +131,14 @@ export const personAccountColumns: ColumnDef<Account>[] = [
         accessorKey: "email",
         header: "Email",
         cell: ({ row }) => (
-            <div className="text-sm text-slate-700">{row.getValue("email") || "-"}</div>
+            <div className="text-sm text-foreground">{row.getValue("email") || "-"}</div>
         ),
     },
     {
         accessorKey: "phone",
         header: "Phone",
         cell: ({ row }) => (
-            <div className="text-sm text-slate-700">{row.getValue("phone") || "-"}</div>
+            <div className="text-sm text-foreground">{row.getValue("phone") || "-"}</div>
         ),
     },
     {
@@ -146,7 +146,7 @@ export const personAccountColumns: ColumnDef<Account>[] = [
         header: "Mobile",
         cell: ({ row }) => {
             const mobile = row.original.mobile || row.original.phone || "-";
-            return <div className="text-sm text-slate-700">{mobile}</div>;
+            return <div className="text-sm text-foreground">{mobile}</div>;
         },
     },
     {
@@ -155,7 +155,7 @@ export const personAccountColumns: ColumnDef<Account>[] = [
         cell: ({ row }) => {
             const account = row.original;
             return (
-                <div className="text-sm text-slate-700">
+                <div className="text-sm text-foreground">
                     {account.owner_name || "-"}
                 </div>
             );
@@ -240,7 +240,7 @@ export function PersonAccountTable({
 
     return (
         <div className="w-full">
-            <div className="flex items-center py-4">
+            <div className="crm-toolbar py-2">
                 <Input
                     placeholder="Search person accounts..."
                     value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
@@ -250,7 +250,7 @@ export function PersonAccountTable({
                     className="max-w-sm"
                 />
             </div>
-            <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
+            <div className={`crm-surface rounded-md transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
                 <Table>
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
@@ -298,7 +298,7 @@ export function PersonAccountTable({
                     </TableBody>
                 </Table>
             </div>
-            <div className="flex items-center justify-end space-x-2 py-4">
+            <div className="flex items-center justify-end space-x-2 border-t px-4 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
                     Showing {data.length} of {pagination.total} records
                 </div>

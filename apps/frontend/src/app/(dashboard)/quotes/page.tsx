@@ -17,7 +17,6 @@ import {
 import { formatCurrency, formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
     Table,
@@ -115,11 +114,11 @@ export default function QuotesPage() {
 
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="crm-page">
+            <div className="crm-surface flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Quotes</h1>
-                    <p className="text-muted-foreground">
+                    <h1>Quotes</h1>
+                    <p className="text-sm text-muted-foreground">
                         Manage your sales quotes and estimates.
                     </p>
                 </div>
@@ -132,19 +131,18 @@ export default function QuotesPage() {
             </div>
 
             {/* Search */}
-            <div className="relative max-w-sm">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <div className="crm-toolbar max-w-sm">
+                <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
                     placeholder="Search quotes..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="border-0 shadow-none focus-visible:ring-0"
                 />
             </div>
 
             {/* Quotes Table */}
-            <Card>
-                <CardContent className="p-0">
+            <div className="crm-surface overflow-hidden p-0">
                     {isLoading ? (
                         <div className="flex items-center justify-center py-16">
                             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -230,8 +228,7 @@ export default function QuotesPage() {
                             </TableBody>
                         </Table>
                     )}
-                </CardContent>
-            </Card>
+            </div>
         </div>
     );
 }

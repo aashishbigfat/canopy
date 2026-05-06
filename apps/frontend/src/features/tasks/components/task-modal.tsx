@@ -45,19 +45,18 @@ export function TaskModal({
                 className="sm:max-w-[620px] p-0 gap-0 overflow-hidden"
                 showCloseButton={false}
             >
-                {/* ── Branded blue gradient header matching CRM design system ── */}
-                <div className="bg-gradient-to-r from-[#3b82f6] to-[#60a5fa] px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center justify-between border-b bg-card px-6 py-4">
                     <div className="flex items-center gap-2.5">
-                        <div className="h-7 w-7 rounded-md bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                            <Plus className="h-4 w-4 text-white" />
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15">
+                            <Plus className="h-4 w-4 text-primary" />
                         </div>
-                        <DialogTitle className="text-white text-[15px] font-semibold tracking-tight">
+                        <DialogTitle className="text-[15px] font-semibold tracking-tight text-foreground">
                             {modalTitle}
                         </DialogTitle>
                     </div>
                     <button
                         onClick={() => onOpenChange(false)}
-                        className="text-white/70 hover:text-white transition-colors text-xl leading-none font-light rounded-md hover:bg-white/10 h-7 w-7 flex items-center justify-center"
+                        className="flex h-7 w-7 items-center justify-center rounded-md text-xl font-light leading-none text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                         aria-label="Close"
                     >
                         ×
@@ -95,7 +94,6 @@ export function TaskModal({
                         type="submit"
                         form="task-form"
                         size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 text-white"
                         disabled={formLoading}
                     >
                         {formLoading && <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />}

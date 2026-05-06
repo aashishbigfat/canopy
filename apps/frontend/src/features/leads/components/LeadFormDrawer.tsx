@@ -121,8 +121,8 @@ export function LeadFormDrawer({
         >
             {loading || !metadataState ? (
                 <div className="flex items-center justify-center h-64">
-                    <Loader2 className="h-6 w-6 animate-spin text-slate-400" />
-                    <span className="ml-2 text-sm text-slate-500">Loading form...</span>
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                    <span className="ml-2 text-sm text-muted-foreground">Loading form...</span>
                 </div>
             ) : (
                 <LeadForm

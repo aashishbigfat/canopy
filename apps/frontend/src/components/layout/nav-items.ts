@@ -39,6 +39,18 @@ function coreNavItems(labels: IndustryLabelMap): NavItem[] {
             requiredPermission: "view_dashboard",
         },
         {
+            title: labels.leads,
+            href: "/leads",
+            icon: Users,
+            requiredPermission: "view_lead",
+        },
+        {
+            title: labels.opportunities,
+            href: "/opportunities",
+            icon: Target,
+            requiredPermission: "view_opportunity",
+        },
+        {
             title: labels.accounts,
             href: "/accounts",
             icon: Building2,
@@ -57,22 +69,10 @@ function coreNavItems(labels: IndustryLabelMap): NavItem[] {
             requiredPermission: "view_contact",
         },
         {
-            title: labels.leads,
-            href: "/leads",
-            icon: Users,
-            requiredPermission: "view_lead",
-        },
-        {
             title: labels.suppliers,
             href: "/suppliers",
             icon: Truck,
             requiredPermission: "view_supplier",
-        },
-        {
-            title: labels.opportunities,
-            href: "/opportunities",
-            icon: Target,
-            requiredPermission: "view_opportunity",
         },
         {
             title: "Tasks",

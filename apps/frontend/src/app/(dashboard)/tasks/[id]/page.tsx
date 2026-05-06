@@ -15,23 +15,23 @@ interface EditTaskPageProps {
 
 function SectionHeader({ title }: { title: string }) {
     return (
-        <div className="flex items-center gap-2 bg-blue-50 border-l-4 border-blue-400 px-4 py-2 mb-4 rounded-r-sm">
-            <div className="h-5 w-5 rounded-full bg-orange-400 flex items-center justify-center flex-shrink-0">
-                <span className="text-white text-xs font-bold">!</span>
+        <div className="mb-4 flex items-center gap-2 rounded-md border bg-muted/40 px-4 py-2">
+            <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-primary/20">
+                <span className="text-xs font-bold text-primary">!</span>
             </div>
-            <span className="text-sm font-semibold text-gray-700">{title}</span>
+            <span className="text-sm font-semibold text-foreground">{title}</span>
         </div>
     );
 }
 
 function FieldRow({ label, value, isLink }: { label: string; value?: string | null; isLink?: boolean }) {
     return (
-        <div className="grid grid-cols-2 gap-4 py-3 border-b border-gray-100 last:border-b-0">
-            <span className="text-sm text-gray-500">{label}</span>
+        <div className="grid grid-cols-2 gap-4 border-b border-border py-3 last:border-b-0">
+            <span className="text-sm text-muted-foreground">{label}</span>
             {isLink && value ? (
-                <span className="text-sm text-blue-600 font-medium">{value}</span>
+                <span className="text-sm font-medium text-primary">{value}</span>
             ) : (
-                <span className="text-sm text-gray-800">{value || "—"}</span>
+                <span className="text-sm text-foreground">{value || "—"}</span>
             )}
         </div>
     );
@@ -77,19 +77,18 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
         : undefined;
 
     return (
-        <div className="flex-1 space-y-4 p-4 sm:p-6 min-w-0 w-full">
-            {/* Breadcrumb / page header */}
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="crm-page">
+            <div className="crm-surface flex flex-col items-start justify-between gap-4 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-md bg-blue-100 flex items-center justify-center">
-                        <ClipboardList className="h-5 w-5 text-blue-600" />
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/15">
+                        <ClipboardList className="h-5 w-5 text-primary" />
                     </div>
                     <div>
-                        <p className="text-xs text-blue-600 font-medium">Task Follow Up</p>
+                        <p className="text-xs font-medium text-primary">Task Follow Up</p>
                         {task.taskable_name && (
                             <p className="text-xs text-muted-foreground">
                                 Related To{" "}
-                                <span className="text-blue-600">{task.taskable_name}</span>
+                                <span className="text-primary">{task.taskable_name}</span>
                             </p>
                         )}
                     </div>
@@ -98,14 +97,14 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
                     <Button
                         size="sm"
                         variant="outline"
-                        className="h-8 text-xs border-blue-300 text-blue-700 hover:bg-blue-50"
+                        className="h-8 text-xs"
                         onClick={() => setFollowUpOpen(true)}
                     >
                         Create Follow-Up Task
                     </Button>
                     <Button
                         size="sm"
-                        className="h-8 text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                        className="h-8 text-xs"
                         onClick={() => setEditOpen(true)}
                     >
                         Edit
@@ -114,7 +113,7 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
             </div>
 
             {/* Task Information */}
-            <div className="bg-white rounded-md border shadow-sm overflow-hidden">
+            <div className="crm-surface overflow-hidden">
                 <SectionHeader title="Task Information" />
                 <div className="px-5 pb-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
@@ -133,12 +132,12 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
             </div>
 
             {/* Related To */}
-            <div className="bg-white rounded-md border shadow-sm overflow-hidden">
+            <div className="crm-surface overflow-hidden">
                 <SectionHeader title="Related To" />
                 <div className="px-5 pb-4">
-                    <div className="grid grid-cols-2 gap-x-8 border-b border-gray-100 pb-2 mb-2">
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Name</span>
-                        <span className="text-xs text-gray-400 font-medium uppercase tracking-wide">Related To</span>
+                    <div className="mb-2 grid grid-cols-2 gap-x-8 border-b border-border pb-2">
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Name</span>
+                        <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Related To</span>
                     </div>
                     <div className="grid grid-cols-2 gap-x-8 py-2">
                         <span className="text-sm text-muted-foreground">{task.taskable_type || "—"}</span>
@@ -150,7 +149,7 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
                                     ? `/accounts/${task.taskable_id}`
                                     : "#"
                             }
-                            className="text-sm text-blue-600 hover:underline"
+                            className="text-sm text-primary hover:underline"
                         >
                             {task.taskable_name || "—"}
                         </Link>
@@ -159,7 +158,7 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
             </div>
 
             {/* System Information */}
-            <div className="bg-white rounded-md border shadow-sm overflow-hidden">
+            <div className="crm-surface overflow-hidden">
                 <SectionHeader title="System information" />
                 <div className="px-5 pb-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">

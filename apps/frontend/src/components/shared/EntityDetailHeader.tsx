@@ -13,7 +13,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -59,11 +58,11 @@ export function EntityDetailHeader({
     };
 
     return (
-        <div className="bg-white border rounded-lg shadow-sm overflow-hidden mb-6">
+        <div className="crm-surface mb-6 overflow-hidden">
             <div className="p-6">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                     <div className="flex items-start gap-4">
-                        <div className="mt-1 h-12 w-12 rounded bg-blue-600 flex items-center justify-center text-white">
+                        <div className="mt-1 flex h-12 w-12 items-center justify-center rounded bg-primary text-primary-foreground">
                             {type === "Contact" ? <User size={24} /> : type === "Lead" ? <User size={24} /> : <Building2 size={24} />}
                         </div>
                         <div>
@@ -71,9 +70,9 @@ export function EntityDetailHeader({
                                 <span className="text-sm font-medium text-slate-500 uppercase tracking-wider">{customLabel || type}</span>
                             </div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-bold text-slate-900">{name}</h1>
+                                <h1 className="text-2xl font-semibold">{name}</h1>
                                 {badge && (
-                                    <Badge variant="outline" className="ml-2 bg-blue-50 text-blue-700 border-blue-200">
+                                    <Badge variant="outline" className="ml-2">
                                         {badge}
                                     </Badge>
                                 )}
@@ -87,7 +86,6 @@ export function EntityDetailHeader({
                     <div className="flex items-center gap-2">
                         <Button
                             variant="default"
-                            className="bg-blue-600 hover:bg-blue-700"
                             onClick={onEdit}
                         >
                             <Edit className="mr-2 h-4 w-4" />
@@ -123,7 +121,7 @@ export function EntityDetailHeader({
                         <p className="text-xs font-semibold text-slate-500 uppercase">Phone</p>
                         <div className="flex items-center gap-2">
                             {phone ? (
-                                <a href={`tel:${phone}`} className="text-sm text-blue-600 font-medium hover:underline">
+                                <a href={`tel:${phone}`} className="text-sm text-primary font-medium hover:underline">
                                     {phone}
                                 </a>
                             ) : (
@@ -140,7 +138,7 @@ export function EntityDetailHeader({
                         <p className="text-xs font-semibold text-slate-500 uppercase">Email</p>
                         <div className="flex items-center gap-2 overflow-hidden">
                             {email ? (
-                                <a href={`mailto:${email}`} className="text-sm text-blue-600 font-medium truncate max-w-full hover:underline">
+                                <a href={`mailto:${email}`} className="text-sm text-primary font-medium truncate max-w-full hover:underline">
                                     {email}
                                 </a>
                             ) : (
@@ -156,8 +154,8 @@ export function EntityDetailHeader({
                     <div className="space-y-1">
                         <p className="text-xs font-semibold text-slate-500 uppercase">{type} Owner</p>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-blue-600 font-medium">{ownerName || "Unassigned"}</span>
-                            <User className="h-3 w-3 text-blue-600" />
+                            <span className="text-sm text-primary font-medium">{ownerName || "Unassigned"}</span>
+                            <User className="h-3 w-3 text-primary" />
                         </div>
                     </div>
                     <div className="space-y-1">

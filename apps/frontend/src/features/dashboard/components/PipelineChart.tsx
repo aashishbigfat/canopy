@@ -37,12 +37,12 @@ const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload || payload.length === 0) return null;
     const data = payload[0]?.payload as PipelineStage;
     return (
-        <div className="rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-xl backdrop-blur-sm">
-            <p className="mb-1 text-sm font-bold text-slate-700">{data.stage}</p>
-            <p className="text-xs text-slate-500">
-                <span className="font-semibold text-slate-700">{data.count}</span> opportunities
+        <div className="rounded-xl border bg-popover px-4 py-3 shadow-xl">
+            <p className="mb-1 text-sm font-semibold text-foreground">{data.stage}</p>
+            <p className="text-xs text-muted-foreground">
+                <span className="font-semibold text-foreground">{data.count}</span> opportunities
             </p>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-muted-foreground">
                 Value: <span className="font-semibold text-emerald-600">{formatCurrency(data.value)}</span>
             </p>
         </div>
@@ -52,14 +52,14 @@ const CustomTooltip = ({ active, payload }: any) => {
 export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
     if (!stages || stages.length === 0) {
         return (
-            <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
-                <h3 className="mb-4 text-lg font-bold text-slate-900">Pipeline by Stage</h3>
+            <div className="rounded-lg border bg-card p-5 shadow-sm">
+                <h3 className="mb-4 text-lg font-semibold text-foreground">Pipeline by Stage</h3>
                 <div className="flex h-[280px] flex-col items-center justify-center gap-3">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-                        <GitBranch className="h-8 w-8 text-slate-300" />
+                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
+                        <GitBranch className="h-8 w-8 text-muted-foreground" />
                     </div>
-                    <p className="text-sm font-semibold text-slate-400">No pipeline data yet</p>
-                    <p className="text-xs text-slate-300">
+                    <p className="text-sm font-semibold text-muted-foreground">No pipeline data yet</p>
+                    <p className="text-xs text-muted-foreground">
                         Stage distribution will appear as opportunities are created
                     </p>
                 </div>
@@ -68,10 +68,10 @@ export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
     }
 
     return (
-        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900">Pipeline by Stage</h3>
-                <span className="text-xs font-semibold text-slate-400">
+                <h3 className="text-lg font-semibold text-foreground">Pipeline by Stage</h3>
+                <span className="text-xs font-semibold text-muted-foreground">
                     {stages.reduce((s, st) => s + st.count, 0)} total opportunities
                 </span>
             </div>

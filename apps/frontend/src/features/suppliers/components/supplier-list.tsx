@@ -81,22 +81,22 @@ export function SupplierList() {
                         suppliers.map((supplier: Supplier) => (
                             <TableRow key={supplier.id}>
                                 <TableCell className="font-medium">
-                                    <Link 
+                                    <Link
                                         href={`/suppliers/${supplier.id}`}
-                                        className="text-blue-600 hover:underline cursor-pointer"
+                                        className="cursor-pointer text-primary hover:underline"
                                     >
                                         {supplier.name}
                                     </Link>
                                 </TableCell>
                                 <TableCell>{supplier.supplier_type}</TableCell>
                                 {isTravel && (
-                                <TableCell className="text-blue-600">
+                                <TableCell className="text-primary">
                                     {supplier.destinations && supplier.destinations.length > 0
                                         ? supplier.destinations.join(", ")
                                         : "-"}
                                 </TableCell>
                                 )}
-                                <TableCell className="text-blue-600">
+                                <TableCell className="text-primary">
                                     {users.find((u) => u.id === supplier.owner_id)?.name || "-"}
                                 </TableCell>
                                 <TableCell className="text-right">
@@ -108,8 +108,8 @@ export function SupplierList() {
                 </TableBody>
             </Table>
             
-            <div className="flex items-center justify-between space-x-2 py-4 px-4 bg-white border-t rounded-b-md">
-                <div className="text-sm text-gray-500">
+            <div className="flex items-center justify-between space-x-2 border-t bg-card px-4 py-4">
+                <div className="text-sm text-muted-foreground">
                     Showing {suppliers.length} of {response?.total || 0} records
                 </div>
                 <div className="space-x-2">

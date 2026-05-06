@@ -101,7 +101,7 @@ export function ReportBuilder() {
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <FormField
                     control={form.control}
                     name="name"
@@ -145,7 +145,7 @@ export function ReportBuilder() {
                     render={({ field }) => (
                         <FormItem>
                             <FormLabel>Columns</FormLabel>
-                            <div className="grid grid-cols-2 gap-4 border p-4 rounded-md">
+                            <div className="grid grid-cols-2 gap-4 rounded-md border bg-muted/20 p-4">
                                 {currentColumns.map((col) => (
                                     <div key={col} className="flex items-center space-x-2">
                                         <Checkbox
@@ -167,9 +167,11 @@ export function ReportBuilder() {
                     )}
                 />
 
-                <Button type="submit" disabled={createReport.isPending}>
-                    {createReport.isPending ? "Creating..." : "Create Report"}
-                </Button>
+                <div className="sticky bottom-0 rounded-md border bg-card p-3">
+                    <Button type="submit" disabled={createReport.isPending}>
+                        {createReport.isPending ? "Creating..." : "Create Report"}
+                    </Button>
+                </div>
             </form>
         </Form>
     );

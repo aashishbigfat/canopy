@@ -164,11 +164,11 @@ export default function LeadsClientPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="crm-page">
+            <div className="crm-surface flex flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold tracking-tight">Leads</h1>
-                    <p className="text-muted-foreground">
+                    <h1>Leads</h1>
+                    <p className="text-sm text-muted-foreground">
                         Track and manage your potential business opportunities.
                     </p>
                 </div>
@@ -253,19 +253,21 @@ export default function LeadsClientPage() {
 
             <EntityListToolbar entity="lead" />
 
-            <LeadTable
-                data={response.leads}
-                pagination={response.pagination}
-                lead_statuses={response.lead_statuses}
-                sources={response.sources}
-                users={response.users}
-                experiences={response.experiences}
-                sales_stages={response.sales_stages}
-                isLoading={isLoading}
-                selectedIds={selectedLeads}
-                onSelectOne={handleSelectLead}
-                onSelectAll={handleSelectAll}
-            />
+            <div className="crm-surface overflow-hidden">
+                <LeadTable
+                    data={response.leads}
+                    pagination={response.pagination}
+                    lead_statuses={response.lead_statuses}
+                    sources={response.sources}
+                    users={response.users}
+                    experiences={response.experiences}
+                    sales_stages={response.sales_stages}
+                    isLoading={isLoading}
+                    selectedIds={selectedLeads}
+                    onSelectOne={handleSelectLead}
+                    onSelectAll={handleSelectAll}
+                />
+            </div>
 
             <LeadFormDrawer
                 open={isCreateDrawerOpen}

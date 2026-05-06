@@ -72,22 +72,21 @@ export default function OpportunitiesPageClient() {
 
 
     return (
-        <div className="flex-1 min-w-0 w-full space-y-6">
+        <div className="crm-page">
             <EntityListToolbar entity="opportunity" />
-            {/* Header & Toolbar */}
-            <div className="bg-slate-50/50 p-4 rounded-t-lg border border-b-0 space-y-4">
+            <div className="crm-surface space-y-4 rounded-b-none border-b-0 p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center gap-2">
-                        <div className="p-2 bg-blue-600 rounded-full text-white">
+                        <div className="rounded-full bg-primary p-2 text-primary-foreground">
                             <Lightbulb className="h-5 w-5" />
                         </div>
                         <div>
-                            <div className="flex items-center gap-2 text-[10px] text-blue-600 font-semibold uppercase">
+                            <div className="flex items-center gap-2 text-[10px] font-semibold uppercase text-primary">
                                 {labels.opportunity} ({opportunities.length})
                             </div>
                             <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                    <div className="flex items-center gap-2 text-lg font-bold text-slate-800 cursor-pointer hover:text-blue-600 transition-colors">
+                                    <div className="flex cursor-pointer items-center gap-2 text-lg font-semibold text-foreground transition-colors hover:text-primary">
                                         {currentViewLabel}
                                         <ChevronDown className="h-4 w-4 text-slate-400" />
                                     </div>
@@ -112,10 +111,10 @@ export default function OpportunitiesPageClient() {
                             size="icon"
                             title={groupByOwner ? "Show all opportunities" : "Group by owner"}
                             className={cn(
-                                "h-9 w-9 border-slate-200 transition-colors",
+                                "h-9 w-9 transition-colors",
                                 groupByOwner
-                                    ? "bg-blue-600 text-white border-blue-600 hover:bg-blue-700"
-                                    : "text-slate-600 hover:bg-slate-50"
+                                    ? "border-primary bg-primary text-white hover:bg-primary/90"
+                                    : "border-border bg-muted/70 text-foreground hover:bg-accent"
                             )}
                             onClick={() => setGroupByOwner(prev => !prev)}
                         >
@@ -123,30 +122,30 @@ export default function OpportunitiesPageClient() {
                         </Button>
                         <PermissionGate permission="create_opportunity">
                             <Button 
-                                className="bg-blue-600 hover:bg-blue-700 text-white gap-2 h-9 px-4 shadow-sm"
+                                className="h-9 gap-2 px-4 shadow-sm"
                                 onClick={() => setIsCreateDrawerOpen(true)}
                             >
                                     <Plus className="h-4 w-4" />
                                     New {labels.opportunity}
                             </Button>
                         </PermissionGate>
-                        <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
-                            <RotateCw className="h-4 w-4 text-slate-600" />
+                        <Button variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-foreground hover:bg-accent">
+                            <RotateCw className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" size="icon" className="h-9 w-9 border-slate-200">
-                            <FilterIcon className="h-4 w-4 text-slate-600" />
+                        <Button variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-foreground hover:bg-accent">
+                            <FilterIcon className="h-4 w-4" />
                         </Button>
-                        <Button variant="outline" className="h-9 bg-violet-600 hover:bg-violet-700 text-white border-none shadow-sm font-medium">
+                        <Button variant="outline" className="h-9 font-medium">
                             Settings
                         </Button>
                         <Button
                             variant={viewMode === "kanban" ? "default" : "outline"}
                             size="sm"
                             className={cn(
-                                "h-9 px-3 gap-1.5 font-medium border-slate-200",
+                                "h-9 px-3 gap-1.5 font-medium",
                                 viewMode === "kanban"
-                                    ? "bg-slate-700 text-white hover:bg-slate-600 border-slate-700"
-                                    : "text-slate-600 hover:bg-slate-50"
+                                    ? "bg-secondary text-secondary-foreground"
+                                    : "text-muted-foreground hover:bg-muted"
                             )}
                             onClick={() => setViewMode(viewMode === "kanban" ? "list" : "kanban")}
                         >
@@ -158,7 +157,7 @@ export default function OpportunitiesPageClient() {
             </div>
 
             {/* Content Container */}
-            <div className="border border-t-0 rounded-b-lg overflow-hidden shadow-sm bg-white">
+            <div className="crm-surface overflow-hidden rounded-t-none border-t-0">
                 {isLoading ? (
                     <div className="flex items-center justify-center h-96">
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -177,15 +176,15 @@ export default function OpportunitiesPageClient() {
                             groupByOwner={groupByOwner}
                         />
                         
-                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between space-x-0 sm:space-x-2 py-4 px-4 sm:px-6 bg-slate-50 border-t">
-                            <div className="text-sm text-slate-500 font-medium">
+                        <div className="flex flex-col gap-2 space-x-0 border-t bg-muted/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-2 sm:px-6">
+                            <div className="text-sm font-medium text-muted-foreground">
                                 Showing {opportunities.length} of {opportunitiesData?.total || 0} records
                             </div>
                             <div className="space-x-2">
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 px-3 border-slate-200 text-slate-600 font-medium"
+                                    className="h-8 px-3 font-medium"
                                     onClick={() => {
                                         const params = new URLSearchParams(searchParams.toString());
                                         params.set("page", (page - 1).toString());
@@ -198,7 +197,7 @@ export default function OpportunitiesPageClient() {
                                 <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-8 px-3 border-slate-200 text-slate-600 font-medium"
+                                    className="h-8 px-3 font-medium"
                                     onClick={() => {
                                         const params = new URLSearchParams(searchParams.toString());
                                         params.set("page", (page + 1).toString());

@@ -146,7 +146,7 @@ export function KanbanBoard({ opportunities, stages, onOpportunityClick }: Kanba
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}
         >
-            <div className="flex gap-4 overflow-x-auto overflow-y-hidden pb-2 px-4 pt-4 h-[calc(100vh-220px)] items-start">
+            <div className="flex h-[calc(100vh-220px)] items-start gap-4 overflow-x-auto overflow-y-hidden px-4 pb-2 pt-4">
                 {sortedStages.map(stage => (
                     <KanbanColumn
                         key={stage.id}
