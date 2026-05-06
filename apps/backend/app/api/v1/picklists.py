@@ -27,15 +27,12 @@ from beanie import Document, PydanticObjectId
 from app.api.deps import get_current_user
 from app.models.user import User
 
-# Existing picklist documents
-from app.models.picklists import (
+# Consolidated picklist documents
+from app.models.consolidated_picklists import (
     Industry, Rating, AccountType, AccountSource,
-    SupplierService as SupplierServicePicklist,
+    SupplierServicePicklist, SalesStage, OpportunityType,
+    Experience, OpportunityTag, LeadStatus, Source, SourceMedium
 )
-from app.models.opportunity_picklists import (
-    SalesStage, OpportunityType, Experience, OpportunityTag,
-)
-from app.models.lead_picklists import LeadStatus, Source, SourceMedium
 
 router = APIRouter()
 
@@ -56,7 +53,7 @@ PICKLIST_MAP: Dict[str, Type[Document]] = {
     "source": Source,
     "source_medium": SourceMedium,
     # legacy aliases for parity:
-    "salutation": Industry,        # placeholder until salutation model exists
+    "salutation": Industry,        # placeholder
     "task_priority": OpportunityTag,
     "task_status": OpportunityTag,
     "category": Rating,
@@ -92,8 +89,8 @@ class PicklistItemUpdate(BaseModel):
 
 
 class PicklistItemResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: PydanticObjectId = Field(alias="_id")
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    id: PydanticObjectId = Field(validation_alias="_id", serialization_alias="id")
     name: str
     description: Optional[str] = None
     sorting: int = 0

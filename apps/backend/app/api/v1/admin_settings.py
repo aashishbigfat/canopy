@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field, ConfigDict
 
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.models.admin_settings import (
+from app.models.consolidated_settings import (
     CompanySettings,
     LeaderboardConfig,
     AutoAssignmentRule,
@@ -33,12 +33,17 @@ router = APIRouter()
 # ---------------- helpers ----------------
 
 async def _get_or_create(doc_cls, **kwargs):
+    from pymongo.errors import DuplicateKeyError
     obj = await doc_cls.find_one(kwargs)
     if obj:
         return obj
-    obj = doc_cls(**kwargs)
-    await obj.insert()
-    return obj
+    try:
+        obj = doc_cls(**kwargs)
+        await obj.insert()
+        return obj
+    except DuplicateKeyError:
+        # Fallback if another request inserted it first
+        return await doc_cls.find_one(kwargs)
 
 
 def _scrub(payload: BaseModel) -> Dict[str, Any]:

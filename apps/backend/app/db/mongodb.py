@@ -31,7 +31,11 @@ from app.models.quote import Quote, QuoteItem
 from app.models.invoice import Invoice, InvoiceItem, Payment
 from app.models.country import Country, State, City
 from app.models.activity_log import ActivityLog, LoginLog
-from app.models.consolidated_settings import TenantSettings, UserSettings, CompanySettings, LeaderboardConfig, OpportunityWorkflowSettings, EmailFooter
+from app.models.consolidated_settings import (
+    TenantSettings, UserSettings, CompanySettings, LeaderboardConfig, 
+    OpportunityWorkflowSettings, EmailFooter, AutoAssignmentRule,
+    UserAssignmentRule, CountryUserAssignment, DepartmentMapping, AgentConnection
+)
 from app.models.tag import Tag
 from app.models.notification import Notification
 from app.models.comment import Comment
@@ -59,26 +63,21 @@ from app.models.module_attachment import ModuleAttachment
 from app.models.opportunity_financial import OpportunityCosting, PaymentScheduleItem, OpportunityTransaction
 # Phase 1 — Field registry (consolidated - single collection)
 from app.models.consolidated_fields import (
+    AdditionalFieldAccount,
+    AdditionalFieldContact,
     AdditionalFieldLead,
     AdditionalFieldOpportunity,
     AdditionalFieldSupplier,
     AdditionalFieldPersonalAccount,
     AdditionalFieldTask,
-    AdditionalFieldContact,
     AccountCustomField,
+    ContactCustomField,
+    LeadCustomField,
+    OpportunityCustomField,
     SupplierCustomField,
     PersonalAccountCustomField,
     TaskCustomField,
-    ContactCustomField,
     StandardField,
-)
-# Phase 2 — Admin settings hub (consolidated)
-from app.models.admin_settings import (
-    AutoAssignmentRule,
-    UserAssignmentRule,
-    CountryUserAssignment,
-    DepartmentMapping,
-    AgentConnection,
 )
 # Phase 4 — Polymorphic views/columns/filters/pinned
 from app.models.entity_views import (
@@ -149,9 +148,8 @@ from app.models.manufacturing.production_order import ProductionOrder, WorkOrder
 from app.models.manufacturing.product_catalog import ManufacturingProduct
 from app.models.manufacturing.quality_inspection import QualityInspection
 
-from app.models.custom_fields import AdditionalFieldAccount
-from app.models.lead_custom_fields import LeadCustomField, UserLeadView
-from app.models.opportunity_custom_fields import OpportunityCustomField, UserOpportunityView
+from app.models.lead_custom_fields import UserLeadView
+from app.models.opportunity_custom_fields import UserOpportunityView
 from app.models.opportunity_picklists import OpportunityHistory, OpportunityLock
 
 async def init_db():
@@ -176,7 +174,6 @@ async def init_db():
     try:
         await mongodb_client.admin.command('ismaster')
         logger.info(f"✅ Connected to MongoDB Atlas: {settings.MONGODB_DB_NAME}")
-        print("mongodb is connected")
     except Exception as e:
         logger.error(f"❌ Initial connection test failed: {e}")
     
@@ -228,6 +225,11 @@ async def init_db():
             LeaderboardConfig,
             OpportunityWorkflowSettings,
             EmailFooter,
+            AutoAssignmentRule,
+            UserAssignmentRule,
+            CountryUserAssignment,
+            DepartmentMapping,
+            AgentConnection,
             # Tags
             Tag,
             # Relations (consolidated - single collection)
@@ -253,9 +255,24 @@ async def init_db():
             BOMItem, BillOfMaterials, Warehouse, InventoryItem, InventoryTransaction, ProductionOrder, WorkOrder, ManufacturingProduct, QualityInspection,
             
             # Missing Custom Fields and Views
+            # Phase 1 — Field registry (consolidated)
             AdditionalFieldAccount,
-            LeadCustomField, UserLeadView,
-            OpportunityCustomField, UserOpportunityView,
+            AdditionalFieldContact,
+            AdditionalFieldLead,
+            AdditionalFieldOpportunity,
+            AdditionalFieldSupplier,
+            AdditionalFieldPersonalAccount,
+            AdditionalFieldTask,
+            AccountCustomField,
+            ContactCustomField,
+            LeadCustomField,
+            OpportunityCustomField,
+            SupplierCustomField,
+            PersonalAccountCustomField,
+            TaskCustomField,
+            StandardField,
+            UserLeadView,
+            UserOpportunityView,
             OpportunityHistory, OpportunityLock,
 
             # Notifications
@@ -327,7 +344,7 @@ async def init_db():
             # See: PARITY_SCORE.md and COMPLETION_PLAN.md.
         ],
         recreate_views=False,
-        allow_index_dropping=False,
+        allow_index_dropping=True,
     )
     
     logger.info(f"✅ Database ODM mapped and ready: {settings.MONGODB_DB_NAME}")

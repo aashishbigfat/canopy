@@ -403,7 +403,7 @@ async def get_all_active_users(current_user: User = Depends(get_current_user)):
 
 @router.get("/auto-assign")
 async def list_auto_assign_users(current_user: User = Depends(get_current_user)):
-    from app.models.admin_settings import UserAssignmentRule
+    from app.models.consolidated_settings import UserAssignmentRule
     rows = await UserAssignmentRule.find(
         {"tenant_id": current_user.tenant_id},
     ).to_list()

@@ -13,18 +13,19 @@ from beanie import Document, PydanticObjectId
 from datetime import datetime
 from fastapi import HTTPException
 
-# AdditionalField document classes
-from app.models.custom_fields import AdditionalFieldAccount, AccountCustomField
-from app.models.contact_views import AdditionalFieldContact
-from app.models.user_contact_view import ContactCustomField
-from app.models.lead_custom_fields import LeadCustomField
-from app.models.opportunity_custom_fields import OpportunityCustomField
-from app.models.field_registry import (
+# Consolidated field models
+from app.models.consolidated_fields import (
+    AdditionalFieldAccount,
+    AdditionalFieldContact,
     AdditionalFieldLead,
     AdditionalFieldOpportunity,
     AdditionalFieldSupplier,
     AdditionalFieldPersonalAccount,
     AdditionalFieldTask,
+    AccountCustomField,
+    ContactCustomField,
+    LeadCustomField,
+    OpportunityCustomField,
     SupplierCustomField,
     PersonalAccountCustomField,
     TaskCustomField,

@@ -58,9 +58,10 @@ async def seed_manufacturing_tenant(tenant_id, db=None):
 
     colors = ["#3B82F6", "#F59E0B", "#8B5CF6", "#F97316", "#10B981", "#6B7280"]
     for i, name in enumerate(MANUFACTURING_SEED["lead_statuses"]):
-        existing = await database["lead_statuses"].find_one({"name": name, "tenant_id": tid})
+        existing = await database["picklists"].find_one({"name": name, "tenant_id": tid, "picklist_type": "lead_status"})
         if not existing:
-            await database["lead_statuses"].insert_one({
+            await database["picklists"].insert_one({
+                "picklist_type": "lead_status",
                 "name": name,
                 "color": colors[i % len(colors)],
                 "sorting": i * 10,
@@ -72,9 +73,10 @@ async def seed_manufacturing_tenant(tenant_id, db=None):
             })
 
     for i, name in enumerate(MANUFACTURING_SEED["sources"]):
-        existing = await database["sources"].find_one({"name": name, "tenant_id": tid})
+        existing = await database["picklists"].find_one({"name": name, "tenant_id": tid, "picklist_type": "source"})
         if not existing:
-            await database["sources"].insert_one({
+            await database["picklists"].insert_one({
+                "picklist_type": "source",
                 "name": name,
                 "sorting": i,
                 "is_active": True,
@@ -84,9 +86,10 @@ async def seed_manufacturing_tenant(tenant_id, db=None):
             })
 
     for i, name in enumerate(MANUFACTURING_SEED["sales_stages"]):
-        existing = await database["sales_stages"].find_one({"name": name, "tenant_id": tid})
+        existing = await database["picklists"].find_one({"name": name, "tenant_id": tid, "picklist_type": "sales_stage"})
         if not existing:
-            await database["sales_stages"].insert_one({
+            await database["picklists"].insert_one({
+                "picklist_type": "sales_stage",
                 "name": name,
                 "probability": (i + 1) * 12,
                 "sorting": i,
@@ -101,9 +104,10 @@ async def seed_manufacturing_tenant(tenant_id, db=None):
 
     # Seed Source Mediums (has tenant_id)
     for i, name in enumerate(MANUFACTURING_SEED["source_mediums"]):
-        existing = await database["source_mediums"].find_one({"name": name, "tenant_id": tid})
+        existing = await database["picklists"].find_one({"name": name, "tenant_id": tid, "picklist_type": "source_medium"})
         if not existing:
-            await database["source_mediums"].insert_one({
+            await database["picklists"].insert_one({
+                "picklist_type": "source_medium",
                 "name": name,
                 "sorting": i,
                 "is_active": True,

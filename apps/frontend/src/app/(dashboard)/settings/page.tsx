@@ -9,7 +9,6 @@ import {
   UserCog,
   ShieldCheck,
   Map,
-  CreditCard,
 } from "lucide-react";
 
 const CARDS = [
@@ -66,12 +65,6 @@ const CARDS = [
     title: "Territory",
     desc: "Regions, sub-regions, country trees, BD reports.",
     icon: Map,
-  },
-  {
-    href: "/settings/billing",
-    title: "Billing & Plans",
-    desc: "Subscription status, plan upgrade, invoices.",
-    icon: CreditCard,
   },
 ];
 

@@ -17,12 +17,12 @@ class BaseField(Document):
     entity_type: str  # lead | opportunity | supplier | personal_account | task | contact | account
     
     # Field identification
-    field_name: Indexed(str)
-    field_key: str
+    name: Indexed(str)
+    field_key: Optional[str] = None
     field_type: str  # text | number | date | boolean | select | multiselect | etc.
     
     # Display properties
-    label: str
+    label: Optional[str] = None
     description: Optional[str] = None
     placeholder: Optional[str] = None
     help_text: Optional[str] = None
@@ -70,6 +70,13 @@ class AdditionalFieldOpportunity(BaseField):
     class Settings:
         name = "field_registry"
 
+class AdditionalFieldAccount(BaseField):
+    """Additional field for accounts"""
+    entity_type: Literal["account"] = "account"
+    
+    class Settings:
+        name = "field_registry"
+
 class AdditionalFieldSupplier(BaseField):
     """Additional field for suppliers"""
     entity_type: Literal["supplier"] = "supplier"
@@ -98,40 +105,79 @@ class AdditionalFieldContact(BaseField):
     class Settings:
         name = "field_registry"
 
-class AccountCustomField(BaseField):
-    """Custom field for accounts"""
-    entity_type: Literal["account"] = "account"
-    
-    class Settings:
-        name = "field_registry"
+# --------- Custom field values (consolidated collection) ---------
 
-class SupplierCustomField(BaseField):
-    """Custom field for suppliers"""
-    entity_type: Literal["supplier_custom"] = "supplier_custom"
+class CustomFieldValue(Document):
+    """Base for all custom field values stored in 'custom_field_values' collection"""
+    tenant_id: Optional[Indexed(PydanticObjectId)] = None
+    
+    field_value: str
+    type: str  # metadata copy of field_type
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
     
     class Settings:
-        name = "field_registry"
+        name = "custom_field_values"
+        indexes = [
+            "tenant_id",
+        ]
 
-class PersonalAccountCustomField(BaseField):
-    """Custom field for personal accounts"""
-    entity_type: Literal["personal_account_custom"] = "personal_account_custom"
+class LeadCustomField(CustomFieldValue):
+    """Value for lead custom field"""
+    lead_id: Indexed(PydanticObjectId)
+    lead_additional_field_id: Indexed(PydanticObjectId)
     
     class Settings:
-        name = "field_registry"
+        name = "custom_field_values"
 
-class TaskCustomField(BaseField):
-    """Custom field for tasks"""
-    entity_type: Literal["task_custom"] = "task_custom"
+class OpportunityCustomField(CustomFieldValue):
+    """Value for opportunity custom field"""
+    opportunity_id: Indexed(PydanticObjectId)
+    opp_additional_field_id: Indexed(PydanticObjectId)
     
     class Settings:
-        name = "field_registry"
+        name = "custom_field_values"
 
-class ContactCustomField(BaseField):
-    """Custom field for contacts"""
-    entity_type: Literal["contact_custom"] = "contact_custom"
+class AccountCustomField(CustomFieldValue):
+    """Value for account custom field"""
+    account_id: Indexed(PydanticObjectId)
+    account_additional_field_id: Indexed(PydanticObjectId)
     
     class Settings:
-        name = "field_registry"
+        name = "custom_field_values"
+
+class ContactCustomField(CustomFieldValue):
+    """Value for contact custom field"""
+    contact_id: Indexed(PydanticObjectId)
+    contact_additional_field_id: Indexed(PydanticObjectId)
+    
+    class Settings:
+        name = "custom_field_values"
+
+class SupplierCustomField(CustomFieldValue):
+    """Value for supplier custom field"""
+    supplier_id: Indexed(PydanticObjectId)
+    supplier_additional_field_id: Indexed(PydanticObjectId)
+    
+    class Settings:
+        name = "custom_field_values"
+
+class PersonalAccountCustomField(CustomFieldValue):
+    """Value for personal account custom field"""
+    personal_account_id: Indexed(PydanticObjectId)
+    personal_account_additional_field_id: Indexed(PydanticObjectId)
+    
+    class Settings:
+        name = "custom_field_values"
+
+class TaskCustomField(CustomFieldValue):
+    """Value for task custom field"""
+    task_id: Indexed(PydanticObjectId)
+    task_additional_field_id: Indexed(PydanticObjectId)
+    
+    class Settings:
+        name = "custom_field_values"
 
 class StandardField(BaseField):
     """Standard field definition"""

@@ -73,7 +73,7 @@ from app.models.consolidated_fields import (
     StandardField,
 )
 # Phase 2 — Admin settings hub (consolidated)
-from app.models.admin_settings import (
+from app.models.consolidated_settings import (
     AutoAssignmentRule,
     UserAssignmentRule,
     CountryUserAssignment,

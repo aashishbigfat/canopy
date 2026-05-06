@@ -43,8 +43,8 @@ class AdditionalFieldUpdate(BaseModel):
 
 
 class AdditionalFieldResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: PydanticObjectId = Field(alias="_id")
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    id: PydanticObjectId = Field(validation_alias="_id", serialization_alias="id")
     name: str
     label: Optional[str] = None
     field_type: str
@@ -104,8 +104,8 @@ class StandardFieldUpdate(BaseModel):
 
 
 class StandardFieldResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-    id: PydanticObjectId = Field(alias="_id")
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
+    id: PydanticObjectId = Field(validation_alias="_id", serialization_alias="id")
     entity_type: str
     field_key: str
     label: Optional[str] = None
