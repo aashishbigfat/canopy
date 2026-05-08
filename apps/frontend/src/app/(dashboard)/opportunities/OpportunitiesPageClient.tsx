@@ -44,6 +44,7 @@ export default function OpportunitiesPageClient() {
     const labels = useIndustryLabels();
     
     const page = parseInt(searchParams.get("page") || "1");
+    const defaultView = searchParams.get("view") || searchParams.get("filter") || "today";
 
     const opportunityViews = [
         { label: `Today ${labels.opportunities}`, value: "today" },
@@ -51,8 +52,8 @@ export default function OpportunitiesPageClient() {
         { label: `All ${labels.opportunities}`, value: "all" },
         { label: `Closed ${labels.opportunities}`, value: "closed" },
     ];
-    const [currentView, setCurrentView] = useState("today");
-    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || `Today ${labels.opportunities}`;
+    const [currentView, setCurrentView] = useState(defaultView);
+    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || opportunityViews.find(v => v.value === "today")?.label || `Today ${labels.opportunities}`;
 
     const { data: opportunitiesData, isLoading: isLoadingOpportunities } = useOpportunities({
         page: page,
