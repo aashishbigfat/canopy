@@ -44,7 +44,6 @@ class Account(BaseDocument):
     acc_type_id: Optional[PydanticObjectId] = None
     acc_parent_id: Optional[PydanticObjectId] = None  # For parent-child accounts
     industry_id: Optional[PydanticObjectId] = None
-    rating_id: Optional[PydanticObjectId] = None
     
     # Custom Fields (flexible schema for MongoDB)
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
@@ -58,7 +57,7 @@ class Account(BaseDocument):
     territory_country_id: Optional[PydanticObjectId] = None
     
     @field_validator(
-        "acc_type_id", "acc_parent_id", "industry_id", "rating_id", 
+        "acc_type_id", "acc_parent_id", "industry_id",
         "territory_state_id", "territory_country_id",
         "last_modified_by_id",
         mode="before"

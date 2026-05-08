@@ -30,7 +30,6 @@ export interface Account {
     acc_type_id?: string;
     acc_parent_id?: string;
     industry_id?: string;
-    rating_id?: string;
     account_source_id?: string;
     owner_id: string;
 
@@ -38,7 +37,6 @@ export interface Account {
     account_type_name?: string;
     industry_name?: string;
     parent_account_name?: string;
-    rating_name?: string;
     owner_name?: string;
     created_by_name?: string;
     last_modified_by_name?: string;
@@ -78,7 +76,6 @@ export interface AccountCreateData {
     // Classification
     acc_type_id?: string;
     industry_id?: string;
-    rating_id?: string;
     account_source_id?: string;
     is_person_account?: boolean;
     owner_id?: string;
@@ -107,5 +104,4 @@ export interface AccountResponse {
     display_columns?: any[];
     users?: any[];
     industries?: any[];
-    ratings?: any[];
 }

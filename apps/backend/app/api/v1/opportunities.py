@@ -72,11 +72,17 @@ async def get_experiences(
     current_user: User = Depends(get_current_user)
 ):
     """
-    Get all travel experiences for the opportunity form
+    Get all travel experiences for the opportunity form.
+    Uses multi-tenant SaaS query: platform defaults + tenant overrides.
     """
-    experiences = await Experience.find(
-        {"tenant_id": current_user.tenant_id, "is_active": True}
-    ).sort("+sorting").to_list()
+    from app.core.picklist_query import build_picklist_query
+    from app.models.tenant import Tenant
+    
+    tenant = await Tenant.get(current_user.tenant_id)
+    tenant_industry = tenant.industry if tenant else None
+    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
+    
+    experiences = await Experience.find(pq).sort("+sorting").to_list()
     
     return [
         {
@@ -718,53 +724,6 @@ async def change_opportunity_stage(
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response
-    
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-@router.post("/{opportunity_id}/change-owner", response_model=OpportunityResponse)
-async def change_opportunity_owner(
-    opportunity_id: str,
-    owner_change: OpportunityOwnerChange,
-    current_user: User = Depends(check_permission("edit_opportunity"))
-):
-    """
-    Change the owner of an opportunity
-    
-    Args:
-        opportunity_id: ID of the opportunity
-        owner_change: New owner information
-        current_user: Current authenticated user
-        
-    Returns:
-        Updated opportunity details
-    """
-    try:
-        from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
-        service = OpportunityService()
-        
-        # Visibility pre-check
-        existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
-        if not existing:
-            raise HTTPException(status_code=404, detail="Opportunity not found")
-            
-        visible_owner_ids = await get_visible_owner_ids(current_user)
-        if not is_record_visible(existing.owner_id, visible_owner_ids):
-            raise HTTPException(status_code=404, detail="Opportunity not found")
-            
-        opportunity = await service.change_owner(
-            opportunity_id,
-            ObjectId(owner_change.new_owner_id),
-            current_user.id,
-            current_user.tenant_id
-        )
-        
-        if not opportunity:
-            raise HTTPException(status_code=404, detail="Opportunity not found")
-        
-        return OpportunityResponse.from_orm(opportunity)
     
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

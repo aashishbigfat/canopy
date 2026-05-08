@@ -29,7 +29,7 @@ from app.models.user import User
 
 # Consolidated picklist documents
 from app.models.consolidated_picklists import (
-    Industry, Rating, AccountType, AccountSource,
+    Industry, AccountType, AccountSource,
     SupplierServicePicklist, SalesStage, OpportunityType,
     Experience, OpportunityTag, LeadStatus, Source, SourceMedium
 )
@@ -41,7 +41,6 @@ router = APIRouter()
 
 PICKLIST_MAP: Dict[str, Type[Document]] = {
     "industry": Industry,
-    "rating": Rating,
     "account_type": AccountType,
     "account_source": AccountSource,
     "supplier_service": SupplierServicePicklist,
@@ -56,9 +55,7 @@ PICKLIST_MAP: Dict[str, Type[Document]] = {
     "salutation": Industry,        # placeholder
     "task_priority": OpportunityTag,
     "task_status": OpportunityTag,
-    "category": Rating,
     "inclusion": OpportunityTag,
-    "supplier_rating": Rating,
     "supplier_type": OpportunityTag,
     "destination": Industry,       # destinations have own router; alias here
     "itinerary_inclusion": OpportunityTag,
@@ -116,10 +113,12 @@ async def list_types():
 @router.get("/{type_key}", response_model=List[PicklistItemResponse])
 async def list_items(type_key: str, current_user: User = Depends(get_current_user)):
     Doc = _resolve(type_key)
-    query: Dict[str, Any] = {}
-    # Honour tenant scoping if the doc has tenant_id
+    # Multi-tenant SaaS: show platform defaults (tenant_id=None) + tenant overrides
     if "tenant_id" in Doc.model_fields:
-        query["tenant_id"] = current_user.tenant_id
+        from app.core.picklist_query import build_picklist_query
+        query = build_picklist_query(current_user.tenant_id, active_only=False)
+    else:
+        query = {}
     items = await Doc.find(query).sort("+sorting").to_list()
     return [PicklistItemResponse.model_validate(i, from_attributes=True) for i in items]
 

@@ -5,7 +5,6 @@ import { apiClient } from "@/lib/api/client";
 
 export type PicklistType =
   | "industry"
-  | "rating"
   | "account_type"
   | "account_source"
   | "supplier_service"
@@ -19,9 +18,7 @@ export type PicklistType =
   | "salutation"
   | "task_priority"
   | "task_status"
-  | "category"
   | "inclusion"
-  | "supplier_rating"
   | "supplier_type"
   | "destination"
   | "itinerary_inclusion";

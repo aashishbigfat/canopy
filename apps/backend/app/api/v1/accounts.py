@@ -51,7 +51,6 @@ def account_to_response(account: Account) -> AccountResponse:
         account_type_name=account_type_name,
         acc_parent_id=str(account.acc_parent_id) if account.acc_parent_id else None,
         industry_id=str(account.industry_id) if account.industry_id else None,
-        rating_id=str(account.rating_id) if account.rating_id else None,
         tenant_id=str(account.tenant_id),
         owner_id=str(account.owner_id),
         owner_name=owner_name,
@@ -68,22 +67,27 @@ def account_to_response(account: Account) -> AccountResponse:
 
 @router.get("/form-data")
 async def get_account_form_data(current_user: User = Depends(get_current_user)):
-    """Get metadata for account creation/editing forms"""
-    from app.models.picklists import Industry, Rating, AccountType
+    """Get metadata for account creation/editing forms.
     
-    industries = await Industry.find({
-        "tenant_id": current_user.tenant_id,
-        "is_active": True
-    }).sort("+sorting").to_list()
-    
-    ratings = await Rating.find({
-        "is_active": True
-    }).sort("+sorting").to_list()
-    
-    acc_types = await AccountType.find({
-        "tenant_id": current_user.tenant_id,
-        "is_active": True
-    }).sort("+sorting").to_list()
+    Account types are industry-scoped in the multi-industry architecture.
+    Only types matching the tenant's industry (or global types with
+    industry=None) are returned.
+    """
+    from app.models.picklists import Industry, AccountType, AccountSource
+    from app.models.tenant import Tenant
+    from app.core.picklist_query import build_picklist_query
+
+    # Resolve the tenant's industry so we can serve the right picklists
+    tenant = await Tenant.get(current_user.tenant_id)
+    tenant_industry = tenant.industry if tenant else None   # e.g. "travel"
+
+    # Multi-tenant SaaS query: platform defaults + tenant overrides
+    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
+    pq_global = build_picklist_query(current_user.tenant_id)
+
+    industries = await Industry.find(pq).sort("+sorting").to_list()
+    acc_types = await AccountType.find(pq).sort("+sorting").to_list()
+    sources = await AccountSource.find(pq_global).sort("+sorting").to_list()
     
     users = await User.find({
         "tenant_id": current_user.tenant_id,
@@ -98,8 +102,8 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
     
     return {
         "industries": [{"id": str(i.id), "name": i.name} for i in industries],
-        "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
         "account_types": [{"id": str(t.id), "name": t.name} for t in acc_types],
+        "sources": [{"id": str(s.id), "name": s.name} for s in sources],
         "users": [{"id": str(u.id), "name": u.name} for u in users],
         "parent_accounts": [{"id": str(a.id), "name": a.name} for a in parent_accounts],
         "current_user_name": current_user.name
@@ -146,8 +150,15 @@ async def get_accounts(
         import asyncio
         from app.models.user_account_view import UserAccountView
         from app.models.account_views import AccountView, AccountColumn, AccountPinView
-        from app.models.picklists import Industry, Rating, AccountType
+        from app.models.picklists import Industry, AccountType
         from app.services.visibility_scope import get_visible_owner_ids
+        from app.core.picklist_query import build_picklist_query
+        from app.models.tenant import Tenant
+        
+        # Resolve tenant industry for picklist scoping
+        tenant = await Tenant.get(current_user.tenant_id)
+        tenant_industry = tenant.industry if tenant else None
+        pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
         
         # Base query
         query = {
@@ -167,7 +178,7 @@ async def get_accounts(
                 from bson import ObjectId
                 requested_oid = ObjectId(owner_id)
                 if visible_owner_ids is not None and requested_oid not in visible_owner_ids:
-                    # User is requested an owner they can't see — force an impossible match
+                    # User is requested an owner they can't see -- force an impossible match
                     query["_id"] = ObjectId() 
                 else:
                     query["owner_id"] = requested_oid
@@ -186,7 +197,6 @@ async def get_accounts(
             account_views,
             users,
             industries,
-            ratings,
             acc_types,
         ) = await asyncio.gather(
             # 1. Total count
@@ -206,20 +216,10 @@ async def get_accounts(
                 "tenant_id": current_user.tenant_id,
                 "is_active": True
             }).sort("+name").to_list(),
-            # 5. Industries
-            Industry.find({
-                "tenant_id": current_user.tenant_id,
-                "is_active": True
-            }).sort("+sorting").to_list(),
-            # 6. Ratings
-            Rating.find({
-                "is_active": True
-            }).sort("+sorting").to_list(),
-            # 7. Account types
-            AccountType.find({
-                "tenant_id": current_user.tenant_id,
-                "is_active": True
-            }).sort("+sorting").to_list(),
+            # 5. Industries (platform defaults + tenant overrides)
+            Industry.find(pq).sort("+sorting").to_list(),
+            # 6. Account types (platform defaults + tenant overrides)
+            AccountType.find(pq).sort("+sorting").to_list(),
         )
 
         pages = (total + per_page - 1) // per_page
@@ -258,7 +258,6 @@ async def get_accounts(
                     "account_type_name": acc_type_map.get(str(acc.acc_type_id)) if acc.acc_type_id else None,
                     "acc_parent_id": str(acc.acc_parent_id) if acc.acc_parent_id else None,
                     "industry_id": str(acc.industry_id) if acc.industry_id else None,
-                    "rating_id": str(acc.rating_id) if acc.rating_id else None,
                     "tenant_id": str(acc.tenant_id),
                     "owner_id": str(acc.owner_id),
                     "owner_name": user_map.get(str(acc.owner_id)),
@@ -302,10 +301,6 @@ async def get_accounts(
                 {"id": str(i.id), "name": i.name}
                 for i in industries
             ],
-            "ratings": [
-                {"id": str(r.id), "name": r.name}
-                for r in ratings
-            ]
         }
     except Exception as e:
         import traceback
@@ -321,7 +316,6 @@ async def search_accounts(
     query: Optional[str] = None,
     acc_type_id: Optional[str] = None,
     industry_id: Optional[str] = None,
-    rating_id: Optional[str] = None,
     owner_id: Optional[str] = None,
     billing_country: Optional[str] = None,
     billing_state: Optional[str] = None,
@@ -336,7 +330,6 @@ async def search_accounts(
         query=query,
         acc_type_id=acc_type_id,
         industry_id=industry_id,
-        rating_id=rating_id,
         owner_id=owner_id,
         billing_country=billing_country,
         billing_state=billing_state

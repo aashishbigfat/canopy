@@ -21,6 +21,11 @@ class BasePicklist(Document):
     # Discriminator field
     picklist_type: str
     
+    # Industry scoping — None means "applies to ALL industries" (horizontal CRM default).
+    # Set to a specific industry slug (e.g. "travel") to scope a picklist value
+    # to tenants of that industry only.
+    industry: Optional[str] = None
+    
     # Type-specific fields (stored only when relevant)
     color: Optional[str] = None
     probability: Optional[int] = None
@@ -39,7 +44,9 @@ class BasePicklist(Document):
             "tenant_id",
             "sorting",
             "is_active",
+            "industry",
             [("picklist_type", 1), ("tenant_id", 1), ("sorting", 1)],
+            [("picklist_type", 1), ("industry", 1), ("is_active", 1)],
         ]
 
 
@@ -54,14 +61,6 @@ class AccountType(BasePicklist):
 class Industry(BasePicklist):
     """Industry picklist"""
     picklist_type: Literal["industry"] = "industry"
-    
-    class Settings:
-        name = "picklists"
-
-class Rating(BasePicklist):
-    """Account rating/category picklist"""
-    picklist_type: Literal["rating"] = "rating"
-    tenant_id: Optional[PydanticObjectId] = None  # Global picklist
     
     class Settings:
         name = "picklists"

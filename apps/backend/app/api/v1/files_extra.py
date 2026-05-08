@@ -341,7 +341,7 @@ async def recent_files(
 
 
 @router.get("/{file_id}/download")
-async def download_file(
+async def download_file_url(
     file_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):

@@ -46,7 +46,6 @@ const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
 
     // Classification
     industry_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Industry is required"),
-    rating_id: z.string().optional(),
     acc_type_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Account Type is required"),
 
     // Addresses
@@ -76,11 +75,10 @@ interface AccountFormProps {
 }
 
 interface MetaData {
-    industries: { id: string, name: string }[];
-    ratings: { id: string, name: string }[];
-    account_types: { id: string, name: string }[];
-    sources: { id: string, name: string }[];
-    users: { id: string, name: string }[];
+    industries: { id: string; name: string }[];
+    account_types: { id: string; name: string }[];
+    sources: { id: string; name: string }[];
+    users: { id: string; name: string }[];
     current_user_name?: string;
 }
 
@@ -413,7 +411,6 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             phone: initialData?.phone || "",
             website: initialData?.website || "",
             industry_id: initialData?.industry_id || initialData?.industry || "",
-            rating_id: initialData?.rating_id || initialData?.rating || "",
             acc_type_id: initialData?.acc_type_id || "",
             billing_street: initialData?.billing_street || "",
             billing_city: initialData?.billing_city || "",

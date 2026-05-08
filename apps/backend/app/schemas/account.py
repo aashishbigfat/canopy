@@ -56,7 +56,6 @@ class AccountBase(BaseModel):
     acc_type_id: Optional[str] = None
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
-    rating_id: Optional[str] = None
 
     @model_validator(mode='after')
     def validate_classification(self) -> 'AccountBase':
@@ -104,7 +103,6 @@ class AccountUpdate(BaseModel):
     acc_type_id: Optional[str] = None
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
-    rating_id: Optional[str] = None
     
     custom_fields: Optional[Dict[str, Any]] = None
 
@@ -155,7 +153,6 @@ class AccountSearch(BaseModel):
     query: Optional[str] = None
     acc_type_id: Optional[str] = None
     industry_id: Optional[str] = None
-    rating_id: Optional[str] = None
     owner_id: Optional[str] = None
     billing_country: Optional[str] = None
     billing_state: Optional[str] = None
@@ -175,4 +172,3 @@ class AccountDetailResponse(AccountResponse):
     parent_account_name: Optional[str] = None
     account_type_name: Optional[str] = None
     industry_name: Optional[str] = None
-    rating_name: Optional[str] = None

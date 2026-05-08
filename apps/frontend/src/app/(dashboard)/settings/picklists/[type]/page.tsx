@@ -3,7 +3,6 @@ import type { PicklistType } from "@/lib/api/services/picklists.service";
 
 const VALID: PicklistType[] = [
   "industry",
-  "rating",
   "account_type",
   "account_source",
   "supplier_service",
@@ -17,9 +16,7 @@ const VALID: PicklistType[] = [
   "salutation",
   "task_priority",
   "task_status",
-  "category",
   "inclusion",
-  "supplier_rating",
   "supplier_type",
   "destination",
   "itinerary_inclusion",

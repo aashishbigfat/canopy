@@ -9,7 +9,6 @@ collection w/ discriminator). This module re-exports them for back-compat.
 from app.models.consolidated_picklists import (
     AccountType,
     Industry,
-    Rating,
     AccountSource,
     SupplierServicePicklist as SupplierService,
 )
@@ -17,7 +16,6 @@ from app.models.consolidated_picklists import (
 __all__ = [
     "AccountType",
     "Industry",
-    "Rating",
     "AccountSource",
     "SupplierService",
 ]

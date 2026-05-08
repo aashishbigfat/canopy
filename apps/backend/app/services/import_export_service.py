@@ -8,7 +8,7 @@ from fastapi import UploadFile
 from bson import ObjectId
 
 from app.models.account import Account
-from app.models.picklists import AccountType, Industry, Rating
+from app.models.picklists import AccountType, Industry
 
 class ImportExportService:
     """Service for importing and exporting data"""
@@ -26,7 +26,6 @@ class ImportExportService:
             # Get related data
             acc_type = await AccountType.get(account.acc_type_id) if account.acc_type_id else None
             industry = await Industry.get(account.industry_id) if account.industry_id else None
-            rating = await Rating.get(account.rating_id) if account.rating_id else None
             
             data.append({
                 "Name": account.name,
@@ -35,7 +34,6 @@ class ImportExportService:
                 "Website": account.website,
                 "Account Type": acc_type.name if acc_type else "",
                 "Industry": industry.name if industry else "",
-                "Rating": rating.name if rating else "",
                 "Billing Street": account.billing_street,
                 "Billing City": account.billing_city,
                 "Billing State": account.billing_state,
@@ -82,16 +80,12 @@ class ImportExportService:
         imported = 0
         errors = []
         
-        # Get picklist mappings
-        account_types = {at.name: at.id for at in await AccountType.find(
-            {"tenant_id": tenant_id}
-        ).to_list()}
-
-        industries = {ind.name: ind.id for ind in await Industry.find(
-            {"tenant_id": tenant_id}
-        ).to_list()}
+        # Get picklist mappings (platform defaults + tenant overrides)
+        from app.core.picklist_query import build_picklist_query
+        pq = build_picklist_query(tenant_id, active_only=False)
         
-        ratings = {rat.name: rat.id for rat in await Rating.find_all().to_list()}
+        account_types = {at.name: at.id for at in await AccountType.find(pq).to_list()}
+        industries = {ind.name: ind.id for ind in await Industry.find(pq).to_list()}
         
         # Import each row
         for index, row in df.iterrows():
@@ -99,7 +93,6 @@ class ImportExportService:
                 # Map picklist values
                 acc_type_id = account_types.get(row.get('Account Type')) if pd.notna(row.get('Account Type')) else None
                 industry_id = industries.get(row.get('Industry')) if pd.notna(row.get('Industry')) else None
-                rating_id = ratings.get(row.get('Rating')) if pd.notna(row.get('Rating')) else None
                 
                 account = Account(
                     name=row['Name'],
@@ -108,7 +101,6 @@ class ImportExportService:
                     website=row.get('Website') if pd.notna(row.get('Website')) else None,
                     acc_type_id=acc_type_id,
                     industry_id=industry_id,
-                    rating_id=rating_id,
                     billing_street=row.get('Billing Street') if pd.notna(row.get('Billing Street')) else None,
                     billing_city=row.get('Billing City') if pd.notna(row.get('Billing City')) else None,
                     billing_state=row.get('Billing State') if pd.notna(row.get('Billing State')) else None,

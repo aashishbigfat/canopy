@@ -1251,15 +1251,22 @@ class LeadService(ActivityMixin):
         import asyncio
         from app.models.opportunity_picklists import Experience, SalesStage
         from app.models.lead_picklists import SourceMedium
+        from app.core.picklist_query import build_picklist_query
+        from app.models.tenant import Tenant
         
-        # Fetch regular metadata in parallel
+        # Resolve tenant industry for picklist scoping
+        tenant = await Tenant.get(tenant_id)
+        tenant_industry = tenant.industry if tenant else None
+        pq = build_picklist_query(tenant_id, industry=tenant_industry)
+        
+        # Fetch regular metadata in parallel (platform defaults + tenant overrides)
         metadata_tasks = [
-            LeadStatus.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
-            Source.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
+            LeadStatus.find(pq).sort("+sorting").to_list(),
+            Source.find(pq).sort("+sorting").to_list(),
             User.find({"tenant_id": tenant_id, "is_active": True}).sort("+name").to_list(),
-            Industry.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
-            Experience.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
-            SourceMedium.find({"tenant_id": tenant_id, "is_active": True}).sort("+sorting").to_list(),
+            Industry.find(pq).sort("+sorting").to_list(),
+            Experience.find(pq).sort("+sorting").to_list(),
+            SourceMedium.find(pq).sort("+sorting").to_list(),
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)

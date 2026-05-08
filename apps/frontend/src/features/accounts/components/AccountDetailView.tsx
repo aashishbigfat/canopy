@@ -54,7 +54,6 @@ interface AccountDetailViewProps {
         related_tasks?: any[];
         account_type_name?: string;
         industry_name?: string;
-        rating_name?: string;
         parent_account_name?: string;
     };
 }
@@ -302,10 +301,6 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Parent Account</p>
                                                         <p className="text-sm font-medium text-blue-600 underline">{account.parent_account_name || "-"}</p>
-                                                    </div>
-                                                    <div className="space-y-1">
-                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Priority</p>
-                                                        <p className="text-sm font-medium text-slate-700">{account.rating_name || "-"}</p>
                                                     </div>
                                                 </>
                                             )}

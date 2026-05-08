@@ -291,14 +291,6 @@ class AccountService(ActivityMixin):
             if industry:
                 industry_name = industry.name
         
-        # Get rating name
-        rating_name = None
-        if account.rating_id:
-            from app.models.picklists import Rating
-            rating = await Rating.get(account.rating_id)
-            if rating:
-                rating_name = rating.name
-        
         # Build response
         return {
             **account.model_dump(),
@@ -310,7 +302,6 @@ class AccountService(ActivityMixin):
             "acc_type_id": str(account.acc_type_id) if account.acc_type_id else None,
             "acc_parent_id": str(account.acc_parent_id) if account.acc_parent_id else None,
             "industry_id": str(account.industry_id) if account.industry_id else None,
-            "rating_id": str(account.rating_id) if account.rating_id else None,
             "account_source_id": str(getattr(account, 'account_source_id', '')) if getattr(account, 'account_source_id', None) else None,
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
@@ -322,7 +313,6 @@ class AccountService(ActivityMixin):
             "parent_account_name": parent_account_name,
             "account_type_name": account_type_name,
             "industry_name": industry_name,
-            "rating_name": rating_name
         }
     
     async def update_account(
@@ -586,9 +576,6 @@ class AccountService(ActivityMixin):
         
         if getattr(search_params, 'industry_id', None):
             query["industry_id"] = ObjectId(search_params.industry_id)
-        
-        if getattr(search_params, 'rating_id', None):
-            query["rating_id"] = ObjectId(search_params.rating_id)
         
         if getattr(search_params, 'owner_id', None):
             query["owner_id"] = ObjectId(search_params.owner_id)

@@ -18,28 +18,25 @@ async def get_create_form_data(
     current_user: User = Depends(get_current_user)
 ):
     """Get form data for creating an account"""
-    from app.models.picklists import AccountType, Industry, Rating, AccountSource
+    from app.models.picklists import AccountType, Industry, AccountSource
     from app.models.custom_fields import AdditionalFieldAccount
+    from app.core.picklist_query import build_picklist_query
+    from app.models.tenant import Tenant
     
-    # Get account types
-    account_types = await AccountType.find(
-        {"tenant_id": current_user.tenant_id, "is_active": True}
-    ).sort("+sorting").to_list()
+    # Resolve tenant industry for picklist scoping
+    tenant = await Tenant.get(current_user.tenant_id)
+    tenant_industry = tenant.industry if tenant else None
+    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
+    
+    # Get account types (platform defaults + tenant overrides)
+    account_types = await AccountType.find(pq).sort("+sorting").to_list()
 
-    # Get industries
-    industries = await Industry.find(
-        {"tenant_id": current_user.tenant_id, "is_active": True}
-    ).sort("+sorting").to_list()
+    # Get industries (platform defaults + tenant overrides)
+    industries = await Industry.find(pq).sort("+sorting").to_list()
 
-    # Get ratings
-    ratings = await Rating.find(
-        {"is_active": True}
-    ).sort("+sorting").to_list()
-
-    # Get account sources
-    sources = await AccountSource.find(
-        {"tenant_id": current_user.tenant_id, "is_active": True}
-    ).sort("+sorting").to_list()
+    # Get account sources (platform defaults + tenant overrides)
+    pq_global = build_picklist_query(current_user.tenant_id)
+    sources = await AccountSource.find(pq_global).sort("+sorting").to_list()
 
     # Get users for owner selection
     users = await User.find(
@@ -55,7 +52,6 @@ async def get_create_form_data(
         "error": False,
         "account_types": [{"id": str(at.id), "name": at.name} for at in account_types],
         "industries": [{"id": str(i.id), "name": i.name} for i in industries],
-        "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
         "sources": [{"id": str(s.id), "name": s.name} for s in sources],
         "users": [{"id": str(u.id), "name": u.name, "email": u.email} for u in users],
         "custom_fields": [
@@ -76,26 +72,24 @@ async def get_edit_form_data(
     current_user: User = Depends(get_current_user)
 ):
     """Get account data and form data for editing"""
-    from app.models.picklists import AccountType, Industry, Rating, AccountSource
+    from app.models.picklists import AccountType, Industry, AccountSource
     from app.models.custom_fields import AdditionalFieldAccount, AccountCustomField
+    from app.core.picklist_query import build_picklist_query
+    from app.models.tenant import Tenant
     
     # Get account
     account = await Account.get(ObjectId(account_id))
     if not account or account.tenant_id != current_user.tenant_id:
         raise HTTPException(status_code=404, detail="Account not found")
     
-    # Get form data
-    account_types = await AccountType.find(
-        {"tenant_id": current_user.tenant_id, "is_active": True}
-    ).sort("+sorting").to_list()
-
-    industries = await Industry.find(
-        {"tenant_id": current_user.tenant_id, "is_active": True}
-    ).sort("+sorting").to_list()
-
-    ratings = await Rating.find(
-        {"is_active": True}
-    ).sort("+sorting").to_list()
+    # Resolve tenant industry for picklist scoping
+    tenant = await Tenant.get(current_user.tenant_id)
+    tenant_industry = tenant.industry if tenant else None
+    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
+    
+    # Get form data (platform defaults + tenant overrides)
+    account_types = await AccountType.find(pq).sort("+sorting").to_list()
+    industries = await Industry.find(pq).sort("+sorting").to_list()
 
     users = await User.find(
         {"tenant_id": current_user.tenant_id, "is_active": True}
@@ -111,7 +105,6 @@ async def get_edit_form_data(
         "account": AccountResponse.from_orm(account),
         "account_types": [{"id": str(at.id), "name": at.name} for at in account_types],
         "industries": [{"id": str(i.id), "name": i.name} for i in industries],
-        "ratings": [{"id": str(r.id), "name": r.name} for r in ratings],
         "users": [{"id": str(u.id), "name": u.name, "email": u.email} for u in users],
         "custom_field_values": [
             {
