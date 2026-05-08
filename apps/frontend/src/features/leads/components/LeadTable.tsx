@@ -57,7 +57,7 @@ export const getColumns = (
             header: "Travel Date",
             cell: ({ row }) => {
                 const travelDate = row.original.industry_data?.travel_date;
-                return <div className="text-sm text-gray-700">{travelDate ? travelDate : "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{travelDate ? travelDate : "-"}</div>;
             },
         },
         {
@@ -65,7 +65,7 @@ export const getColumns = (
             header: "No of Pax",
             cell: ({ row }) => {
                 const pax = row.original.industry_data?.no_of_pax;
-                return <div className="text-sm text-gray-700">{pax ?? "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{pax ?? "-"}</div>;
             },
         },
         {
@@ -73,7 +73,7 @@ export const getColumns = (
             header: "Destination(s)",
             cell: ({ row }) => {
                 const dests = row.original.industry_data?.destination_names;
-                return <div className="text-sm text-gray-700">{Array.isArray(dests) ? dests.join(", ") : (dests || "-")}</div>;
+                return <div className="text-sm text-muted-foreground">{Array.isArray(dests) ? dests.join(", ") : (dests || "-")}</div>;
             },
         },
         {
@@ -82,7 +82,7 @@ export const getColumns = (
             cell: ({ row }) => {
                 const experienceId = row.original.industry_data?.experience_id;
                 const experience = experiences.find(e => e.id === experienceId || e.name === experienceId);
-                return <div className="text-sm text-gray-700">{experience?.name || experienceId || "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{experience?.name || experienceId || "-"}</div>;
             },
         },
     ] : industry === "healthcare" ? [
@@ -91,7 +91,7 @@ export const getColumns = (
             header: "Chief Complaint",
             cell: ({ row }) => {
                 const data = (row.original as any).industry_data;
-                return <div className="text-sm text-gray-700">{data?.chief_complaint || "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{data?.chief_complaint || "-"}</div>;
             },
         },
         {
@@ -99,7 +99,7 @@ export const getColumns = (
             header: "Urgency",
             cell: ({ row }) => {
                 const data = (row.original as any).industry_data;
-                return <div className="text-sm text-gray-700 capitalize">{data?.urgency || "-"}</div>;
+                return <div className="text-sm text-muted-foreground capitalize">{data?.urgency || "-"}</div>;
             },
         },
     ] : industry === "education" ? [
@@ -108,7 +108,7 @@ export const getColumns = (
             header: "Qualification",
             cell: ({ row }) => {
                 const data = (row.original as any).industry_data;
-                return <div className="text-sm text-gray-700">{data?.highest_qualification || "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{data?.highest_qualification || "-"}</div>;
             },
         },
         {
@@ -116,7 +116,7 @@ export const getColumns = (
             header: "Start Date",
             cell: ({ row }) => {
                 const data = (row.original as any).industry_data;
-                return <div className="text-sm text-gray-700">{data?.preferred_start_date || "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{data?.preferred_start_date || "-"}</div>;
             },
         },
     ] : industry === "manufacturing" ? [
@@ -125,7 +125,7 @@ export const getColumns = (
             header: "RFQ Number",
             cell: ({ row }) => {
                 const data = (row.original as any).industry_data;
-                return <div className="text-sm text-gray-700">{data?.rfq_number || "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{data?.rfq_number || "-"}</div>;
             },
         },
         {
@@ -133,7 +133,7 @@ export const getColumns = (
             header: "Product Category",
             cell: ({ row }) => {
                 const data = (row.original as any).industry_data;
-                return <div className="text-sm text-gray-700">{data?.product_category || "-"}</div>;
+                return <div className="text-sm text-muted-foreground">{data?.product_category || "-"}</div>;
             },
         },
     ] : [];
@@ -169,7 +169,7 @@ export const getColumns = (
                 return (
                     <Link
                         href={`/leads/${lead.id}`}
-                        className="text-sm font-medium text-blue-600 hover:underline"
+                        className="text-sm font-medium text-foreground hover:text-primary hover:underline"
                     >
                         {lead.first_name}
                     </Link>
@@ -184,7 +184,7 @@ export const getColumns = (
                 return (
                     <Link
                         href={`/leads/${lead.id}`}
-                        className="text-sm font-medium text-blue-600 hover:underline"
+                        className="text-sm font-medium text-foreground hover:text-primary hover:underline"
                     >
                         {lead.last_name || "-"}
                     </Link>
@@ -195,7 +195,7 @@ export const getColumns = (
             accessorKey: "email",
             header: "Email",
             cell: ({ row }) => (
-                <div className="text-sm text-gray-700">
+                <div className="text-sm text-muted-foreground">
                     {row.original.email || "-"}
                 </div>
             ),
@@ -204,7 +204,7 @@ export const getColumns = (
             accessorKey: "phone",
             header: "Phone",
             cell: ({ row }) => (
-                <div className="text-sm text-gray-700">
+                <div className="text-sm text-muted-foreground">
                     {row.original.phone || row.original.mobile || "-"}
                 </div>
             ),
@@ -213,7 +213,7 @@ export const getColumns = (
             accessorKey: "city",
             header: "City of Origin",
             cell: ({ row }) => (
-                <div className="text-sm text-gray-700">
+                <div className="text-sm text-muted-foreground">
                     {row.original.city || "-"}
                 </div>
             ),
@@ -225,7 +225,7 @@ export const getColumns = (
                 const statusId = row.original.lead_status_id;
                 const status = statuses.find(s => s.id === statusId);
                 const label = status?.name || "New";
-                return <div className="text-sm font-medium text-gray-700">{label}</div>;
+                return <div className="text-sm font-medium text-foreground">{label}</div>;
             },
         },
         ...industryColumns,
@@ -234,7 +234,7 @@ export const getColumns = (
             header: "Segment",
             cell: ({ row }) => {
                 const segment = row.original.segment || (row.original.custom_fields as any)?.segment;
-                if (!segment) return <div className="text-sm text-gray-700">-</div>;
+                if (!segment) return <div className="text-sm text-muted-foreground">-</div>;
 
                 return (
                     <Badge variant={segment === "B2B" ? "outline" : "secondary"} className={
@@ -257,7 +257,7 @@ export const getColumns = (
                 } else if (row.original.creation_type) {
                     sourceMedium = row.original.creation_type;
                 }
-                return <div className="capitalize text-sm text-gray-700">{sourceMedium}</div>;
+                return <div className="capitalize text-sm text-muted-foreground">{sourceMedium}</div>;
             },
         },
         {
@@ -477,7 +477,7 @@ export function LeadTable({
                             <Button
                                 variant="outline"
                                 size="icon"
-                                className="border-gray-300 text-gray-700"
+                                className="border-border text-foreground hover:bg-accent"
                                 aria-label="Filter leads"
                             >
                                 <Filter className="h-4 w-4" />
@@ -487,7 +487,7 @@ export function LeadTable({
                                     <Button
                                         variant="outline"
                                         size="sm"
-                                        className="gap-1 border-gray-300 text-gray-700"
+                                        className="gap-1 border-border text-foreground hover:bg-accent"
                                     >
                                         Settings
                                         <ChevronDown className="h-4 w-4" />

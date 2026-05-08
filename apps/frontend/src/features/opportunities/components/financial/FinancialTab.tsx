@@ -72,7 +72,7 @@ export function FinancialTab({ opportunity }: Props) {
     return (
         <div className="space-y-0">
             {/* Sub-tab Navigation */}
-            <div className="flex border-b border-slate-200 bg-slate-50/50 overflow-x-auto scrollbar-hide">
+            <div className="flex overflow-x-auto border-b border-border bg-muted/40 scrollbar-hide">
                 {SUB_TABS.map((tab) => (
                     <button
                         key={tab.id}
@@ -80,8 +80,8 @@ export function FinancialTab({ opportunity }: Props) {
                         className={cn(
                             "px-5 py-2.5 text-xs font-semibold border-b-2 transition-all whitespace-nowrap",
                             activeTab === tab.id
-                                ? "border-blue-500 text-blue-600 bg-white"
-                                : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-white/60"
+                                ? "border-blue-500 bg-card text-blue-600"
+                                : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
                         )}
                     >
                         {tab.label}

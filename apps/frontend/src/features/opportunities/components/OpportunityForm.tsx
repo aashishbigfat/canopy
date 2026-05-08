@@ -411,10 +411,10 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     return (
         <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                <div className="flex items-center gap-2 mb-2 p-3 bg-slate-50 border border-slate-200 rounded-lg">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
+                <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Account Type:</span>
                     <Badge variant="outline" className={cn(
-                        "px-2 py-0.5 font-bold text-[10px] transition-colors",
+                        "px-2 py-0.5 text-xs font-bold transition-colors",
                         isPersonAccount
                             ? "bg-orange-100 text-orange-700 border-orange-200"
                             : "bg-blue-100 text-blue-700 border-blue-200"
@@ -447,7 +447,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                             }}
                             className="cursor-pointer"
                         />
-                        <label htmlFor="account-type-company" className="text-sm font-medium text-slate-700 cursor-pointer">Account</label>
+                        <label htmlFor="account-type-company" className="cursor-pointer text-sm font-medium text-foreground">Account</label>
                     </div>
                     <div className="flex items-center gap-2">
                         <input
@@ -473,7 +473,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                             }}
                             className="cursor-pointer"
                         />
-                        <label htmlFor="account-type-person" className="text-sm font-medium text-slate-700 cursor-pointer">Personal Account</label>
+                        <label htmlFor="account-type-person" className="cursor-pointer text-sm font-medium text-foreground">Personal Account</label>
                     </div>
                 </div>
                 <div className="grid gap-6 md:grid-cols-2">
@@ -600,7 +600,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                                         {...field}
                                         readOnly
                                         disabled
-                                        className="bg-slate-50 text-slate-500 cursor-not-allowed"
+                                        className="cursor-not-allowed bg-muted text-muted-foreground"
                                     />
                                 </FormControl>
                                 <FormMessage />

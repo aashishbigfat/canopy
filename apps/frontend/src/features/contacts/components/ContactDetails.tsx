@@ -69,7 +69,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
     };
 
     return (
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="container mx-auto max-w-7xl px-4 py-6 [&_.bg-white]:!bg-card [&_.border-slate-100]:!border-border [&_.border-slate-200]:!border-border [&_.border-slate-300]:!border-border [&_.text-slate-800]:!text-foreground [&_.text-slate-700]:!text-foreground [&_.text-slate-600]:!text-foreground/90 [&_.text-slate-500]:!text-muted-foreground [&_.text-slate-400]:!text-muted-foreground [&_.text-slate-300]:!text-muted-foreground">
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
@@ -157,8 +157,8 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
 
                             <TabsContent value="details" className="mt-0">
                                 <div className="space-y-6">
-                                    <Card>
-                                        <CardHeader className="pb-3 border-b bg-slate-50/50">
+                                    <Card className="border-border bg-card">
+                                        <CardHeader className="border-b border-border bg-muted/40 pb-3">
                                             <CardTitle className="text-sm font-bold flex items-center gap-2">
                                                 <UserIcon className="h-4 w-4 text-blue-600" />
                                                 Contact Information
@@ -214,7 +214,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         title="Address Information"
                                         icon={<MapPin className="h-4 w-4" />}
                                         defaultOpen={false}
-                                        className="border-slate-200"
+                                        className="border-border"
                                     >
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
@@ -244,7 +244,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         title="System Information"
                                         icon={<UserIcon className="h-4 w-4" />}
                                         defaultOpen={false}
-                                        className="border-slate-200"
+                                        className="border-border"
                                     >
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
@@ -267,10 +267,10 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                    <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
-                                    <p className="text-slate-500">No attachments found.</p>
-                                    <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
+                                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                                    <Paperclip className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
+                                    <p className="text-muted-foreground">No attachments found.</p>
+                                    <Button variant="outline" size="sm" className="mt-4 border-border">Upload File</Button>
                                 </div>
                             </TabsContent>
                         </div>

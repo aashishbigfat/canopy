@@ -25,20 +25,20 @@ export function OpportunityItinerariesTab({ opportunityId }: OpportunityItinerar
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-center gap-4 justify-between bg-white px-2 mb-6">
+            <div className="mb-6 flex flex-col items-center justify-between gap-4 px-2 sm:flex-row">
                 <div className="relative flex-1 max-w-lg w-full">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-blue-500" />
                     <Input 
                         placeholder="Search Itinerary" 
-                        className="pl-10 h-10 w-full text-sm placeholder:text-slate-400 border-slate-200 focus:border-blue-500 rounded-md"
+                        className="h-10 w-full rounded-md border-border bg-background pl-10 text-sm placeholder:text-muted-foreground focus:border-blue-500"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                     />
                 </div>
                 <div className="flex gap-2">
-                    <Button 
+                    <Button
                         onClick={handleCreateItinerary}
-                        className="bg-indigo-100/50 hover:bg-indigo-200/50 text-indigo-700 h-10 font-medium px-4 shadow-none"
+                        className="h-10 bg-primary/15 px-4 font-medium text-primary shadow-none hover:bg-primary/25"
                     >
                         Create Itinerary
                     </Button>
@@ -55,10 +55,10 @@ export function OpportunityItinerariesTab({ opportunityId }: OpportunityItinerar
                 {isLoading ? (
                     <div className="text-center text-slate-500 py-12">Loading...</div>
                 ) : linkedItins.length === 0 ? (
-                    <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
-                        <Map className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                        <p className="text-slate-500 font-medium">No itineraries attached</p>
-                        <p className="text-slate-400 text-sm mt-1">Create or attach travel itineraries to plan the trip details.</p>
+                    <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+                        <Map className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                        <p className="font-medium text-foreground">No itineraries attached</p>
+                        <p className="mt-1 text-sm text-muted-foreground">Create or attach travel itineraries to plan the trip details.</p>
                     </div>
                 ) : (
                     <div className="flex gap-2 flex-wrap pb-4">

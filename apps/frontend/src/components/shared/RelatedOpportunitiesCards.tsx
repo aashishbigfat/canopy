@@ -48,14 +48,14 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
 
     if (!opportunities || opportunities.length === 0) {
         return (
-            <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50 flex flex-col items-center justify-center space-y-4">
-                <p className="text-slate-500 font-medium">No opportunities associated yet.</p>
+            <div className="flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                <p className="font-medium text-foreground">No opportunities associated yet.</p>
                 <Button 
                     variant="outline" 
                     size="sm" 
                     asChild={!onNewClick} 
                     onClick={onNewClick}
-                    className="font-bold border-slate-200"
+                    className="border-border font-bold"
                 >
                     {onNewClick ? (
                         <span>Create Opportunity</span>
@@ -68,10 +68,10 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
     }
 
     return (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
             {opportunities.map((opp) => (
-                <Card key={opp.id} className="group hover:border-blue-300 transition-all shadow-sm overflow-hidden rounded-md border-slate-200 bg-white">
-                    <CardContent className="p-2.5">
+                <Card key={opp.id} className="group overflow-hidden rounded-lg border-border bg-card shadow-sm transition-all hover:border-blue-400/60 hover:shadow-md">
+                    <CardContent className="p-3">
                         <div className="mb-0.5">
                             <Link
                                 href={`/opportunities/${opp.id}`}
@@ -81,22 +81,22 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
                             </Link>
                         </div>
                         
-                        <div className="space-y-1 mt-2.5">
-                            <div className="flex items-center gap-2 text-slate-500">
+                        <div className="mt-2.5 space-y-1">
+                            <div className="flex items-center gap-2 text-muted-foreground">
                                 <Briefcase className="h-[13px] w-[13px] shrink-0" />
-                                <span className="text-[11px] font-bold text-slate-400 truncate">{opp.name}</span>
+                                <span className="truncate text-[11px] font-semibold text-muted-foreground">{opp.name}</span>
                             </div>
                             
-                            <div className="flex items-center gap-2 text-slate-500">
+                            <div className="flex items-center gap-2 text-muted-foreground">
                                 <Users className="h-[13px] w-[13px] shrink-0" />
-                                <span className="text-[11px] font-bold text-slate-600">
+                                <span className="text-[11px] font-semibold text-foreground/90">
                                     {industry === "travel" ? (((opp as any).industry_data?.no_of_pax || (opp as any).no_of_pax || 0)) + " pax" : opp.sales_stage_name || "—"}
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-2 text-slate-500">
+                            <div className="flex items-center gap-2 text-muted-foreground">
                                 <Calendar className="h-[13px] w-[13px] shrink-0" />
-                                <span className="text-[11px] font-bold text-slate-600">
+                                <span className="text-[11px] font-semibold text-foreground/90">
                                     {industry === "travel"
                                         ? (((opp as any).industry_data?.travel_date || (opp as any).travel_date) ? format(new Date(((opp as any).industry_data?.travel_date || (opp as any).travel_date)), "dd MMM yyyy") : "TBD")
                                         : (opp.close_date ? format(new Date(opp.close_date), "dd MMM yyyy") : "TBD")
@@ -114,9 +114,9 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
                                 </span>
                             </div>
 
-                            <div className="flex items-center gap-2 text-slate-500">
+                            <div className="flex items-center gap-2 text-muted-foreground">
                                 <User className="h-[13px] w-[13px] shrink-0" />
-                                <span className="text-[11px] font-bold text-slate-600 truncate">{opp.owner_name || "Admin User"}</span>
+                                <span className="truncate text-[11px] font-semibold text-foreground/90">{opp.owner_name || "Admin User"}</span>
                             </div>
                         </div>
                     </CardContent>

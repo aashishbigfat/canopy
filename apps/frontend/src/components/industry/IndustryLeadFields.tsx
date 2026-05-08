@@ -331,8 +331,8 @@ function TravelLeadFields({ form, availableDestinations = [], handleDestinationS
                 )} />
                 <FormField control={form.control as any} name="no_of_pax" render={({ field }) => (
                     <FormItem>
-                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Total Pax</FormLabel>
-                        <FormControl><Input type="number" readOnly disabled className="h-8 cursor-not-allowed bg-muted/40 text-foreground/80 text-xs" {...field} /></FormControl>
+                        <FormLabel className="text-xs font-bold uppercase text-foreground">Total Pax</FormLabel>
+                        <FormControl><Input type="number" readOnly disabled className="h-8 cursor-not-allowed bg-muted text-sm font-semibold text-foreground" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />

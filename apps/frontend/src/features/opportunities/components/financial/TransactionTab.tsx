@@ -271,10 +271,10 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                     </div>
                 </div>
             ) : (
-                <div className="text-center py-12 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                    <Receipt className="h-10 w-10 mx-auto mb-3 text-slate-300" />
-                    <p className="text-slate-500 font-medium text-sm">No transactions yet</p>
-                    <p className="text-slate-400 text-xs mt-1">
+                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                    <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
+                    <p className="text-sm font-medium text-foreground">No transactions yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
                         Mark payment milestones as <strong>Received</strong> in the Payment Schedule
                         tab or add transactions using the button above.
                     </p>

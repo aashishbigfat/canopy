@@ -1,0 +1,98 @@
+/* Global error/alert/exception styling */
+
+/* Sonner toasts */
+.app-toaster {
+  --error-bg: color-mix(in oklab, var(--destructive) 18%, var(--card));
+  --error-border: color-mix(in oklab, var(--destructive) 45%, transparent);
+  --error-fg: color-mix(in oklab, var(--destructive) 55%, var(--foreground));
+  --success-bg: color-mix(in oklab, #10b981 14%, var(--card));
+  --success-border: color-mix(in oklab, #10b981 40%, transparent);
+  --success-fg: color-mix(in oklab, #10b981 65%, var(--foreground));
+}
+
+.app-toaster [data-sonner-toast] {
+  border: 1px solid var(--border) !important;
+  background: var(--card) !important;
+  color: var(--foreground) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.28) !important;
+}
+
+.app-toaster [data-sonner-toast][data-type="error"] {
+  background: var(--error-bg) !important;
+  border-color: var(--error-border) !important;
+  color: var(--error-fg) !important;
+}
+
+.app-toaster [data-sonner-toast][data-type="success"] {
+  background: var(--success-bg) !important;
+  border-color: var(--success-border) !important;
+  color: var(--success-fg) !important;
+}
+
+.app-toaster [data-sonner-toast] [data-title] {
+  font-weight: 600 !important;
+  letter-spacing: 0.01em;
+}
+
+.app-toaster [data-sonner-toast] [data-description] {
+  color: var(--muted-foreground) !important;
+}
+
+.app-toaster [data-sonner-toast][data-type="error"] [data-description],
+.app-toaster [data-sonner-toast][data-type="success"] [data-description] {
+  color: color-mix(in oklab, currentColor 80%, white) !important;
+}
+
+.app-toaster [data-sonner-toast] [data-button],
+.app-toaster [data-sonner-toast] [data-cancel] {
+  border-radius: 8px !important;
+}
+
+.app-toaster [data-sonner-toast] [data-close-button] {
+  border: 1px solid var(--border) !important;
+  background: var(--muted) !important;
+  color: var(--muted-foreground) !important;
+}
+
+/* Alert dialogs */
+.app-alert-overlay {
+  backdrop-filter: blur(2px);
+}
+
+.app-alert-dialog {
+  border: 1px solid var(--border) !important;
+  background: var(--card) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 18px 44px rgba(2, 6, 23, 0.34) !important;
+}
+
+.app-alert-title {
+  color: var(--foreground);
+}
+
+.app-alert-description {
+  color: var(--muted-foreground);
+  line-height: 1.55;
+}
+
+/* Error boundaries */
+.app-error-boundary-shell {
+  background: color-mix(in oklab, var(--destructive) 4%, transparent);
+}
+
+.app-error-boundary-card {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 14px 34px rgba(2, 6, 23, 0.2);
+}
+
+.app-error-boundary-icon {
+  background: color-mix(in oklab, var(--destructive) 16%, var(--card));
+  color: color-mix(in oklab, var(--destructive) 70%, #fff);
+}
+
+.app-inline-component-error {
+  border: 1px solid color-mix(in oklab, var(--destructive) 45%, transparent);
+  background: color-mix(in oklab, var(--destructive) 8%, var(--card));
+}

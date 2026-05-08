@@ -278,7 +278,7 @@ export function OpportunityDetails({
     };
 
     return (
-        <div className="space-y-6 max-w-[1400px] mx-auto">
+        <div className="mx-auto max-w-[1400px] space-y-6 [&_.bg-white]:!bg-card [&_.bg-slate-50]:!bg-muted [&_.bg-slate-100]:!bg-muted [&_.border-slate-100]:!border-border [&_.border-slate-200]:!border-border [&_.border-slate-300]:!border-border [&_.text-slate-900]:!text-foreground [&_.text-slate-800]:!text-foreground [&_.text-slate-700]:!text-foreground [&_.text-slate-600]:!text-foreground [&_.text-slate-500]:!text-muted-foreground [&_.text-slate-400]:!text-muted-foreground [&_.text-slate-300]:!text-muted-foreground">
             <UpdateStageDialog
                 opportunityId={record.id}
                 currentStageId={record.sales_stage_id}
@@ -326,7 +326,7 @@ export function OpportunityDetails({
             />
 
             {/* Header / Actions - Styled like reference UI */}
-            <div className="bg-white p-4 rounded-lg border shadow-sm">
+            <div className="crm-surface rounded-lg border p-4 shadow-sm">
                 <div className="flex flex-col lg:flex-row justify-between gap-4">
                     <div className="flex gap-4">
                         <div className="h-12 w-12 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
@@ -443,7 +443,7 @@ export function OpportunityDetails({
             </div>
 
             {/* Sales Stage Stepper */}
-            <div className="bg-white p-4 rounded-lg border shadow-sm">
+            <div className="crm-surface rounded-lg border p-4 shadow-sm">
                 <h3 className="text-sm font-semibold mb-3">Sales stages</h3>
                 <div className="flex items-center justify-between">
                     <div className="flex flex-1 items-center relative z-10">
@@ -457,7 +457,7 @@ export function OpportunityDetails({
                                     onClick={() => handleStageClick(s.id)}
                                     className={cn(
                                         "relative flex-1 py-2 px-4 text-center text-xs font-medium cursor-pointer transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
-                                        s.id === selectedStageId ? "bg-slate-900 border-slate-900 text-white" :
+                                        s.id === selectedStageId ? "bg-blue-500/15 border-blue-400 text-blue-300" :
                                             index < currentStageIndex ? "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200" :
                                                 "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
                                     )}
@@ -491,7 +491,7 @@ export function OpportunityDetails({
 
                 {/* Main Content Area - Tabs */}
                 <div className="lg:col-span-2 min-w-0 w-full">
-                    <Tabs defaultValue="activity" className="w-full bg-white rounded-lg border shadow-sm">
+                    <Tabs defaultValue="activity" className="w-full rounded-lg border bg-card shadow-sm">
                         <TabsList className="w-full justify-start rounded-none border-b bg-transparent h-auto p-0 max-w-full overflow-x-auto flex-nowrap scrollbar-hide">
                             <TabsTrigger value="activity" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Activity</TabsTrigger>
                             {industry === "travel" && <TabsTrigger value="departures" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Departures</TabsTrigger>}
@@ -645,10 +645,10 @@ export function OpportunityDetails({
                                     + Add Departure
                                 </Button>
                             </div>
-                            <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Calendar className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No departures added</p>
-                                <p className="text-slate-400 text-sm mt-1">Add departure dates and details for this record.</p>
+                            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+                                <Calendar className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                                <p className="font-medium text-foreground">No departures added</p>
+                                <p className="mt-1 text-sm text-muted-foreground">Add departure dates and details for this record.</p>
                             </div>
                         </TabsContent>
 
@@ -874,7 +874,7 @@ export function OpportunityDetails({
                         </TabsContent>
 
                         {/* ── FINANCIAL TAB ── */}
-                        <TabsContent value="financial" className="p-0 focus-visible:outline-none focus-visible:ring-0 bg-white rounded-b-xl overflow-hidden">
+                        <TabsContent value="financial" className="overflow-hidden rounded-b-xl bg-card p-0 focus-visible:outline-none focus-visible:ring-0">
                             <FinancialTab opportunity={record} />
                         </TabsContent>
 
@@ -947,10 +947,10 @@ export function OpportunityDetails({
                                     + Upload File
                                 </Button>
                             </div>
-                            <div className="text-center py-16 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                <Paperclip className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                                <p className="text-slate-500 font-medium">No attachments found</p>
-                                <p className="text-slate-400 text-sm mt-1">Upload documents, images, or files related to this record.</p>
+                            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+                                <Paperclip className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
+                                <p className="font-medium text-foreground">No attachments found</p>
+                                <p className="mt-1 text-sm text-muted-foreground">Upload documents, images, or files related to this record.</p>
                             </div>
                         </TabsContent>
                     </Tabs>
@@ -958,9 +958,9 @@ export function OpportunityDetails({
 
                 {/* Sidebar - Stage History */}
                 <div className="space-y-6">
-                    <Card className="border shadow-sm rounded-lg overflow-hidden">
-                        <CardHeader className="bg-slate-50 border-b py-3 px-4">
-                            <CardTitle className="text-base font-semibold text-slate-700">Stage History</CardTitle>
+                    <Card className="overflow-hidden rounded-lg border shadow-sm">
+                        <CardHeader className="border-b bg-muted py-3 px-4">
+                            <CardTitle className="text-base font-semibold text-foreground">Stage History</CardTitle>
                         </CardHeader>
                         <CardContent className="p-0">
                             <ScrollArea className="h-[400px]">
@@ -1025,7 +1025,7 @@ export function OpportunityDetails({
                                     return (
                                         <div className="w-full overflow-x-auto scrollbar-hide">
                                             <Table>
-                                            <TableHeader className="bg-slate-50 sticky top-0 z-10 shadow-sm">
+                                            <TableHeader className="sticky top-0 z-10 bg-muted shadow-sm">
                                                 <TableRow>
                                                     <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Stage</TableHead>
                                                     <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Amount</TableHead>

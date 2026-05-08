@@ -137,7 +137,7 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
                     role="combobox"
                     type="button"
                     className={cn(
-                        "w-full justify-between font-normal min-h-[36px] h-auto px-3 py-1 bg-white",
+                        "h-auto min-h-[36px] w-full justify-between bg-background px-3 py-1 font-normal",
                         selectedIds.length === 0 && "text-muted-foreground"
                     )}
                 >
@@ -172,7 +172,7 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
                     />
                     <CommandList>
                         {loading ? (
-                            <div className="py-2 px-3 text-xs text-slate-400">Searching...</div>
+                            <div className="px-3 py-2 text-xs text-muted-foreground">Searching...</div>
                         ) : filtered.length === 0 ? (
                             <CommandEmpty>No destinations found.</CommandEmpty>
                         ) : (
@@ -192,7 +192,7 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
                                             <Check className={cn("mr-2 h-4 w-4", isSelected ? "opacity-100" : "opacity-0")} />
                                             <span className="text-sm">{dest.name}</span>
                                             {dest.country_name && (
-                                                <span className="ml-auto text-xs text-slate-400">{dest.country_name}</span>
+                                                <span className="ml-auto text-xs text-muted-foreground">{dest.country_name}</span>
                                             )}
                                         </CommandItem>
                                     );
@@ -214,9 +214,9 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
 function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
     return (
         <div className="space-y-4">
-            <div className="flex items-center gap-2 pb-2 border-b border-blue-100">
+            <div className="flex items-center gap-2 border-b border-border pb-2">
                 <Globe className="h-4 w-4 text-blue-600" />
-                <h3 className="text-sm font-semibold text-slate-700">Travel Requirements</h3>
+                <h3 className="text-sm font-semibold text-foreground">Travel Requirements</h3>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField control={form.control} name="travel_date" render={({ field }) => (
@@ -263,8 +263,8 @@ function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
                 )} />
                 <FormField control={form.control} name="no_of_pax" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Total Pax</FormLabel>
-                        <FormControl><Input type="number" readOnly disabled className="bg-slate-50 text-slate-500 cursor-not-allowed" {...field} /></FormControl>
+                        <FormLabel className="text-sm font-medium">Total Pax</FormLabel>
+                        <FormControl><Input type="number" readOnly disabled className="cursor-not-allowed bg-muted text-foreground" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />

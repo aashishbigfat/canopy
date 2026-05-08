@@ -71,11 +71,11 @@ function DefaultErrorFallback({
   retry: () => void;
 }) {
   return (
-    <div className="min-h-[400px] flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="app-error-boundary-shell min-h-[400px] flex items-center justify-center p-4">
+      <Card className="app-error-boundary-card w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-4">
-            <AlertTriangle className="w-6 h-6 text-red-600" />
+          <div className="app-error-boundary-icon mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full">
+            <AlertTriangle className="h-6 w-6" />
           </div>
           <CardTitle className="text-red-800">Something went wrong</CardTitle>
           <CardDescription>
@@ -154,7 +154,7 @@ export function ComponentErrorBoundary({
   componentName?: string;
 }) {
   const CustomFallback = ({ retry }: { retry: () => void }) => (
-    <div className="p-4 border border-red-200 rounded-lg bg-red-50">
+    <div className="app-inline-component-error rounded-lg p-4">
       <div className="flex items-center gap-2 text-red-800 mb-2">
         <AlertTriangle className="w-4 h-4" />
         <span className="font-medium">{componentName} Error</span>

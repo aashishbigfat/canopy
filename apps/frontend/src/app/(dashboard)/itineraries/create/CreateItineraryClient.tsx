@@ -74,18 +74,18 @@ export default function CreateItineraryClient() {
     };
 
     return (
-        <form onSubmit={handleSubmit} className="p-6 max-w-[1400px] mx-auto space-y-6">
-            <h1 className="text-2xl font-semibold text-slate-800">Create Itinerary</h1>
+        <form onSubmit={handleSubmit} className="mx-auto max-w-[1400px] space-y-6 p-6">
+            <h1 className="text-2xl font-semibold text-foreground">Create Itinerary</h1>
 
-            <div className="grid lg:grid-cols-[1fr_400px] gap-8 bg-white p-6 rounded-lg shadow-sm">
+            <div className="grid gap-8 rounded-lg border border-border bg-card p-6 shadow-sm lg:grid-cols-[1fr_400px]">
                 
                 <div className="space-y-6">
                     {/* Itinerary Name */}
                     <div className="space-y-1.5">
-                        <label className="text-sm font-medium text-slate-600 block">Itinerary Name</label>
+                        <label className="block text-sm font-medium text-foreground/90">Itinerary Name</label>
                         <Input 
                             placeholder="Please type your tour name..." 
-                            className="w-full bg-white"
+                            className="w-full bg-background"
                             value={formData.name}
                             onChange={e => setFormData({ ...formData, name: e.target.value })}
                         />
@@ -94,10 +94,10 @@ export default function CreateItineraryClient() {
                     <div className="grid md:grid-cols-2 gap-6">
                         {/* Tour Start */}
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-600 block">Tour start</label>
+                            <label className="block text-sm font-medium text-foreground/90">Tour start</label>
                             <Input 
                                 placeholder="Tour starts from" 
-                                className="w-full bg-white" 
+                                className="w-full bg-background"
                                 value={formData.tour_starts_from}
                                 onChange={e => setFormData({ ...formData, tour_starts_from: e.target.value })}
                             />
@@ -105,14 +105,14 @@ export default function CreateItineraryClient() {
 
                         {/* Tour End */}
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-600 flex items-center justify-between">
+                            <label className="flex items-center justify-between text-sm font-medium text-foreground/90">
                                 Tour End
-                                <label className="flex items-center gap-2 cursor-pointer font-normal text-xs text-slate-600 bg-slate-50 px-2 py-1 rounded">
+                                <label className="flex cursor-pointer items-center gap-2 rounded bg-muted px-2 py-1 text-xs font-normal text-muted-foreground">
                                     <input 
                                         type="checkbox" 
                                         checked={formData.tour_ends_same}
                                         onChange={e => setFormData({ ...formData, tour_ends_same: e.target.checked })}
-                                        className="rounded border-slate-300 text-blue-500 focus:ring-blue-500" 
+                                        className="rounded border-border text-blue-500 focus:ring-blue-500"
                                     />
                                     Tour ends on same destination
                                 </label>
@@ -120,7 +120,7 @@ export default function CreateItineraryClient() {
                             {/* Disabled if end same */}
                             <Input 
                                 placeholder="Tour ends on" 
-                                className="w-full bg-slate-50"
+                                className="w-full bg-muted"
                                 disabled={formData.tour_ends_same}
                                 value={formData.tour_ends_same ? formData.tour_starts_from : ""}
                                 readOnly={formData.tour_ends_same}
@@ -132,9 +132,9 @@ export default function CreateItineraryClient() {
                         {/* Tour Destinations */}
                         <div className="space-y-4">
                             <div className="flex items-center justify-between">
-                                <label className="text-sm font-medium text-slate-600">Tour Destinations</label>
-                                <label className="flex items-center gap-2 cursor-pointer font-normal text-xs text-slate-600">
-                                    <input type="checkbox" className="rounded border-slate-300 text-blue-500" />
+                                <label className="text-sm font-medium text-foreground/90">Tour Destinations</label>
+                                <label className="flex cursor-pointer items-center gap-2 text-xs font-normal text-muted-foreground">
+                                    <input type="checkbox" className="rounded border-border text-blue-500" />
                                     Search Destination
                                 </label>
                             </div>
@@ -142,27 +142,27 @@ export default function CreateItineraryClient() {
                                 {/* Simulated autocomplete input */}
                                 <Input 
                                     placeholder="Search Destination name here..." 
-                                    className="w-full bg-white" 
+                                    className="w-full bg-background"
                                 />
                             </div>
                         </div>
 
                         {/* Tour Duration */}
                         <div className="space-y-1.5">
-                            <label className="text-sm font-medium text-slate-600 block">Tour Duration</label>
+                            <label className="block text-sm font-medium text-foreground/90">Tour Duration</label>
                             <div className="flex items-center gap-4">
                                 <Input 
                                     placeholder="No. of Night" 
-                                    className="flex-1 bg-white" 
+                                    className="flex-1 bg-background"
                                     type="number"
                                     min="0"
                                     value={formData.total_nights}
                                     onChange={e => setFormData({ ...formData, total_nights: e.target.value })}
                                 />
-                                <span className="text-slate-400 font-light text-2xl">/</span>
+                                <span className="text-2xl font-light text-muted-foreground">/</span>
                                 <Input 
                                     placeholder="No. of Days" 
-                                    className="flex-1 bg-white" 
+                                    className="flex-1 bg-background"
                                     type="number"
                                     min="0"
                                     value={formData.total_days}
@@ -175,14 +175,14 @@ export default function CreateItineraryClient() {
                     <div className="grid md:grid-cols-2 gap-6 mt-4">
                         {/* Features */}
                         <div className="space-y-3">
-                            <label className="text-sm font-medium text-slate-600">
+                            <label className="text-sm font-medium text-foreground/90">
                                 Choose Feature Image <span className="text-amber-500">(Optional)</span>
                             </label>
                             <div className="flex items-center gap-4">
                                 <Button type="button" className="bg-[#48b5e5] hover:bg-[#3ba2cf] text-white">
                                     Tour feature image
                                 </Button>
-                                <span className="text-xs text-slate-400 bg-slate-100 px-3 py-1.5 rounded">No image selected</span>
+                                <span className="rounded bg-muted px-3 py-1.5 text-xs text-muted-foreground">No image selected</span>
                             </div>
                             <p className="text-xs text-red-500">
                                 <span className="font-semibold">Note:</span> Choose feature image from your local computer <button type="button" className="text-blue-500 hover:underline">Click here</button>
@@ -191,7 +191,7 @@ export default function CreateItineraryClient() {
                         
                         {/* Overview */}
                         <div className="space-y-3">
-                            <label className="text-sm font-medium text-slate-600">
+                            <label className="text-sm font-medium text-foreground/90">
                                 Tour Overview <span className="text-amber-500">(Optional)</span>
                             </label>
                             <div>
@@ -203,13 +203,13 @@ export default function CreateItineraryClient() {
 
                         {/* Tour Includes */}
                         <div className="space-y-3 md:col-start-2 border-t pt-4 mt-2">
-                            <label className="text-sm font-medium text-slate-600 block mb-2">Tour Includes</label>
+                            <label className="mb-2 block text-sm font-medium text-foreground/90">Tour Includes</label>
                             <div className="space-y-2">
                                 {inclusionsList.map(item => (
-                                    <label key={item} className="flex items-center gap-2 cursor-pointer text-sm text-slate-700">
+                                    <label key={item} className="flex cursor-pointer items-center gap-2 text-sm text-foreground">
                                         <input 
                                             type="checkbox" 
-                                            className="w-4 h-4 rounded border-slate-300 text-blue-500 focus:ring-blue-500" 
+                                            className="h-4 w-4 rounded border-border text-blue-500 focus:ring-blue-500"
                                             checked={formData.inclusions.includes(item)}
                                             onChange={() => handleToggleInclusion(item)}
                                         />
@@ -222,13 +222,13 @@ export default function CreateItineraryClient() {
                 </div>
 
                 {/* Map Area Placeholder */}
-                <div className="bg-[#a3b1a8] rounded flex flex-col items-center justify-center min-h-[400px] relative overflow-hidden shadow-inner">
+                <div className="relative flex min-h-[400px] flex-col items-center justify-center overflow-hidden rounded border border-border bg-muted/40 shadow-inner">
                     <div className="absolute inset-0 opacity-30 pointer-events-none" 
                          style={{ backgroundImage: 'radial-gradient(circle, #666 1px, transparent 1px)', backgroundSize: '10px 10px' }} 
                     />
-                    <Map className="h-16 w-16 text-slate-600/50 mb-4" />
-                    <span className="text-slate-800 font-semibold mb-1 z-10 text-center">For development purposes only</span>
-                    <span className="text-slate-700 text-sm z-10">Map placeholder (feature to be added)</span>
+                    <Map className="mb-4 h-16 w-16 text-muted-foreground/70" />
+                    <span className="z-10 mb-1 text-center font-semibold text-foreground">For development purposes only</span>
+                    <span className="z-10 text-sm text-muted-foreground">Map placeholder (feature to be added)</span>
                 </div>
                 
             </div>
@@ -243,11 +243,11 @@ export default function CreateItineraryClient() {
                 </Button>
             </div>
             
-            <div className="text-xs text-slate-400 text-center mt-12 py-4 border-t">
+            <div className="mt-12 border-t border-border py-4 text-center text-xs text-muted-foreground">
                 Copyright © TutterflyCRM | All Rights Reserved.
                 <div className="float-right space-x-4">
-                    <a href="#" className="hover:text-slate-600">Terms of use</a>
-                    <a href="#" className="hover:text-slate-600">Privacy Policy</a>
+                    <a href="#" className="text-blue-500 hover:text-blue-600">Terms of use</a>
+                    <a href="#" className="text-blue-500 hover:text-blue-600">Privacy Policy</a>
                 </div>
             </div>
         </form>

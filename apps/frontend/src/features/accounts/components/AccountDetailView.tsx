@@ -98,7 +98,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
     });
 
     return (
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="container mx-auto max-w-7xl px-4 py-6 [&_.bg-white]:!bg-card [&_.border-slate-100]:!border-border [&_.border-slate-200]:!border-border [&_.border-slate-300]:!border-border [&_.text-slate-800]:!text-foreground [&_.text-slate-700]:!text-foreground [&_.text-slate-600]:!text-foreground/90 [&_.text-slate-500]:!text-muted-foreground [&_.text-slate-400]:!text-muted-foreground [&_.text-slate-300]:!text-muted-foreground">
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
@@ -188,36 +188,36 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 New
                                             </Button>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
                                             {account.related_contacts?.map((contact) => (
                                                 <Link href={`/contacts/${contact.id}`} key={contact.id} className="block">
-                                                    <Card className="hover:border-blue-300 transition-all shadow-sm h-full rounded-md border-slate-200">
-                                                        <CardContent className="p-2.5 relative">
-                                                            <div className="flex gap-2.5 items-start">
+                                                    <Card className="h-full rounded-lg border-border bg-card transition-all hover:border-blue-400/60 hover:shadow-md">
+                                                        <CardContent className="p-3">
+                                                            <div className="flex items-start gap-2.5">
                                                                 <div className="space-y-1 w-full">
-                                                                    <p className="text-[13px] text-blue-500 hover:underline cursor-pointer font-bold leading-tight truncate">
+                                                                    <p className="truncate text-[13px] font-bold leading-tight text-blue-500 hover:underline">
                                                                         {contact.first_name} {contact.last_name}
                                                                     </p>
                                                                     
-                                                                    <div className="flex items-center gap-1.5 text-slate-600 mt-2">
-                                                                        <div className="h-4 w-4 rounded-sm bg-slate-100 flex items-center justify-center shrink-0">
-                                                                            <UserIcon className="h-2.5 w-2.5 text-slate-500" />
+                                                                    <div className="mt-2 flex items-center gap-1.5 text-muted-foreground">
+                                                                        <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted">
+                                                                            <UserIcon className="h-2.5 w-2.5 text-muted-foreground" />
                                                                         </div>
-                                                                        <span className="text-[11px] font-bold text-slate-500 truncate">{contact.title || "No Title"}</span>
+                                                                        <span className="truncate text-[11px] font-semibold text-muted-foreground">{contact.title || "No Title"}</span>
                                                                     </div>
                                                                     
-                                                                    <div className="flex items-center gap-1.5 text-slate-600 mt-1">
-                                                                        <div className="h-4 w-4 rounded-sm bg-slate-100 flex items-center justify-center shrink-0">
-                                                                            <svg xmlns="http://www.w3.org/2000/xyz" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail h-2.5 w-2.5 text-slate-500"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+                                                                    <div className="mt-1 flex items-center gap-1.5 text-muted-foreground">
+                                                                        <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted">
+                                                                            <svg xmlns="http://www.w3.org/2000/xyz" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-mail h-2.5 w-2.5 text-muted-foreground"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
                                                                         </div>
-                                                                        <span className="text-[11px] font-bold text-slate-500 truncate">{contact.email || "No Email"}</span>
+                                                                        <span className="truncate text-[11px] font-semibold text-muted-foreground">{contact.email || "No Email"}</span>
                                                                     </div>
                                                                     
-                                                                    <div className="flex items-center gap-1.5 text-slate-600 mt-1">
-                                                                        <div className="h-4 w-4 rounded-sm bg-slate-100 flex items-center justify-center shrink-0">
-                                                                            <svg xmlns="http://www.w3.org/2000/xyz" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-phone h-2.5 w-2.5 text-slate-500"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                                                                    <div className="mt-1 flex items-center gap-1.5 text-muted-foreground">
+                                                                        <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-sm bg-muted">
+                                                                            <svg xmlns="http://www.w3.org/2000/xyz" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-phone h-2.5 w-2.5 text-muted-foreground"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                                                                         </div>
-                                                                        <span className="text-[11px] font-bold text-slate-500 truncate">{contact.phone || contact.mobile || "-"}</span>
+                                                                        <span className="truncate text-[11px] font-semibold text-muted-foreground">{contact.phone || contact.mobile || "-"}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -263,8 +263,8 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
 
                             <TabsContent value="details" className="mt-0">
                                 <div className="space-y-6">
-                                    <Card>
-                                        <CardHeader className="pb-3 border-b bg-slate-50/50">
+                                    <Card className="border-border bg-card">
+                                        <CardHeader className="border-b border-border bg-muted/40 pb-3">
                                             <CardTitle className="text-sm font-bold flex items-center gap-2">
                                                 <Building2 className="h-4 w-4 text-blue-600" />
                                                 Account Information
@@ -311,7 +311,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                         title="Address Information"
                                         icon={<MapPin className="h-4 w-4" />}
                                         defaultOpen={false}
-                                        className="border-slate-200"
+                                        className="border-border"
                                     >
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
@@ -341,7 +341,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                         title="System Information"
                                         icon={<UserIcon className="h-4 w-4" />}
                                         defaultOpen={false}
-                                        className="border-slate-200"
+                                        className="border-border"
                                     >
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
@@ -364,10 +364,10 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50">
-                                    <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
-                                    <p className="text-slate-500">No attachments found.</p>
-                                    <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
+                                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                                    <Paperclip className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
+                                    <p className="text-muted-foreground">No attachments found.</p>
+                                    <Button variant="outline" size="sm" className="mt-4 border-border">Upload File</Button>
                                 </div>
                             </TabsContent>
                         </div>

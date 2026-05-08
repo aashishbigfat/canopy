@@ -331,10 +331,10 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                     icon={<DollarSign className="h-4 w-4 text-blue-600" />}
                     label="Opp. Amount"
                     value={formatCurrency(opportunityAmount)}
-                    bg="bg-blue-50 border-blue-100"
-                    iconBg="bg-blue-100"
-                    labelColor="text-blue-500"
-                    valueColor="text-blue-700"
+                    bg="bg-blue-500/10 border-blue-500/30"
+                    iconBg="bg-blue-500/15"
+                    labelColor="text-blue-300"
+                    valueColor="text-blue-200"
                 />
                 <SummaryCard
                     icon={<ShoppingCart className="h-4 w-4 text-slate-600" />}
@@ -358,10 +358,10 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                     icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-600" : "text-red-600"}`} />}
                     label={profitPct >= 0 ? "Profit %" : "Loss %"}
                     value={`${profitPct.toFixed(2)}%`}
-                    bg={profitPct >= 0 ? "bg-purple-50 border-purple-100" : "bg-red-50 border-red-100"}
-                    iconBg={profitPct >= 0 ? "bg-purple-100" : "bg-red-100"}
-                    labelColor={profitPct >= 0 ? "text-purple-500" : "text-red-500"}
-                    valueColor={profitPct >= 0 ? "text-purple-700" : "text-red-700"}
+                    bg={profitPct >= 0 ? "bg-purple-500/10 border-purple-500/30" : "bg-red-500/10 border-red-500/30"}
+                    iconBg={profitPct >= 0 ? "bg-purple-500/15" : "bg-red-500/15"}
+                    labelColor={profitPct >= 0 ? "text-purple-300" : "text-red-300"}
+                    valueColor={profitPct >= 0 ? "text-purple-200" : "text-red-200"}
                 />
             </div>
 
@@ -509,18 +509,18 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                         ))}
 
                         {/* ── Fixed: Tax Row ── */}
-                        <tr className="bg-amber-50/30 hover:bg-amber-50/60 transition-colors">
+                        <tr className="bg-muted/40 transition-colors hover:bg-muted/60">
                             <td className="px-3 py-2.5">
-                                <span className="text-amber-700 font-medium text-xs">Tax</span>
+                                <span className="text-primary font-medium text-xs">Tax</span>
                             </td>
                             <td className="px-3 py-2">
                                 {/* Bug 4: tenant-specific supplier name */}
-                                <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 h-8 flex items-center">
+                                <div className="h-8 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground/90 flex items-center">
                                     {fixedSupplierName}
                                 </div>
                             </td>
                             <td className="px-3 py-2">
-                                <div className="text-xs text-slate-400 italic py-1.5"></div>
+                                <div className="py-1.5 text-xs italic text-muted-foreground"></div>
                             </td>
                             <td className="px-3 py-2">
                                 {/* Bug 2: clamp to >= 0 */}
@@ -538,13 +538,13 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                         </tr>
 
                         {/* ── Fixed: Miscellaneous Row ── */}
-                        <tr className="bg-amber-50/30 hover:bg-amber-50/60 transition-colors">
+                        <tr className="bg-muted/40 transition-colors hover:bg-muted/60">
                             <td className="px-3 py-2.5">
-                                <span className="text-amber-700 font-medium text-xs">Miscellaneous</span>
+                                <span className="text-primary font-medium text-xs">Miscellaneous</span>
                             </td>
                             <td className="px-3 py-2">
                                 {/* Bug 4: tenant-specific supplier name */}
-                                <div className="text-sm text-slate-500 bg-slate-50 border border-slate-200 rounded-md px-3 py-1.5 h-8 flex items-center">
+                                <div className="h-8 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground/90 flex items-center">
                                     {fixedSupplierName}
                                 </div>
                             </td>
@@ -578,10 +578,10 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
             {/* ── Empty State ── */}
             {items.length === 0 && !taxItem.amount && !miscItem.amount && (
-                <div className="text-center py-6 border-2 border-dashed border-slate-200 rounded-lg bg-slate-50/50">
-                    <ShoppingCart className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                    <p className="text-slate-500 font-medium text-sm">No costing items added yet</p>
-                    <p className="text-slate-400 text-xs mt-1">Use the &quot;Add Item&apos;s&quot; picker above to add costing items</p>
+                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-6 text-center">
+                    <ShoppingCart className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm font-medium text-foreground">No costing items added yet</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Use the &quot;Add Item&apos;s&quot; picker above to add costing items</p>
                 </div>
             )}
 

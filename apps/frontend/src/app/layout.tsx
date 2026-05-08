@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import "./error-feedback.css";
 import { Providers } from "@/lib/providers";
 import { PageErrorBoundary } from "@/components/ui/error-boundary";
 import { getServerSession } from "next-auth";
