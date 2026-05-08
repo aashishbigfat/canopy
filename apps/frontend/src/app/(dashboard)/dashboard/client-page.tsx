@@ -184,11 +184,11 @@ export default function DashboardClientPage() {
 
             {/* Key Deals table */}
             <div className="crm-surface overflow-hidden p-6">
-                <h3 className="mb-5 text-lg font-bold text-slate-900">Key Deals</h3>
+                <h3 className="mb-5 text-lg font-bold text-foreground">Key Deals</h3>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm font-medium">
                         <thead>
-                            <tr className="border-b border-slate-100 text-left text-slate-400">
+                            <tr className="border-b border-border text-left text-muted-foreground">
                                 <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">ID</th>
                                 <th className="pb-4 pr-3 font-bold uppercase tracking-wider text-[11px]">Name</th>
                                 {industry === "travel" && (
@@ -225,52 +225,52 @@ export default function DashboardClientPage() {
                                 safeKeyDeals.map((deal: any) => {
                                     const idata = deal.industry_data || {};
                                     return (
-                                        <tr key={deal.id} className="border-b last:border-0 hover:bg-slate-50 transition-colors">
-                                            <td className="py-3.5 pr-3 text-slate-500">
-                                                <Link href={`/opportunities/${deal.id}`} className="hover:text-indigo-600 hover:underline">
+                                        <tr key={deal.id} className="border-b border-border last:border-0 hover:bg-accent/40 transition-colors">
+                                            <td className="py-3.5 pr-3 text-muted-foreground">
+                                                <Link href={`/opportunities/${deal.id}`} className="text-foreground/80 hover:text-primary hover:underline">
                                                     #{deal.id.substring(deal.id.length - 4)}
                                                 </Link>
                                             </td>
-                                            <td className="py-3.5 pr-3 font-semibold text-slate-900">
-                                                <Link href={`/opportunities/${deal.id}`} className="hover:text-indigo-600 hover:underline">
+                                            <td className="py-3.5 pr-3 font-semibold text-foreground">
+                                                <Link href={`/opportunities/${deal.id}`} className="text-foreground hover:text-primary hover:underline">
                                                     {deal.name}
                                                 </Link>
                                             </td>
                                             {industry === "travel" && (
                                                 <>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.travel_date || "-"}</td>
-                                                    <td className="py-3.5 pr-3 text-slate-500">
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.travel_date || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">
                                                         {idata.no_of_pax || 0} / {idata.no_of_nights || 0}
                                                     </td>
                                                 </>
                                             )}
                                             {industry === "healthcare" && (
                                                 <>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.urgency || "-"}</td>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.patient_type || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.urgency || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.patient_type || "-"}</td>
                                                 </>
                                             )}
                                             {industry === "education" && (
                                                 <>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.program || "-"}</td>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.academic_term || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.program || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.academic_term || "-"}</td>
                                                 </>
                                             )}
                                             {industry === "manufacturing" && (
                                                 <>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.product_category || "-"}</td>
-                                                    <td className="py-3.5 pr-3 text-slate-500">{idata.quantity || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.product_category || "-"}</td>
+                                                    <td className="py-3.5 pr-3 text-muted-foreground">{idata.quantity || "-"}</td>
                                                 </>
                                             )}
                                             <td className="py-3.5 pr-3 font-semibold text-emerald-600">
                                                 {deal.amount ? `₹${Number(deal.amount).toLocaleString("en-IN")}` : "-"}
                                             </td>
                                             <td className="py-3.5 pr-3">
-                                                <span className="inline-flex rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                                                <span className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">
                                                     {deal.stage}
                                                 </span>
                                             </td>
-                                            <td className="py-3.5 text-slate-500">{deal.owner_name}</td>
+                                            <td className="py-3.5 text-muted-foreground">{deal.owner_name}</td>
                                         </tr>
                                     );
                                 })
