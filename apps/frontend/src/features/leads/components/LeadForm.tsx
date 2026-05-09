@@ -655,7 +655,7 @@ export function LeadForm({
         if (!domain) return;
 
         const isPublic = PUBLIC_EMAIL_DOMAINS.some(d => domain === d || domain.endsWith("." + d));
-        const detectedSegment = isPublic ? "B2C" : "B2B";
+        const detectedSegment = isPublic ? "B2C" : "B2B"; // B2B = Corporate (default for work domains)
 
         form.setValue("segment", detectedSegment);
     }, [email, form]);
@@ -820,6 +820,7 @@ export function LeadForm({
                                             <SelectContent>
                                                 <SelectItem value="B2C">B2C (Individual)</SelectItem>
                                                 <SelectItem value="B2B">B2B (Corporate)</SelectItem>
+                                                <SelectItem value="B2B_DIRECT">B2B</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -1124,6 +1125,7 @@ export function LeadForm({
                                                     <SelectContent>
                                                         <SelectItem value="B2C">B2C (Individual)</SelectItem>
                                                         <SelectItem value="B2B">B2B (Corporate)</SelectItem>
+                                                        <SelectItem value="B2B_DIRECT">B2B</SelectItem>
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />

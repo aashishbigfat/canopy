@@ -539,6 +539,7 @@ class LeadService(ActivityMixin):
                     industry_id=lead.industry_id,
                     account_source_id=lead.source_id,
                     is_person_account=is_person_account,
+                    segment=lead.segment,
                     salutation=p_salutation,
                     first_name=p_first_name,
                     last_name=p_last_name,

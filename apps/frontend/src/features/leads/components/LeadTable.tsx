@@ -42,6 +42,7 @@ import { LoadingState, LoadingTable } from "@/components/ui/loading";
 import Link from "next/link";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
 import { useIndustry, type IndustryType } from "@/lib/industry-labels";
+import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 
 export const getColumns = (
     statuses: LeadStatus[],
@@ -237,10 +238,8 @@ export const getColumns = (
                 if (!segment) return <div className="text-sm text-muted-foreground">-</div>;
 
                 return (
-                    <Badge variant={segment === "B2B" ? "outline" : "secondary"} className={
-                        segment === "B2B" ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-                    }>
-                        {segment}
+                    <Badge variant={segment === "B2C" ? "secondary" : "outline"} className={getSegmentBadgeClass(segment)}>
+                        {getSegmentLabel(segment)}
                     </Badge>
                 );
             },

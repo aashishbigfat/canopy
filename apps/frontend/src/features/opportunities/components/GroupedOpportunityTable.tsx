@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate, formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useIndustry, type IndustryType } from "@/lib/industry-labels";
+import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 
 interface GroupedOpportunityTableProps {
     data: Opportunity[];
@@ -89,9 +90,9 @@ function OppRow({
             <TableCell className="py-2.5">
                 <span className={cn(
                     "text-[11px] font-bold px-1.5 py-0.5 rounded uppercase",
-                    opp.segment === "B2B" ? "bg-violet-100 text-violet-700" : "bg-primary/10 text-primary"
+                    getSegmentBadgeClass(opp.segment)
                 )}>
-                    {opp.segment || "B2C"}
+                    {getSegmentLabel(opp.segment)}
                 </span>
             </TableCell>
 

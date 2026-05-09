@@ -1,13 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { isPersonAccountEmail } from "@/lib/utils";
+
 
 interface AccountOverviewTabProps {
     account: any;
 }
 
 export function AccountOverviewTab({ account }: AccountOverviewTabProps) {
-    const isB2C = isPersonAccountEmail(account.email);
+    const isB2C = account.is_person_account;
 
     return (
         <div className="grid gap-6 md:grid-cols-2">

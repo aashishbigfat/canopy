@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional
 import asyncio
 from bson import ObjectId
+from app.core.segment_constants import Segment
 
 from app.models.user import User
 from app.models.tenant import Tenant
@@ -313,10 +314,10 @@ async def get_opportunities(
                 account_name = account.name
                 is_person_account = getattr(account, 'is_person_account', False)
 
-            # Segment - derived from model or account type
+            # Segment - use stored value; only fall back when truly missing
             segment = getattr(opp, 'segment', None)
-            if not segment or segment == "B2C": # If default or missing, check account type
-                segment = "B2C" if is_person_account else "B2B"
+            if not segment:
+                segment = Segment.default_for_account(is_person_account)
             
             creation_type = "Manual"
             if opp.lead_id:
@@ -438,8 +439,8 @@ async def get_opportunity(
                 last_modified_by_name = last_modified_by_user.name
         
         segment = getattr(opportunity, 'segment', None)
-        if not segment or segment == "B2C":
-            segment = "B2C" if is_person_account else "B2B"
+        if not segment:
+            segment = Segment.default_for_account(is_person_account)
         
         creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
             
@@ -580,8 +581,8 @@ async def update_opportunity(
                 opp_response.contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
 
         opp_response.segment = getattr(opportunity, 'segment', None)
-        if not opp_response.segment or opp_response.segment == "B2C":
-            opp_response.segment = "B2C" if opp_response.is_person_account else "B2B"
+        if not opp_response.segment:
+            opp_response.segment = Segment.default_for_account(opp_response.is_person_account)
             
         opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
@@ -717,8 +718,8 @@ async def change_opportunity_stage(
                 opp_response.contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
 
         opp_response.segment = getattr(opportunity, 'segment', None)
-        if not opp_response.segment or opp_response.segment == "B2C":
-            opp_response.segment = "B2C" if opp_response.is_person_account else "B2B"
+        if not opp_response.segment:
+            opp_response.segment = Segment.default_for_account(opp_response.is_person_account)
             
         opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"

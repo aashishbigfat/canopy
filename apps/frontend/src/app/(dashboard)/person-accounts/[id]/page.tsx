@@ -38,11 +38,10 @@ export default async function PersonAccountDetailPage(props: {
     const params = await props.params;
     const account = await getAccountDetail(params.id, session.accessToken);
 
-    const { isPersonAccountEmail } = await import("@/lib/utils");
     const { redirect } = await import("next/navigation");
 
     // Ensure we are viewing the right type of account
-    if (!isPersonAccountEmail(account.email)) {
+    if (!account.is_person_account) {
         redirect(`/accounts/${params.id}`);
     }
 

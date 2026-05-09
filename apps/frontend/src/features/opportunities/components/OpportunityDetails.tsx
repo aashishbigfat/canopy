@@ -84,6 +84,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { EmailEditor } from "@/components/shared/EmailEditor";
 import { Input } from "@/components/ui/input";
 import { useIndustry } from "@/lib/industry-labels";
+import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 
 interface OpportunityDetailsProps {
     opportunity: Opportunity;
@@ -711,8 +712,8 @@ export function OpportunityDetails({
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
-                                                <Badge variant="secondary" className={cn("uppercase font-bold mt-1", record.segment === "B2B" ? "bg-purple-100 text-purple-700" : "bg-blue-100 text-blue-700")}>
-                                                    {record.segment || "B2C"}
+                                                <Badge variant="secondary" className={cn("uppercase font-bold mt-1", getSegmentBadgeClass(record.segment))}>
+                                                    {getSegmentLabel(record.segment)}
                                                 </Badge>
                                             </div>
                                             <div className="space-y-1">

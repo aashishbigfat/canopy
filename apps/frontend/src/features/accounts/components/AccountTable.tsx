@@ -11,7 +11,7 @@ import {
 import { ChevronDown, Eye, Briefcase, RefreshCw, Filter, X } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
-import { isPersonAccountEmail } from "@/lib/utils";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +32,7 @@ export const columns: ColumnDef<Account>[] = [
         header: "Account Name",
         cell: ({ row }) => {
             const account = row.original;
-            const isB2C = account.email ? isPersonAccountEmail(account.email) : false;
+            const isB2C = account.is_person_account;
             const basePath = isB2C ? "person-accounts" : "accounts";
 
             return (

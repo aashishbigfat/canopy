@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
 import { useState } from "react";
+import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 
 interface EntityDetailHeaderProps {
     type: "Contact" | "Account" | "Person Account" | "Lead" | "Supplier";
@@ -72,8 +73,8 @@ export function EntityDetailHeader({
                             <div className="flex items-center gap-2">
                                 <h1 className="text-2xl font-semibold">{name}</h1>
                                 {badge && (
-                                    <Badge variant="outline" className="ml-2">
-                                        {badge}
+                                    <Badge variant="outline" className={`ml-2 ${getSegmentBadgeClass(badge)}`}>
+                                        {getSegmentLabel(badge)}
                                     </Badge>
                                 )}
                                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(name)}>

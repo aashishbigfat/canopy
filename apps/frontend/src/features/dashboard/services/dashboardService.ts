@@ -17,6 +17,7 @@ export interface DashboardStats {
     open_opportunities: number;
     b2c_open_opportunities: number;
     b2b_open_opportunities: number;
+    b2b_direct_open_opportunities: number;
     today_checkout: number;
     tomorrow_departures: number;
     today_revenue: number;
@@ -44,6 +45,7 @@ export interface LeaderBoardKPIs {
     open_opportunities: number;
     b2c_open_opportunities: number;
     b2b_open_opportunities: number;
+    b2b_direct_open_opportunities: number;
     today_checkout: number;
     tomorrow_departures: number;
     today_revenue: number;
@@ -96,6 +98,7 @@ const emptyDashboardData: DashboardData = {
         open_opportunities: 0,
         b2c_open_opportunities: 0,
         b2b_open_opportunities: 0,
+        b2b_direct_open_opportunities: 0,
         today_checkout: 0,
         tomorrow_departures: 0,
         today_revenue: 0,
@@ -114,6 +117,7 @@ export function getLeaderBoardKPIs(data: DashboardData): LeaderBoardKPIs {
         open_opportunities: s?.open_opportunities ?? s?.active_opportunities ?? 0,
         b2c_open_opportunities: s?.b2c_open_opportunities ?? 0,
         b2b_open_opportunities: s?.b2b_open_opportunities ?? 0,
+        b2b_direct_open_opportunities: s?.b2b_direct_open_opportunities ?? 0,
         today_checkout: s?.today_checkout ?? 0,
         tomorrow_departures: s?.tomorrow_departures ?? 0,
         today_revenue: s?.today_revenue ?? s?.total_revenue ?? 0,
@@ -176,6 +180,7 @@ export const dashboardService = {
             open_opportunities: data.open_opportunities || 0,
             b2c_open_opportunities: data.b2c_open_opportunities || 0,
             b2b_open_opportunities: data.b2b_open_opportunities || 0,
+            b2b_direct_open_opportunities: data.b2b_direct_open_opportunities || 0,
             today_checkout: data.today_checkout || 0,
             tomorrow_departures: data.tomorrow_departures || 0,
             today_revenue: data.today_revenue || 0,

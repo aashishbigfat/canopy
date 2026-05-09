@@ -478,12 +478,20 @@ class DashboardService:
         }
         open_opportunities = await Opportunity.find(open_opps_query).count()
         
-        # B2C vs B2B Open
-        b2c_open_query = {**open_opps_query, "opportunitable_type": {"$in": ["PersonalAccount", "Individual"]}}
-        b2b_open_query = {**open_opps_query, "opportunitable_type": {"$nin": ["PersonalAccount", "Individual"]}} # Default to B2B
+        # B2C vs B2B (Corporate) vs B2B_DIRECT Open — query by stored segment field
+        from app.core.segment_constants import Segment
+        b2c_open_query = {**open_opps_query, "segment": Segment.B2C}
+        b2b_open_query = {**open_opps_query, "segment": Segment.B2B}
+        b2b_direct_open_query = {**open_opps_query, "segment": Segment.B2B_DIRECT}
+        # Catch-all: opportunities with no segment set yet count as B2C (person) or B2B (corp)
+        no_segment_query = {**open_opps_query, "$or": [{"segment": None}, {"segment": {"$exists": False}}]}
         
         b2c_open_opportunities = await Opportunity.find(b2c_open_query).count()
         b2b_open_opportunities = await Opportunity.find(b2b_open_query).count()
+        b2b_direct_open_opportunities = await Opportunity.find(b2b_direct_open_query).count()
+        # Add untagged opportunities to B2C count (legacy data before segment field was introduced)
+        no_segment_count = await Opportunity.find(no_segment_query).count()
+        b2c_open_opportunities += no_segment_count
         
         # ── Travel-specific KPIs (only computed for travel tenants) ────────
         tomorrow_departures = 0
@@ -545,6 +553,7 @@ class DashboardService:
             "open_opportunities": open_opportunities,
             "b2c_open_opportunities": b2c_open_opportunities,
             "b2b_open_opportunities": b2b_open_opportunities,
+            "b2b_direct_open_opportunities": b2b_direct_open_opportunities,
             "today_checkout": today_checkout,
             "tomorrow_departures": tomorrow_departures,
             "today_revenue": today_revenue,

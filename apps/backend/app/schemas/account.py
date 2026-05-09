@@ -32,6 +32,7 @@ class AccountBase(BaseModel):
     website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
     description: Optional[str] = None
     is_person_account: bool = False
+    segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
     
     # Person Account specific fields
     salutation: Optional[str] = None
@@ -105,6 +106,7 @@ class AccountUpdate(BaseModel):
     industry_id: Optional[str] = None
     
     custom_fields: Optional[Dict[str, Any]] = None
+    segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
 
 
 class AccountResponse(AccountBase):

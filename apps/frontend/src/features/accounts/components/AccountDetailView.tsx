@@ -28,7 +28,6 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { isPersonAccountEmail } from "@/lib/utils";
 import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
@@ -45,6 +44,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { formatDateTime } from "@/lib/format";
+import { getSegmentBadgeClass, getSegmentLabel, SEGMENTS } from "@/lib/segments";
 
 interface AccountDetailViewProps {
     account: Account & {
@@ -59,9 +59,10 @@ interface AccountDetailViewProps {
 }
 
 export function AccountDetailView({ account }: AccountDetailViewProps) {
-    const isB2C = isPersonAccountEmail(account.email);
+    const isB2C = account.is_person_account;
     const headerType = isB2C ? "Person Account" : "Account";
-    const badgeLabel = isB2C ? "B2C" : "B2B";
+    // Use the stored segment field; fall back to is_person_account derivation for legacy records
+    const badgeLabel = account.segment || (isB2C ? SEGMENTS.B2C : SEGMENTS.B2B);
     const queryClient = useQueryClient();
     const router = useRouter();
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);

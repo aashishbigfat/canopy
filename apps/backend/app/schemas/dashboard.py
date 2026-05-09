@@ -186,6 +186,7 @@ class AnalyticsSummary(BaseModel):
     open_opportunities: int = 0
     b2c_open_opportunities: int = 0
     b2b_open_opportunities: int = 0
+    b2b_direct_open_opportunities: int = 0
     today_checkout: int = 0
     tomorrow_departures: int = 0
     today_revenue: float = 0.0
