@@ -2,11 +2,13 @@ name: Deploy (EC2 + Vercel)
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - "apps/backend/**"
       - "apps/frontend/**"
       - ".github/workflows/deploy.yml"
+
   workflow_dispatch:
     inputs:
       deploy_target:
@@ -18,6 +20,7 @@ on:
           - all
           - backend-only
           - frontend-only
+
       environment:
         description: "Deployment environment"
         required: true
@@ -26,6 +29,7 @@ on:
         options:
           - production
           - staging
+
       force_rebuild:
         description: "Force rebuild backend image without cache"
         required: false
@@ -35,16 +39,31 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: production-deploy
+  cancel-in-progress: true
+
 env:
   AWS_REGION: ap-south-1
   ECR_REPOSITORY: tutterfly-backend
 
 jobs:
   build-and-push-backend:
+    name: Build & Push Backend
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'backend-only'))
+
+    if: |
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        (
+          github.event.inputs.deploy_target == 'all' ||
+          github.event.inputs.deploy_target == 'backend-only'
+        )
+      )
+
     steps:
-      - name: Checkout repo
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up QEMU
@@ -53,7 +72,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Configure AWS credentials
+      - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -64,50 +83,104 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Build and push backend image
+      - name: Build and Push Backend Image
         uses: docker/build-push-action@v6
         with:
           context: ./apps/backend
           file: ./apps/backend/Dockerfile
           push: true
+
           tags: |
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:main
             ${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
-          cache-from: ${{ github.event.inputs.force_rebuild == 'true' && '' || format('type=registry,ref={0}/{1}:buildcache', steps.login-ecr.outputs.registry, env.ECR_REPOSITORY) }}
-          cache-to: ${{ github.event.inputs.force_rebuild == 'true' && '' || format('type=registry,ref={0}/{1}:buildcache,mode=max', steps.login-ecr.outputs.registry, env.ECR_REPOSITORY) }}
+
+          cache-from: |
+            type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache
+
+          cache-to: |
+            type=registry,ref=${{ steps.login-ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:buildcache,mode=max
+
+          no-cache: ${{ github.event.inputs.force_rebuild == 'true' }}
 
   deploy-backend:
+    name: Deploy Backend to EC2
     runs-on: ubuntu-latest
-    needs: build-and-push-backend
-    if: always() && needs.build-and-push-backend.result == 'success'
+
+    needs:
+      - build-and-push-backend
+
+    if: |
+      always() &&
+      needs.build-and-push-backend.result == 'success'
+
     steps:
-      - name: Deploy backend on EC2 via SSH
+      - name: Deploy Backend on EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_PRIVATE_KEY }}
+
           script: |
             set -e
+
             REGION="${{ env.AWS_REGION }}"
+
             ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
+
             aws ecr get-login-password --region "$REGION" | \
-              docker login --username AWS --password-stdin "${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com"
+              docker login \
+              --username AWS \
+              --password-stdin \
+              "${ACCOUNT}.dkr.ecr.${REGION}.amazonaws.com"
+
             cd /opt/apps/tutterfly
+
             docker compose pull tutterfly-backend
+
             docker compose up -d tutterfly-backend
+
             docker image prune -a -f
 
   deploy-frontend:
+    name: Deploy Frontend to Vercel
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.deploy_target == 'all' || github.event.inputs.deploy_target == 'frontend-only'))
+
+    concurrency:
+      group: vercel-production
+      cancel-in-progress: true
+
+    if: |
+      github.event_name == 'push' ||
+      (
+        github.event_name == 'workflow_dispatch' &&
+        (
+          github.event.inputs.deploy_target == 'all' ||
+          github.event.inputs.deploy_target == 'frontend-only'
+        )
+      )
+
+    env:
+      VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+
     steps:
-      - name: Trigger Vercel deploy
+      - name: Trigger Vercel Deploy Hook
         run: |
-          if [ -n "${{ secrets.VERCEL_DEPLOY_HOOK }}" ]; then
-            curl -X POST "${{ secrets.VERCEL_DEPLOY_HOOK }}"
-          elif [ -n "${{ secrets.VERCEL_HOOK_ADMIN }}" ]; then
-            curl -X POST "${{ secrets.VERCEL_HOOK_ADMIN }}"
-          else
-            echo "No Vercel deploy hook secret set (VERCEL_DEPLOY_HOOK or VERCEL_HOOK_ADMIN)"
+          set -e
+
+          if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
+            echo "ERROR: VERCEL_DEPLOY_HOOK secret is not configured."
+            exit 1
           fi
+
+          echo "Triggering Vercel deployment..."
+
+          curl -L -X POST "$VERCEL_DEPLOY_HOOK" \
+            -H "User-Agent: GitHub-Actions" \
+            -H "Content-Type: application/json" \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            --fail
+
+          echo "Vercel deployment triggered successfully."
