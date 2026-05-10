@@ -162,20 +162,29 @@ jobs:
 
     env:
       VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+      VERCEL_HOOK_ADMIN: ${{ secrets.VERCEL_HOOK_ADMIN }}
 
     steps:
       - name: Trigger Vercel Deploy Hook
         run: |
           set -e
 
-          if [ -z "$VERCEL_DEPLOY_HOOK" ]; then
-            echo "ERROR: VERCEL_DEPLOY_HOOK secret is not configured."
+          HOOK=""
+
+          if [ -n "$VERCEL_DEPLOY_HOOK" ]; then
+            HOOK="$VERCEL_DEPLOY_HOOK"
+          elif [ -n "$VERCEL_HOOK_ADMIN" ]; then
+            HOOK="$VERCEL_HOOK_ADMIN"
+          fi
+
+          if [ -z "$HOOK" ]; then
+            echo "ERROR: No Vercel deploy hook configured."
             exit 1
           fi
 
           echo "Triggering Vercel deployment..."
 
-          curl -L -X POST "$VERCEL_DEPLOY_HOOK" \
+          curl -L -X POST "$HOOK" \
             -H "User-Agent: GitHub-Actions" \
             -H "Content-Type: application/json" \
             --retry 3 \
