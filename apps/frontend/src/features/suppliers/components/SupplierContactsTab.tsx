@@ -177,7 +177,7 @@ export function SupplierContactsTab({ supplierId }: SupplierContactsTabProps) {
 
             {/* Contacts list */}
             {contacts.length === 0 && !showForm ? (
-                <div className="text-center py-16 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
+                <div className="crm-empty-state">
                     <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
                     <p className="text-slate-500 text-sm">No contacts added yet.</p>
                     <p className="text-slate-400 text-xs mt-1">Add contacts to manage all people associated with this supplier.</p>

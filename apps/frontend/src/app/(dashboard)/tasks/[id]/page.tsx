@@ -80,7 +80,7 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
         <div className="crm-page">
             <div className="crm-surface flex flex-col items-start justify-between gap-4 px-4 py-3 sm:flex-row sm:items-center">
                 <div className="flex items-center gap-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/15">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-md crm-icon-primary">
                         <ClipboardList className="h-5 w-5 text-primary" />
                     </div>
                     <div>

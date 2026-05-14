@@ -267,7 +267,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                                <div className="crm-empty-state">
                                     <Paperclip className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
                                     <p className="text-muted-foreground">No attachments found.</p>
                                     <Button variant="outline" size="sm" className="mt-4 border-border">Upload File</Button>

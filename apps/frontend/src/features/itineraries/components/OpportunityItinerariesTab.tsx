@@ -38,7 +38,7 @@ export function OpportunityItinerariesTab({ opportunityId }: OpportunityItinerar
                 <div className="flex gap-2">
                     <Button
                         onClick={handleCreateItinerary}
-                        className="h-10 bg-primary/15 px-4 font-medium text-primary shadow-none hover:bg-primary/25"
+                        className="h-10 crm-icon-primary px-4 font-medium shadow-none hover:bg-primary/25"
                     >
                         Create Itinerary
                     </Button>
@@ -55,7 +55,7 @@ export function OpportunityItinerariesTab({ opportunityId }: OpportunityItinerar
                 {isLoading ? (
                     <div className="text-center text-slate-500 py-12">Loading...</div>
                 ) : linkedItins.length === 0 ? (
-                    <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+                    <div className="crm-empty-state">
                         <Map className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
                         <p className="font-medium text-foreground">No itineraries attached</p>
                         <p className="mt-1 text-sm text-muted-foreground">Create or attach travel itineraries to plan the trip details.</p>

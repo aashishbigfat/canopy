@@ -401,7 +401,7 @@ export function LeadDetails({
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="text-center py-12 border-2 border-dashed rounded-lg bg-slate-50/50">
+                                <div className="crm-empty-state">
                                     <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
                                     <p className="text-slate-500">No attachments found.</p>
                                     <Button variant="outline" size="sm" className="mt-4">Upload File</Button>

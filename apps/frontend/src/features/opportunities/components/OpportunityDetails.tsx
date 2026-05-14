@@ -646,7 +646,7 @@ export function OpportunityDetails({
                                     + Add Departure
                                 </Button>
                             </div>
-                            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+                            <div className="crm-empty-state">
                                 <Calendar className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
                                 <p className="font-medium text-foreground">No departures added</p>
                                 <p className="mt-1 text-sm text-muted-foreground">Add departure dates and details for this record.</p>
@@ -948,7 +948,7 @@ export function OpportunityDetails({
                                     + Upload File
                                 </Button>
                             </div>
-                            <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-16 text-center">
+                            <div className="crm-empty-state">
                                 <Paperclip className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
                                 <p className="font-medium text-foreground">No attachments found</p>
                                 <p className="mt-1 text-sm text-muted-foreground">Upload documents, images, or files related to this record.</p>

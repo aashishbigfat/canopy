@@ -578,7 +578,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
             {/* ── Empty State ── */}
             {items.length === 0 && !taxItem.amount && !miscItem.amount && (
-                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-6 text-center">
+                <div className="crm-empty-state">
                     <ShoppingCart className="mx-auto mb-2 h-8 w-8 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">No costing items added yet</p>
                     <p className="mt-1 text-xs text-muted-foreground">Use the &quot;Add Item&apos;s&quot; picker above to add costing items</p>

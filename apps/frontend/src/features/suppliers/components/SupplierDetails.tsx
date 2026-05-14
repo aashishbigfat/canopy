@@ -145,7 +145,7 @@ export function SupplierDetails({
                             <TabsContent value="details" className="mt-0 space-y-6">
                                 {/* Supplier Information Section Header (Alert style) */}
                                 <div className="mb-6 flex items-center gap-3 rounded-md border border-border bg-muted/40 p-4">
-                                    <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary/15 text-primary">
+                                    <div className="flex h-8 w-8 items-center justify-center rounded-md crm-icon-primary">
                                         <Info size={18} />
                                     </div>
                                     <h3 className="font-semibold text-foreground">Supplier Information</h3>
@@ -226,13 +226,13 @@ export function SupplierDetails({
                             </TabsContent>
 
                             <TabsContent value="rfq" className="mt-0">
-                                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                                <div className="crm-empty-state">
                                     <p className="text-sm italic text-muted-foreground">RFQ management coming soon.</p>
                                 </div>
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                                <div className="crm-empty-state">
                                     <Paperclip className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
                                     <p className="text-muted-foreground">No attachments found.</p>
                                     <Button variant="outline" size="sm" className="mt-4">Upload File</Button>

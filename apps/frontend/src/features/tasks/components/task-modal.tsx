@@ -47,7 +47,7 @@ export function TaskModal({
             >
                 <div className="flex items-center justify-between border-b bg-card px-6 py-4">
                     <div className="flex items-center gap-2.5">
-                        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/15">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-md crm-icon-primary">
                             <Plus className="h-4 w-4 text-primary" />
                         </div>
                         <DialogTitle className="text-[15px] font-semibold tracking-tight text-foreground">
@@ -81,7 +81,7 @@ export function TaskModal({
                 </div>
 
                 {/* ── Footer ── */}
-                <DialogFooter className="border-t border-border/50 px-6 py-3 bg-muted/30">
+                <DialogFooter className="crm-dialog-footer px-6 py-3">
                     <Button
                         type="button"
                         variant="outline"

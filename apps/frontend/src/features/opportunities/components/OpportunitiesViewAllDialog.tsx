@@ -60,10 +60,10 @@ export function OpportunitiesViewAllDialog({
                         </DialogTitle>
                     </div>
                     <div className="flex items-center gap-2">
-                        <Button 
-                            variant="secondary" 
-                            size="sm" 
-                            className="h-7 bg-primary/15 px-3 text-xs font-bold text-primary hover:bg-primary/25"
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-7 crm-icon-primary px-3 text-xs font-bold hover:bg-primary/25"
                             onClick={() => {
                                 onOpenChange(false);
                                 onNew?.();
@@ -140,10 +140,10 @@ export function OpportunitiesViewAllDialog({
                     </Table>
                 </div>
 
-                <div className="flex justify-end border-t border-border bg-muted/30 p-4">
-                    <Button 
-                        variant="secondary" 
-                        className="h-9 border-none bg-primary/15 px-6 font-bold text-primary hover:bg-primary/25"
+                <div className="flex justify-end crm-dialog-footer">
+                    <Button
+                        variant="secondary"
+                        className="h-9 border-none crm-icon-primary px-6 font-bold hover:bg-primary/25"
                         onClick={() => onOpenChange(false)}
                     >
                         Close

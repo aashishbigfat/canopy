@@ -163,7 +163,7 @@ export function VouchersTab({ opportunityId }: { opportunityId: string }) {
       ) : (
         <div className="rounded-md border">
           <table className="w-full text-sm">
-            <thead className="border-b bg-muted/30 text-left">
+            <thead className="crm-table-header">
               <tr>
                 <th className="px-3 py-2">Type</th>
                 <th className="px-3 py-2">Title</th>

@@ -63,6 +63,7 @@
   --accent: oklch(0.93 0.015 252);
   --accent-foreground: oklch(0.26 0.018 260);
   --destructive: oklch(0.61 0.22 24);
+  --success: oklch(0.65 0.15 145);
   --border: oklch(0.9 0.01 252);
   --input: oklch(0.885 0.012 252);
   --ring: oklch(0.62 0.12 255);
@@ -98,6 +99,7 @@
   --accent-foreground: oklch(0.95 0.004 250);
   --destructive: oklch(0.65 0.2 24);
   --destructive-foreground: oklch(0.95 0.004 250);
+  --success: oklch(0.65 0.15 145);
   --border: oklch(0.38 0.012 258);
   --input: oklch(0.38 0.012 258);
   --ring: oklch(0.68 0.1 254);
@@ -157,6 +159,35 @@
 
   .glass {
     @apply border border-border/70 bg-card/80 backdrop-blur-xl shadow-sm;
+  }
+
+  /* CRM utility classes */
+  .crm-empty-state {
+    @apply rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center;
+  }
+
+  .crm-icon-primary {
+    @apply bg-primary/15 text-primary;
+  }
+
+  .crm-table-header {
+    @apply border-b bg-muted/30 text-left;
+  }
+
+  .crm-card-hover {
+    @apply hover:border-blue-400/60 hover:shadow-md;
+  }
+
+  .crm-tab-container {
+    @apply rounded-lg border bg-card shadow-sm;
+  }
+
+  .crm-info-banner {
+    @apply rounded-md border border-border bg-muted/40 p-4;
+  }
+
+  .crm-dialog-footer {
+    @apply border-t border-border bg-muted/30 p-4;
   }
 
   /* Keep browser autofill consistent with themed inputs. */

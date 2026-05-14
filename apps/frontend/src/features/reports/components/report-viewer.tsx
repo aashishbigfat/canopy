@@ -38,7 +38,7 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
 
             <div className="crm-surface min-h-[200px] p-4">
                 {/* Chart Placeholder */}
-                <div className="h-40 bg-muted/20 flex items-center justify-center text-muted-foreground border-2 border-dashed rounded-md mb-4">
+                <div className="crm-empty-state h-40 mb-4">
                     Chart Visualization (Feature Placeholder)
                 </div>
 

@@ -48,7 +48,7 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
 
     if (!opportunities || opportunities.length === 0) {
         return (
-            <div className="flex flex-col items-center justify-center space-y-4 rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+            <div className="flex flex-col items-center justify-center space-y-4 crm-empty-state">
                 <p className="font-medium text-foreground">No opportunities associated yet.</p>
                 <Button 
                     variant="outline" 

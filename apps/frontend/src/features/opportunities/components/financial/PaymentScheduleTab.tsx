@@ -684,7 +684,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
 
             {/* Empty State */}
             {!editMode && !hasSavedSchedule && rows.length === 0 && (
-                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-10 text-center">
+                <div className="crm-empty-state">
                     <IndianRupee className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">No payment schedule added</p>
                     <p className="mt-1 text-xs text-muted-foreground">

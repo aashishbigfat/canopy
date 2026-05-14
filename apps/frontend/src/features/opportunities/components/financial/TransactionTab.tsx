@@ -271,7 +271,7 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                     </div>
                 </div>
             ) : (
-                <div className="rounded-lg border-2 border-dashed border-border bg-muted/30 py-12 text-center">
+                <div className="crm-empty-state">
                     <Receipt className="mx-auto mb-3 h-10 w-10 text-muted-foreground" />
                     <p className="text-sm font-medium text-foreground">No transactions yet</p>
                     <p className="mt-1 text-xs text-muted-foreground">

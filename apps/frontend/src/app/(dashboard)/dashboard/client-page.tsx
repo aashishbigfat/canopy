@@ -171,7 +171,7 @@ export default function DashboardClientPage() {
                             className="flex w-full items-center justify-between rounded-xl border border-border bg-card/80 px-5 py-4 text-sm font-semibold text-foreground transition-all hover:bg-accent/50 hover:shadow-sm"
                         >
                             <span className="flex items-center gap-2">
-                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg crm-icon-primary">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
                                 </span>
                                 Today&apos;s {industry === "travel" ? "Payment Reminder" : "Due Tasks"} ({taskSummary?.payment_reminder_count ?? 0})
@@ -266,7 +266,7 @@ export default function DashboardClientPage() {
                                                 {deal.amount ? `₹${Number(deal.amount).toLocaleString("en-IN")}` : "-"}
                                             </td>
                                             <td className="py-3.5 pr-3">
-                                                <span className="inline-flex rounded-full bg-primary/15 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                                                <span className="inline-flex rounded-full crm-icon-primary px-2.5 py-0.5 text-xs font-semibold">
                                                     {deal.stage}
                                                 </span>
                                             </td>

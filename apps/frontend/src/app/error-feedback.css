@@ -5,9 +5,9 @@
   --error-bg: color-mix(in oklab, var(--destructive) 18%, var(--card));
   --error-border: color-mix(in oklab, var(--destructive) 45%, transparent);
   --error-fg: color-mix(in oklab, var(--destructive) 55%, var(--foreground));
-  --success-bg: color-mix(in oklab, #10b981 14%, var(--card));
-  --success-border: color-mix(in oklab, #10b981 40%, transparent);
-  --success-fg: color-mix(in oklab, #10b981 65%, var(--foreground));
+  --success-bg: color-mix(in oklab, var(--success) 14%, var(--card));
+  --success-border: color-mix(in oklab, var(--success) 40%, transparent);
+  --success-fg: color-mix(in oklab, var(--success) 65%, var(--foreground));
 }
 
 .app-toaster [data-sonner-toast] {
