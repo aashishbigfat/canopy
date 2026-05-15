@@ -1258,24 +1258,32 @@ class LeadService(ActivityMixin):
         # Resolve tenant industry for picklist scoping
         tenant = await Tenant.get(tenant_id)
         tenant_industry = tenant.industry if tenant else None
-        pq = build_picklist_query(tenant_id, industry=tenant_industry)
         
         # Fetch regular metadata in parallel (platform defaults + tenant overrides)
+        # Each query uses picklist_type to avoid cross-contamination in shared collection
         metadata_tasks = [
-            LeadStatus.find(pq).sort("+sorting").to_list(),
-            Source.find(pq).sort("+sorting").to_list(),
+            LeadStatus.find(build_picklist_query(tenant_id, industry=tenant_industry, picklist_type="lead_status")).sort("+sorting").to_list(),
+            Source.find(build_picklist_query(tenant_id, industry=tenant_industry, picklist_type="source")).sort("+sorting").to_list(),
             User.find({"tenant_id": tenant_id, "is_active": True}).sort("+name").to_list(),
-            Industry.find(pq).sort("+sorting").to_list(),
-            Experience.find(pq).sort("+sorting").to_list(),
-            SourceMedium.find(pq).sort("+sorting").to_list(),
+            Industry.find(build_picklist_query(tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list(),
+            Experience.find(build_picklist_query(tenant_id, industry=tenant_industry, picklist_type="experience")).sort("+sorting").to_list(),
+            SourceMedium.find(build_picklist_query(tenant_id, industry=tenant_industry, picklist_type="source_medium")).sort("+sorting").to_list(),
         ]
         
         metadata_results = await asyncio.gather(*metadata_tasks)
         lead_statuses, sources, users, industries, experiences, source_mediums = metadata_results
         
+        # Tenant items shadow platform defaults with the same name
+        from app.core.picklist_query import dedup_picklist_items
+        lead_statuses = dedup_picklist_items(lead_statuses)
+        sources = dedup_picklist_items(sources)
+        industries = dedup_picklist_items(industries)
+        experiences = dedup_picklist_items(experiences)
+        source_mediums = dedup_picklist_items(source_mediums)
+        
         # All stages are now tenant-specific — simple direct query
         sales_stages = await SalesStage.find(
-            {"tenant_id": tenant_id, "is_active": True}
+            {"tenant_id": tenant_id, "is_active": True, "picklist_type": "sales_stage"}
         ).sort("+sorting").to_list()
 
         return {

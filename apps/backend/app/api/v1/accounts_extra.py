@@ -20,23 +20,22 @@ async def get_create_form_data(
     """Get form data for creating an account"""
     from app.models.picklists import AccountType, Industry, AccountSource
     from app.models.custom_fields import AdditionalFieldAccount
-    from app.core.picklist_query import build_picklist_query
+    from app.core.picklist_query import build_picklist_query, dedup_picklist_items
     from app.models.tenant import Tenant
     
     # Resolve tenant industry for picklist scoping
     tenant = await Tenant.get(current_user.tenant_id)
     tenant_industry = tenant.industry if tenant else None
-    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
     
     # Get account types (platform defaults + tenant overrides)
-    account_types = await AccountType.find(pq).sort("+sorting").to_list()
+    # picklist_type prevents cross-contamination in shared 'picklists' collection
+    account_types = dedup_picklist_items(await AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list())
 
     # Get industries (platform defaults + tenant overrides)
-    industries = await Industry.find(pq).sort("+sorting").to_list()
+    industries = dedup_picklist_items(await Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list())
 
     # Get account sources (platform defaults + tenant overrides)
-    pq_global = build_picklist_query(current_user.tenant_id)
-    sources = await AccountSource.find(pq_global).sort("+sorting").to_list()
+    sources = dedup_picklist_items(await AccountSource.find(build_picklist_query(current_user.tenant_id, picklist_type="account_source")).sort("+sorting").to_list())
 
     # Get users for owner selection
     users = await User.find(
@@ -74,7 +73,7 @@ async def get_edit_form_data(
     """Get account data and form data for editing"""
     from app.models.picklists import AccountType, Industry, AccountSource
     from app.models.custom_fields import AdditionalFieldAccount, AccountCustomField
-    from app.core.picklist_query import build_picklist_query
+    from app.core.picklist_query import build_picklist_query, dedup_picklist_items
     from app.models.tenant import Tenant
     
     # Get account
@@ -85,11 +84,11 @@ async def get_edit_form_data(
     # Resolve tenant industry for picklist scoping
     tenant = await Tenant.get(current_user.tenant_id)
     tenant_industry = tenant.industry if tenant else None
-    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
     
     # Get form data (platform defaults + tenant overrides)
-    account_types = await AccountType.find(pq).sort("+sorting").to_list()
-    industries = await Industry.find(pq).sort("+sorting").to_list()
+    # picklist_type prevents cross-contamination in shared 'picklists' collection
+    account_types = dedup_picklist_items(await AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list())
+    industries = dedup_picklist_items(await Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list())
 
     users = await User.find(
         {"tenant_id": current_user.tenant_id, "is_active": True}

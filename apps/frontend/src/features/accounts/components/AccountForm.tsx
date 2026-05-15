@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback } from "react";
+import { usePicklist } from "@/hooks/use-picklist";
 import { useSession } from "next-auth/react";
 import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 
@@ -399,6 +400,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
     const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [metaData, setMetaData] = useState<MetaData | null>(null);
+    const { items: salutations } = usePicklist("salutation");
 
     const form = useForm<AccountFormValues>({
         resolver: zodResolver(getAccountFormSchema(isPersonAccount)),
@@ -556,11 +558,9 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                                     </SelectTrigger>
                                                 </FormControl>
                                                 <SelectContent>
-                                                    <SelectItem value="Mr.">Mr.</SelectItem>
-                                                    <SelectItem value="Ms.">Ms.</SelectItem>
-                                                    <SelectItem value="Mrs.">Mrs.</SelectItem>
-                                                    <SelectItem value="Dr.">Dr.</SelectItem>
-                                                    <SelectItem value="Prof.">Prof.</SelectItem>
+                                                    {salutations.map((s) => (
+                                                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                    ))}
                                                 </SelectContent>
                                             </Select>
                                             <FormMessage />

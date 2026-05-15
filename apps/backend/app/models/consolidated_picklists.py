@@ -134,3 +134,58 @@ class OpportunityTag(BasePicklist):
     
     class Settings:
         name = "picklists"
+
+
+# Shared Picklists (used across multiple entities)
+class Salutation(BasePicklist):
+    """Salutation prefix picklist (Mr., Mrs., Dr., etc.)"""
+    picklist_type: Literal["salutation"] = "salutation"
+    
+    class Settings:
+        name = "picklists"
+
+
+# Task Picklists
+class TaskStatus(BasePicklist):
+    """Task status picklist"""
+    picklist_type: Literal["task_status"] = "task_status"
+    
+    class Settings:
+        name = "picklists"
+
+class TaskPriority(BasePicklist):
+    """Task priority picklist"""
+    picklist_type: Literal["task_priority"] = "task_priority"
+    
+    class Settings:
+        name = "picklists"
+
+
+# Travel-specific Picklists
+class Inclusion(BasePicklist):
+    """Package inclusions (Breakfast, Airport Transfer, etc.)"""
+    picklist_type: Literal["inclusion"] = "inclusion"
+    
+    class Settings:
+        name = "picklists"
+
+class ItineraryInclusion(BasePicklist):
+    """Itinerary-level inclusions (Hotel Stay, Meals, Guide, etc.)"""
+    picklist_type: Literal["itinerary_inclusion"] = "itinerary_inclusion"
+    
+    class Settings:
+        name = "picklists"
+
+class SupplierType(BasePicklist):
+    """Supplier classification types (Hotel, Airline, DMC, etc.)"""
+    picklist_type: Literal["supplier_type"] = "supplier_type"
+    
+    class Settings:
+        name = "picklists"
+
+class DestinationPicklist(BasePicklist):
+    """Destination name picklist for quick selection"""
+    picklist_type: Literal["destination"] = "destination"
+    
+    class Settings:
+        name = "picklists"

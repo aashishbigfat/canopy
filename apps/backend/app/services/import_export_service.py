@@ -81,11 +81,15 @@ class ImportExportService:
         errors = []
         
         # Get picklist mappings (platform defaults + tenant overrides)
-        from app.core.picklist_query import build_picklist_query
-        pq = build_picklist_query(tenant_id, active_only=False)
+        # picklist_type prevents cross-contamination in shared 'picklists' collection
+        from app.core.picklist_query import build_picklist_query, dedup_picklist_items
+        from app.models.tenant import Tenant
         
-        account_types = {at.name: at.id for at in await AccountType.find(pq).to_list()}
-        industries = {ind.name: ind.id for ind in await Industry.find(pq).to_list()}
+        tenant = await Tenant.get(tenant_id)
+        tenant_industry = tenant.industry if tenant else None
+        
+        account_types = {at.name: at.id for at in dedup_picklist_items(await AccountType.find(build_picklist_query(tenant_id, industry=tenant_industry, active_only=False, picklist_type="account_type")).to_list())}
+        industries = {ind.name: ind.id for ind in dedup_picklist_items(await Industry.find(build_picklist_query(tenant_id, industry=tenant_industry, active_only=False, picklist_type="industry")).to_list())}
         
         # Import each row
         for index, row in df.iterrows():

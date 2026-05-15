@@ -48,8 +48,9 @@ export const picklistsService = {
     return data;
   },
 
-  list: async (type: PicklistType): Promise<PicklistItem[]> => {
-    const { data } = await apiClient.get<PicklistItem[]>(`${BASE}/${type}`);
+  list: async (type: PicklistType, activeOnly?: boolean): Promise<PicklistItem[]> => {
+    const params = activeOnly !== undefined ? { active_only: activeOnly } : {};
+    const { data } = await apiClient.get<PicklistItem[]>(`${BASE}/${type}`, { params });
     return data;
   },
 

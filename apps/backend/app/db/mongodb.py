@@ -50,7 +50,9 @@ from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
 from app.models.consolidated_picklists import (
     BasePicklist, SalesStage, OpportunityType, Experience, OpportunityTag,
     LeadStatus, Source, SourceMedium,
-    AccountType, Industry, AccountSource, SupplierServicePicklist
+    AccountType, Industry, AccountSource, SupplierServicePicklist,
+    Salutation, TaskStatus, TaskPriority,
+    Inclusion, ItineraryInclusion, SupplierType, DestinationPicklist,
 )
 from app.models.user_account_view import UserAccountView
 from app.models.user_contact_view import UserContactView
@@ -321,6 +323,13 @@ async def init_db():
             AccountType,
             AccountSource,
             SupplierServicePicklist,
+            Salutation,
+            TaskStatus,
+            TaskPriority,
+            Inclusion,
+            ItineraryInclusion,
+            SupplierType,
+            DestinationPicklist,
             # Entity Views (required for frontend page loads)
             EntityView,
             EntityColumn,

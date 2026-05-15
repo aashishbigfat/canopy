@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePicklist } from "@/hooks/use-picklist";
 import Link from "next/link";
 import { format } from "date-fns";
 import { MoreHorizontal, Edit, Trash2, CheckCircle, Plus } from "lucide-react";
@@ -63,6 +64,8 @@ export function TaskList() {
     const [assigneeFilter, setAssigneeFilter] = React.useState<string>("__my_tasks__");
     const [editTask, setEditTask] = React.useState<Task | null>(null);
     const [addOpen, setAddOpen] = React.useState(false);
+    const { items: taskStatuses } = usePicklist("task_status");
+    const { items: taskPriorities } = usePicklist("task_priority");
 
     const { data, isLoading, isError } = useGetTasks({
         page,
@@ -118,10 +121,9 @@ export function TaskList() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__all__">All Status</SelectItem>
-                            <SelectItem value="Not Started">Not Started</SelectItem>
-                            <SelectItem value="In Progress">In Progress</SelectItem>
-                            <SelectItem value="Completed">Completed</SelectItem>
-                            <SelectItem value="Deferred">Deferred</SelectItem>
+                            {taskStatuses.map((s) => (
+                                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                     <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -130,10 +132,9 @@ export function TaskList() {
                         </SelectTrigger>
                         <SelectContent>
                             <SelectItem value="__all__">All Priority</SelectItem>
-                            <SelectItem value="High">High</SelectItem>
-                            <SelectItem value="Normal">Normal</SelectItem>
-                            <SelectItem value="Low">Low</SelectItem>
-                            <SelectItem value="Urgent">Urgent</SelectItem>
+                            {taskPriorities.map((p) => (
+                                <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                            ))}
                         </SelectContent>
                     </Select>
                 </div>

@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
+import { usePicklist } from "@/hooks/use-picklist";
 import { ErrorType } from "@/lib/error-handler";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -518,6 +519,7 @@ export function LeadForm({
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
+    const { items: salutations } = usePicklist("salutation");
 
     const [loadingDestinations, setLoadingDestinations] = useState(false);
 
@@ -803,10 +805,9 @@ export function LeadForm({
                                         <Select onValueChange={field.onChange} defaultValue={field.value}>
                                             <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                                             <SelectContent>
-                                                <SelectItem value="Mr.">Mr.</SelectItem>
-                                                <SelectItem value="Mrs.">Mrs.</SelectItem>
-                                                <SelectItem value="Ms.">Ms.</SelectItem>
-                                                <SelectItem value="Dr.">Dr.</SelectItem>
+                                                {salutations.map((s) => (
+                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                ))}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />
@@ -1027,10 +1028,9 @@ export function LeadForm({
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="Mr.">Mr.</SelectItem>
-                                                        <SelectItem value="Mrs.">Mrs.</SelectItem>
-                                                        <SelectItem value="Ms.">Ms.</SelectItem>
-                                                        <SelectItem value="Dr.">Dr.</SelectItem>
+                                                        {salutations.map((s) => (
+                                                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />

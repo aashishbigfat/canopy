@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePicklist } from "@/hooks/use-picklist";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -41,10 +42,8 @@ import { toast } from "sonner";
 const taskFormSchema = z.object({
     name: z.string().min(2, "Subject is required"),
     due_date: z.string().optional(),
-    status: z
-        .enum(["Not Started", "In Progress", "Completed", "Deferred"])
-        .default("Not Started"),
-    priority: z.enum(["Low", "Normal", "High"]).default("Normal"),
+    status: z.string().default("Not Started"),
+    priority: z.string().default("Normal"),
     assigned_user_id: z.string().min(1, "Assignee is required"),
     description: z.string().optional(),
 
@@ -72,6 +71,8 @@ export function TaskForm({ initialData, onSuccess, embedded, onLoadingChange }: 
     const updateTask = useUpdateTask();
     const { data: usersData } = useGetUsers();
     const users = (usersData as any)?.users || usersData?.data || [];
+    const { items: taskStatuses } = usePicklist("task_status");
+    const { items: taskPriorities } = usePicklist("task_priority");
 
     // ── Dynamic search state ──
     const [accountOptions, setAccountOptions] = React.useState<
@@ -396,10 +397,9 @@ export function TaskForm({ initialData, onSuccess, embedded, onLoadingChange }: 
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Not Started">Not Started</SelectItem>
-                                        <SelectItem value="In Progress">In Progress</SelectItem>
-                                        <SelectItem value="Deferred">Deferred</SelectItem>
-                                        <SelectItem value="Completed">Completed</SelectItem>
+                                        {taskStatuses.map((s) => (
+                                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />
@@ -423,9 +423,9 @@ export function TaskForm({ initialData, onSuccess, embedded, onLoadingChange }: 
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Low">Low</SelectItem>
-                                        <SelectItem value="Normal">Normal</SelectItem>
-                                        <SelectItem value="High">High</SelectItem>
+                                        {taskPriorities.map((p) => (
+                                            <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

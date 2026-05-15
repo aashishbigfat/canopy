@@ -17,10 +17,33 @@ export interface DestinationListResponse {
 
 export const destinationsService = {
     getDestinations: async (params?: { search?: string; limit?: number }, signal?: AbortSignal) => {
-        const response = await apiClient.get<DestinationListResponse>(
-            "/destinations",
-            { params, signal }
+        // Fetch from picklists instead of legacy destinations endpoint
+        const response = await apiClient.get<any[]>(
+            "/picklists/destination",
+            { params: { active_only: false }, signal }
         );
-        return response.data;
+        
+        let data = response.data;
+        
+        // Apply frontend search filtering
+        if (params?.search) {
+            const query = params.search.toLowerCase();
+            data = data.filter((d: any) => d.name.toLowerCase().includes(query));
+        }
+        
+        // Apply limit
+        if (params?.limit) {
+            data = data.slice(0, params.limit);
+        }
+        
+        return {
+            destinations: data.map(d => ({
+                id: d.id,
+                name: d.name,
+                is_active: d.is_active,
+                is_popular: false
+            })),
+            total: data.length
+        };
     }
 };

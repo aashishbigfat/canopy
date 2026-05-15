@@ -29,6 +29,7 @@ class BaseField(Document):
     
     # Validation
     is_required: bool = False
+    is_mandatory: bool = False  # API-facing mandatory flag (used by service layer & schemas)
     is_unique: bool = False
     validation_rules: Optional[Dict[str, Any]] = None
     
@@ -183,6 +184,7 @@ class StandardField(BaseField):
     """Standard field definition"""
     entity_type: str = "standard"  # Can apply to any entity
     is_custom: bool = False
+    system_mandatory: bool = False  # cannot be toggled off in UI (e.g. name, email)
     
     class Settings:
         name = "field_registry"

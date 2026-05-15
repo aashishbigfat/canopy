@@ -114,7 +114,7 @@ async def list_additional_fields(
     active_only: bool = False,
 ) -> List[Document]:
     Doc = _resolve_additional_doc(entity_type)
-    filter_dict: dict = {"tenant_id": tenant_id}
+    filter_dict: dict = {"tenant_id": tenant_id, "entity_type": entity_type}
     if active_only:
         filter_dict["is_active"] = True
     query = Doc.find(filter_dict)
@@ -142,7 +142,7 @@ async def create_additional_field(
     Doc = _resolve_additional_doc(entity_type)
     # If sorting not provided (== 0), append to end
     if payload.sorting == 0:
-        max_sort_doc = await Doc.find({"tenant_id": tenant_id}).sort("-sorting").first_or_none()
+        max_sort_doc = await Doc.find({"tenant_id": tenant_id, "entity_type": entity_type}).sort("-sorting").first_or_none()
         next_sort = (max_sort_doc.sorting + 1) if max_sort_doc else 1
     else:
         next_sort = payload.sorting
@@ -232,6 +232,211 @@ async def toggle_additional_field_mandatory(
     return obj
 
 
+# --------- StandardField defaults (lazy-seeded per tenant) ---------
+
+# Each entry: (field_key, label, field_type, is_mandatory, system_mandatory)
+# system_mandatory=True → admin CANNOT deactivate or remove the mandatory flag.
+# is_mandatory=True, system_mandatory=False → mandatory by default, admin can toggle.
+
+DEFAULT_STANDARD_FIELDS: Dict[str, list] = {
+    # ----- ACCOUNT (Business) -----
+    # Source: AccountForm.tsx JSX (isPersonAccount=false)
+    # NOTE: salutation/first_name/last_name hidden by {!isPersonAccount} guard
+    # NOTE: shipping_* fields have no JSX rendering in the form
+    "account": [
+        ("name",              "Account Name",        "text",     True,  True),
+        ("email",             "Email",               "email",    True,  True),
+        ("phone",             "Phone",               "phone",    True,  True),
+        ("website",           "Website",             "url",      False, False),
+        ("industry_id",       "Industry",            "lookup",   True,  False),
+        ("acc_type_id",       "Account Type",        "lookup",   True,  False),
+        ("billing_street",    "Billing Street",      "text",     False, False),
+        ("billing_city",      "Billing City",        "text",     False, False),
+        ("billing_state",     "Billing State",       "text",     True,  True),
+        ("billing_zip",       "Billing Zip",         "text",     False, False),
+        ("billing_country",   "Billing Country",     "text",     True,  True),
+        ("owner_id",          "Account Owner",       "lookup",   False, False),
+    ],
+
+    # ----- CONTACT -----
+    # Source: ContactForm.tsx → contactFormSchema
+    "contact": [
+        ("salutation",        "Salutation",          "select",   False, False),
+        ("first_name",        "First Name",          "text",     False, False),
+        ("last_name",         "Last Name",           "text",     True,  True),
+        ("email",             "Email",               "email",    True,  True),
+        ("phone",             "Phone",               "phone",    False, False),
+        ("mobile",            "Mobile",              "phone",    True,  True),
+        ("title",             "Job Title",           "text",     False, False),
+        ("account_id",        "Account",             "lookup",   True,  True),
+    ],
+
+    # ----- LEAD -----
+    # Source: LeadForm.tsx → leadFormSchema / genericBaseFields
+    "lead": [
+        ("salutation",        "Salutation",          "select",   False, False),
+        ("first_name",        "First Name",          "text",     False, False),
+        ("last_name",         "Last Name",           "text",     True,  True),
+        ("company",           "Company",             "text",     False, False),
+        ("email",             "Email",               "email",    False, False),
+        ("phone",             "Phone",               "phone",    False, False),
+        ("mobile",            "Mobile",              "phone",    False, False),
+        ("no_employees",      "No. of Employees",    "number",   False, False),
+        ("website",           "Website",             "url",      False, False),
+        ("title",             "Title / Designation", "text",     False, False),
+        ("lead_status_id",    "Lead Status",         "lookup",   False, False),
+        ("source_id",         "Source",              "lookup",   False, False),
+        ("source_medium",     "Source Medium",       "text",     False, False),
+        ("combined_source",   "Combined Source",     "select",   True,  False),
+        ("industry_id",       "Industry",            "lookup",   False, False),
+        ("street",            "Street",              "text",     False, False),
+        ("city",              "City",                "text",     True,  False),
+        ("state",             "State",               "text",     True,  False),
+        ("zip",               "Zip / Postal Code",   "text",     False, False),
+        ("country",           "Country",             "text",     True,  False),
+        ("campaign_name",     "Campaign Name",       "text",     False, False),
+        ("segment",           "Segment",             "select",   False, False),
+        ("creation_type",     "Creation Type",       "select",   False, False),
+    ],
+
+    # ----- OPPORTUNITY -----
+    # Source: OpportunityForm.tsx → opportunityFormSchema
+    "opportunity": [
+        ("name",              "Opportunity Name",    "text",     True,  True),
+        ("amount",            "Amount",              "currency", False, False),
+        ("sales_stage_id",    "Sales Stage",         "lookup",   True,  True),
+        ("probability",       "Probability (%)",     "number",   False, False),
+        ("opportunity_type_id","Opportunity Type",   "lookup",   False, False),
+        ("owner_id",          "Opportunity Owner",   "lookup",   False, False),
+        ("close_date",        "Close Date",          "date",     False, False),
+        ("description",       "Description",         "textarea", False, False),
+        ("account_id",        "Account",             "lookup",   False, False),
+        ("contact_id",        "Contact",             "lookup",   False, False),
+        ("close_lost_reason", "Close Lost Reason",   "select",   False, False),
+    ],
+
+    # ----- SUPPLIER -----
+    # Source: supplier-form.tsx → supplierFormSchema
+    "supplier": [
+        ("name",              "Supplier Name",       "text",     True,  True),
+        ("supplier_type",     "Supplier Type",       "select",   True,  True),
+        ("owner_id",          "Supplier Owner",      "lookup",   False, False),
+        ("contact_person_name","Contact Person",     "text",     False, False),
+        ("phone",             "Phone",               "phone",    True,  True),
+        ("mobile",            "Mobile",              "phone",    False, False),
+        ("email",             "Email",               "email",    False, False),
+        ("services",          "Services",            "multiselect", False, False),
+        ("countries",         "Countries",           "multiselect", False, False),
+        ("states",            "States",              "multiselect", False, False),
+        ("service_cities",    "Service Cities",      "multiselect", False, False),
+        ("destinations",      "Destinations",        "multiselect", False, False),
+        ("street",            "Street",              "text",     False, False),
+        ("city",              "City",                "text",     False, False),
+        ("state",             "State",               "text",     False, False),
+        ("zip",               "Zip / Postal Code",   "text",     False, False),
+        ("country",           "Country",             "text",     False, False),
+        ("is_active",         "Active",              "boolean",  False, False),
+    ],
+
+    # ----- PERSONAL_ACCOUNT -----
+    # Source: AccountForm.tsx JSX (isPersonAccount=true)
+    # NOTE: name hidden (person accounts use salutation+first+last)
+    # NOTE: website, industry_id, acc_type_id hidden by {!isPersonAccount} guards
+    # NOTE: shipping_* fields have no JSX rendering in the form
+    "personal_account": [
+        ("salutation",        "Salutation",          "select",   False, False),
+        ("first_name",        "First Name",          "text",     False, False),
+        ("last_name",         "Last Name",           "text",     True,  True),
+        ("email",             "Email",               "email",    True,  True),
+        ("phone",             "Phone",               "phone",    True,  True),
+        ("billing_street",    "Billing Street",      "text",     False, False),
+        ("billing_city",      "Billing City",        "text",     False, False),
+        ("billing_state",     "Billing State",       "text",     True,  True),
+        ("billing_zip",       "Billing Zip",         "text",     False, False),
+        ("billing_country",   "Billing Country",     "text",     True,  True),
+        ("owner_id",          "Account Owner",       "lookup",   False, False),
+    ],
+
+    # ----- TASK -----
+    # Source: task-form.tsx → taskFormSchema
+    "task": [
+        ("name",              "Subject",             "text",     True,  True),
+        ("due_date",          "Due Date",            "date",     False, False),
+        ("status",            "Status",              "select",   False, False),
+        ("priority",          "Priority",            "select",   False, False),
+        ("assigned_user_id",  "Assigned To",         "lookup",   True,  True),
+        ("description",       "Comments",            "textarea", False, False),
+        ("related_to_type",   "Related To (Type)",   "select",   False, False),
+        ("account_id",        "Account",             "lookup",   False, False),
+        ("contact_id",        "Contact",             "lookup",   False, False),
+        ("opportunity_id",    "Opportunity",         "lookup",   False, False),
+    ],
+}
+
+import logging
+_logger = logging.getLogger(__name__)
+
+
+async def _seed_defaults_if_empty(
+    entity_type: str,
+    tenant_id: PydanticObjectId,
+) -> bool:
+    """Lazy-seed standard field definitions for a tenant + entity on first access.
+
+    Returns True if seeding was performed, False if fields already existed.
+    This is idempotent and race-condition safe: duplicate (tenant_id, entity_type,
+    field_key) combos are silently skipped via field_key uniqueness in the query.
+    """
+    defaults = DEFAULT_STANDARD_FIELDS.get(entity_type)
+    if not defaults:
+        return False
+
+    # Quick existence check — if at least 1 STANDARD field exists, skip seeding.
+    # IMPORTANT: must filter by is_custom=False because StandardField shares the
+    # field_registry collection with AdditionalField* models (no Beanie _class_id
+    # discrimination), so without this filter, custom fields would prevent seeding.
+    count = await StandardField.find(
+        {"tenant_id": tenant_id, "entity_type": entity_type, "is_custom": False}
+    ).count()
+    if count > 0:
+        return False
+
+    now = datetime.utcnow()
+    docs = []
+    for sorting, (field_key, label, field_type, is_mandatory, system_mandatory) in enumerate(defaults):
+        docs.append(StandardField(
+            tenant_id=tenant_id,
+            entity_type=entity_type,
+            name=field_key,              # required by BaseField
+            field_key=field_key,
+            label=label,
+            field_type=field_type,
+            is_active=True,
+            is_mandatory=is_mandatory,
+            system_mandatory=system_mandatory,
+            is_custom=False,
+            sorting=sorting,
+            created_at=now,
+            updated_at=now,
+        ))
+
+    try:
+        await StandardField.insert_many(docs)
+        _logger.info(
+            f"[STANDARD_FIELDS] Seeded {len(docs)} defaults for "
+            f"entity_type={entity_type}, tenant_id={tenant_id}"
+        )
+    except Exception as e:
+        # If a race condition causes a duplicate, log and proceed.
+        # The subsequent query will return whatever was inserted first.
+        _logger.warning(
+            f"[STANDARD_FIELDS] insert_many partial/failed for "
+            f"entity_type={entity_type}, tenant_id={tenant_id}: {e}"
+        )
+
+    return True
+
+
 # --------- StandardField CRUD ---------
 
 async def list_standard_fields(
@@ -239,7 +444,10 @@ async def list_standard_fields(
     tenant_id: PydanticObjectId,
     active_only: bool = False,
 ) -> List[StandardField]:
-    std_filter: dict = {"tenant_id": tenant_id, "entity_type": entity_type}
+    # Lazy-seed defaults on first access for this tenant + entity
+    await _seed_defaults_if_empty(entity_type, tenant_id)
+
+    std_filter: dict = {"tenant_id": tenant_id, "entity_type": entity_type, "is_custom": False}
     if active_only:
         std_filter["is_active"] = True
     query = StandardField.find(std_filter)
@@ -418,7 +626,7 @@ async def read_custom_field_values(
 
     Doc = _resolve_additional_doc(entity_type)
     field_ids = [getattr(r, field_fk) for r in rows]
-    defs = await Doc.find({"_id": {"$in": field_ids}}).to_list()
+    defs = await Doc.find({"_id": {"$in": field_ids}, "entity_type": entity_type}).to_list()
     defs_by_id = {str(d.id): d for d in defs}
 
     out: Dict[str, Any] = {}
@@ -458,7 +666,7 @@ async def bulk_read_custom_field_values(
 
     Doc = _resolve_additional_doc(entity_type)
     field_ids = list({getattr(r, field_fk) for r in rows})
-    defs = await Doc.find({"_id": {"$in": field_ids}}).to_list()
+    defs = await Doc.find({"_id": {"$in": field_ids}, "entity_type": entity_type}).to_list()
     defs_by_id = {str(d.id): d for d in defs}
 
     out: Dict[str, Dict[str, Any]] = {str(eid): {} for eid in entity_ids}
@@ -555,7 +763,7 @@ async def copy_custom_field_values(
         return 0
 
     DstDoc = _resolve_additional_doc(dst_entity_type)
-    dst_defs = await DstDoc.find({"tenant_id": tenant_id}).to_list()
+    dst_defs = await DstDoc.find({"tenant_id": tenant_id, "entity_type": dst_entity_type}).to_list()
     dst_by_name: Dict[str, Document] = {d.name: d for d in dst_defs}
 
     copied = 0
@@ -608,7 +816,7 @@ async def validate_mandatory_fields(
     # Additional fields
     Doc = _resolve_additional_doc(entity_type)
     add_fields = await Doc.find(
-        {"tenant_id": tenant_id, "is_active": True, "is_mandatory": True}
+        {"tenant_id": tenant_id, "entity_type": entity_type, "is_active": True, "is_mandatory": True}
     ).to_list()
     if not add_fields:
         return

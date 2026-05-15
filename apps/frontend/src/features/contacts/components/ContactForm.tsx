@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { usePicklist } from "@/hooks/use-picklist";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -76,6 +77,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
     const router = useRouter();
     const [isLoading, setIsLoading] = useState(false);
     const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
+    const { items: salutations } = usePicklist("salutation");
 
     // Track original account_id to detect changes
     const originalAccountId = useRef(initialData?.account_id ?? "");
@@ -184,11 +186,9 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Mr.">Mr.</SelectItem>
-                                        <SelectItem value="Ms.">Ms.</SelectItem>
-                                        <SelectItem value="Mrs.">Mrs.</SelectItem>
-                                        <SelectItem value="Dr.">Dr.</SelectItem>
-                                        <SelectItem value="Prof.">Prof.</SelectItem>
+                                        {salutations.map((s) => (
+                                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                        ))}
                                     </SelectContent>
                                 </Select>
                                 <FormMessage />

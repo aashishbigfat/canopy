@@ -76,14 +76,15 @@ async def get_experiences(
     Get all travel experiences for the opportunity form.
     Uses multi-tenant SaaS query: platform defaults + tenant overrides.
     """
-    from app.core.picklist_query import build_picklist_query
+    from app.core.picklist_query import build_picklist_query, dedup_picklist_items
     from app.models.tenant import Tenant
     
     tenant = await Tenant.get(current_user.tenant_id)
     tenant_industry = tenant.industry if tenant else None
-    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
     
-    experiences = await Experience.find(pq).sort("+sorting").to_list()
+    experiences = dedup_picklist_items(await Experience.find(
+        build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="experience")
+    ).sort("+sorting").to_list())
     
     return [
         {

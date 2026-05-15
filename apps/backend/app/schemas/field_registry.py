@@ -2,8 +2,8 @@
 Pydantic schemas for field registry endpoints.
 """
 from __future__ import annotations
-from pydantic import BaseModel, Field, ConfigDict
-from typing import Optional, List, Literal
+from pydantic import BaseModel, Field, ConfigDict, BeforeValidator
+from typing import Optional, List, Literal, Annotated
 from datetime import datetime
 from beanie import PydanticObjectId
 
@@ -51,10 +51,10 @@ class AdditionalFieldResponse(BaseModel):
     type_value: Optional[str] = None
     description: Optional[str] = None
     default_value: Optional[str] = None
-    is_mandatory: bool
-    is_active: bool
-    sorting: int
-    options: List[str]
+    is_mandatory: bool = False  # default for legacy docs missing this field
+    is_active: bool = True
+    sorting: int = 0
+    options: Annotated[List[str], BeforeValidator(lambda v: v if v is not None else [])] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
 
@@ -107,15 +107,15 @@ class StandardFieldResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True, populate_by_name=True)
     id: PydanticObjectId = Field(validation_alias="_id", serialization_alias="id")
     entity_type: str
-    field_key: str
+    field_key: Optional[str] = ""  # legacy docs may have None; default to empty string
     label: Optional[str] = None
-    field_type: str
+    field_type: str = "text"
     default_value: Optional[str] = None
     type_value: Optional[str] = None
-    is_active: bool
-    is_mandatory: bool
-    system_mandatory: bool
-    sorting: int
+    is_active: bool = True
+    is_mandatory: bool = False  # default for legacy docs missing this field
+    system_mandatory: bool = False  # default for legacy docs missing this field
+    sorting: int = 0
     created_at: datetime
     updated_at: datetime
 

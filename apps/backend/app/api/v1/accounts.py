@@ -75,19 +75,17 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
     """
     from app.models.picklists import Industry, AccountType, AccountSource
     from app.models.tenant import Tenant
-    from app.core.picklist_query import build_picklist_query
+    from app.core.picklist_query import build_picklist_query, dedup_picklist_items
 
     # Resolve the tenant's industry so we can serve the right picklists
     tenant = await Tenant.get(current_user.tenant_id)
     tenant_industry = tenant.industry if tenant else None   # e.g. "travel"
 
     # Multi-tenant SaaS query: platform defaults + tenant overrides
-    pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
-    pq_global = build_picklist_query(current_user.tenant_id)
-
-    industries = await Industry.find(pq).sort("+sorting").to_list()
-    acc_types = await AccountType.find(pq).sort("+sorting").to_list()
-    sources = await AccountSource.find(pq_global).sort("+sorting").to_list()
+    # picklist_type prevents cross-contamination in shared 'picklists' collection
+    industries = dedup_picklist_items(await Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list())
+    acc_types = dedup_picklist_items(await AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list())
+    sources = dedup_picklist_items(await AccountSource.find(build_picklist_query(current_user.tenant_id, picklist_type="account_source")).sort("+sorting").to_list())
     
     users = await User.find({
         "tenant_id": current_user.tenant_id,
@@ -152,14 +150,12 @@ async def get_accounts(
         from app.models.account_views import AccountView, AccountColumn, AccountPinView
         from app.models.picklists import Industry, AccountType
         from app.services.visibility_scope import get_visible_owner_ids
-        from app.core.picklist_query import build_picklist_query
+        from app.core.picklist_query import build_picklist_query, dedup_picklist_items
         from app.models.tenant import Tenant
         
         # Resolve tenant industry for picklist scoping
         tenant = await Tenant.get(current_user.tenant_id)
         tenant_industry = tenant.industry if tenant else None
-        pq = build_picklist_query(current_user.tenant_id, industry=tenant_industry)
-        
         # Base query
         query = {
             "tenant_id": current_user.tenant_id,
@@ -191,13 +187,14 @@ async def get_accounts(
         skip = (page - 1) * per_page
 
         # Run total count, paginated accounts fetch, and all metadata queries in parallel
+        # picklist_type prevents cross-contamination in shared 'picklists' collection
         (
             total,
             accounts,
             account_views,
             users,
-            industries,
-            acc_types,
+            industries_raw,
+            acc_types_raw,
         ) = await asyncio.gather(
             # 1. Total count
             Account.find(query).count(),
@@ -217,10 +214,14 @@ async def get_accounts(
                 "is_active": True
             }).sort("+name").to_list(),
             # 5. Industries (platform defaults + tenant overrides)
-            Industry.find(pq).sort("+sorting").to_list(),
+            Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list(),
             # 6. Account types (platform defaults + tenant overrides)
-            AccountType.find(pq).sort("+sorting").to_list(),
+            AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list(),
         )
+        
+        # Tenant items shadow platform defaults with same name
+        industries = dedup_picklist_items(industries_raw)
+        acc_types = dedup_picklist_items(acc_types_raw)
 
         pages = (total + per_page - 1) // per_page
         

@@ -55,6 +55,30 @@ TRAVEL_DEFAULTS: Dict[str, List] = {
         "Technology", "Telecommunications", "Transportation", "Travel", "Utilities",
         "Law Firm", "Event Management",
     ],
+    "inclusion": [
+        "Breakfast", "Lunch", "Dinner", "Airport Transfer", "Sightseeing",
+        "Travel Insurance", "Visa Assistance", "Hotel Stay", "Local Transport",
+        "Guide", "Entry Tickets",
+    ],
+    "itinerary_inclusion": [
+        "Hotel Stay", "Meals", "Local Transport", "Guide",
+        "Entry Tickets", "Activities", "Airport Transfers",
+    ],
+    "supplier_type": [
+        "Hotel", "Airline", "Ground Transport", "Cruise Line",
+        "Activity Provider", "DMC", "Visa Agent", "Travel Insurance",
+        "Restaurant", "Tour Operator",
+    ],
+    "destination": [
+        "Paris", "London", "Dubai", "Singapore", "Tokyo",
+        "Bali", "Maldives", "Bangkok", "New York", "Rome",
+        "Goa", "Kashmir", "Manali", "Ladakh", "Kerala",
+        "Rajasthan", "Andaman", "Himachal", "Uttarakhand", "Mauritius",
+    ],
+    "opportunity_tag": [
+        "Honeymoon", "Family Trip", "Corporate Event", "Group Tour",
+        "Solo Travel", "MICE", "Pilgrimage", "Weekend Getaway",
+    ],
 }
 
 # ============================================================================
@@ -146,6 +170,15 @@ GLOBAL_DEFAULTS: Dict[str, List[str]] = {
     "opportunity_type": [
         "New Business", "Existing Business", "Renewal",
     ],
+    "salutation": [
+        "Mr.", "Mrs.", "Ms.", "Dr.", "Prof.",
+    ],
+    "task_status": [
+        "Not Started", "In Progress", "Completed", "Deferred",
+    ],
+    "task_priority": [
+        "Low", "Normal", "High", "Urgent",
+    ],
 }
 
 
@@ -175,6 +208,13 @@ _PICKLIST_CLASS_ID_MAP = {
     "opportunity_type": "BasePicklist.OpportunityType",
     "opportunity_tag": "BasePicklist.OpportunityTag",
     "supplier_service": "BasePicklist.SupplierServicePicklist",
+    "salutation": "BasePicklist.Salutation",
+    "task_status": "BasePicklist.TaskStatus",
+    "task_priority": "BasePicklist.TaskPriority",
+    "inclusion": "BasePicklist.Inclusion",
+    "itinerary_inclusion": "BasePicklist.ItineraryInclusion",
+    "supplier_type": "BasePicklist.SupplierType",
+    "destination": "BasePicklist.DestinationPicklist",
 }
 
 

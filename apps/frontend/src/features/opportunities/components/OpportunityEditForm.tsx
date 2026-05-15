@@ -47,6 +47,7 @@ import { Calendar } from "@/components/ui/calendar";
 
 import { cn } from "@/lib/utils";
 import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
+import { usePicklist } from "@/hooks/use-picklist";
 import { Opportunity } from "../types";
 import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability, getCloseLostReasons } from "@/features/opportunities/utils/stageConfig";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
@@ -73,6 +74,7 @@ const opportunityFormSchema = z.object({
     amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Amount must be a positive number.").optional().or(z.literal("")),
     sales_stage_id: z.string().min(1, "Sales stage is required."),
     probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
+    opportunity_type_id: z.string().optional(),
     close_date: z.string().optional(),
     travel_date: z.string().optional(),
     experience_id: z.string().optional(),
@@ -108,6 +110,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     const [isLoading, setIsLoading] = useState(false);
     const updateOpportunity = useUpdateOpportunity();
     const { data: experiences } = useExperiences();
+    const { items: opportunityTypes } = usePicklist("opportunity_type");
     const normalizedStages = normalizeSalesStages(stages);
 
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
@@ -200,6 +203,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
             amount: opportunity.amount?.toString() || "0",
             sales_stage_id: opportunity.sales_stage_id || "",
             probability: opportunity.probability?.toString() || "10",
+            opportunity_type_id: opportunity.opportunity_type_id || "",
             close_date: todayStr,
             // Read travel fields from industry_data
             travel_date: opportunity.industry_data?.travel_date ? String(opportunity.industry_data.travel_date).split('T')[0] : "",
@@ -295,6 +299,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                     const payload: any = {
                         name: data.name,
                         sales_stage_id: data.sales_stage_id,
+                        opportunity_type_id: data.opportunity_type_id || undefined,
                     };
 
                     payload.amount = data.amount !== undefined && data.amount !== "" ? Number(data.amount) : 0;
@@ -563,6 +568,32 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                             className="bg-slate-50 text-slate-500 cursor-not-allowed"
                                         />
                                     </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Opportunity Type */}
+                        <FormField
+                            control={form.control}
+                            name="opportunity_type_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Opportunity Type</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || ""}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select type" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {opportunityTypes.map((type) => (
+                                                <SelectItem key={type.id} value={type.id}>
+                                                    {type.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}

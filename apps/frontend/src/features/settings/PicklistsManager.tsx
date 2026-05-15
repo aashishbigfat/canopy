@@ -90,9 +90,9 @@ export function PicklistsManager({ type }: { type: PicklistType }) {
   async function toggleActive(item: PicklistItem) {
     try {
       await picklistsService.update(type, item.id, { is_active: !item.is_active });
-      setItems((prev) =>
-        prev.map((p) => (p.id === item.id ? { ...p, is_active: !item.is_active } : p)),
-      );
+      // Reload the list — copy-on-write for platform defaults creates a new
+      // tenant-specific clone with a different ID, so optimistic update would be stale
+      await load();
     } catch {
       toast.error("Toggle failed");
     }

@@ -46,6 +46,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Calendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { useCreateOpportunity, useSalesStages, useExperiences } from "../api/useOpportunities";
+import { usePicklist } from "@/hooks/use-picklist";
 import { useGetUsers } from "@/features/admin/api/use-users";
 import { normalizeSalesStages, getProbabilityForStageId, getCloseLostReasons } from "@/features/opportunities/utils/stageConfig";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
@@ -71,6 +72,7 @@ const opportunityFormSchema = z.object({
     amount: z.string().regex(/^\d+(\.\d{1,2})?$/, "Amount must be a positive number.").optional().or(z.literal("")),
     sales_stage_id: z.string().min(1, "Sales stage is required."),
     probability: z.string().regex(/^(100|[0-9]{1,2})$/, "Probability must be between 0 and 100.").optional().or(z.literal("")),
+    opportunity_type_id: z.string().optional(),
     owner_id: z.string().optional(),
     close_date: z.string().optional(),
     travel_date: z.string().optional(),
@@ -108,6 +110,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     const createOpportunity = useCreateOpportunity();
     const { data: stages } = useSalesStages();
     const { data: experiences } = useExperiences();
+    const { items: opportunityTypes } = usePicklist("opportunity_type");
     const { data: usersData, isLoading: isLoadingUsers } = useGetUsers();
     const industry = useIndustry();
     const isTravel = industry === "travel";
@@ -193,6 +196,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
             amount: "0",
             sales_stage_id: "",
             probability: "10",
+            opportunity_type_id: "",
             owner_id: "",
             close_date: new Date().toISOString().split('T')[0],
             travel_date: "",
@@ -341,6 +345,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                     const payload: any = {
                         name: data.name,
                         sales_stage_id: data.sales_stage_id,
+                        opportunity_type_id: data.opportunity_type_id || undefined,
                         account_id: data.account_id || undefined,
                         contact_id: data.contact_id || undefined,
                     };
@@ -603,6 +608,31 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                                         className="cursor-not-allowed bg-muted text-muted-foreground"
                                     />
                                 </FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    {/* Opportunity Type */}
+                    <FormField
+                        control={form.control}
+                        name="opportunity_type_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Opportunity Type</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        {opportunityTypes.map((type) => (
+                                            <SelectItem key={type.id} value={type.id}>
+                                                {type.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
                                 <FormMessage />
                             </FormItem>
                         )}
