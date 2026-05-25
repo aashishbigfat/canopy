@@ -60,3 +60,23 @@ class EducationQuoteData(BaseModel):
     academic_term_id: Optional[str] = Field(None, description="Academic term ObjectId")
     tuition_fee: Optional[float] = Field(None, ge=0, description="Tuition fee (≥ 0)")
     scholarship_amount: Optional[float] = Field(None, ge=0, description="Scholarship amount (≥ 0)")
+
+
+class EducationAccountData(BaseModel):
+    """Validates industry_data for an Account owned by an education tenant."""
+
+    institution_type: Optional[str] = Field(None, description="e.g. School, University, College, Academy")
+    acreditation_body: Optional[str] = Field(None, description="Accrediting organization")
+    student_count: Optional[int] = Field(None, ge=0, description="Total student capacity/enrolled")
+    offered_programs: List[str] = Field(default_factory=list, description="List of program names")
+
+
+class EducationContactData(BaseModel):
+    """Validates industry_data for a Contact owned by an education tenant."""
+
+    highest_qualification: Optional[str] = Field(None, description="Highest degree held")
+    gpa: Optional[float] = Field(None, ge=0.0, le=10.0, description="Grade point average (0-10)")
+    enrollment_number: Optional[str] = Field(None, description="Student enrollment ID")
+    major_subject: Optional[str] = Field(None, description="Primary major/study area")
+    graduation_year: Optional[int] = Field(None, ge=1900, le=2100, description="Graduation year")
+

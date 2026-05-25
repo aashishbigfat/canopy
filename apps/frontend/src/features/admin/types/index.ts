@@ -43,6 +43,7 @@ export interface UserInput {
     role_ids: string[];
     phone?: string;
     department_id?: string;
+    role_hierarchy_id?: string;
     is_active?: boolean;
     max_leads_per_day?: number;
     max_opportunities?: number;

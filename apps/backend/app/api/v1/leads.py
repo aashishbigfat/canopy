@@ -32,33 +32,47 @@ def get_lead_service():
 
 # Helper function is no longer needed as we use LeadResponse.model_validate via response_model
 
-async def _resolve_destinations(industry_data: dict) -> dict:
+async def _resolve_destinations(industry_data: dict, tenant_id=None) -> dict:
+    """Resolve destination_ids → destination_names using the DestinationPicklist collection.
+
+    destination_ids are DestinationPicklist._id values (stored in the 'picklists'
+    collection, picklist_type='destination').  Using Destination entity model would
+    always return zero results because they are different collections.
+    """
     if not industry_data or "destination_ids" not in industry_data:
         return industry_data
-    
+
     dest_ids = industry_data.get("destination_ids", [])
     if not dest_ids:
         industry_data["destination_names"] = []
         return industry_data
-        
-    from app.models.destination import Destination
+
+    from app.models.consolidated_picklists import DestinationPicklist
     from bson import ObjectId
-    
+
     valid_ids = []
     for d_id in dest_ids:
         try:
-            valid_ids.append(ObjectId(d_id))
-        except:
+            valid_ids.append(ObjectId(str(d_id)))
+        except Exception:
             pass
-            
+
     if valid_ids:
-        dests = await Destination.find({"_id": {"$in": valid_ids}}).to_list()
+        # DestinationPicklist items are either platform defaults (tenant_id=None)
+        # or tenant-specific. We look up both — no need to restrict by tenant_id
+        # since IDs are already specific (they came from the tenant's own form).
+        dests = await DestinationPicklist.find(
+            {"_id": {"$in": valid_ids}, "picklist_type": "destination"}
+        ).to_list()
         name_map = {str(d.id): d.name for d in dests}
-        industry_data["destination_names"] = [name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map]
+        industry_data["destination_names"] = [
+            name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map
+        ]
     else:
         industry_data["destination_names"] = []
-        
+
     return industry_data
+
 
 @router.post("/", response_model=LeadResponse, status_code=201)
 async def create_lead(
@@ -83,8 +97,8 @@ async def create_lead(
             lead_data.industry_data = validate_industry_data(
                 industry, lead_data.industry_data, mode="lead"
             )
-            # Resolve destination IDs to names
-            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data)
+            # Resolve destination IDs to names (scoped to tenant)
+            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data, current_user.tenant_id)
         
         lead = await service.create_lead(
             lead_data=lead_data,
@@ -130,11 +144,11 @@ async def get_leads(
         visible_owner_ids=visible_owner_ids
     )
     
-    # Resolve destinations for each lead
+    # Resolve destinations for each lead (scoped to tenant)
     for lead in result["leads"]:
         if lead.industry_data and "destination_ids" in lead.industry_data:
-            lead.industry_data = await _resolve_destinations(lead.industry_data)
-            
+            lead.industry_data = await _resolve_destinations(lead.industry_data, current_user.tenant_id)
+
     return result
 
 
@@ -202,9 +216,9 @@ async def get_lead(
     except Exception:
         lead_response.custom_fields = {}
 
-    # Resolve destinations if in travel industry
+    # Resolve destinations if in travel industry (scoped to tenant)
     if lead_response.industry_data and "destination_ids" in lead_response.industry_data:
-        lead_response.industry_data = await _resolve_destinations(lead_response.industry_data)
+        lead_response.industry_data = await _resolve_destinations(lead_response.industry_data, current_user.tenant_id)
 
     lead_response.created_by_name = creator.name if creator else "Unknown"
     lead_response.last_modified_by_name = modifier.name if modifier else None
@@ -246,8 +260,8 @@ async def update_lead(
             lead_data.industry_data = validate_industry_data(
                 industry, lead_data.industry_data, mode="lead"
             )
-            # Resolve destination IDs to names
-            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data)
+            # Resolve destination IDs to names (scoped to tenant)
+            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data, current_user.tenant_id)
         
         lead = await service.update_lead(
             lead_id=lead_id,

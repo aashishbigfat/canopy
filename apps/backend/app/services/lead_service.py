@@ -633,11 +633,16 @@ class LeadService(ActivityMixin):
                             )
                             await pivot.insert()
             else:
+                # Use contact name from form (user may override lead name); fall back to lead data
+                c_salutation = conversion_data.contact_salutation or lead.salutation
+                c_first_name = conversion_data.contact_first_name or lead.first_name
+                c_last_name = conversion_data.contact_last_name or lead.last_name
+
                 contact = Contact(
-                    salutation=lead.salutation,
-                    first_name=lead.first_name,
+                    salutation=c_salutation,
+                    first_name=c_first_name,
                     middle_name=lead.middle_name,
-                    last_name=lead.last_name,
+                    last_name=c_last_name,
                     email=lead.email,
                     phone=lead.phone,
                     mobile=lead.mobile,

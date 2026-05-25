@@ -55,3 +55,25 @@ class HealthcareQuoteData(BaseModel):
     estimated_sessions: Optional[int] = Field(None, ge=1, description="Estimated sessions (≥ 1)")
     insurance_preauth: Optional[str] = Field(None, max_length=100, description="Pre-authorization number")
     procedure_codes: List[str] = Field(default_factory=list, description="CPT procedure codes")
+
+
+class HealthcareAccountData(BaseModel):
+    """Validates industry_data for an Account owned by a healthcare tenant."""
+
+    facility_type: Optional[str] = Field(None, description="e.g. Clinic, Hospital, Lab")
+    specialties: List[str] = Field(default_factory=list, description="Medical specialties")
+    npi: Optional[str] = Field(None, description="National Provider Identifier (NPI)")
+    accreditations: List[str] = Field(default_factory=list, description="e.g. JCI, ACHC")
+    primary_insurance_contract: Optional[str] = Field(None, description="Primary insurance contractor")
+
+
+class HealthcareContactData(BaseModel):
+    """Validates industry_data for a Contact owned by a healthcare tenant."""
+
+    gender: Optional[str] = Field(None, description="Patient/Provider gender")
+    blood_type: Optional[str] = Field(None, description="Patient blood type")
+    allergies: List[str] = Field(default_factory=list, description="List of patient allergies")
+    medical_history_summary: Optional[str] = Field(None, description="Brief history summary")
+    npi: Optional[str] = Field(None, description="Provider NPI if contact is a provider")
+    license_number: Optional[str] = Field(None, description="Medical license number")
+

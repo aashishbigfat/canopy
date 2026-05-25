@@ -137,7 +137,7 @@ class HierarchyService:
         return True
 
     async def get_hierarchies_by_tenant(
-        self, tenant_id: ObjectId, skip: int = 0, limit: int = 100
+        self, tenant_id: ObjectId, skip: int = 0, limit: int = 200
     ) -> List[RoleHierarchy]:
         return await RoleHierarchy.find(
             {"tenant_id": tenant_id, "deleted_at": None}

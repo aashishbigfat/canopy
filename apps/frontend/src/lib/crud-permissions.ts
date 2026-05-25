@@ -12,7 +12,7 @@ export type CrudResource =
     | "file"
     | "supplier"
     | "destination"
-    | "department"
+    | "hierarchy"
     | "itinerary"
     | "package"
     | "product"
@@ -21,7 +21,12 @@ export type CrudResource =
     | "user"
     | "role"
     | "report"
-    | "webhook";
+    | "webhook"
+    | "email"
+    | "email_template"
+    | "sales_stage"
+    | "incentive"
+    | "sales_target";
 
 const CRUD_KEYS: Record<
     CrudResource,
@@ -77,10 +82,10 @@ const CRUD_KEYS: Record<
         edit: "edit_destination",
         delete: "delete_destination",
     },
-    department: {
-        create: "create_department",
-        edit: "edit_department",
-        delete: "delete_department",
+    hierarchy: {
+        create: "create_hierarchy",
+        edit: "edit_hierarchy",
+        delete: "delete_hierarchy",
     },
     itinerary: {
         create: "create_itinerary",
@@ -126,6 +131,31 @@ const CRUD_KEYS: Record<
         create: "create_webhook",
         edit: "edit_webhook",
         delete: "delete_webhook",
+    },
+    email: {
+        create: "create_email",
+        edit: "edit_email",
+        delete: "delete_email",
+    },
+    email_template: {
+        create: "create_email_template",
+        edit: "edit_email_template",
+        delete: "delete_email_template",
+    },
+    sales_stage: {
+        create: "manage_sales_stages",
+        edit: "manage_sales_stages",
+        delete: "manage_sales_stages",
+    },
+    incentive: {
+        create: "manage_incentives",
+        edit: "manage_incentives",
+        delete: "manage_incentives",
+    },
+    sales_target: {
+        create: "manage_sales_targets",
+        edit: "manage_sales_targets",
+        delete: "manage_sales_targets",
     },
 };
 

@@ -9,6 +9,8 @@ export const useGetUsers = (params?: { page?: number; limit?: number; search?: s
             const response = await apiClient.get<UserResponse>('/users', { params });
             return response.data;
         },
+        staleTime: 2 * 60 * 1000, // 2 minutes
+        refetchOnWindowFocus: false,
     });
 };
 
@@ -20,6 +22,8 @@ export const useGetUser = (id: string) => {
             return response.data;
         },
         enabled: !!id,
+        staleTime: 2 * 60 * 1000,
+        refetchOnWindowFocus: false,
     });
 };
 

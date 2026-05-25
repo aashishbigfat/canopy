@@ -6,6 +6,7 @@ from bson import ObjectId
 import json
 from app.models.supplier import Supplier, OpportunitySupplier
 from app.schemas.supplier import SupplierCreate, SupplierUpdate
+from app.models.opportunity import Opportunity
 from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
 
@@ -186,6 +187,21 @@ class SupplierService:
     ) -> OpportunitySupplier:
         """Link supplier to opportunity"""
         
+        # Verify both entities exist and belong to the current tenant
+        opportunity = await Opportunity.find_one(
+            Opportunity.id == ObjectId(opportunity_id),
+            Opportunity.tenant_id == tenant_id
+        )
+        if not opportunity:
+            raise ValueError("Opportunity not found or access denied")
+            
+        supplier = await Supplier.find_one(
+            Supplier.id == ObjectId(supplier_id),
+            Supplier.tenant_id == tenant_id
+        )
+        if not supplier:
+            raise ValueError("Supplier not found or access denied")
+        
         # Check if already linked
         existing = await OpportunitySupplier.find_one({
             "opportunity_id": ObjectId(opportunity_id),
@@ -223,13 +239,15 @@ class SupplierService:
     async def unlink_from_opportunity(
         self,
         opportunity_id: str,
-        supplier_id: str
+        supplier_id: str,
+        tenant_id: ObjectId
     ) -> bool:
         """Unlink supplier from opportunity"""
         
         link = await OpportunitySupplier.find_one({
             "opportunity_id": ObjectId(opportunity_id),
-            "supplier_id": ObjectId(supplier_id)
+            "supplier_id": ObjectId(supplier_id),
+            "tenant_id": tenant_id
         })
         
         if link:

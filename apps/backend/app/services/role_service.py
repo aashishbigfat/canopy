@@ -17,70 +17,89 @@ from app.mixins.activity_mixin import ActivityMixin
 CORE_PERMISSIONS = [
     # Account permissions
     "view_account", "create_account", "edit_account", "delete_account",
-    
+
+    # Person Account permissions
+    "view_person_account", "create_person_account", "edit_person_account", "delete_person_account",
+
     # Contact permissions
     "view_contact", "create_contact", "edit_contact", "delete_contact",
-    
+
     # Lead permissions
     "view_lead", "create_lead", "edit_lead", "delete_lead",
-    
+
     # Opportunity permissions
     "view_opportunity", "create_opportunity", "edit_opportunity", "delete_opportunity",
-    
+
     # Task permissions
     "view_task", "create_task", "edit_task", "delete_task",
-    
+
     # Event permissions
     "view_event", "create_event", "edit_event", "delete_event",
-    
+
     # Note permissions
     "view_note", "create_note", "edit_note", "delete_note",
-    
+
     # Email permissions
     "view_email", "create_email", "edit_email", "delete_email",
     "send_email", "view_email_template", "create_email_template", "edit_email_template", "delete_email_template",
-    
+
     # File permissions
     "view_file", "upload_file", "delete_file", "download_file",
-    
+
     # Supplier / Provider / Vendor permissions (label differs per industry)
     "view_supplier", "create_supplier", "edit_supplier", "delete_supplier",
-    
-    # Department permissions
-    "view_department", "create_department", "edit_department", "delete_department",
-    
+
+    # Hierarchy (role tree) permissions — replaces old department permissions
+    "view_hierarchy", "create_hierarchy", "edit_hierarchy", "delete_hierarchy",
+
     # Product permissions
     "view_product", "create_product", "edit_product", "delete_product",
-    
+
     # Quote permissions
     "view_quote", "create_quote", "edit_quote", "delete_quote",
-    
+
     # Invoice permissions
     "view_invoice", "create_invoice", "edit_invoice", "delete_invoice",
-    
+
     # User permissions
     "view_user", "create_user", "edit_user", "delete_user",
-    
-    # Role permissions
+
+    # Role / Profile permissions (RBAC permission profiles)
     "view_role", "create_role", "edit_role", "delete_role",
-    
+
     # Report permissions
     "view_reports", "view_report", "create_report", "edit_report", "delete_report",
-    
+
     # Dashboard permissions
     "view_dashboard",
-    
+
+    # Sales Stages management
+    "manage_sales_stages",
+
+    # Sales Target management
+    "manage_sales_targets",
+
+    # Incentive management
+    "manage_incentives",
+
+    # Leaderboard
+    "view_leaderboard",
+
     # Settings permissions
     "manage_settings", "manage_system", "manage_tenants",
-    
+
     # Billing permissions
     "manage_billing",
-    
+
     # Notification permissions
     "manage_notifications",
-    
+
     # Webhook permissions
     "manage_webhooks", "view_webhook", "create_webhook", "edit_webhook", "delete_webhook",
+
+    # Backward compat — keep old department permission strings so existing
+    # stored role docs don't break.  They map to hierarchy ops now.
+    "view_department", "create_department", "edit_department", "delete_department",
 ]
 
 # Travel-only permissions — destinations, itineraries, packages

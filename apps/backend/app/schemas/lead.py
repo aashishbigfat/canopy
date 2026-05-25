@@ -92,7 +92,8 @@ class LeadUpdate(BaseModel):
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
     ip_address: Optional[str] = None
-    
+    segment: Optional[str] = None  # B2C / B2B / B2B2C — persisted on update
+
     # Industry-specific data
     industry_data: Optional[Dict[str, Any]] = None
     custom_fields: Optional[Dict[str, Any]] = None
@@ -190,6 +191,10 @@ class LeadConvert(BaseModel):
     person_last_name: Optional[str] = None
     contact_id: Optional[str] = None
     contact_create: bool = True
+    # Contact name fields — form lets user override the lead's name for the new contact
+    contact_salutation: Optional[str] = None
+    contact_first_name: Optional[str] = None
+    contact_last_name: Optional[str] = None
     create_opportunity: bool = True
     opportunity_name: Optional[str] = None
     opportunity_amount: Optional[float] = None
@@ -200,6 +205,7 @@ class LeadConvert(BaseModel):
     
     # Industry-specific data for the new opportunity (travel_date, pax, etc.)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
 
 
 class LeadListResponse(BaseModel):

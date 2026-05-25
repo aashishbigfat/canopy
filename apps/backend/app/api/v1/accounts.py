@@ -14,6 +14,8 @@ from app.schemas.account import (
 )
 from app.services.account_service import AccountService
 from app.api.deps import get_current_user, check_permission
+from app.models.tenant import Tenant
+from app.schemas.industry_data import validate_industry_data
 
 router = APIRouter()
 
@@ -62,7 +64,8 @@ def account_to_response(account: Account) -> AccountResponse:
         is_favorite=account.is_favorite,
         created_at=account.created_at,
         updated_at=account.updated_at,
-        deleted_at=account.deleted_at
+        deleted_at=account.deleted_at,
+        industry_data=getattr(account, 'industry_data', {})
     )
 
 @router.get("/form-data")
@@ -118,6 +121,14 @@ async def create_account(
 ):
     """Create a new account"""
     try:
+        tenant = await Tenant.get(current_user.tenant_id)
+        industry = tenant.industry if tenant else "travel"
+        account_data.industry_data = validate_industry_data(
+            industry=industry,
+            data=account_data.industry_data or {},
+            mode="account"
+        )
+        
         service = AccountService()
         account = await service.create_account(
             account_data,
@@ -268,7 +279,8 @@ async def get_accounts(
                     "is_favorite": acc.is_favorite,
                     "created_at": acc.created_at,
                     "updated_at": acc.updated_at,
-                    "deleted_at": acc.deleted_at
+                    "deleted_at": acc.deleted_at,
+                    "industry_data": getattr(acc, 'industry_data', {})
                 }
                 for acc in accounts
             ],
@@ -528,6 +540,16 @@ async def update_account(
     """Update an account"""
     try:
         from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+        
+        if account_data.industry_data is not None:
+            tenant = await Tenant.get(current_user.tenant_id)
+            industry = tenant.industry if tenant else "travel"
+            account_data.industry_data = validate_industry_data(
+                industry=industry,
+                data=account_data.industry_data,
+                mode="account"
+            )
+            
         service = AccountService()
         
         # Visibility pre-check

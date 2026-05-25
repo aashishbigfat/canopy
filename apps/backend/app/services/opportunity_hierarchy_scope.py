@@ -9,6 +9,8 @@ Peers assigned to the same RoleHierarchy node cannot see each other's opportunit
 """
 from typing import List
 
+from bson import ObjectId
+
 from app.models.role import RoleHierarchy
 from app.models.user import User
 

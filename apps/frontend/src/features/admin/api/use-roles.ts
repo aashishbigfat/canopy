@@ -10,6 +10,8 @@ export const useGetRoles = (params?: { skip?: number; limit?: number }) => {
             const response = await apiClient.get<{ roles: Role[]; total: number }>('/roles', { params });
             return response.data.roles;
         },
+        staleTime: 5 * 60 * 1000, // 5 minutes
+        refetchOnWindowFocus: false,
     });
 };
 
@@ -30,7 +32,9 @@ export const useGetAllPermissions = () => {
         queryFn: async () => {
             const response = await apiClient.get<PermissionListResponse>('/roles/permissions/all');
             return response.data.permissions;
-        }
+        },
+        staleTime: 10 * 60 * 1000, // 10 minutes — permissions rarely change
+        refetchOnWindowFocus: false,
     })
 }
 

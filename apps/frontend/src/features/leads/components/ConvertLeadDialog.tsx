@@ -126,6 +126,7 @@ export function ConvertLeadDialog({
     sales_stages = []
 }: ConvertLeadDialogProps) {
     const convertLead = useConvertLead();
+    const { toast } = useToast();
     const industry = useIndustry();
     const { data: suggestions, isLoading: suggestionsLoading } = useConversionSuggestions(lead.id);
 
@@ -451,7 +452,7 @@ export function ConvertLeadDialog({
                     }
                 });
             } else if (typeof details === "string") {
-                toast.error(details);
+                toast({ variant: "destructive", title: "Validation Error", description: details });
             }
             return true;
         }
@@ -510,9 +511,9 @@ export function ConvertLeadDialog({
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[900px] w-[95vw] max-h-[95vh] overflow-y-auto p-0 border-none">
+            <DialogContent className="sm:max-w-[900px] w-[95vw] max-h-[90vh] overflow-hidden p-0 border-none flex flex-col">
                 <DialogHeader className="border-b p-6 pb-4 mb-0">
-                    <DialogTitle className="flex items-center gap-2 text-2xl text-blue-700">
+                    <DialogTitle className="flex items-center gap-2 text-2xl text-blue-700 dark:text-blue-400">
                         <CheckCircle2 className="h-7 w-7" />
                         Convert Lead: {lead.full_name}
                     </DialogTitle>
@@ -522,14 +523,15 @@ export function ConvertLeadDialog({
                 </DialogHeader>
 
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 p-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
+                        <div className="flex-1 overflow-y-auto p-6 space-y-6">
                         <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
                             {/* Left Column: Account & Contact */}
                             <div className="space-y-8">
                                 {/* 1. Account Selection */}
-                                <Card className="border-blue-100 bg-blue-50/30">
+                                <Card className="border-blue-100/80 bg-blue-50/20 dark:border-blue-900/30 dark:bg-blue-950/10">
                                     <CardContent className="pt-6 space-y-4">
-                                        <div className="flex items-center gap-2 font-semibold text-blue-800 border-b border-blue-100 pb-2">
+                                        <div className="flex items-center gap-2 font-semibold text-blue-800 dark:text-blue-300 border-b border-blue-100/80 dark:border-blue-900/30 pb-2">
                                             <Building2 className="h-5 w-5" />
                                             <h3>Account Selection</h3>
                                         </div>
@@ -598,7 +600,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>Salutation</FormLabel>
                                                                 <FormControl>
-                                                                    <Input {...field} placeholder="Mr." className="bg-white" />
+                                                                    <Input {...field} placeholder="Mr." />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -611,7 +613,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>First Name</FormLabel>
                                                                 <FormControl>
-                                                                    <Input {...field} placeholder="First Name" className="bg-white" />
+                                                                    <Input {...field} placeholder="First Name" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -624,7 +626,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>Last Name</FormLabel>
                                                                 <FormControl>
-                                                                    <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                                    <Input {...field} placeholder="Last Name" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -633,18 +635,18 @@ export function ConvertLeadDialog({
                                                 </div>
                                             ) : (
                                                 <FormField
-                                                    control={form.control}
-                                                    name="account_name"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Account Name</FormLabel>
-                                                            <FormControl>
-                                                                <Input {...field} placeholder="Account Name" className="bg-white" />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
+                                                                                    control={form.control}
+                                                                                    name="account_name"
+                                                                                    render={({ field }) => (
+                                                                                        <FormItem>
+                                                                                            <FormLabel>Account Name</FormLabel>
+                                                                                            <FormControl>
+                                                                                                <Input {...field} placeholder="Account Name" />
+                                                                                            </FormControl>
+                                                                                            <FormMessage />
+                                                                                        </FormItem>
+                                                                                    )}
+                                                                                />
                                             )
                                         ) : (
                                             <FormField
@@ -677,9 +679,9 @@ export function ConvertLeadDialog({
 
                                 {/* 2. Contact Section — hidden for Person Accounts */}
                                 {form.watch("account_type") !== "Person Account" && (
-                                    <Card className="border-indigo-100 bg-indigo-50/30">
+                                    <Card className="border-indigo-100/80 bg-indigo-50/20 dark:border-indigo-900/30 dark:bg-indigo-950/10">
                                         <CardContent className="pt-6 space-y-4">
-                                            <div className="flex items-center gap-2 font-semibold text-indigo-800 border-b border-indigo-100 pb-2">
+                                            <div className="flex items-center gap-2 font-semibold text-indigo-800 dark:text-indigo-300 border-b border-indigo-100/80 dark:border-indigo-900/30 pb-2">
                                                 <UserCircle2 className="h-5 w-5" />
                                                 <h3>Contact Details</h3>
                                             </div>
@@ -693,7 +695,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>Salutation</FormLabel>
                                                                 <FormControl>
-                                                                    <Input {...field} placeholder="Mr." className="bg-white" />
+                                                                    <Input {...field} placeholder="Mr." />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -706,7 +708,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>First Name</FormLabel>
                                                                 <FormControl>
-                                                                    <Input {...field} placeholder="First Name" className="bg-white" />
+                                                                    <Input {...field} placeholder="First Name" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -719,7 +721,7 @@ export function ConvertLeadDialog({
                                                             <FormItem>
                                                                 <FormLabel>Last Name</FormLabel>
                                                                 <FormControl>
-                                                                    <Input {...field} placeholder="Last Name" className="bg-white" />
+                                                                    <Input {...field} placeholder="Last Name" />
                                                                 </FormControl>
                                                                 <FormMessage />
                                                             </FormItem>
@@ -794,10 +796,10 @@ export function ConvertLeadDialog({
 
                             {/* Right Column: Opportunity */}
                             <div className="space-y-8">
-                                <Card className="border-orange-100 bg-orange-50/30">
+                                <Card className="border-amber-100/80 bg-amber-50/20 dark:border-amber-900/30 dark:bg-amber-950/10">
                                     <CardContent className="pt-6 space-y-4">
-                                        <div className="flex items-center justify-between border-b border-orange-100 pb-2">
-                                            <div className="flex items-center gap-2 font-semibold text-orange-800">
+                                        <div className="flex items-center justify-between border-b border-amber-100/80 dark:border-amber-900/30 pb-2">
+                                            <div className="flex items-center gap-2 font-semibold text-amber-800 dark:text-amber-300">
                                                 <Briefcase className="h-5 w-5" />
                                                 <h3>Opportunity Details</h3>
                                             </div>
@@ -831,7 +833,6 @@ export function ConvertLeadDialog({
                                                             <FormControl>
                                                                 <Input
                                                                     {...field}
-                                                                    className="bg-white"
                                                                     placeholder={industry === "travel" ? "Auto-generated from destination, pax & date" : "Auto-generated"}
                                                                 />
                                                             </FormControl>
@@ -855,7 +856,7 @@ export function ConvertLeadDialog({
                                                                             <Button
                                                                                 variant={"outline"}
                                                                                 className={cn(
-                                                                                    "w-full pl-3 text-left font-normal bg-white",
+                                                                                    "w-full pl-3 text-left font-normal bg-background/50 dark:bg-background/20",
                                                                                     !field.value && "text-muted-foreground"
                                                                                 )}
                                                                             >
@@ -908,7 +909,7 @@ export function ConvertLeadDialog({
                                                                             <Button
                                                                                 variant={"outline"}
                                                                                 className={cn(
-                                                                                    "w-full pl-3 text-left font-normal bg-white",
+                                                                                    "w-full pl-3 text-left font-normal bg-background/50 dark:bg-background/20",
                                                                                     !field.value && "text-muted-foreground"
                                                                                 )}
                                                                             >
@@ -1001,7 +1002,7 @@ export function ConvertLeadDialog({
                                                         <FormItem>
                                                             <FormLabel>Destinations</FormLabel>
                                                             <FormControl>
-                                                                <div className="border rounded-md p-3 bg-white max-h-[120px] overflow-y-auto">
+                                                                <div className="border rounded-md p-3 bg-background/50 dark:bg-background/20 max-h-[120px] overflow-y-auto">
                                                                     {leadProcessedDestinations.length > 0 ? (
                                                                         <div className="space-y-2">
                                                                             {leadProcessedDestinations.map((dest) => (
@@ -1030,13 +1031,13 @@ export function ConvertLeadDialog({
                                                                         </div>
                                                                     )}
                                                                     {(lead.industry_data?.destination_names || []).length > leadProcessedDestinations.length && (
-                                                                        <div className="mt-2 pt-2 border-t">
-                                                                            <p className="text-xs text-amber-600 mb-1 font-medium">Unmatched destinations:</p>
+                                                                        <div className="mt-2 pt-2 border-t border-border/80">
+                                                                            <p className="text-xs text-amber-600 dark:text-amber-400 mb-1 font-medium">Unmatched destinations:</p>
                                                                             <div className="flex flex-wrap gap-1">
                                                                                 {(lead.industry_data?.destination_names || []).filter((name: string) =>
                                                                                     !leadProcessedDestinations.some(pd => pd.name.toLowerCase() === name.toLowerCase())
                                                                                 ).map((name: string, i: number) => (
-                                                                                    <span key={i} className="text-[10px] bg-amber-50 text-amber-700 px-1.5 py-0.5 rounded border border-amber-200">{name}</span>
+                                                                                    <span key={i} className="text-[10px] bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-900/30">{name}</span>
                                                                                 ))}
                                                                             </div>
                                                                             <p className="text-[10px] text-muted-foreground mt-1">These destinations don't exist in the system and cannot be linked.</p>
@@ -1054,29 +1055,29 @@ export function ConvertLeadDialog({
                                                 )}
 
                                                 {industry === "travel" && (
-                                                <div className="grid grid-cols-2 gap-x-4 gap-y-3 border p-4 rounded-lg bg-white shadow-sm">
+                                                <div className="grid grid-cols-2 gap-x-4 gap-y-3 border p-4 rounded-lg bg-background/50 dark:bg-background/20 shadow-sm">
                                                     <FormField control={form.control} name="no_of_adults" render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Adults</FormLabel>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Adults</FormLabel>
                                                             <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="no_of_childs" render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Childs</FormLabel>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Children</FormLabel>
                                                             <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="no_of_infants" render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500">Infants</FormLabel>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Infants</FormLabel>
                                                             <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="no_of_pax" render={({ field }) => (
                                                         <FormItem>
-                                                            <FormLabel className="text-[10px] uppercase font-bold text-blue-600">Total Pax</FormLabel>
-                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50 border-blue-200 font-bold" /></FormControl>
+                                                            <FormLabel className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Total Pax</FormLabel>
+                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50/50 border-blue-200 text-blue-900 font-bold dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                 </div>
@@ -1089,7 +1090,7 @@ export function ConvertLeadDialog({
                                                             <FormControl>
                                                                 <div className="relative">
                                                                     <span className="absolute left-3 top-2.5 text-muted-foreground text-sm">₹</span>
-                                                                    <Input type="text" inputMode="decimal" {...field} className="pl-7 bg-white" onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); field.onChange(val); }} />
+                                                                    <Input type="text" inputMode="decimal" {...field} className="pl-7" onChange={(e) => { const val = e.target.value.replace(/[^0-9.]/g, ""); field.onChange(val); }} />
                                                                 </div>
                                                             </FormControl>
                                                             <FormMessage />
@@ -1100,7 +1101,7 @@ export function ConvertLeadDialog({
                                                     <FormField control={form.control} name="no_of_nights" render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>No of Nights</FormLabel>
-                                                            <FormControl><Input type="number" min="0" {...field} className="bg-white" /></FormControl>
+                                                            <FormControl><Input type="number" min="0" {...field} className="" /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )} />
@@ -1136,7 +1137,7 @@ export function ConvertLeadDialog({
                                                                 <Textarea
                                                                     {...field}
                                                                     placeholder="Add any specific requirements or notes..."
-                                                                    className="min-h-[80px] bg-white resize-none"
+                                                                    className="min-h-[80px] resize-none"
                                                                 />
                                                             </FormControl>
                                                             <FormMessage />
@@ -1149,20 +1150,21 @@ export function ConvertLeadDialog({
                                 </Card>
                             </div>
                         </div>
+                        </div>{/* end scrollable body */}
 
-                        <DialogFooter className="border-t p-6 bg-slate-50/50 gap-2 sm:gap-0">
+                        <DialogFooter className="border-t p-6 bg-muted/20 gap-2 sm:gap-0 flex-shrink-0 sticky bottom-0">
                             <Button
                                 type="button"
                                 variant="ghost"
                                 onClick={() => onOpenChange(false)}
-                                className="text-slate-500 hover:text-slate-700"
+                                className="text-muted-foreground hover:text-foreground"
                             >
                                 Not Now
                             </Button>
                             <Button
                                 type="submit"
                                 disabled={convertLead.isPending}
-                                className="bg-blue-700 hover:bg-blue-800 text-white min-w-[140px] shadow-lg shadow-blue-200"
+                                className="bg-blue-700 hover:bg-blue-800 dark:bg-blue-600 dark:hover:bg-blue-700 text-white min-w-[140px] shadow-lg shadow-blue-200/20 dark:shadow-none"
                             >
                                 {convertLead.isPending ? (
                                     <>

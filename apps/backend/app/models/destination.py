@@ -1,5 +1,5 @@
 """
-Destination models for travel CRM
+Destination models — travel-industry module (guarded by require_module).
 """
 from beanie import Indexed
 from pydantic import Field

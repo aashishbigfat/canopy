@@ -1,33 +1,22 @@
 "use client";
 
-import { use } from "react";
-import { UserForm } from "@/features/admin/components/users/user-form";
-import { useGetUser } from "@/features/admin/api/use-users";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
-interface EditUserPageProps {
-    params: Promise<{ id: string }>;
-}
+/**
+ * Legacy route — user editing now happens via the Sheet slide-over
+ * on the main /admin/users page. Redirect there automatically.
+ */
+export default function EditUserPage() {
+    const router = useRouter();
 
-export default function EditUserPage({ params }: EditUserPageProps) {
-    const { id } = use(params);
-    const { data: user, isLoading, isError } = useGetUser(id);
-
-    if (isLoading) {
-        return <div className="p-8">Loading user details...</div>;
-    }
-
-    if (isError || !user) {
-        return <div className="p-8 text-red-500">Error loading user or user not found.</div>;
-    }
+    useEffect(() => {
+        router.replace("/admin/users");
+    }, [router]);
 
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Edit User</h2>
-            </div>
-            <div className="rounded-md border p-4">
-                <UserForm initialData={user} />
-            </div>
+        <div className="flex items-center justify-center h-64">
+            <p className="text-muted-foreground">Redirecting to User Management...</p>
         </div>
     );
 }

@@ -33,7 +33,7 @@ export interface QuoteItem {
     total: number;
 }
 
-export function generateQuotePdf(quote: QuoteData, companyName: string = "Tutterfly") {
+export function generateQuotePdf(quote: QuoteData, companyName: string = "Travel CRM") {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     let yPos = 20;

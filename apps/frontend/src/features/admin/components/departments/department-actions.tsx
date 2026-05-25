@@ -49,7 +49,7 @@ interface DepartmentActionsProps {
 
 export function DepartmentActions({ department, onEdit }: DepartmentActionsProps) {
     const router = useRouter();
-    const { canEdit, canDelete } = useCrudPermissions("department");
+    const { canEdit, canDelete } = useCrudPermissions("hierarchy");
     const deleteDepartment = useDeleteDepartment();
     const departmentId = getDepartmentId(department);
     const [showDeleteAlert, setShowDeleteAlert] = useState(false);

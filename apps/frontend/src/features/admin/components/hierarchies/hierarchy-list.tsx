@@ -11,19 +11,10 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical, Plus } from "lucide-react";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
+import { GripVertical, Plus, Pencil, Trash2 } from "lucide-react";
 import { useGetHierarchies } from "@/features/admin/api/use-hierarchies";
-import { HierarchyActions } from "./hierarchy-actions";
 import { Hierarchy } from "@/features/admin/types/hierarchies";
-import { useCreateHierarchy, useUpdateHierarchy } from "@/features/admin/api/use-hierarchies";
+import { useCreateHierarchy, useUpdateHierarchy, useDeleteHierarchy } from "@/features/admin/api/use-hierarchies";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -37,7 +28,6 @@ import {
 import { toast } from "sonner";
 import { AxiosError } from "axios";
 import { useCrudPermissions } from "@/hooks/use-crud-permissions";
-import { formatDateTime } from "@/lib/format";
 
 type TreeNode = Hierarchy & { children: TreeNode[] };
 
@@ -86,7 +76,6 @@ function flattenTree(nodes: TreeNode[], depth = 0): Array<{ node: TreeNode; dept
     return flat;
 }
 
-/** True if candidateId is activeId or any ancestor of candidateId is activeId (cannot reparent into own subtree). */
 function isInSubtreeOf(
     hierarchies: Hierarchy[],
     candidateId: string,
@@ -105,14 +94,33 @@ function isInSubtreeOf(
     return false;
 }
 
+// ---------------------------------------------------------------------------
+// Row component — matches the reference Roles UI
+// ---------------------------------------------------------------------------
+
 interface HierarchyRowProps {
     hierarchy: Hierarchy;
     depth: number;
     onAddChild: (parentId: string) => void;
-    canCreateChild: boolean;
+    onAddUser: (hierarchyId: string) => void;
+    canCreate: boolean;
+    canEdit: boolean;
+    canDelete: boolean;
+    onEdit: (id: string) => void;
+    onDelete: (id: string) => void;
 }
 
-function HierarchyRow({ hierarchy, depth, onAddChild, canCreateChild }: HierarchyRowProps) {
+function HierarchyRow({
+    hierarchy,
+    depth,
+    onAddChild,
+    onAddUser,
+    canCreate,
+    canEdit,
+    canDelete,
+    onEdit,
+    onDelete,
+}: HierarchyRowProps) {
     const hierarchyId = hierarchy._id || hierarchy.id || "";
     const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
         id: hierarchyId,
@@ -123,45 +131,134 @@ function HierarchyRow({ hierarchy, depth, onAddChild, canCreateChild }: Hierarch
         transition,
     };
 
+    const userCount = hierarchy.user_count ?? 0;
+    const relatedRolesCount = hierarchy.related_roles_count ?? 0;
+    const parentName = hierarchy.parent_name ?? null;
+
     return (
-        <TableRow ref={setNodeRef} style={style}>
-            <TableCell className="font-medium">
-                <div className="flex items-center gap-2" style={{ marginLeft: `${depth * 24}px` }}>
-                    <button
-                        type="button"
-                        className="text-slate-400 hover:text-slate-700"
-                        {...attributes}
-                        {...listeners}
-                    >
-                        <GripVertical className="h-4 w-4" />
-                    </button>
-                    <span>{hierarchy.name}</span>
+        <div
+            ref={setNodeRef}
+            style={style}
+            className="crm-surface flex items-stretch transition-all hover:shadow-md mb-2"
+        >
+            {/* Depth indicator bars */}
+            {depth > 0 && (
+                <div className="flex shrink-0">
+                    {Array.from({ length: depth }).map((_, i) => (
+                        <div
+                            key={i}
+                            className="w-6 border-r border-border/50 shrink-0"
+                        />
+                    ))}
+                    <div className="w-4 flex items-center justify-center shrink-0">
+                        <div className="w-3 h-px bg-border" />
+                    </div>
                 </div>
-            </TableCell>
-            <TableCell>{hierarchy.created_by_name || "-"}</TableCell>
-            <TableCell>
-                {hierarchy.created_at ? formatDateTime(hierarchy.created_at) : "-"}
-            </TableCell>
-            <TableCell className="text-right">
-                <div className="flex justify-end items-center gap-2">
-                    {canCreateChild && (
-                    <Button variant="outline" size="sm" onClick={() => hierarchyId && onAddChild(hierarchyId)}>
-                        <Plus className="mr-1 h-3 w-3" />
-                        Add Hierarchy
-                    </Button>
+            )}
+
+            {/* Main row content */}
+            <div className="flex-1 flex items-center gap-4 px-4 py-3 min-w-0">
+                {/* Drag handle */}
+                <button
+                    type="button"
+                    className="text-muted-foreground hover:text-foreground cursor-grab shrink-0 p-1 rounded hover:bg-accent"
+                    {...attributes}
+                    {...listeners}
+                >
+                    <GripVertical className="h-4 w-4" />
+                </button>
+
+                {/* Name */}
+                <div className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-foreground truncate block">
+                        {hierarchy.name}
+                    </span>
+                </div>
+
+                {/* Related Roles + User Count */}
+                <div className="flex flex-col items-start gap-0.5 w-40 shrink-0">
+                    <span className="text-sm font-medium text-primary">
+                        Related Role {relatedRolesCount}
+                    </span>
+                    <span className="text-sm text-muted-foreground">
+                        {userCount > 0 ? "Total User" : "No User"}
+                    </span>
+                    {userCount > 0 && (
+                        <span className="text-sm font-bold text-primary">
+                            ({userCount})
+                        </span>
                     )}
-                    <HierarchyActions hierarchy={hierarchy} />
                 </div>
-            </TableCell>
-        </TableRow>
+
+                {/* Reports To */}
+                <div className="w-44 shrink-0">
+                    {parentName ? (
+                        <div className="flex flex-col">
+                            <span className="text-xs text-muted-foreground">Reports To:</span>
+                            <span className="text-sm font-semibold text-foreground">{parentName}</span>
+                        </div>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                    )}
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1.5 shrink-0">
+                    {canCreate && (
+                        <Button
+                            size="sm"
+                            className="h-7 text-xs"
+                            onClick={() => onAddChild(hierarchyId)}
+                        >
+                            Add Role
+                        </Button>
+                    )}
+                    {canCreate && (
+                        <Button
+                            size="sm"
+                            variant="secondary"
+                            className="h-7 text-xs bg-emerald-600 text-white hover:bg-emerald-700 dark:bg-emerald-600 dark:hover:bg-emerald-700"
+                            onClick={() => onAddUser(hierarchyId)}
+                        >
+                            Add User
+                        </Button>
+                    )}
+                    {canEdit && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-primary hover:text-primary/80 hover:bg-accent"
+                            onClick={() => onEdit(hierarchyId)}
+                        >
+                            <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                    )}
+                    {canDelete && (
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-destructive hover:text-destructive/80 hover:bg-destructive/10"
+                            onClick={() => onDelete(hierarchyId)}
+                        >
+                            <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                    )}
+                </div>
+            </div>
+        </div>
     );
 }
 
+// ---------------------------------------------------------------------------
+// Main HierarchyList
+// ---------------------------------------------------------------------------
+
 export function HierarchyList() {
-    const { canCreate } = useCrudPermissions("department");
+    const { canCreate, canEdit, canDelete } = useCrudPermissions("hierarchy");
     const { data, isLoading, isError } = useGetHierarchies();
     const createHierarchy = useCreateHierarchy();
     const updateHierarchy = useUpdateHierarchy();
+    const deleteHierarchy = useDeleteHierarchy();
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: { distance: 8 },
@@ -172,17 +269,26 @@ export function HierarchyList() {
     const [addingChildFor, setAddingChildFor] = useState<string | null>(null);
     const [newChildName, setNewChildName] = useState("");
 
-    // Hooks must run unconditionally — never place useMemo after early returns.
     const hierarchies = data?.hierarchies || data?.data || [];
     const tree = useMemo(() => buildTree(hierarchies), [hierarchies]);
     const flat = useMemo(() => flattenTree(tree), [tree]);
 
     if (isLoading) {
-        return <div className="p-4 text-center">Loading hierarchies...</div>;
+        return (
+            <div className="flex items-center justify-center p-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+                <span className="ml-3 text-muted-foreground">Loading roles...</span>
+            </div>
+        );
     }
 
     if (isError) {
-        return <div className="p-4 text-center text-red-500">Error loading hierarchies</div>;
+        return (
+            <div className="crm-empty-state">
+                <p className="text-destructive font-medium">Failed to load roles</p>
+                <p className="text-sm text-muted-foreground mt-1">Please try refreshing the page.</p>
+            </div>
+        );
     }
 
     const createRootHierarchy = async () => {
@@ -191,7 +297,7 @@ export function HierarchyList() {
             await createHierarchy.mutateAsync({ name: newRootName.trim(), parent_id: null, level: 0 });
             setNewRootName("");
             setShowRootCreate(false);
-            toast.success("Hierarchy created");
+            toast.success("Role created");
         } catch (err) {
             toast.error(hierarchyApiErrorMessage(err));
         }
@@ -208,10 +314,29 @@ export function HierarchyList() {
             });
             setNewChildName("");
             setAddingChildFor(null);
-            toast.success("Hierarchy created");
+            toast.success("Role created");
         } catch (err) {
             toast.error(hierarchyApiErrorMessage(err));
         }
+    };
+
+    const handleEdit = (id: string) => {
+        window.location.href = `/admin/hierarchies/${id}`;
+    };
+
+    const handleDelete = async (id: string) => {
+        if (confirm("Are you sure you want to delete this role?")) {
+            try {
+                await deleteHierarchy.mutateAsync(id);
+                toast.success("Role deleted");
+            } catch (err) {
+                toast.error(hierarchyApiErrorMessage(err));
+            }
+        }
+    };
+
+    const handleAddUser = (hierarchyId: string) => {
+        window.location.href = `/admin/users?hierarchy=${hierarchyId}`;
     };
 
     const parentForAdd = addingChildFor
@@ -227,100 +352,94 @@ export function HierarchyList() {
         const targetParent = hierarchies.find((h: Hierarchy) => (h._id || h.id) === overId);
         if (!targetParent) return;
 
-        // Prevent cycles: cannot move a node under itself or under one of its descendants.
         if (isInSubtreeOf(hierarchies, overId, activeId)) {
-            toast.error("Circular dependency detected: Cannot move a hierarchy under its own descendant.");
+            toast.error("Cannot move a role under its own descendant.");
             return;
         }
 
-        await updateHierarchy.mutateAsync({
-            id: activeId,
-            data: {
-                parent_id: overId,
-                level: (targetParent.level || 0) + 1,
-            },
-        });
+        try {
+            await updateHierarchy.mutateAsync({
+                id: activeId,
+                data: {
+                    parent_id: overId,
+                    level: (targetParent.level || 0) + 1,
+                },
+            });
+            toast.success("Role moved");
+        } catch (err) {
+            toast.error(hierarchyApiErrorMessage(err));
+        }
     };
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-3">
             {canCreate && (
-            <div className="flex items-center justify-end">
-                {!showRootCreate ? (
-                    <Button onClick={() => setShowRootCreate(true)}>
-                        <Plus className="mr-2 h-4 w-4" />
-                        Add Root Hierarchy
-                    </Button>
-                ) : (
-                    <div className="flex items-center gap-2">
-                        <Input
-                            placeholder="Hierarchy name"
-                            value={newRootName}
-                            onChange={(e) => setNewRootName(e.target.value)}
-                            className="w-64"
-                        />
-                        <Button onClick={createRootHierarchy} disabled={createHierarchy.isPending}>
-                            Save
+                <div className="flex items-center justify-end">
+                    {!showRootCreate ? (
+                        <Button onClick={() => setShowRootCreate(true)}>
+                            <Plus className="mr-2 h-4 w-4" />
+                            Add New Role
                         </Button>
-                        <Button variant="outline" onClick={() => setShowRootCreate(false)}>
-                            Cancel
-                        </Button>
-                    </div>
-                )}
-            </div>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <Input
+                                placeholder="Role name"
+                                value={newRootName}
+                                onChange={(e) => setNewRootName(e.target.value)}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") void createRootHierarchy();
+                                }}
+                                className="w-64"
+                            />
+                            <Button onClick={createRootHierarchy} disabled={createHierarchy.isPending}>
+                                Save
+                            </Button>
+                            <Button variant="outline" onClick={() => setShowRootCreate(false)}>
+                                Cancel
+                            </Button>
+                        </div>
+                    )}
+                </div>
             )}
 
-            <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Name</TableHead>
-                        <TableHead>Created By</TableHead>
-                        <TableHead>Created Date</TableHead>
-                        <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-            </Table>
-
-            <div className="rounded-md border">
+            {hierarchies.length === 0 ? (
+                <div className="crm-empty-state">
+                    <p className="text-muted-foreground">No roles found.</p>
+                    <p className="text-sm text-muted-foreground mt-1">Click &quot;Add New Role&quot; to create one.</p>
+                </div>
+            ) : (
                 <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
                     onDragEnd={onDragEnd}
                 >
-                    <Table>
-                        <TableBody>
-                            {hierarchies.length === 0 ? (
-                                <TableRow>
-                                    <TableCell colSpan={4} className="h-24 text-center">
-                                        No hierarchies found.
-                                    </TableCell>
-                                </TableRow>
-                            ) : (
-                                <SortableContext
-                                    items={flat.map(({ node }) => node._id || node.id || "").filter(Boolean)}
-                                    strategy={verticalListSortingStrategy}
-                                >
-                                    {flat.map(({ node, depth }) => {
-                                        const nodeId = node._id || node.id || "";
-                                        return (
-                                            <HierarchyRow
-                                                key={nodeId}
-                                                hierarchy={node}
-                                                depth={depth}
-                                                canCreateChild={canCreate}
-                                                onAddChild={(parentId) => {
-                                                    setAddingChildFor(parentId);
-                                                    setNewChildName("");
-                                                }}
-                                            />
-                                        );
-                                    })}
-                                </SortableContext>
-                            )}
-                        </TableBody>
-                    </Table>
+                    <SortableContext
+                        items={flat.map(({ node }) => node._id || node.id || "").filter(Boolean)}
+                        strategy={verticalListSortingStrategy}
+                    >
+                        {flat.map(({ node, depth }) => {
+                            const nodeId = node._id || node.id || "";
+                            return (
+                                <HierarchyRow
+                                    key={nodeId}
+                                    hierarchy={node}
+                                    depth={depth}
+                                    canCreate={canCreate}
+                                    canEdit={canEdit}
+                                    canDelete={canDelete}
+                                    onAddChild={(parentId) => {
+                                        setAddingChildFor(parentId);
+                                        setNewChildName("");
+                                    }}
+                                    onAddUser={handleAddUser}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                />
+                            );
+                        })}
+                    </SortableContext>
                 </DndContext>
-            </div>
+            )}
 
             <Dialog
                 open={addingChildFor !== null}
@@ -333,16 +452,16 @@ export function HierarchyList() {
             >
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Add hierarchy</DialogTitle>
+                        <DialogTitle>Add Role</DialogTitle>
                         <DialogDescription>
                             {parentForAdd
-                                ? `Create a new hierarchy under “${parentForAdd.name}”.`
-                                : "Create a new hierarchy."}
+                                ? `Create a new role under "${parentForAdd.name}".`
+                                : "Create a new role."}
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-2 py-2">
                         <Input
-                            placeholder="Hierarchy name"
+                            placeholder="Role name"
                             value={newChildName}
                             onChange={(e) => setNewChildName(e.target.value)}
                             onKeyDown={(e) => {

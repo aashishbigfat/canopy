@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
     Mail,
     Phone,
@@ -45,6 +45,7 @@ import { Lead, LeadStatus, Source, User, Industry } from "../types";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
 import { LeadFormDrawer } from "./LeadFormDrawer";
 import { leadsService } from "@/lib/api/services/leads.service";
+import { destinationsService } from "@/lib/api/services/destinations.service";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
 import { useIndustry, useIndustryLabels } from "@/lib/industry-labels";
@@ -64,6 +65,33 @@ interface LeadDetailsProps {
 // ---------------------------------------------------------------------------
 function IndustryDetailSection({ industry, lead, experiences = [] }: { industry: string; lead: Lead; experiences?: { id: string; name: string }[] }) {
     const data = lead.industry_data || {};
+    const [resolvedDestinations, setResolvedDestinations] = useState<string[]>([]);
+
+    const destinationIdsStr = Array.isArray(data.destination_ids) ? data.destination_ids.join(",") : "";
+    const destinationNamesStr = Array.isArray(data.destination_names) ? data.destination_names.join(",") : "";
+
+    useEffect(() => {
+        if (industry === "travel" && Array.isArray(data.destination_ids) && data.destination_ids.length > 0) {
+            if (Array.isArray(data.destination_names) && data.destination_names.length === data.destination_ids.length) {
+                setResolvedDestinations(data.destination_names);
+                return;
+            }
+            let active = true;
+            destinationsService.getDestinations({ limit: 1000 })
+                .then(res => {
+                    if (!active) return;
+                    const destinationMap = new Map(res.destinations.map(d => [d.id, d.name]));
+                    const resolved = data.destination_ids.map((id: string) => destinationMap.get(id) || id);
+                    setResolvedDestinations(resolved);
+                })
+                .catch(err => {
+                    console.error("Failed to resolve destination names", err);
+                });
+            return () => {
+                active = false;
+            };
+        }
+    }, [industry, destinationIdsStr, destinationNamesStr]);
 
     const sectionConfig: Record<string, { title: string; icon: React.ReactNode; borderColor: string; fields: { label: string; value: any }[] }> = {
         travel: {
@@ -74,11 +102,13 @@ function IndustryDetailSection({ industry, lead, experiences = [] }: { industry:
                 { label: "Travel Date", value: data.travel_date },
                 {
                     label: "Destinations",
-                    value: Array.isArray(data.destination_names) && data.destination_names.length > 0
-                        ? data.destination_names.join(", ")
-                        : Array.isArray(data.destination_ids) && data.destination_ids.length > 0
-                            ? data.destination_ids.join(", ")
-                            : null,
+                    value: resolvedDestinations.length > 0
+                        ? resolvedDestinations.join(", ")
+                        : Array.isArray(data.destination_names) && data.destination_names.length > 0
+                            ? data.destination_names.join(", ")
+                            : Array.isArray(data.destination_ids) && data.destination_ids.length > 0
+                                ? data.destination_ids.join(", ")
+                                : null,
                 },
                 { label: "Nights", value: data.no_of_nights },
                 { label: "Total Pax", value: data.no_of_pax },
@@ -170,6 +200,13 @@ export function LeadDetails({
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+    // Track segment locally so the header badge updates immediately after editing
+    const [currentSegment, setCurrentSegment] = useState<string>(lead.segment || "B2C");
+
+    // Sync whenever the server re-renders and passes a new lead prop (after router.refresh())
+    useEffect(() => {
+        setCurrentSegment(lead.segment || "B2C");
+    }, [lead.segment, lead.id]);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -190,7 +227,7 @@ export function LeadDetails({
     const owner = users.find(u => u.id === lead.owner_id);
 
     return (
-        <div className="container mx-auto px-4 py-6 max-w-7xl">
+        <div className="container mx-auto px-4 py-6 max-w-7xl [&_.bg-white]:!bg-card [&_.border-slate-100]:!border-border [&_.border-slate-200]:!border-border [&_.border-slate-300]:!border-border [&_.text-slate-800]:!text-foreground [&_.text-slate-700]:!text-foreground [&_.text-slate-600]:!text-foreground/90 [&_.text-slate-500]:!text-muted-foreground [&_.text-slate-400]:!text-muted-foreground [&_.text-slate-300]:!text-muted-foreground">
             {/* Delete Confirmation Dialog */}
             <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
                 <AlertDialogContent>
@@ -216,7 +253,7 @@ export function LeadDetails({
             {/* High Fidelity Header */}
             <EntityDetailHeader
                 type="Lead"
-                badge={lead.segment || "B2C"}
+                badge={currentSegment}
                 name={lead.full_name}
                 id={lead.id}
                 phone={lead.phone || lead.mobile}
@@ -454,8 +491,15 @@ export function LeadDetails({
                 metadata={{
                     statuses: statuses,
                     sources: sources,
+                    source_mediums: [],
                     industries: industries,
                     experiences: experiences,
+                }}
+                onLeadUpdated={(updatedLead) => {
+                    // Immediately update the segment badge without waiting for server re-render
+                    if (updatedLead?.segment) {
+                        setCurrentSegment(updatedLead.segment);
+                    }
                 }}
             />
         </div>

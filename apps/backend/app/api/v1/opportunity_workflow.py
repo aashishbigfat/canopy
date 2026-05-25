@@ -1,8 +1,14 @@
 """
-Phase 6 — Opportunity workflow router.
+Phase 6 — Opportunity workflow router (Travel-industry operations).
 
 Mirrors old Laravel: voucher CRUD, departures, ledger, claims, handover,
 external lead capture, opportunity team, payment schedules.
+
+NOTE: Travel-specific endpoints (vouchers, departures) should ideally be
+guarded by ``require_module("operations")``, but this router is mounted on
+``/api/v1/opportunities`` alongside the core opportunity router and includes
+a public endpoint (external-leads/capture). Module guards are therefore
+applied per-endpoint where appropriate rather than at router level.
 """
 from __future__ import annotations
 from datetime import datetime

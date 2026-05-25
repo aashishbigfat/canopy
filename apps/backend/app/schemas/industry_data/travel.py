@@ -56,3 +56,25 @@ class TravelQuoteData(BaseModel):
     destination_ids: List[str] = Field(default_factory=list, description="Destination ObjectId refs")
     no_of_nights: Optional[int] = Field(None, ge=0, description="Number of nights (≥ 0)")
     inclusions: List[str] = Field(default_factory=list, description='e.g. ["Air Ticket", "Visa"]')
+
+
+class TravelAccountData(BaseModel):
+    """Validates industry_data for an Account owned by a travel tenant."""
+
+    preferred_destinations: List[str] = Field(default_factory=list, description="Preferred destination names")
+    preferred_experience_types: List[str] = Field(default_factory=list, description="Preferred experience types")
+    travel_frequency: Optional[str] = Field(None, description="e.g. monthly, quarterly, annually")
+    membership_tier: Optional[str] = Field(None, description="e.g. Silver, Gold, Platinum")
+    membership_number: Optional[str] = Field(None, description="Membership ID number")
+
+
+class TravelContactData(BaseModel):
+    """Validates industry_data for a Contact owned by a travel tenant."""
+
+    passport_number: Optional[str] = Field(None, description="Passport number")
+    passport_expiry: Optional[str] = Field(None, description="Passport expiry date")
+    nationality: Optional[str] = Field(None, description="Passport nationality")
+    date_of_birth: Optional[str] = Field(None, description="Date of birth")
+    dietary_preferences: List[str] = Field(default_factory=list, description="Dietary preferences")
+    frequent_flyer_number: Optional[str] = Field(None, description="Frequent flyer ID")
+

@@ -14,13 +14,14 @@ import {
 import { Hierarchy } from "@/features/admin/types/hierarchies";
 import { useDeleteHierarchy } from "@/features/admin/api/use-hierarchies";
 import { useCrudPermissions } from "@/hooks/use-crud-permissions";
+import { toast } from "sonner";
 
 interface HierarchyActionsProps {
     hierarchy: Hierarchy;
 }
 
 export function HierarchyActions({ hierarchy }: HierarchyActionsProps) {
-    const { canEdit, canDelete } = useCrudPermissions("department");
+    const { canEdit, canDelete } = useCrudPermissions("hierarchy");
     const router = useRouter();
     const deleteHierarchy = useDeleteHierarchy();
     const hierarchyId = hierarchy._id || hierarchy.id;
@@ -33,7 +34,12 @@ export function HierarchyActions({ hierarchy }: HierarchyActionsProps) {
     const handleDelete = async () => {
         if (!hierarchyId) return;
         if (confirm("Are you sure you want to delete this hierarchy?")) {
-            await deleteHierarchy.mutateAsync(hierarchyId);
+            try {
+                await deleteHierarchy.mutateAsync(hierarchyId);
+                toast.success("Hierarchy deleted");
+            } catch {
+                toast.error("Failed to delete hierarchy");
+            }
         }
     };
 

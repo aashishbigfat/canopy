@@ -118,32 +118,45 @@ async def search_opportunity_autocomplete(
 
 
 async def _resolve_destinations(industry_data: dict) -> dict:
+    """Resolve destination_ids → destination_names using the DestinationPicklist collection.
+
+    destination_ids are DestinationPicklist._id values stored in the 'picklists'
+    collection with picklist_type='destination'. Using the old Destination entity
+    model (destinations collection) returns zero results because these are
+    two completely different MongoDB collections.
+    """
     if not industry_data or "destination_ids" not in industry_data:
         return industry_data
-    
+
     dest_ids = industry_data.get("destination_ids", [])
     if not dest_ids:
         industry_data["destination_names"] = []
         return industry_data
-        
-    from app.models.destination import Destination
+
+    from app.models.consolidated_picklists import DestinationPicklist
     from bson import ObjectId
-    
+
     valid_ids = []
     for d_id in dest_ids:
         try:
             valid_ids.append(ObjectId(d_id))
-        except:
+        except Exception:
             pass
-            
+
     if valid_ids:
-        dests = await Destination.find({"_id": {"$in": valid_ids}}).to_list()
+        dests = await DestinationPicklist.find(
+            {"_id": {"$in": valid_ids}, "picklist_type": "destination"}
+        ).to_list()
         name_map = {str(d.id): d.name for d in dests}
-        industry_data["destination_names"] = [name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map]
+        industry_data["destination_names"] = [
+            name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map
+        ]
     else:
         industry_data["destination_names"] = []
-        
+
     return industry_data
+
+
 
 
 @router.post("/", response_model=OpportunityResponse, status_code=201)

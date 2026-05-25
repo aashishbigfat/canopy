@@ -49,6 +49,9 @@ class Account(BaseDocument):
     # Custom Fields (flexible schema for MongoDB)
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
     
+    # Industry-specific data (validated per-industry via validate_industry_data)
+    industry_data: Dict[str, Any] = Field(default_factory=dict)
+    
     # Metadata
     view_count: int = 0
     is_favorite: bool = False

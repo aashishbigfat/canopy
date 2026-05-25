@@ -13,10 +13,22 @@ Usage:
 from typing import Any, Dict, Optional, Type
 from pydantic import BaseModel
 
-from app.schemas.industry_data.travel import TravelLeadData, TravelOpportunityData, TravelQuoteData
-from app.schemas.industry_data.healthcare import HealthcareLeadData, HealthcareOpportunityData, HealthcareQuoteData
-from app.schemas.industry_data.education import EducationLeadData, EducationOpportunityData, EducationQuoteData
-from app.schemas.industry_data.manufacturing import ManufacturingLeadData, ManufacturingOpportunityData, ManufacturingQuoteData
+from app.schemas.industry_data.travel import (
+    TravelLeadData, TravelOpportunityData, TravelQuoteData,
+    TravelAccountData, TravelContactData
+)
+from app.schemas.industry_data.healthcare import (
+    HealthcareLeadData, HealthcareOpportunityData, HealthcareQuoteData,
+    HealthcareAccountData, HealthcareContactData
+)
+from app.schemas.industry_data.education import (
+    EducationLeadData, EducationOpportunityData, EducationQuoteData,
+    EducationAccountData, EducationContactData
+)
+from app.schemas.industry_data.manufacturing import (
+    ManufacturingLeadData, ManufacturingOpportunityData, ManufacturingQuoteData,
+    ManufacturingAccountData, ManufacturingContactData
+)
 
 
 # ---------------------------------------------------------------------------
@@ -43,11 +55,27 @@ QUOTE_VALIDATORS: Dict[str, Type[BaseModel]] = {
     "manufacturing": ManufacturingQuoteData,
 }
 
+ACCOUNT_VALIDATORS: Dict[str, Type[BaseModel]] = {
+    "travel": TravelAccountData,
+    "healthcare": HealthcareAccountData,
+    "education": EducationAccountData,
+    "manufacturing": ManufacturingAccountData,
+}
+
+CONTACT_VALIDATORS: Dict[str, Type[BaseModel]] = {
+    "travel": TravelContactData,
+    "healthcare": HealthcareContactData,
+    "education": EducationContactData,
+    "manufacturing": ManufacturingContactData,
+}
+
 # Map mode strings to their registries
 _REGISTRY_MAP = {
     "lead": LEAD_VALIDATORS,
     "opportunity": OPPORTUNITY_VALIDATORS,
     "quote": QUOTE_VALIDATORS,
+    "account": ACCOUNT_VALIDATORS,
+    "contact": CONTACT_VALIDATORS,
 }
 
 
@@ -69,15 +97,24 @@ def validate_industry_data(
     Raises:
         pydantic.ValidationError on invalid data.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+
     registry = _REGISTRY_MAP.get(mode)
     if registry is None:
-        # Unknown mode — pass through without validation
+        logger.warning("validate_industry_data: unknown mode '%s' — skipping validation", mode)
         return data
 
     schema_cls = registry.get(industry)
 
     if schema_cls is None:
-        # Unknown industry — pass through without validation
+        # Unknown industry — log warning so misconfigurations are caught early.
+        # Data is still accepted to avoid breaking existing flows.
+        logger.warning(
+            "validate_industry_data: no %s validator for industry '%s' — "
+            "data passed through without validation",
+            mode, industry,
+        )
         return data
 
     validated = schema_cls(**data)

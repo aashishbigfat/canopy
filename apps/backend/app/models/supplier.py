@@ -1,5 +1,5 @@
 """
-Supplier model for travel CRM - Hotels, airlines, tour operators, etc.
+Supplier model for multi-industry CRM — service providers, vendors, etc.
 """
 from beanie import Indexed
 from pydantic import EmailStr, Field

@@ -13,6 +13,8 @@ from app.schemas.contact import (
 )
 from app.services.contact_service import ContactService
 from app.api.deps import get_current_user, check_permission
+from app.models.tenant import Tenant
+from app.schemas.industry_data import validate_industry_data
 
 router = APIRouter()
 
@@ -62,7 +64,8 @@ def contact_to_response(contact: Contact) -> ContactResponse:
         created_at=contact.created_at,
         updated_at=contact.updated_at,
         deleted_at=contact.deleted_at,
-        full_name=contact.full_name  # Add the computed full_name property
+        full_name=contact.full_name,  # Add the computed full_name property
+        industry_data=getattr(contact, 'industry_data', {})
     )
 
 @router.get("/form-data")
@@ -107,6 +110,15 @@ async def create_contact(
         account = await Account.get(acc_id)
         if not account or account.tenant_id != current_user.tenant_id or account.deleted_at:
             raise HTTPException(status_code=422, detail="account_id does not resolve to a valid account")
+
+        # Resolve tenant industry
+        tenant = await Tenant.get(current_user.tenant_id)
+        industry = tenant.industry if tenant else "travel"
+        contact_data.industry_data = validate_industry_data(
+            industry=industry,
+            data=contact_data.industry_data or {},
+            mode="contact"
+        )
 
         service = ContactService()
         contact = await service.create_contact(
@@ -314,6 +326,15 @@ async def update_contact(
     if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
         raise HTTPException(status_code=404, detail="Contact not found")
         
+    if contact_data.industry_data is not None:
+        tenant = await Tenant.get(current_user.tenant_id)
+        industry = tenant.industry if tenant else "travel"
+        contact_data.industry_data = validate_industry_data(
+            industry=industry,
+            data=contact_data.industry_data,
+            mode="contact"
+        )
+
     contact = await service.update_contact(
         contact_id,
         contact_data,
@@ -421,11 +442,14 @@ async def link_contact_to_account(
     if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
         raise HTTPException(status_code=404, detail="Contact not found")
         
-    await service.link_to_account(
-        contact_id,
-        account_id,
-        current_user.tenant_id
-    )
+    try:
+        await service.link_to_account(
+            contact_id,
+            account_id,
+            current_user.tenant_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,
@@ -453,7 +477,10 @@ async def unlink_contact_from_account(
     if not is_record_visible(ObjectId(contact_owner), visible_owner_ids):
         raise HTTPException(status_code=404, detail="Contact not found")
         
-    await service.unlink_from_account(contact_id, account_id)
+    try:
+        await service.unlink_from_account(contact_id, account_id, current_user.tenant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,

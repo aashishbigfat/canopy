@@ -5,6 +5,8 @@ from typing import List, Optional, Dict
 from bson import ObjectId
 from app.models.destination import Destination, DestinationOpportunity, DestinationLead
 from app.schemas.destination import DestinationCreate, DestinationUpdate, DestinationLinkRequest
+from app.models.opportunity import Opportunity
+from app.models.lead import Lead
 
 
 class DestinationService:
@@ -191,10 +193,26 @@ class DestinationService:
     ) -> DestinationOpportunity:
         """Link destination to opportunity"""
         
+        # Verify both entities exist and belong to the current tenant
+        destination = await Destination.find_one(
+            Destination.id == ObjectId(destination_id),
+            Destination.tenant_id == tenant_id
+        )
+        if not destination:
+            raise ValueError("Destination not found or access denied")
+            
+        opportunity = await Opportunity.find_one(
+            Opportunity.id == ObjectId(opportunity_id),
+            Opportunity.tenant_id == tenant_id
+        )
+        if not opportunity:
+            raise ValueError("Opportunity not found or access denied")
+        
         # Check if already linked
         existing = await DestinationOpportunity.find_one(
             DestinationOpportunity.destination_id == ObjectId(destination_id),
-            DestinationOpportunity.opportunity_id == ObjectId(opportunity_id)
+            DestinationOpportunity.opportunity_id == ObjectId(opportunity_id),
+            DestinationOpportunity.tenant_id == tenant_id
         )
         
         if existing:
@@ -220,13 +238,15 @@ class DestinationService:
     async def unlink_from_opportunity(
         self,
         destination_id: str,
-        opportunity_id: str
+        opportunity_id: str,
+        tenant_id: ObjectId
     ) -> bool:
         """Unlink destination from opportunity"""
         
         link = await DestinationOpportunity.find_one(
             DestinationOpportunity.destination_id == ObjectId(destination_id),
-            DestinationOpportunity.opportunity_id == ObjectId(opportunity_id)
+            DestinationOpportunity.opportunity_id == ObjectId(opportunity_id),
+            DestinationOpportunity.tenant_id == tenant_id
         )
         
         if link:
@@ -267,10 +287,26 @@ class DestinationService:
     ) -> DestinationLead:
         """Link destination to lead"""
         
+        # Verify both entities exist and belong to the current tenant
+        destination = await Destination.find_one(
+            Destination.id == ObjectId(destination_id),
+            Destination.tenant_id == tenant_id
+        )
+        if not destination:
+            raise ValueError("Destination not found or access denied")
+            
+        lead = await Lead.find_one(
+            Lead.id == ObjectId(lead_id),
+            Lead.tenant_id == tenant_id
+        )
+        if not lead:
+            raise ValueError("Lead not found or access denied")
+        
         # Check if already linked
         existing = await DestinationLead.find_one(
             DestinationLead.destination_id == ObjectId(destination_id),
-            DestinationLead.lead_id == ObjectId(lead_id)
+            DestinationLead.lead_id == ObjectId(lead_id),
+            DestinationLead.tenant_id == tenant_id
         )
         
         if existing:
@@ -296,13 +332,15 @@ class DestinationService:
     async def unlink_from_lead(
         self,
         destination_id: str,
-        lead_id: str
+        lead_id: str,
+        tenant_id: ObjectId
     ) -> bool:
         """Unlink destination from lead"""
         
         link = await DestinationLead.find_one(
             DestinationLead.destination_id == ObjectId(destination_id),
-            DestinationLead.lead_id == ObjectId(lead_id)
+            DestinationLead.lead_id == ObjectId(lead_id),
+            DestinationLead.tenant_id == tenant_id
         )
         
         if link:

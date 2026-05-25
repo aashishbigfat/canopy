@@ -5,6 +5,7 @@ from typing import List, Optional
 from bson import ObjectId
 from app.models.package import Package, PackagePricing, PackageOpportunity
 from app.schemas.package import PackageCreate, PackageUpdate, PackagePricingCreate
+from app.models.opportunity import Opportunity
 
 class PackageService:
     """Service for Package business logic"""
@@ -186,10 +187,26 @@ class PackageService:
     ) -> PackageOpportunity:
         """Link package to opportunity"""
         
+        # Verify both entities exist and belong to the current tenant
+        package = await Package.find_one(
+            Package.id == ObjectId(package_id),
+            Package.tenant_id == tenant_id
+        )
+        if not package:
+            raise ValueError("Package not found or access denied")
+            
+        opportunity = await Opportunity.find_one(
+            Opportunity.id == ObjectId(opportunity_id),
+            Opportunity.tenant_id == tenant_id
+        )
+        if not opportunity:
+            raise ValueError("Opportunity not found or access denied")
+        
         # Check if already linked
         existing = await PackageOpportunity.find_one(
             PackageOpportunity.package_id == ObjectId(package_id),
-            PackageOpportunity.opportunity_id == ObjectId(opportunity_id)
+            PackageOpportunity.opportunity_id == ObjectId(opportunity_id),
+            PackageOpportunity.tenant_id == tenant_id
         )
         
         if existing:
@@ -215,13 +232,15 @@ class PackageService:
     async def unlink_from_opportunity(
         self,
         package_id: str,
-        opportunity_id: str
+        opportunity_id: str,
+        tenant_id: ObjectId
     ) -> bool:
         """Unlink package from opportunity"""
         
         link = await PackageOpportunity.find_one(
             PackageOpportunity.package_id == ObjectId(package_id),
-            PackageOpportunity.opportunity_id == ObjectId(opportunity_id)
+            PackageOpportunity.opportunity_id == ObjectId(opportunity_id),
+            PackageOpportunity.tenant_id == tenant_id
         )
         
         if link:

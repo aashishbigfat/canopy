@@ -58,6 +58,7 @@ class ContactBase(BaseModel):
     assistant_phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     
     account_id: Optional[str] = None
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
 class ContactCreate(ContactBase):
@@ -88,6 +89,7 @@ class ContactUpdate(BaseModel):
     # account_name is NOT included — it is a read-only computed field from the
     # service layer and does not exist on the Contact document.
     custom_fields: Optional[Dict[str, Any]] = None
+    industry_data: Optional[Dict[str, Any]] = None
 
 
 class ContactResponse(ContactBase):
@@ -112,6 +114,27 @@ class ContactResponse(ContactBase):
 
     # Custom field values (Phase 1 §C)
     custom_fields: Optional[Dict[str, Any]] = None
+
+    from pydantic import field_serializer
+    @field_serializer('industry_data', mode='plain')
+    def serialize_industry_data(self, value):
+        if not value:
+            return value
+        import bson
+        from datetime import datetime as _dt, date as _date
+        def convert_non_serializable(val):
+            if isinstance(val, dict):
+                return {k: convert_non_serializable(v) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [convert_non_serializable(item) for item in val]
+            elif isinstance(val, bson.ObjectId):
+                return str(val)
+            elif isinstance(val, _dt):
+                return val.isoformat()
+            elif isinstance(val, _date):
+                return val.isoformat()
+            return val
+        return convert_non_serializable(value)
 
     class Config:
         from_attributes = True

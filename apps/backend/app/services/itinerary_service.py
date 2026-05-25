@@ -6,6 +6,7 @@ from bson import ObjectId
 from datetime import datetime, date
 from app.models.itinerary import Itinerary, ItineraryDay, ItineraryOpportunity
 from app.schemas.itinerary import ItineraryCreate, ItineraryUpdate, ItineraryDayCreate
+from app.models.opportunity import Opportunity
 
 class ItineraryService:
     """Service for Itinerary business logic"""
@@ -161,10 +162,26 @@ class ItineraryService:
     ) -> ItineraryOpportunity:
         """Link itinerary to opportunity"""
         
+        # Verify both entities exist and belong to the current tenant
+        itinerary = await Itinerary.find_one(
+            Itinerary.id == ObjectId(itinerary_id),
+            Itinerary.tenant_id == tenant_id
+        )
+        if not itinerary:
+            raise ValueError("Itinerary not found or access denied")
+            
+        opportunity = await Opportunity.find_one(
+            Opportunity.id == ObjectId(opportunity_id),
+            Opportunity.tenant_id == tenant_id
+        )
+        if not opportunity:
+            raise ValueError("Opportunity not found or access denied")
+        
         # Check if already linked
         existing = await ItineraryOpportunity.find_one(
             ItineraryOpportunity.itinerary_id == ObjectId(itinerary_id),
-            ItineraryOpportunity.opportunity_id == ObjectId(opportunity_id)
+            ItineraryOpportunity.opportunity_id == ObjectId(opportunity_id),
+            ItineraryOpportunity.tenant_id == tenant_id
         )
         
         if existing:
@@ -187,13 +204,15 @@ class ItineraryService:
     async def unlink_from_opportunity(
         self,
         itinerary_id: str,
-        opportunity_id: str
+        opportunity_id: str,
+        tenant_id: ObjectId
     ) -> bool:
         """Unlink itinerary from opportunity"""
         
         link = await ItineraryOpportunity.find_one(
             ItineraryOpportunity.itinerary_id == ObjectId(itinerary_id),
-            ItineraryOpportunity.opportunity_id == ObjectId(opportunity_id)
+            ItineraryOpportunity.opportunity_id == ObjectId(opportunity_id),
+            ItineraryOpportunity.tenant_id == tenant_id
         )
         
         if link:

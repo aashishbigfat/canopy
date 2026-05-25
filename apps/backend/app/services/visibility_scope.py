@@ -34,7 +34,7 @@ async def _collect_descendant_user_ids(tenant_id: ObjectId, hierarchy_node_id: O
     BFS from direct children of hierarchy_node_id.
     Returns user IDs from all descendant nodes (NOT the node itself — peers excluded).
     """
-    descendant_user_ids: List[ObjectId] = []
+    descendant_node_ids: List[ObjectId] = []
     frontier: List[ObjectId] = [hierarchy_node_id]
 
     while frontier:
@@ -43,13 +43,22 @@ async def _collect_descendant_user_ids(tenant_id: ObjectId, hierarchy_node_id: O
             {"tenant_id": tenant_id, "parent_id": current_node_id, "deleted_at": None}
         ).to_list()
         for child in children:
-            # Collect users from child nodes
-            if child.user_ids:
-                descendant_user_ids.extend(child.user_ids)
-            # Continue BFS into grandchildren
+            descendant_node_ids.append(child.id)
             frontier.append(child.id)
 
-    return descendant_user_ids
+    # Now fetch all users assigned to any descendant node
+    if not descendant_node_ids:
+        return []
+
+    users = await User.find(
+        {
+            "tenant_id": tenant_id,
+            "role_hierarchy_id": {"$in": descendant_node_ids},
+            "is_active": True,
+            "deleted_at": None,
+        }
+    ).to_list()
+    return [u.id for u in users]
 
 
 async def get_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:

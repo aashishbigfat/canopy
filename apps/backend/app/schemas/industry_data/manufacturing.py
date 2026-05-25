@@ -3,7 +3,7 @@ Manufacturing industry_data validation schemas for Lead and Opportunity.
 """
 
 from pydantic import BaseModel, Field, field_validator
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 
 
@@ -59,3 +59,22 @@ class ManufacturingQuoteData(BaseModel):
     planned_delivery_date: Optional[datetime] = Field(None, description="Planned delivery date")
     quality_standard: Optional[str] = Field(None, max_length=200, description="e.g. ISO 9001, CE")
     special_requirements: Optional[str] = Field(None, max_length=2000, description="Special requirements")
+
+
+class ManufacturingAccountData(BaseModel):
+    """Validates industry_data for an Account owned by a manufacturing tenant."""
+
+    factory_location: Optional[str] = Field(None, description="Factory/Plant location")
+    production_capacity: Optional[str] = Field(None, description="e.g. 5000 units/day")
+    iso_certification: Optional[str] = Field(None, description="e.g. ISO 9001, ISO 14001")
+    primary_material_focus: List[str] = Field(default_factory=list, description="e.g. Plastics, Metals, Electronics")
+
+
+class ManufacturingContactData(BaseModel):
+    """Validates industry_data for a Contact owned by a manufacturing tenant."""
+
+    role_in_buying_center: Optional[str] = Field(None, description="e.g. Decider, Influencer, Gatekeeper")
+    technical_specialty: Optional[str] = Field(None, description="e.g. CNC, Quality Assurance, Procurement")
+    certifications: List[str] = Field(default_factory=list, description="Professional certifications")
+    plant_safety_access: bool = Field(False, description="Whether visitor safety clearance is granted")
+

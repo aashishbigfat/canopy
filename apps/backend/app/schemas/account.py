@@ -57,6 +57,7 @@ class AccountBase(BaseModel):
     acc_type_id: Optional[str] = None
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
     @model_validator(mode='after')
     def validate_classification(self) -> 'AccountBase':
@@ -107,6 +108,7 @@ class AccountUpdate(BaseModel):
     
     custom_fields: Optional[Dict[str, Any]] = None
     segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
+    industry_data: Optional[Dict[str, Any]] = None
 
 
 class AccountResponse(AccountBase):
@@ -130,6 +132,27 @@ class AccountResponse(AccountBase):
 
     # Custom field values (Phase 1 §C)
     custom_fields: Optional[Dict[str, Any]] = None
+
+    from pydantic import field_serializer
+    @field_serializer('industry_data', mode='plain')
+    def serialize_industry_data(self, value):
+        if not value:
+            return value
+        import bson
+        from datetime import datetime as _dt, date as _date
+        def convert_non_serializable(val):
+            if isinstance(val, dict):
+                return {k: convert_non_serializable(v) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [convert_non_serializable(item) for item in val]
+            elif isinstance(val, bson.ObjectId):
+                return str(val)
+            elif isinstance(val, _dt):
+                return val.isoformat()
+            elif isinstance(val, _date):
+                return val.isoformat()
+            return val
+        return convert_non_serializable(value)
 
     class Config:
         from_attributes = True

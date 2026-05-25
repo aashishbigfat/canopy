@@ -1,5 +1,8 @@
 """
-Package API endpoints
+Package API endpoints — Travel-industry module.
+
+All routes are guarded by ``require_module("packages")`` so only tenants
+with the packages module enabled can access them.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
@@ -12,8 +15,9 @@ from app.schemas.package import (
 )
 from app.services.package_service import PackageService
 from app.api.deps import get_current_user, check_permission
+from app.middleware.industry_guard import require_module
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_module("packages"))])
 
 @router.post("/", response_model=PackageDetailResponse, status_code=201)
 async def create_package(
@@ -169,13 +173,16 @@ async def link_package_to_opportunity(
     """Link package to opportunity"""
     service = PackageService()
     
-    await service.link_to_opportunity(
-        package_id,
-        opportunity_id,
-        current_user.tenant_id,
-        custom_price=custom_price,
-        notes=notes
-    )
+    try:
+        await service.link_to_opportunity(
+            package_id,
+            opportunity_id,
+            current_user.tenant_id,
+            custom_price=custom_price,
+            notes=notes
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,
@@ -192,7 +199,7 @@ async def unlink_package_from_opportunity(
     """Unlink package from opportunity"""
     service = PackageService()
     
-    success = await service.unlink_from_opportunity(package_id, opportunity_id)
+    success = await service.unlink_from_opportunity(package_id, opportunity_id, current_user.tenant_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Link not found")

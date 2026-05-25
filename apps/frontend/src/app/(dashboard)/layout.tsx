@@ -74,7 +74,7 @@ export default function DashboardLayout({
                     <Menu className="h-5 w-5" />
                 </Button>
                 <Link href="/dashboard" className="flex shrink-0 items-center gap-2">
-                    <span className="text-base font-semibold tracking-tight text-primary">Tutterfly CRM</span>
+                    <span className="text-base font-semibold tracking-tight text-primary">Travel CRM</span>
                 </Link>
                 <div className="hidden min-w-0 flex-1 px-4 lg:block">
                     <GlobalSearchBar />

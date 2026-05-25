@@ -31,17 +31,32 @@ class HierarchyResponse(HierarchyBase):
     created_at: datetime
     updated_at: datetime
 
+    # Enriched fields matching the reference Roles UI
+    user_count: int = 0
+    related_roles_count: int = 0
+    parent_name: Optional[str] = None
+
     class Config:
         from_attributes = True
 
     @classmethod
-    def from_orm(cls, obj, created_by_name: Optional[str] = None):
+    def from_orm(
+        cls,
+        obj,
+        created_by_name: Optional[str] = None,
+        user_count: int = 0,
+        related_roles_count: int = 0,
+        parent_name: Optional[str] = None,
+    ):
         data = obj.model_dump()
         data["id"] = str(obj.id)
         data["tenant_id"] = str(obj.tenant_id)
         data["created_by"] = str(obj.created_by) if getattr(obj, "created_by", None) else None
         data["parent_id"] = str(obj.parent_id) if getattr(obj, "parent_id", None) else None
         data["created_by_name"] = created_by_name
+        data["user_count"] = user_count
+        data["related_roles_count"] = related_roles_count
+        data["parent_name"] = parent_name
         return cls(**data)
 
 

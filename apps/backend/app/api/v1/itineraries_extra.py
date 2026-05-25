@@ -1,5 +1,5 @@
 """
-Phase 5 — Itinerary engine extension router.
+Phase 5 — Itinerary engine extension router (Travel-industry module).
 
 Mirrors old Laravel:
   Days/schedule/categories/sub-categories
@@ -8,6 +8,8 @@ Mirrors old Laravel:
   PDF pipeline (request/status/callback)
   Proforma invoices
   Itinerary copy / delete / opportunity attach
+
+All routes are guarded by ``require_module("itineraries")``.
 """
 from __future__ import annotations
 from datetime import datetime
@@ -26,8 +28,9 @@ from app.models.itinerary_extras import (
     ItineraryHeaderFooter, ProformaInvoice, TourItinerary,
     ItineraryPDFJob,
 )
+from app.middleware.industry_guard import require_module
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_module("itineraries"))])
 
 
 # ============== ITINERARY UTILITY (copy / delete) ==============

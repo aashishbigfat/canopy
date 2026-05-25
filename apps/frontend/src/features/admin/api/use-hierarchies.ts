@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api/client";
-import { Hierarchy, HierarchyInput, HierarchyResponse } from "../types/hierarchies";
+import { Hierarchy, HierarchyInput, HierarchyUpdateInput, HierarchyResponse } from "../types/hierarchies";
 
 export const useGetHierarchies = (params?: { page?: number; limit?: number; search?: string }) => {
     return useQuery({
@@ -9,6 +9,8 @@ export const useGetHierarchies = (params?: { page?: number; limit?: number; sear
             const response = await apiClient.get<HierarchyResponse>("/hierarchies", { params });
             return response.data;
         },
+        staleTime: 5 * 60 * 1000, // 5 minutes — hierarchy tree rarely changes
+        refetchOnWindowFocus: false,
     });
 };
 
@@ -20,6 +22,8 @@ export const useGetHierarchy = (id: string) => {
             return response.data;
         },
         enabled: !!id,
+        staleTime: 5 * 60 * 1000,
+        refetchOnWindowFocus: false,
     });
 };
 
@@ -39,7 +43,7 @@ export const useCreateHierarchy = () => {
 export const useUpdateHierarchy = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: async ({ id, data }: { id: string; data: HierarchyInput }) => {
+        mutationFn: async ({ id, data }: { id: string; data: HierarchyUpdateInput }) => {
             const response = await apiClient.put<Hierarchy>(`/hierarchies/${id}`, data);
             return response.data;
         },

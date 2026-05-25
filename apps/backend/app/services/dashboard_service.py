@@ -536,6 +536,14 @@ class DashboardService:
         won_today_list = await Opportunity.find(won_today_query).to_list()
         today_revenue = sum(getattr(opp, "amount", 0) or 0 for opp in won_today_list)
         
+        # Build industry-specific KPIs (only populated for relevant industries)
+        industry_kpis = {}
+        if is_travel:
+            industry_kpis = {
+                "today_checkout": today_checkout,
+                "tomorrow_departures": tomorrow_departures,
+            }
+        
         return {
             "accounts_total": accounts_total,
             "contacts_total": contacts_total,
@@ -554,10 +562,12 @@ class DashboardService:
             "b2c_open_opportunities": b2c_open_opportunities,
             "b2b_open_opportunities": b2b_open_opportunities,
             "b2b_direct_open_opportunities": b2b_direct_open_opportunities,
+            # Backward compat — kept at top level but also in industry_kpis
             "today_checkout": today_checkout,
             "tomorrow_departures": tomorrow_departures,
             "today_revenue": today_revenue,
             "industry": industry,
+            "industry_kpis": industry_kpis,
         }
     
     @cache(expire=300, key_builder=custom_key_builder)

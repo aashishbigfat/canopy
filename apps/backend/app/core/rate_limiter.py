@@ -79,6 +79,7 @@ def _build_limiter() -> Limiter:
             storage_uri=redis_uri,
             default_limits=["300/minute"],
             headers_enabled=True,
+            enabled=settings.ENVIRONMENT not in ("development", "testing"),
         )
     except Exception as e:
         logger.warning(
@@ -91,6 +92,7 @@ def _build_limiter() -> Limiter:
             storage_uri="memory://",
             default_limits=["300/minute"],
             headers_enabled=True,
+            enabled=settings.ENVIRONMENT not in ("development", "testing"),
         )
 
 

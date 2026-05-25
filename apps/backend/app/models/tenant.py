@@ -1,8 +1,30 @@
 from beanie import Indexed, PydanticObjectId
 from pydantic import EmailStr, Field
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, Literal
 from datetime import datetime
 from app.models.base import BaseDocument
+
+# Valid industry identifiers — kept in sync with frontend IndustryType
+VALID_INDUSTRIES = ("travel", "healthcare", "education", "manufacturing")
+
+# Default modules seeded per industry so require_module() guards work out of the box
+DEFAULT_MODULES_BY_INDUSTRY: Dict[str, Dict[str, bool]] = {
+    "travel": {
+        "destinations": True,
+        "itineraries": True,
+        "packages": True,
+        "suppliers": True,
+    },
+    "healthcare": {
+        "suppliers": True,
+    },
+    "education": {
+        "suppliers": True,
+    },
+    "manufacturing": {
+        "suppliers": True,
+    },
+}
 
 class Tenant(BaseDocument):
     """Tenant model for multi-tenancy"""
@@ -37,7 +59,7 @@ class Tenant(BaseDocument):
     max_storage_gb: int = 10
     
     # Industry Configuration (Multi-Industry CRM)
-    industry: str = "travel"  # travel | healthcare | education | manufacturing
+    industry: Literal["travel", "healthcare", "education", "manufacturing"] = "travel"
     modules: Dict[str, bool] = Field(default_factory=dict)
     
     class Settings:
@@ -57,3 +79,16 @@ class Tenant(BaseDocument):
                 "email": "admin@acme.com"
             }
         }
+
+    @classmethod
+    def get_default_modules(cls, industry: str) -> Dict[str, bool]:
+        """Return the default module flags for a given industry."""
+        return DEFAULT_MODULES_BY_INDUSTRY.get(industry, {}).copy()
+
+    async def insert(self, *args, **kwargs):
+        """Override insert to automatically seed default modules based on industry."""
+        if not self.modules:
+            self.modules = self.get_default_modules(self.industry)
+        return await super().insert(*args, **kwargs)
+
+

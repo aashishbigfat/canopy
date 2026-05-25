@@ -490,8 +490,9 @@ interface LeadFormProps {
     source_mediums?: any[];
     industries?: Industry[];
     experiences?: { id: string; name: string }[];
-    /** Called after successful create/update instead of router.push */
-    onSuccess?: () => void;
+    /** Called after successful create/update instead of router.push.
+     *  Receives the saved Lead object so callers can update local state immediately. */
+    onSuccess?: (savedLead?: Lead) => void;
     /** Called when cancel is clicked instead of router.back */
     onCancel?: () => void;
     /** When true, renders a compact single-column layout for drawer panels */
@@ -746,22 +747,23 @@ export function LeadForm({
 
             await ErrorHandler.withErrorHandling(async () => {
                 try {
+                    let savedLead: Lead | undefined;
                     if (leadId) {
-                        await leadsService.updateLead(leadId, payload);
+                        savedLead = await leadsService.updateLead(leadId, payload);
                         showSuccessToast("Lead updated successfully");
                     } else {
-                        await leadsService.createLead(payload);
+                        savedLead = await leadsService.createLead(payload);
                         showSuccessToast("Lead created successfully");
                     }
                     isSuccess = true;
-                    
+
                     const elapsedTime = Date.now() - startTime;
                     if (elapsedTime < 2500) {
                         await new Promise(r => setTimeout(r, 2500 - elapsedTime));
                     }
-                    
+
                     if (onSuccess) {
-                        onSuccess();
+                        onSuccess(savedLead);
                     } else {
                         router.push("/leads");
                         router.refresh();
@@ -1003,8 +1005,8 @@ export function LeadForm({
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                     <div className="space-y-6 xl:col-span-8">
                         {/* Client Information Section */}
-                        <Card className="border-slate-200 shadow-sm">
-                            <CardHeader className="bg-slate-50/50 border-b py-4">
+                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
+                            <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b py-4">
                                 <div className="flex items-center gap-2">
                                     <User className="h-5 w-5 text-blue-600" />
                                     <div>
@@ -1023,7 +1025,7 @@ export function LeadForm({
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Salutation</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
+                                                        <SelectTrigger className="h-9">
                                                             <SelectValue placeholder="Select" />
                                                         </SelectTrigger>
                                                     </FormControl>
@@ -1044,7 +1046,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">First Name</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="John" className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="John" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1059,7 +1061,7 @@ export function LeadForm({
                                                     Last Name <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Doe" className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="Doe" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1074,7 +1076,7 @@ export function LeadForm({
                                                     Email <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input type="email" placeholder="john@example.com" className="h-9 bg-white" {...field} />
+                                                    <Input type="email" placeholder="john@example.com" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1118,7 +1120,7 @@ export function LeadForm({
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Segment</FormLabel>
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <FormControl>
-                                                        <SelectTrigger className="h-9 bg-white">
+                                                        <SelectTrigger className="h-9">
                                                             <SelectValue placeholder="Select" />
                                                         </SelectTrigger>
                                                     </FormControl>
@@ -1137,8 +1139,8 @@ export function LeadForm({
                         </Card>
 
                         {/* Company & Source Section */}
-                        <Card className="border-slate-200 shadow-sm h-full">
-                            <CardHeader className="bg-slate-50/50 border-b py-4">
+                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm h-full">
+                            <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b py-4">
                                 <div className="flex items-center gap-2">
                                     <Building2 className="h-5 w-5 text-blue-600" />
                                     <div>
@@ -1214,7 +1216,7 @@ export function LeadForm({
                                                     Company Name
                                                 </FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Acme Inc." className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="Acme Inc." className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1227,7 +1229,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Job Title</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Manager" className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="Manager" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1245,7 +1247,7 @@ export function LeadForm({
                                                         </FormLabel>
                                                         <Select onValueChange={field.onChange} value={field.value}>
                                                             <FormControl>
-                                                                <SelectTrigger className="h-9 bg-white">
+                                                                <SelectTrigger className="h-9">
                                                                     <SelectValue placeholder="Select source" />
                                                                 </SelectTrigger>
                                                             </FormControl>
@@ -1354,7 +1356,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Campaign</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="Summer Sale" className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="Summer Sale" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1367,7 +1369,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Website</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="https://..." className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="https://..." className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1381,7 +1383,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">No. Employees</FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="10" className="h-9 bg-white" {...field} />
+                                                    <Input type="number" placeholder="10" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1394,8 +1396,8 @@ export function LeadForm({
 
                     <div className="space-y-6 xl:col-span-4">
                         {/* Location Section */}
-                        <Card className="border-slate-200 shadow-sm h-full">
-                            <CardHeader className="bg-slate-50/50 border-b py-4">
+                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm h-full">
+                            <CardHeader className="bg-slate-50/50 dark:bg-slate-900/50 border-b py-4">
                                 <div className="flex items-center gap-2">
                                     <MapPin className="h-5 w-5 text-blue-600" />
                                     <div>
@@ -1414,7 +1416,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Street Address</FormLabel>
                                                 <FormControl>
-                                                    <Input placeholder="123 Main St" className="h-9 bg-white" {...field} />
+                                                    <Input placeholder="123 Main St" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1425,7 +1427,7 @@ export function LeadForm({
                         </Card>
 
                         {/* Industry-Specific Fields */}
-                        <Card className="border-slate-200 shadow-sm">
+                        <Card className="border-slate-200 dark:border-slate-800 shadow-sm">
                             <CardContent className="p-4">
                                 <IndustryLeadFields industry={industry} form={form} />
                             </CardContent>

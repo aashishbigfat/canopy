@@ -263,8 +263,8 @@ async def search_by_module(
             ).to_list()
             account_map = {str(a.id): a.name or "" for a in accounts}
 
-        # Resolve experience / destination names
-        exp_ids = list({str(d.experience_id): d.experience_id for d in docs if d.experience_id}.values())
+        # Resolve experience names (travel-specific, only when data exists)
+        exp_ids = list({str(d.experience_id): d.experience_id for d in docs if getattr(d, "experience_id", None)}.values())
         exp_map: Dict[str, str] = {}
         if exp_ids:
             try:
@@ -277,10 +277,11 @@ async def search_by_module(
             {
                 "id": str(d.id),
                 "opportunity_name": d.name or "",
-                "experience": exp_map.get(str(d.experience_id), "") if d.experience_id else "",
+                "experience": exp_map.get(str(d.experience_id), "") if getattr(d, "experience_id", None) else "",
                 "account_name": account_map.get(str(d.account_id), "") if d.account_id else "",
                 "sales_stage": stage_map.get(str(d.sales_stage_id), "") if d.sales_stage_id else "",
-                "travel_date": d.travel_date.isoformat() if d.travel_date else None,
+                # travel_date now lives in industry_data (migrated from top-level)
+                "travel_date": (d.industry_data or {}).get("travel_date") if getattr(d, "industry_data", None) else None,
                 "close_date": d.close_date.isoformat() if d.close_date else None,
                 "owner": owner_map.get(str(d.owner_id), ""),
                 "create_date": d.created_at.isoformat() if d.created_at else None,

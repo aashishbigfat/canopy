@@ -263,15 +263,18 @@ async def link_supplier_to_opportunity(
     """Link supplier to opportunity"""
     service = SupplierService()
     
-    await service.link_to_opportunity(
-        opportunity_id,
-        supplier_id,
-        current_user.tenant_id,
-        cost=cost,
-        notes=notes,
-        email_subject=email_subject,
-        email_body=email_body
-    )
+    try:
+        await service.link_to_opportunity(
+            opportunity_id,
+            supplier_id,
+            current_user.tenant_id,
+            cost=cost,
+            notes=notes,
+            email_subject=email_subject,
+            email_body=email_body
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,
@@ -288,7 +291,7 @@ async def unlink_supplier_from_opportunity(
     """Unlink supplier from opportunity"""
     service = SupplierService()
     
-    success = await service.unlink_from_opportunity(opportunity_id, supplier_id)
+    success = await service.unlink_from_opportunity(opportunity_id, supplier_id, current_user.tenant_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Link not found")

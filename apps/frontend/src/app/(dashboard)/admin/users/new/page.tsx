@@ -1,16 +1,22 @@
 "use client";
 
-import { UserForm } from "@/features/admin/components/users/user-form";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
+/**
+ * Legacy route — user creation now happens via the Sheet slide-over
+ * on the main /admin/users page. Redirect there automatically.
+ */
 export default function NewUserPage() {
+    const router = useRouter();
+
+    useEffect(() => {
+        router.replace("/admin/users");
+    }, [router]);
+
     return (
-        <div className="flex-1 space-y-4 p-8 pt-6">
-            <div className="flex items-center justify-between space-y-2">
-                <h2 className="text-3xl font-bold tracking-tight">Create User</h2>
-            </div>
-            <div className="rounded-md border p-4">
-                <UserForm />
-            </div>
+        <div className="flex items-center justify-center h-64">
+            <p className="text-muted-foreground">Redirecting to User Management...</p>
         </div>
     );
 }

@@ -1,5 +1,5 @@
 """
-Itinerary models for travel CRM - Day-wise travel planning
+Itinerary models — travel-industry module, day-wise travel planning (guarded by require_module).
 """
 from beanie import Indexed
 from pydantic import Field

@@ -36,6 +36,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # All permissions for admin role (from role_service)
 ALL_PERMISSIONS = [
     "view_account", "create_account", "edit_account", "delete_account",
+    "view_person_account", "create_person_account", "edit_person_account", "delete_person_account",
     "view_contact", "create_contact", "edit_contact", "delete_contact",
     "view_lead", "create_lead", "edit_lead", "delete_lead",
     "view_opportunity", "create_opportunity", "edit_opportunity", "delete_opportunity",
@@ -48,6 +49,7 @@ ALL_PERMISSIONS = [
     "view_file", "upload_file", "delete_file", "download_file",
     "view_supplier", "create_supplier", "edit_supplier", "delete_supplier",
     "view_destination", "create_destination", "edit_destination", "delete_destination",
+    "view_hierarchy", "create_hierarchy", "edit_hierarchy", "delete_hierarchy",
     "view_department", "create_department", "edit_department", "delete_department",
     "view_itinerary", "create_itinerary", "edit_itinerary", "delete_itinerary",
     "view_package", "create_package", "edit_package", "delete_package",
@@ -58,7 +60,8 @@ ALL_PERMISSIONS = [
     "view_user", "create_user", "edit_user", "delete_user",
     "view_role", "create_role", "edit_role", "delete_role",
     "view_reports", "view_report", "create_report", "edit_report", "delete_report",
-    "view_dashboard",
+    "view_dashboard", "view_leaderboard",
+    "manage_sales_stages", "manage_sales_targets", "manage_incentives",
     "manage_settings", "manage_system", "manage_tenants",
     "manage_billing", "manage_notifications",
     "manage_webhooks", "view_webhook", "create_webhook", "edit_webhook",

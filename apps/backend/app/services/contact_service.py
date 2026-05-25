@@ -5,6 +5,7 @@ from typing import List, Optional, Dict
 from bson import ObjectId
 from datetime import datetime
 from app.models.contact import Contact
+from app.models.account import Account
 from app.models.account_contact import AccountContact
 from app.schemas.contact import ContactCreate, ContactUpdate
 from app.mixins.activity_mixin import ActivityMixin
@@ -315,7 +316,8 @@ class ContactService(ActivityMixin):
             "created_at": contact.created_at,
             "updated_at": contact.updated_at,
             "related_opportunities": related_opportunities,
-            "related_tasks": related_tasks
+            "related_tasks": related_tasks,
+            "industry_data": getattr(contact, "industry_data", {})
         }
     
     async def update_contact(
@@ -633,6 +635,22 @@ class ContactService(ActivityMixin):
         tenant_id: ObjectId
     ):
         """Link contact to an account"""
+        
+        # Verify both entities exist and belong to the current tenant
+        contact = await Contact.find_one(
+            Contact.id == ObjectId(contact_id),
+            Contact.tenant_id == tenant_id
+        )
+        if not contact:
+            raise ValueError("Contact not found or access denied")
+            
+        account = await Account.find_one(
+            Account.id == ObjectId(account_id),
+            Account.tenant_id == tenant_id
+        )
+        if not account:
+            raise ValueError("Account not found or access denied")
+            
         # Check if already linked using ODM syntax
         existing = await AccountContact.find_one(
             {"contact_id": ObjectId(contact_id), "account_id": ObjectId(account_id), "tenant_id": tenant_id}
@@ -649,12 +667,14 @@ class ContactService(ActivityMixin):
     async def unlink_from_account(
         self,
         contact_id: str,
-        account_id: str
+        account_id: str,
+        tenant_id: ObjectId
     ):
         """Unlink contact from an account"""
         pivot = await AccountContact.find_one(
             AccountContact.contact_id == ObjectId(contact_id),
-            AccountContact.account_id == ObjectId(account_id)
+            AccountContact.account_id == ObjectId(account_id),
+            AccountContact.tenant_id == tenant_id
         )
         
         if pivot:

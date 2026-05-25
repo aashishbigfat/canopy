@@ -1,5 +1,8 @@
 """
-Itinerary API endpoints
+Itinerary API endpoints — Travel-industry module.
+
+All routes are guarded by ``require_module("itineraries")`` so only tenants
+with the itineraries module enabled can access them.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
@@ -12,8 +15,9 @@ from app.schemas.itinerary import (
 )
 from app.services.itinerary_service import ItineraryService
 from app.api.deps import get_current_user, check_permission
+from app.middleware.industry_guard import require_module
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_module("itineraries"))])
 
 @router.post("/", response_model=ItineraryDetailResponse, status_code=201)
 async def create_itinerary(
@@ -150,12 +154,15 @@ async def link_itinerary_to_opportunity(
     """Link itinerary to opportunity"""
     service = ItineraryService()
     
-    await service.link_to_opportunity(
-        itinerary_id,
-        opportunity_id,
-        current_user.tenant_id,
-        notes=notes
-    )
+    try:
+        await service.link_to_opportunity(
+            itinerary_id,
+            opportunity_id,
+            current_user.tenant_id,
+            notes=notes
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,
@@ -172,7 +179,7 @@ async def unlink_itinerary_from_opportunity(
     """Unlink itinerary from opportunity"""
     service = ItineraryService()
     
-    success = await service.unlink_from_opportunity(itinerary_id, opportunity_id)
+    success = await service.unlink_from_opportunity(itinerary_id, opportunity_id, current_user.tenant_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Link not found")

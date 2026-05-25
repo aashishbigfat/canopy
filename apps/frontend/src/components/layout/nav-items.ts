@@ -114,7 +114,7 @@ function travelNavItems(modules: Record<string, boolean>): NavItem[] {
 }
 
 // ---------------------------------------------------------------------------
-// Trailing nav items — always at the bottom (Reports, Admin)
+// Trailing nav items — always at the bottom (Reports, Admin, Settings)
 // ---------------------------------------------------------------------------
 function trailingNavItems(): NavItem[] {
     return [
@@ -130,10 +130,9 @@ function trailingNavItems(): NavItem[] {
             icon: Settings,
             requiredPermission: "view_user",
             submenu: [
-                { title: "User Management", href: "/admin/users", requiredPermission: "view_user" },
-                { title: "Role Management", href: "/admin/role-management", requiredPermission: "view_role" },
-                { title: "Hierarchies", href: "/admin/hierarchies", requiredPermission: "manage_system" },
-                { title: "Departments", href: "/admin/departments", requiredPermission: "manage_system" },
+                { title: "User", href: "/admin/users", requiredPermission: "view_user" },
+                { title: "Profiles & Permissions", href: "/admin/role-management", requiredPermission: "view_role" },
+                { title: "Roles", href: "/admin/hierarchies", requiredPermission: "view_hierarchy" },
             ],
         },
         {

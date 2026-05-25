@@ -51,7 +51,7 @@ function departmentApiErrorMessage(err: unknown): string {
 
 export function DepartmentList() {
     const router = useRouter();
-    const { canCreate } = useCrudPermissions("department");
+    const { canCreate } = useCrudPermissions("hierarchy");
     const { data, isLoading, isError } = useGetDepartments();
     const createDepartment = useCreateDepartment();
     const updateDepartment = useUpdateDepartment();

@@ -1,5 +1,8 @@
 """
-Destination API endpoints
+Destination API endpoints — Travel-industry module.
+
+All routes are guarded by ``require_module("destinations")`` so only tenants
+with the destinations module enabled can access them.
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import Optional
@@ -11,8 +14,9 @@ from app.schemas.destination import (
 )
 from app.services.destination_service import DestinationService
 from app.api.deps import get_current_user, check_permission
+from app.middleware.industry_guard import require_module
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(require_module("destinations"))])
 
 
 @router.post("/", response_model=DestinationDetailResponse, status_code=201)
@@ -213,12 +217,15 @@ async def link_destination_to_opportunity(
     """Link destination to opportunity"""
     service = DestinationService()
     
-    await service.link_to_opportunity(
-        link_data.destination_id,
-        opportunity_id,
-        current_user.tenant_id,
-        link_data
-    )
+    try:
+        await service.link_to_opportunity(
+            link_data.destination_id,
+            opportunity_id,
+            current_user.tenant_id,
+            link_data
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,
@@ -235,7 +242,7 @@ async def unlink_destination_from_opportunity(
     """Unlink destination from opportunity"""
     service = DestinationService()
     
-    success = await service.unlink_from_opportunity(destination_id, opportunity_id)
+    success = await service.unlink_from_opportunity(destination_id, opportunity_id, current_user.tenant_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Link not found")
@@ -281,12 +288,15 @@ async def link_destination_to_lead(
     """Link destination to lead"""
     service = DestinationService()
     
-    await service.link_to_lead(
-        link_data.destination_id,
-        lead_id,
-        current_user.tenant_id,
-        link_data
-    )
+    try:
+        await service.link_to_lead(
+            link_data.destination_id,
+            lead_id,
+            current_user.tenant_id,
+            link_data
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     
     return {
         "error": False,
@@ -303,7 +313,7 @@ async def unlink_destination_from_lead(
     """Unlink destination from lead"""
     service = DestinationService()
     
-    success = await service.unlink_from_lead(destination_id, lead_id)
+    success = await service.unlink_from_lead(destination_id, lead_id, current_user.tenant_id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Link not found")

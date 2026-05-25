@@ -25,6 +25,8 @@ interface LeadFormDrawerProps {
         industries: any[];
         experiences: any[];
     };
+    /** Optional: called with the updated lead after a successful edit */
+    onLeadUpdated?: (lead: Lead) => void;
 }
 
 export function LeadFormDrawer({
@@ -33,6 +35,7 @@ export function LeadFormDrawer({
     initialData,
     leadId,
     metadata,
+    onLeadUpdated,
 }: LeadFormDrawerProps) {
     const queryClient = useQueryClient();
     const router = useRouter();
@@ -95,9 +98,13 @@ export function LeadFormDrawer({
         return () => { cancelled = true; };
     }, [open, isEdit, leadId]);
 
-    const handleSuccess = () => {
+    const handleSuccess = (updatedLead?: Lead) => {
         queryClient.invalidateQueries({ queryKey: ["leads"] });
         router.refresh();
+        // Notify parent with updated lead data for immediate UI sync
+        if (updatedLead && onLeadUpdated) {
+            onLeadUpdated(updatedLead);
+        }
         onOpenChange(false);
         // Reset edit data for next use
         setEditData(undefined);

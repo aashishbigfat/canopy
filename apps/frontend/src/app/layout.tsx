@@ -7,10 +7,10 @@ import { PageErrorBoundary } from "@/components/ui/error-boundary";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Tutterfly CRM",
+  title: "Travel CRM",
   description: "Next Gen Travel CRM",
 };
 
@@ -24,8 +24,8 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions);
 
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={inter.className}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
+      <body className="font-sans antialiased">
         <PageErrorBoundary>
           <Providers session={session}>
             {children}

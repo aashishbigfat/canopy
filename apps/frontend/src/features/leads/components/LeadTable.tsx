@@ -43,13 +43,15 @@ import Link from "next/link";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
 import { useIndustry, type IndustryType } from "@/lib/industry-labels";
 import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
+import { destinationsService } from "@/lib/api/services/destinations.service";
 
 export const getColumns = (
     statuses: LeadStatus[],
     sources: Source[],
     users: User[],
     experiences: { id: string; name: string }[],
-    industry: IndustryType = "travel"
+    industry: IndustryType = "travel",
+    destinationMap: Map<string, string> = new Map()
 ): ColumnDef<Lead>[] => {
     // Industry-specific columns that replace travel columns
     const industryColumns: ColumnDef<Lead>[] = industry === "travel" ? [
@@ -73,8 +75,32 @@ export const getColumns = (
             id: "destinations",
             header: "Destination(s)",
             cell: ({ row }) => {
-                const dests = row.original.industry_data?.destination_names;
-                return <div className="text-sm text-muted-foreground">{Array.isArray(dests) ? dests.join(", ") : (dests || "-")}</div>;
+                const idata = row.original.industry_data;
+
+                // 1. Prefer client-side resolution via destinationMap (most reliable)
+                const ids: string[] = idata?.destination_ids || [];
+                if (ids.length > 0 && destinationMap.size > 0) {
+                    const resolved = ids
+                        .map((id: string) => destinationMap.get(id))
+                        .filter(Boolean) as string[];
+                    if (resolved.length > 0) {
+                        return <div className="text-sm text-muted-foreground">{resolved.join(", ")}</div>;
+                    }
+                }
+
+                // 2. Fall back to server-resolved destination_names
+                const names = idata?.destination_names;
+                if (Array.isArray(names) && names.length > 0) {
+                    return <div className="text-sm text-muted-foreground">{names.join(", ")}</div>;
+                }
+
+                // 3. Fall back to destinations field (TravelLeadData schema name list)
+                const dests = idata?.destinations;
+                if (Array.isArray(dests) && dests.length > 0) {
+                    return <div className="text-sm text-muted-foreground">{dests.join(", ")}</div>;
+                }
+
+                return <div className="text-sm text-muted-foreground">-</div>;
             },
         },
         {
@@ -234,9 +260,8 @@ export const getColumns = (
             id: "segment",
             header: "Segment",
             cell: ({ row }) => {
-                const segment = row.original.segment || (row.original.custom_fields as any)?.segment;
-                if (!segment) return <div className="text-sm text-muted-foreground">-</div>;
-
+                // Default to "B2C" — matches the Lead model default and ensures badge always shows
+                const segment = row.original.segment || (row.original.custom_fields as any)?.segment || "B2C";
                 return (
                     <Badge variant={segment === "B2C" ? "secondary" : "outline"} className={getSegmentBadgeClass(segment)}>
                         {getSegmentLabel(segment)}
@@ -279,7 +304,7 @@ export const getColumns = (
                     <Button
                         size="sm"
                         variant="default"
-                        className="bg-gray-600 hover:bg-gray-700 text-white"
+                        className="bg-secondary text-secondary-foreground hover:bg-secondary/80"
                         onClick={() => {
                             const tableMeta = table.options.meta as any;
                             if (tableMeta?.onConvert) {
@@ -332,6 +357,20 @@ export function LeadTable({
     const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
     const [isPending, startTransition] = React.useTransition();
     const industry = useIndustry();
+    const isTravel = industry === "travel";
+
+    // Build a destination id→name map for client-side resolution (same approach as experiences)
+    const [destinationMap, setDestinationMap] = React.useState<Map<string, string>>(new Map());
+    React.useEffect(() => {
+        if (!isTravel) return;
+        destinationsService.getDestinations({ limit: 500 })
+            .then(res => {
+                const map = new Map<string, string>();
+                res.destinations.forEach(d => map.set(d.id, d.name));
+                setDestinationMap(map);
+            })
+            .catch(() => { /* non-critical — fall back to server names */ });
+    }, [isTravel]);
 
     const rowSelection = React.useMemo(() => {
         const selection: Record<string, boolean> = {};
@@ -348,7 +387,7 @@ export function LeadTable({
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
 
     const columns = React.useMemo(() => {
-        const baseColumns = getColumns(lead_statuses, sources, users, experiences, industry);
+        const baseColumns = getColumns(lead_statuses, sources, users, experiences, industry, destinationMap);
 
         if (baseColumns[0].id === "select") {
             baseColumns[0] = {
@@ -379,7 +418,7 @@ export function LeadTable({
         }
 
         return baseColumns;
-    }, [lead_statuses, sources, users, selectedIds, onSelectOne, onSelectAll, data.length]);
+    }, [lead_statuses, sources, users, experiences, industry, destinationMap, selectedIds, onSelectOne, onSelectAll, data.length]);
 
     const table = useReactTable({
         data,

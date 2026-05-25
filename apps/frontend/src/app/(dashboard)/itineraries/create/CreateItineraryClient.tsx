@@ -244,7 +244,7 @@ export default function CreateItineraryClient() {
             </div>
             
             <div className="mt-12 border-t border-border py-4 text-center text-xs text-muted-foreground">
-                Copyright © TutterflyCRM | All Rights Reserved.
+                Copyright © Travel CRM | All Rights Reserved.
                 <div className="float-right space-x-4">
                     <a href="#" className="text-blue-500 hover:text-blue-600">Terms of use</a>
                     <a href="#" className="text-blue-500 hover:text-blue-600">Privacy Policy</a>

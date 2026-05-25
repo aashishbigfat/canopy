@@ -86,6 +86,8 @@ interface LoadingSkeletonProps {
 }
 
 export function LoadingSkeleton({ className, lines = 3 }: LoadingSkeletonProps) {
+  // Deterministic widths to avoid SSR/client hydration mismatch from Math.random()
+  const widths = [85, 70, 92, 60, 78, 65, 88, 73];
   return (
     <div className={cn("space-y-2", className)}>
       {Array.from({ length: lines }).map((_, i) => (
@@ -94,7 +96,7 @@ export function LoadingSkeleton({ className, lines = 3 }: LoadingSkeletonProps) 
           className="h-4 rounded-md bg-muted animate-pulse"
           style={{
             animationDelay: `${i * 0.1}s`,
-            width: `${Math.random() * 40 + 60}%`,
+            width: `${widths[i % widths.length]}%`,
           }}
         />
       ))}
@@ -126,6 +128,8 @@ interface LoadingTableProps {
 }
 
 export function LoadingTable({ rows = 5, columns = 4, className }: LoadingTableProps) {
+  // Deterministic widths to avoid SSR/client hydration mismatch
+  const widths = [82, 68, 91, 75, 85, 62, 78, 70, 88, 65, 93, 72, 80, 67, 86, 74, 90, 63, 77, 69];
   return (
     <div className={cn("w-full", className)}>
       <div className="border-b">
@@ -152,7 +156,7 @@ export function LoadingTable({ rows = 5, columns = 4, className }: LoadingTableP
                   className="h-4 rounded bg-muted animate-pulse"
                   style={{
                     animationDelay: `${(rowIndex * columns + colIndex) * 0.05}s`,
-                    width: `${Math.random() * 40 + 60}%`,
+                    width: `${widths[(rowIndex * columns + colIndex) % widths.length]}%`,
                   }}
                 />
               </div>
