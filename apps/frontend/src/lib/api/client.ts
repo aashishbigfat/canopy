@@ -3,18 +3,6 @@ import { getSession, signOut } from 'next-auth/react';
 import { API_BASE_URL } from '@/lib/env';
 import { toast } from 'sonner';
 
-// Token refresh management
-let isRefreshing = false;
-let refreshSubscribers: ((token: string | null) => void)[] = [];
-
-const addRefreshSubscriber = (callback: (token: string | null) => void) => {
-    refreshSubscribers.push(callback);
-};
-
-const onTokenRefreshed = (token: string | null) => {
-    refreshSubscribers.forEach(callback => callback(token));
-    refreshSubscribers = [];
-};
 
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
@@ -52,9 +40,21 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
     return Promise.reject(error);
 });
 
-// Response Interceptor: Handle 401 and Token Refresh
+// Response Interceptor: Handle 401 (expired backend token)
+//
+// The backend JWT has a fixed expiry and there is no /auth/refresh endpoint.
+// When the token expires, every API call returns 401. Rather than auto-signing
+// out (which is disruptive during HMR / hot-reload), we show a single toast
+// warning and let the user manually re-login.
+let has401Warned = false;
+
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // A successful authenticated response means the token is valid;
+        // reset the warning flag so future expirations are caught.
+        if (has401Warned) has401Warned = false;
+        return response;
+    },
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -65,56 +65,37 @@ apiClient.interceptors.response.use(
 
             originalRequest._retry = true;
 
-            if (isRefreshing) {
-                return new Promise((resolve, reject) => {
-                    addRefreshSubscriber((token: string | null) => {
-                        if (token) {
-                            if (originalRequest.headers) {
-                                originalRequest.headers.Authorization = `Bearer ${token}`;
-                            }
-                            resolve(apiClient(originalRequest));
-                        } else {
-                            reject(new Error('Token refresh failed'));
-                        }
-                    });
-                });
-            }
-
-            isRefreshing = true;
-
             try {
+                // Re-fetch the session — if it was updated externally the new
+                // token may work.
                 const session = await getSession();
-                if (!session?.refreshToken) {
-                    throw new Error('No refresh token available');
+                if (session?.accessToken) {
+                    const oldToken = originalRequest.headers?.Authorization;
+                    const newBearer = `Bearer ${session.accessToken}`;
+                    if (oldToken !== newBearer) {
+                        // Token changed — retry with the new one
+                        if (originalRequest.headers) {
+                            originalRequest.headers.Authorization = newBearer;
+                        }
+                        return apiClient(originalRequest);
+                    }
                 }
 
-                const response = await axios.post(`${API_BASE_URL}auth/refresh`, {
-                    refresh_token: session.refreshToken,
-                });
-
-                const newAccessToken = response.data.access_token;
-
-                // Update the session with new token
-                if (originalRequest.headers) {
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                // Token is the same → expired. Show warning ONCE.
+                if (!has401Warned) {
+                    has401Warned = true;
+                    toast.error("Session expired — please log in again.", {
+                        duration: 10000,
+                        action: {
+                            label: "Log in",
+                            onClick: () => signOut({ callbackUrl: '/login' }),
+                        },
+                    });
                 }
-
-                onTokenRefreshed(newAccessToken);
-
-                return apiClient(originalRequest);
-            } catch (refreshError) {
-                // Refresh failed, notify subscribers and sign out user
-                onTokenRefreshed(null);
-                
-                // Start sign out immediately but do not await to unblock caller
-                signOut({ callbackUrl: '/login' });
-                
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
+            } catch {
+                // getSession itself failed — silently reject
             }
         } else if (error.response?.status === 403) {
-            // Permission denied
             if (typeof window !== 'undefined') {
                 toast.warning("Access Denied: You do not have permission for this resource.");
             }
@@ -123,3 +104,4 @@ apiClient.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
