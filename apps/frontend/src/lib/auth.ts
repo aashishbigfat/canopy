@@ -61,7 +61,7 @@ export const authOptions: NextAuthOptions = {
     ],
     session: {
         strategy: "jwt",
-        maxAge: 24 * 60 * 60, // 24 hours (align this with your backend token expiration if possible)
+        maxAge: 7 * 24 * 60 * 60, // 7 days (aligned with backend ACCESS_TOKEN_EXPIRE_MINUTES)
     },
     callbacks: {
         async jwt({ token, user }) {

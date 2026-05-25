@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     # JWT Authentication
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"

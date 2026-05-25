@@ -67,6 +67,7 @@ class PasswordResetConfirm(BaseModel):
 class TokenResponse(BaseModel):
     """Schema for token response"""
     access_token: str
+    refresh_token: str
     token_type: str = "bearer"
     expires_in: int
     user: dict

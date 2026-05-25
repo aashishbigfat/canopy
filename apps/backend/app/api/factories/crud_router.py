@@ -22,7 +22,7 @@ Example usage in `app/api/v1/patients.py`:
         ownership=True,
     )
 """
-from __future__ import annotations
+
 
 import logging
 from typing import Any, Optional, Type

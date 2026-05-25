@@ -181,9 +181,9 @@ async def init_db():
     
     try:
         await mongodb_client.admin.command('ismaster')
-        logger.info(f"✅ Connected to MongoDB Atlas: {settings.MONGODB_DB_NAME}")
+        logger.info(f"[OK] Connected to MongoDB Atlas: {settings.MONGODB_DB_NAME}")
     except Exception as e:
-        logger.error(f"❌ Initial connection test failed: {e}")
+        logger.error(f"[ERROR] Initial connection test failed: {e}")
     
     await init_beanie(
         database=mongodb_client[settings.MONGODB_DB_NAME],
@@ -368,10 +368,10 @@ async def init_db():
             # See: PARITY_SCORE.md and COMPLETION_PLAN.md.
         ],
         recreate_views=False,
-        allow_index_dropping=True,
+        allow_index_dropping=False,
     )
     
-    logger.info(f"✅ Database ODM mapped and ready: {settings.MONGODB_DB_NAME}")
+    logger.info(f"[OK] Database ODM mapped and ready: {settings.MONGODB_DB_NAME}")
 
 
 async def get_database():
