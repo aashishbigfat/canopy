@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import { toast } from "sonner";
 import { Loader2, MapPin, CheckCircle2, XCircle, Pencil, LogIn, LogOut, Route } from "lucide-react";
@@ -26,7 +26,6 @@ import { useLiveTracking } from "@/features/bd/tracking/useLiveTracking";
 
 export default function VisitDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const visitId = params.id as string;
   const { data: visit, isLoading } = useBDVisit(visitId);
 

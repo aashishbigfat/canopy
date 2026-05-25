@@ -3,7 +3,6 @@ import { getSession, signOut } from 'next-auth/react';
 import { API_BASE_URL } from '@/lib/env';
 import { toast } from 'sonner';
 
-
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
@@ -24,10 +23,6 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
     if (config.url?.startsWith('/')) {
         config.url = config.url.substring(1);
     }
-
-    // Diagnostic log
-    const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url;
-    console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
 
     if (typeof window !== 'undefined') {
         const session = await getSession();
