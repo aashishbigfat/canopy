@@ -25,21 +25,27 @@ celery_app.conf.update(
 
 @celery_app.task(name='tasks.track_user_view')
 def track_user_view(user_id: str, account_id: str, tenant_id: str):
-    """Track that a user viewed an account"""
+    """Track that a user viewed an account.
+
+    SECURITY: lookup is scoped to tenant_id so a forged task payload cannot
+    increment/create a view row on another tenant's record.
+    """
     from app.models.user_account_view import UserAccountView
     import asyncio
-    
+
     async def _track():
         user_obj_id = ObjectId(user_id)
         account_obj_id = ObjectId(account_id)
         tenant_obj_id = ObjectId(tenant_id)
-        
-        # Check if view exists
+
         view = await UserAccountView.find_one(
-            UserAccountView.user_id == user_obj_id,
-            UserAccountView.account_id == account_obj_id
+            {
+                "user_id": user_obj_id,
+                "account_id": account_obj_id,
+                "tenant_id": tenant_obj_id,
+            }
         )
-        
+
         if view:
             view.count += 1
             view.updated_at = datetime.utcnow()
@@ -52,7 +58,7 @@ def track_user_view(user_id: str, account_id: str, tenant_id: str):
                 count=1
             )
             await view.insert()
-    
+
     asyncio.run(_track())
     return f"Tracked view for user {user_id} on account {account_id}"
 
@@ -73,15 +79,27 @@ def send_owner_change_email(
     tenant_id: str,
     module_id: str
 ):
-    """Send email notification when owner changes"""
+    """Send email notification when owner changes.
+
+    SECURITY: target user lookup is scoped to tenant_id — a forged task
+    payload cannot leak another tenant's user info or trigger an email to
+    an unrelated user.
+    """
     from app.services.email_service import EmailService
     from app.models.user import User
     import asyncio
-    
+
     async def _send_email():
-        # Get new owner details
-        user = await User.get(ObjectId(new_owner_id))
-        
+        # Tenant-scoped lookup of the new owner
+        user = await User.find_one(
+            {
+                "_id": ObjectId(new_owner_id),
+                "tenant_id": ObjectId(tenant_id),
+                "deleted_at": None,
+                "is_active": True,
+            }
+        )
+
         if user and user.email:
             email_service = EmailService()
             

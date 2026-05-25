@@ -79,12 +79,12 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={safeClose} />
 
             {/* Dialog */}
-            <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative bg-slate-900 rounded-xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
                     <div>
-                        <h3 className="text-base font-semibold text-slate-800">Payment Received</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
+                        <h3 className="text-base font-semibold text-slate-100">Payment Received</h3>
+                        <p className="text-xs text-slate-400 mt-0.5">
                             Amount:{" "}
                                 {formatCurrency(item.amount)}
                         </p>
@@ -92,9 +92,9 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                     <button
                         onClick={safeClose}
                         disabled={isSaving}
-                        className="h-7 w-7 rounded-full hover:bg-slate-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                        className="h-7 w-7 rounded-full hover:bg-slate-800 flex items-center justify-center transition-colors disabled:opacity-50"
                     >
-                        <X className="h-4 w-4 text-slate-500" />
+                        <X className="h-4 w-4 text-slate-400" />
                     </button>
                 </div>
 
@@ -103,13 +103,13 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                     {/* Amount Received (read-only display) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 Amount Received
                             </label>
                                 {formatCurrency(item.amount)}
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 Date Received<span className="text-red-500">*</span>
                             </label>
                             <Input
@@ -124,13 +124,13 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                     {/* Payment Mode & Reference */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 Payment Mode
                             </label>
                             <select
                                 value={paymentMethod}
                                 onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="w-full h-10 rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+                                className="w-full h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
                             >
                                 {PAYMENT_MODES.map((mode) => (
                                     <option
@@ -143,7 +143,7 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                 Reference ID
                             </label>
                             <Input
@@ -158,20 +158,20 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-xs font-medium text-slate-600 mb-1.5">
+                        <label className="block text-xs font-medium text-slate-300 mb-1.5">
                             Note
                         </label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Any notes about this payment..."
-                            className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
+                            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
                         />
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-200 bg-slate-50/50 rounded-b-xl">
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-800/50 rounded-b-xl">
                     <Button
                         variant="outline"
                         onClick={safeClose}
@@ -401,7 +401,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
         return (
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                <span className="ml-2 text-slate-500 text-sm">Loading payment schedule...</span>
+                <span className="ml-2 text-slate-400 text-sm">Loading payment schedule...</span>
             </div>
         );
     }
@@ -423,12 +423,12 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                 <div className="space-y-4">
                     {/* Header with edit link */}
                     <div className="flex justify-between items-center">
-                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                             Payment Schedule
                         </p>
                         <button
                             onClick={() => setEditMode(true)}
-                            className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-800 text-xs font-medium transition-colors"
+                            className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-medium transition-colors"
                         >
                             <Pencil className="h-3 w-3" />
                             Edit Schedule
@@ -436,30 +436,30 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                     </div>
 
                     {/* Table */}
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
+                    <div className="border border-slate-700 rounded-lg overflow-hidden">
                         <div className="overflow-x-auto scrollbar-hide">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-slate-50 border-b border-slate-200">
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-12">#</th>
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Date</th>
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500">Amount</th>
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 w-40">Status</th>
+                                    <tr className="bg-slate-800 border-b border-slate-700">
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 w-12">#</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Date</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Amount</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 w-40">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {savedItems.map((item, idx) => (
                                         <tr
                                             key={item.id}
-                                            className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
+                                            className="border-b border-slate-800 last:border-b-0 hover:bg-slate-800/40 transition-colors"
                                         >
-                                            <td className="px-4 py-3 text-slate-600">{idx + 1}</td>
-                                            <td className="px-4 py-3 text-slate-700">
+                                            <td className="px-4 py-3 text-slate-300">{idx + 1}</td>
+                                            <td className="px-4 py-3 text-slate-200">
                                                 {item.due_date
                                                     ? formatDate(item.due_date)
                                                     : "—"}
                                             </td>
-                                            <td className="px-4 py-3 text-slate-700 font-medium">
+                                            <td className="px-4 py-3 text-slate-200 font-medium">
                                                 {formatCurrency(item.amount)}
                                             </td>
                                             <td className="px-4 py-3">
@@ -471,8 +471,8 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                                                     disabled={updateMutation.isPending}
                                                     className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 ${
                                                         item.status === "Received"
-                                                            ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                                                            : "bg-amber-50 text-amber-700 border-amber-200"
+                                                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                                                            : "bg-amber-500/20 text-amber-300 border-amber-500/40"
                                                     }`}
                                                 >
                                                     <option value="Pending">Pending</option>
@@ -496,7 +496,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
         <div className="space-y-4">
             {/* Header */}
             <div className="flex justify-between items-center">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                     Payment Schedule
                 </p>
                 {!editMode && !hasSavedSchedule && (
@@ -547,9 +547,9 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                     {/* Column headers */}
                     {/* Column headers - hidden on mobile */}
                     <div className="hidden sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 mb-1">
-                        <p className="text-xs font-semibold text-slate-500">Date</p>
-                        <p className="text-xs font-semibold text-slate-500 text-right pr-2">Amount</p>
-                        <p className="text-xs font-semibold text-slate-500 text-right pr-2">Percentage</p>
+                        <p className="text-xs font-semibold text-slate-400">Date</p>
+                        <p className="text-xs font-semibold text-slate-400 text-right pr-2">Amount</p>
+                        <p className="text-xs font-semibold text-slate-400 text-right pr-2">Percentage</p>
                         <div />
                     </div>
 
@@ -561,7 +561,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                         return (
                             <div
                                 key={row.id || `new-${idx}`}
-                                className="flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none bg-slate-50/30 sm:bg-transparent relative"
+                                className="flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none bg-slate-800/30 sm:bg-transparent relative"
                             >
                                 <div className="space-y-1 sm:space-y-0">
                                     <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Due Date</label>
@@ -631,15 +631,15 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                     })}
 
                     {/* Remaining Amount */}
-                    <p className="text-sm text-slate-600">
+                    <p className="text-sm text-slate-300">
                         Remaining Amount:{" "}
                         <span
                             className={`font-semibold ${
                                 remaining < 0
-                                    ? "text-red-600"
+                                    ? "text-red-400"
                                     : remaining === 0
-                                    ? "text-emerald-600"
-                                    : "text-slate-800"
+                                    ? "text-emerald-400"
+                                    : "text-slate-100"
                             }`}
                         >
                             {formatCurrency(remaining)}
@@ -648,7 +648,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
 
                     {/* Over-budget warning */}
                     {remaining < 0 && (
-                        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-2 rounded-lg text-sm">
+                        <div className="bg-red-500/20 border border-red-500/40 text-red-300 px-4 py-2 rounded-lg text-sm">
                             <span className="font-semibold">Please check amount!</span> Payment
                             schedule exceeds opportunity amount by {formatCurrency(Math.abs(remaining))}
                         </div>
@@ -656,7 +656,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
 
                     {/* Under-budget info */}
                     {remaining > 0.01 && (
-                        <div className="bg-amber-50 border border-amber-200 text-amber-700 px-4 py-2 rounded-lg text-sm">
+                        <div className="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-4 py-2 rounded-lg text-sm">
                             <span className="font-semibold">Remaining amount must be 0.</span> Please
                             allocate {formatCurrency(remaining)} more to save.
                         </div>

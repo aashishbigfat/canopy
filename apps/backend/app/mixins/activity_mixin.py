@@ -1,6 +1,7 @@
 """
 Activity logging mixin for comprehensive audit trail
 """
+import logging
 from typing import Dict, Any, Optional
 from fastapi import Request
 from bson import ObjectId
@@ -8,6 +9,9 @@ from datetime import datetime
 import json
 
 from app.services.activity_log_service import ActivityLogService
+
+
+_logger = logging.getLogger(__name__)
 
 
 class ActivityMixin:
@@ -277,7 +281,7 @@ class ActivityMixin:
             )
         except Exception as e:
             # Don't let logging errors break the main flow
-            print(f"Activity logging error: {e}")
+            _logger.warning("Activity logging error: %s", e)
     
     def get_request_summary(self) -> Dict:
         """Get summary of current request context"""

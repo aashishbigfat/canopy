@@ -133,9 +133,10 @@ async def get_view(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
-    obj = await EntityView.get(view_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.entity_type != entity_type):
+    obj = await EntityView.find_one(
+        {"_id": view_id, "tenant_id": current_user.tenant_id, "entity_type": entity_type}
+    )
+    if not obj:
         raise HTTPException(404, "View not found")
     return obj.model_dump()
 
@@ -148,9 +149,10 @@ async def update_view(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
-    obj = await EntityView.get(view_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.entity_type != entity_type):
+    obj = await EntityView.find_one(
+        {"_id": view_id, "tenant_id": current_user.tenant_id, "entity_type": entity_type}
+    )
+    if not obj:
         raise HTTPException(404, "View not found")
     if obj.created_by != current_user.id:
         raise HTTPException(403, "Cannot edit another user's view")
@@ -168,9 +170,10 @@ async def delete_view(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
-    obj = await EntityView.get(view_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.entity_type != entity_type):
+    obj = await EntityView.find_one(
+        {"_id": view_id, "tenant_id": current_user.tenant_id, "entity_type": entity_type}
+    )
+    if not obj:
         raise HTTPException(404, "View not found")
     if obj.created_by != current_user.id:
         raise HTTPException(403, "Cannot delete another user's view")
@@ -216,9 +219,10 @@ async def update_column(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
-    obj = await EntityColumn.get(column_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.entity_type != entity_type):
+    obj = await EntityColumn.find_one(
+        {"_id": column_id, "tenant_id": current_user.tenant_id, "entity_type": entity_type}
+    )
+    if not obj:
         raise HTTPException(404, "Column not found")
     for k, v in payload.model_dump().items():
         setattr(obj, k, v)
@@ -234,9 +238,10 @@ async def delete_column(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
-    obj = await EntityColumn.get(column_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.entity_type != entity_type):
+    obj = await EntityColumn.find_one(
+        {"_id": column_id, "tenant_id": current_user.tenant_id, "entity_type": entity_type}
+    )
+    if not obj:
         raise HTTPException(404, "Column not found")
     await obj.delete()
 
@@ -248,15 +253,24 @@ async def sort_columns(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
+    # Bulk tenant-scoped fetch in one query instead of N round-trips, and the
+    # fetch itself guarantees we never touch another tenant's columns.
+    ids = [item.id for item in payload.items if item.id]
+    if not ids:
+        return {"updated": 0}
+    docs = await EntityColumn.find(
+        {"_id": {"$in": ids}, "tenant_id": current_user.tenant_id, "entity_type": entity_type}
+    ).to_list()
+    by_id = {str(d.id): d for d in docs}
     updated = 0
     for item in payload.items:
-        obj = await EntityColumn.get(item.id)
-        if (obj and obj.tenant_id == current_user.tenant_id
-                and obj.entity_type == entity_type):
-            obj.sorting = item.sorting
-            obj.updated_at = datetime.utcnow()
-            await obj.save()
-            updated += 1
+        obj = by_id.get(str(item.id))
+        if obj is None:
+            continue
+        obj.sorting = item.sorting
+        obj.updated_at = datetime.utcnow()
+        await obj.save()
+        updated += 1
     return {"updated": updated}
 
 
@@ -296,10 +310,15 @@ async def delete_filter(
     current_user: User = Depends(get_current_user),
 ):
     _check(entity_type)
-    obj = await EntityFilter.get(filter_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.entity_type != entity_type
-            or obj.user_id != current_user.id):
+    obj = await EntityFilter.find_one(
+        {
+            "_id": filter_id,
+            "tenant_id": current_user.tenant_id,
+            "entity_type": entity_type,
+            "user_id": current_user.id,
+        }
+    )
+    if not obj:
         raise HTTPException(404, "Filter not found")
     await obj.delete()
 

@@ -68,12 +68,14 @@ class PackageService:
         package_id: str,
         tenant_id: ObjectId
     ) -> Optional[Package]:
-        """Get package by ID"""
-        package = await Package.get(ObjectId(package_id))
-        
-        if package and package.tenant_id == tenant_id and not package.deleted_at:
-            return package
-        return None
+        """Get package by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(package_id)
+        except Exception:
+            return None
+        return await Package.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_package_with_pricing(
         self,
@@ -259,15 +261,25 @@ class PackageService:
         links = await PackageOpportunity.find(
             {"opportunity_id": ObjectId(opportunity_id), "tenant_id": tenant_id}
         ).to_list()
-        
+
+        if not links:
+            return []
+
+        # Bulk tenant-scoped fetch
+        pkg_ids = [link.package_id for link in links]
+        packages = await Package.find(
+            {"_id": {"$in": pkg_ids}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        pkg_map = {p.id: p for p in packages}
+
         result = []
         for link in links:
-            package = await Package.get(link.package_id)
+            package = pkg_map.get(link.package_id)
             if package:
                 result.append({
                     "package": package,
                     "custom_price": link.custom_price,
                     "notes": link.notes
                 })
-        
+
         return result

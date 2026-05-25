@@ -20,6 +20,10 @@ from app.repositories.lead_repository import LeadRepository
 from app.services.webhook_service import webhook_service
 from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
+from app.services.bd_assignment_service import bd_assignment_service
+import logging as _logging
+
+logger = _logging.getLogger(__name__)
 
 
 class LeadService(ActivityMixin):
@@ -102,7 +106,27 @@ class LeadService(ActivityMixin):
         )
         
         await lead.insert()
-        
+
+        # Auto-resolve BD triple (territory + BD owner + reporting manager).
+        # Failure is non-fatal — lead still saves with triple unset.
+        try:
+            assignment = await bd_assignment_service.resolve_for_address(
+                tenant_id=tenant_id,
+                country=lead.country,
+                state=lead.state,
+                zip_code=lead.zip,
+            )
+            if not assignment.is_empty():
+                lead.territory_id = assignment.territory_id
+                lead.region_id = assignment.region_id
+                lead.bd_owner_id = assignment.bd_owner_id
+                lead.reporting_manager_id = assignment.reporting_manager_id
+                lead.territory_match_source = assignment.match_source
+                lead.territory_assigned_at = datetime.utcnow()
+                await lead.save()
+        except Exception:
+            logger.warning("BD auto-assignment failed for lead %s", lead.id, exc_info=True)
+
         # Link destinations if provided in industry_data (travel only)
         industry_dest_ids = (lead.industry_data or {}).get('destination_ids', [])
         if industry_dest_ids:
@@ -172,7 +196,14 @@ class LeadService(ActivityMixin):
             )
         except Exception:
             pass  # Webhook failures should never block core operations
-        
+
+        # Phase 9: automation rule dispatch
+        try:
+            from app.services import automation_service
+            await automation_service.dispatch("lead.created", lead, tenant_id)
+        except Exception:
+            logger.warning("Automation dispatch failed (lead.created)", exc_info=True)
+
         return lead
     async def get_lead(self, lead_id: str, tenant_id: ObjectId) -> Optional[Lead]:
         """Get lead by ID (allows soft-deleted/converted leads)"""
@@ -216,17 +247,51 @@ class LeadService(ActivityMixin):
         # Store original values for change tracking
         original_values = {}
         updated_fields = {}
-        
+
+        # Track whether any address field changed — triggers BD re-resolution.
+        ADDRESS_FIELDS = {"street", "city", "state", "zip", "country"}
+        address_changed = False
+
         # Update fields and track changes
         update_data = lead_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             original_value = getattr(lead, field, None)
             original_values[field] = str(original_value) if original_value else None
+            if field in ADDRESS_FIELDS and value != original_value:
+                address_changed = True
             setattr(lead, field, value)
             updated_fields[field] = str(value) if value else None
-        
+
         lead.last_modified_by_id = user_id
         await lead.save()
+
+        # Re-resolve BD triple when address changes. Never blocks the save.
+        if address_changed:
+            try:
+                prev_bd_owner = lead.bd_owner_id
+                assignment = await bd_assignment_service.resolve_for_address(
+                    tenant_id=tenant_id,
+                    country=lead.country,
+                    state=lead.state,
+                    zip_code=lead.zip,
+                )
+                if not assignment.is_empty():
+                    lead.territory_id = assignment.territory_id
+                    lead.region_id = assignment.region_id
+                    lead.bd_owner_id = assignment.bd_owner_id
+                    lead.reporting_manager_id = assignment.reporting_manager_id
+                    lead.territory_match_source = assignment.match_source
+                    lead.territory_assigned_at = datetime.utcnow()
+                    await lead.save()
+                    if prev_bd_owner != assignment.bd_owner_id:
+                        await self.log_assignment_changed(
+                            entity=lead,
+                            entity_type="lead",
+                            old_assigned_to=str(prev_bd_owner) if prev_bd_owner else None,
+                            new_assigned_to=str(assignment.bd_owner_id) if assignment.bd_owner_id else None,
+                        )
+            except Exception:
+                logger.warning("BD re-assignment failed for lead %s", lead.id, exc_info=True)
 
         # Write custom field values via unified registry (Phase 1 §A)
         custom_field_changes = 0
@@ -286,7 +351,15 @@ class LeadService(ActivityMixin):
                 )
             except Exception:
                 pass
-        
+
+        # Phase 9: automation rule dispatch
+        if updated_fields:
+            try:
+                from app.services import automation_service
+                await automation_service.dispatch("lead.updated", lead, tenant_id)
+            except Exception:
+                logger.warning("Automation dispatch failed (lead.updated)", exc_info=True)
+
         return lead
     
     async def delete_lead(
@@ -481,8 +554,10 @@ class LeadService(ActivityMixin):
             except Exception:
                 raise ValueError("Invalid account ID format")
                 
-            existing_account = await Account.get(account_id)
-            if not existing_account or existing_account.tenant_id != tenant_id:
+            existing_account = await Account.find_one(
+                {"_id": account_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
+            if not existing_account:
                 raise ValueError("Specified account not found")
             is_person_account = existing_account.is_person_account
         else:
@@ -578,9 +653,11 @@ class LeadService(ActivityMixin):
             except Exception:
                 raise ValueError("Invalid contact ID format")
                 
-            # Verify contact exists and belongs to tenant
-            existing_contact = await Contact.get(contact_id)
-            if not existing_contact or existing_contact.tenant_id != tenant_id:
+            # Verify contact exists and belongs to tenant — single scoped query
+            existing_contact = await Contact.find_one(
+                {"_id": contact_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
+            if not existing_contact:
                 raise ValueError("Specified contact not found")
             
             # Link contact to account if needed
@@ -703,8 +780,12 @@ class LeadService(ActivityMixin):
             if raw_stage_id and str(raw_stage_id).lower() not in invalid_stage_values:
                 try:
                     sales_stage_id = ObjectId(raw_stage_id)
-                    # Verify stage exists and grab its probability
-                    stage_exists = await SalesStage.get(sales_stage_id)
+                    # Verify stage exists in THIS tenant (cross-tenant stage IDs
+                    # would let a client pin opportunities to another tenant's
+                    # pipeline stage definitions).
+                    stage_exists = await SalesStage.find_one(
+                        {"_id": sales_stage_id, "tenant_id": tenant_id}
+                    )
                     if not stage_exists:
                         sales_stage_id = None  # Fall through to default lookup
                     else:
@@ -782,121 +863,38 @@ class LeadService(ActivityMixin):
                 close_date = datetime.utcnow() + timedelta(days=30)
 
             # ── Industry-aware opportunity creation ──────────────────────
-            from app.models.tenant import Tenant
-            tenant = await Tenant.get(tenant_id)
-            industry = tenant.industry if tenant else "travel"
-            is_travel = (industry == "travel")
-            
-            if is_travel:
-                # === TRAVEL LOGIC ===
-                # Get travel data from industry_data (migrated from top-level fields)
-                lead_industry = lead.industry_data or {}
-                conv_industry = getattr(conversion_data, 'industry_data', {}) or {}
-                
-                # Handle travel date
-                travel_date = None
-                raw_travel_date = conv_industry.get('travel_date') or lead_industry.get('travel_date')
-                if raw_travel_date:
-                    if isinstance(raw_travel_date, datetime):
-                        travel_date = raw_travel_date
-                    elif isinstance(raw_travel_date, str) and raw_travel_date.strip():
-                        try:
-                            clean_date = raw_travel_date.replace('Z', '+00:00')
-                            travel_date = datetime.fromisoformat(clean_date)
-                        except (ValueError, TypeError):
-                            try:
-                                travel_date = datetime.strptime(raw_travel_date[:10], "%Y-%m-%d")
-                            except (ValueError, TypeError):
-                                logger.warning(f"Could not parse travel_date: {raw_travel_date}")
+            # The resolver raises if the tenant is missing — no silent fallback
+            # to travel-shaped data. The per-industry strategy then handles
+            # both the opportunity name and its industry_data block, so this
+            # service code is industry-blind.
+            from app.services.industry_service import get_tenant_industry
+            from app.services.industry_strategies import get_opportunity_conversion_strategy
 
-                # Dest IDs from industry_data
-                dest_ids = []
-                dest_names = []
-                conv_dest_ids = conv_industry.get('destination_ids') or lead_industry.get('destination_ids') or []
-                for d in conv_dest_ids:
-                    try:
-                        dest_ids.append(ObjectId(str(d)))
-                    except Exception:
-                        pass
+            industry = await get_tenant_industry(tenant_id)
+            strategy = get_opportunity_conversion_strategy(industry)
+            opp_industry_data = await strategy.build_opportunity_data(lead, conversion_data)
+            opportunity_name = await strategy.build_opportunity_name(lead, conversion_data)
 
-                if dest_ids:
-                    from app.models.destination import Destination
-                    destinations_objs = await Destination.find({"_id": {"$in": dest_ids}}).to_list()
-                    dest_names = [d.name for d in destinations_objs]
-
-                # Travel-style opportunity name: [Destination]_[Pax]Pax_[TravelDate]
-                no_of_pax = conv_industry.get('no_of_pax') or lead_industry.get('no_of_pax') or 0
-                if not conversion_data.opportunity_name:
-                    dest_str = dest_names[0] if dest_names else (lead.company or lead.full_name or "Opportunity")
-                    date_str = f"_{travel_date.strftime('%d%b')}" if travel_date else ""
-                    opportunity_name = f"{dest_str}_{no_of_pax}Pax{date_str}"
-                else:
-                    opportunity_name = conversion_data.opportunity_name
-
-                # Build travel industry_data for the opportunity
-                opp_industry_data = {
-                    'travel_date': travel_date.isoformat() if travel_date else None,
-                    'no_of_pax': no_of_pax,
-                    'no_of_adults': conv_industry.get('no_of_adults') or lead_industry.get('no_of_adults'),
-                    'no_of_childs': conv_industry.get('no_of_childs') if conv_industry.get('no_of_childs') is not None else lead_industry.get('no_of_childs'),
-                    'no_of_infants': conv_industry.get('no_of_infants') if conv_industry.get('no_of_infants') is not None else lead_industry.get('no_of_infants'),
-                    'no_of_nights': conv_industry.get('no_of_nights') or lead_industry.get('no_of_nights'),
-                    'destination_ids': [str(d) for d in dest_ids],
-                    'destination_names': dest_names,
-                }
-                # Copy experience_id if present
-                exp_id = conv_industry.get('experience_id') or lead_industry.get('experience_id')
-                if exp_id:
-                    opp_industry_data['experience_id'] = str(exp_id)
-
-                opportunity = Opportunity(
-                    name=opportunity_name,
-                    amount=conversion_data.opportunity_amount,
-                    close_date=close_date,
-                    description=conversion_data.description,
-                    sales_stage_id=sales_stage_id,
-                    probability=stage_probability,
-                    account_id=account_id,
-                    contact_id=contact_id,
-                    opportunitable_type="Account" if not is_person_account else "PersonalAccount",
-                    opportunitable_id=account_id,
-                    lead_id=lead.id,
-                    segment=lead.segment,
-                    source_id=lead.source_id,
-                    source_medium_id=lead.source_medium_id,
-                    industry_data=opp_industry_data,
-                    tenant_id=tenant_id,
-                    owner_id=user_id,
-                    created_by=user_id
-                )
-            else:
-                # === NON-TRAVEL LOGIC ===
-                # Simple opportunity name for non-travel industries
-                if not conversion_data.opportunity_name:
-                    opportunity_name = f"{lead.full_name} - Opportunity"
-                else:
-                    opportunity_name = conversion_data.opportunity_name
-
-                opportunity = Opportunity(
-                    name=opportunity_name,
-                    amount=conversion_data.opportunity_amount,
-                    close_date=close_date,
-                    description=getattr(conversion_data, 'description', None),
-                    sales_stage_id=sales_stage_id,
-                    probability=stage_probability,
-                    account_id=account_id,
-                    contact_id=contact_id,
-                    opportunitable_type="Account" if not is_person_account else "PersonalAccount",
-                    opportunitable_id=account_id,
-                    lead_id=lead.id,
-                    segment=lead.segment,
-                    source_id=lead.source_id,
-                    source_medium_id=lead.source_medium_id,
-                    industry_data=getattr(conversion_data, 'industry_data', {}) or {},
-                    tenant_id=tenant_id,
-                    owner_id=user_id,
-                    created_by=user_id
-                )
+            opportunity = Opportunity(
+                name=opportunity_name,
+                amount=conversion_data.opportunity_amount,
+                close_date=close_date,
+                description=getattr(conversion_data, 'description', None),
+                sales_stage_id=sales_stage_id,
+                probability=stage_probability,
+                account_id=account_id,
+                contact_id=contact_id,
+                opportunitable_type="Account" if not is_person_account else "PersonalAccount",
+                opportunitable_id=account_id,
+                lead_id=lead.id,
+                segment=lead.segment,
+                source_id=lead.source_id,
+                source_medium_id=lead.source_medium_id,
+                industry_data=opp_industry_data,
+                tenant_id=tenant_id,
+                owner_id=user_id,
+                created_by=user_id
+            )
             
             # Safe conversion for other optional IDs from conversion_data
             if isinstance(opportunity.tenant_id, str):
@@ -912,6 +910,15 @@ class LeadService(ActivityMixin):
                     opportunity.owner_id = ObjectId(conversion_data.opportunity_owner_id)
                 except Exception:
                     pass # Keep default if invalid
+            # Copy BD triple from the converting lead so the opportunity
+            # inherits Territory / BD Owner / Reporting Manager.
+            opportunity.territory_id = lead.territory_id
+            opportunity.region_id = lead.region_id
+            opportunity.bd_owner_id = lead.bd_owner_id
+            opportunity.reporting_manager_id = lead.reporting_manager_id
+            opportunity.territory_match_source = lead.territory_match_source
+            opportunity.territory_assigned_at = lead.territory_assigned_at
+
             try:
                 await opportunity.insert()
                 opportunity_id = opportunity.id
@@ -1139,26 +1146,32 @@ class LeadService(ActivityMixin):
         ip_address: str = None,
         user_agent: str = None
     ) -> Optional[Lead]:
-        """Change lead owner with comprehensive activity logging"""
+        """Change lead owner.
+
+        SECURITY: new_owner_id is validated against the lead's tenant BEFORE
+        the save. Previously the lead was reassigned first and the owner was
+        fetched unscoped afterwards — meaning a cross-tenant user id could
+        be assigned as owner and only the response name would silently fail.
+        """
+        from app.models.user import User
         lead = await self.get_lead(lead_id, tenant_id)
-        
         if not lead:
             return None
-        
-        # Track ownership change
+
+        owner = await User.find_one(
+            {"_id": new_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+        )
+        if not owner:
+            raise ValueError("new_owner_id must reference an active user in this tenant")
+
         previous_owner = str(lead.owner_id)
         new_owner = str(new_owner_id)
-        
+
         lead.owner_id = new_owner_id
         lead.last_modified_by_id = current_user_id
         await lead.save()
-        
-        # Populate owner name for the response
-        from app.models.user import User
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(lead, 'owner_name', owner.name)
-        
+        setattr(lead, 'owner_name', owner.name)
+
         # 🚨 COMPREHENSIVE ACTIVITY LOGGING using ActivityMixin
         await self.log_assignment_changed(
             entity=lead,
@@ -1166,10 +1179,95 @@ class LeadService(ActivityMixin):
             old_assigned_to=previous_owner,
             new_assigned_to=new_owner
         )
-        
+
         return lead
     
     
+    async def reassign_bd(
+        self,
+        lead_id: str,
+        tenant_id: ObjectId,
+        current_user_id: ObjectId,
+        bd_owner_id: Optional[ObjectId] = None,
+        reporting_manager_id: Optional[ObjectId] = None,
+        reason: Optional[str] = None,
+    ) -> Optional[Lead]:
+        """Manual override of the BD triple. Validates tenant membership."""
+        lead = await self.get_lead(lead_id, tenant_id)
+        if not lead:
+            return None
+
+        previous_bd = str(lead.bd_owner_id) if lead.bd_owner_id else None
+        previous_manager = str(lead.reporting_manager_id) if lead.reporting_manager_id else None
+
+        if bd_owner_id is not None:
+            owner = await User.find_one(
+                {"_id": bd_owner_id, "tenant_id": tenant_id, "is_active": True, "deleted_at": None}
+            )
+            if not owner:
+                raise ValueError("bd_owner_id must reference an active user in this tenant")
+            lead.bd_owner_id = bd_owner_id
+            # If manager not explicitly set, recompute from hierarchy.
+            if reporting_manager_id is None:
+                lead.reporting_manager_id = await bd_assignment_service.resolve_manager_for_user(
+                    tenant_id, bd_owner_id
+                )
+
+        if reporting_manager_id is not None:
+            mgr = await User.find_one(
+                {"_id": reporting_manager_id, "tenant_id": tenant_id, "is_active": True, "deleted_at": None}
+            )
+            if not mgr:
+                raise ValueError("reporting_manager_id must reference an active user in this tenant")
+            lead.reporting_manager_id = reporting_manager_id
+
+        lead.territory_match_source = "manual"
+        lead.territory_assigned_at = datetime.utcnow()
+        lead.last_modified_by_id = current_user_id
+        await lead.save()
+
+        await self.log_custom_activity(
+            action="bd_reassigned",
+            entity_type="lead",
+            entity=lead,
+            description=f"BD reassigned (reason: {reason or 'manual override'})",
+            changes={
+                "bd_owner_id": {"old": previous_bd, "new": str(lead.bd_owner_id) if lead.bd_owner_id else None},
+                "reporting_manager_id": {"old": previous_manager, "new": str(lead.reporting_manager_id) if lead.reporting_manager_id else None},
+            },
+        )
+        return lead
+
+    async def resolve_territory(
+        self,
+        lead_id: str,
+        tenant_id: ObjectId,
+        current_user_id: ObjectId,
+    ) -> Optional[Lead]:
+        """Re-run automatic territory + BD resolution for an existing lead."""
+        lead = await self.get_lead(lead_id, tenant_id)
+        if not lead:
+            return None
+
+        assignment = await bd_assignment_service.resolve_for_address(
+            tenant_id=tenant_id,
+            country=lead.country,
+            state=lead.state,
+            zip_code=lead.zip,
+        )
+        if assignment.is_empty():
+            return lead
+
+        lead.territory_id = assignment.territory_id
+        lead.region_id = assignment.region_id
+        lead.bd_owner_id = assignment.bd_owner_id
+        lead.reporting_manager_id = assignment.reporting_manager_id
+        lead.territory_match_source = assignment.match_source
+        lead.territory_assigned_at = datetime.utcnow()
+        lead.last_modified_by_id = current_user_id
+        await lead.save()
+        return lead
+
     async def get_leads_with_metadata(
         self,
         tenant_id: ObjectId,
@@ -1510,25 +1608,8 @@ class LeadService(ActivityMixin):
                     f"{', '.join(duplicate_names)}. "
                     f"Please use existing contact or verify this is not a duplicate."
                 )
-    async def change_owner(
-        self,
-        lead_id: str,
-        new_owner_id: ObjectId,
-        current_user_id: ObjectId,
-        tenant_id: ObjectId
-    ) -> Optional[Lead]:
-        """Change lead owner"""
-        lead = await self.get_lead(lead_id, tenant_id)
-        if not lead:
-            return None
-        
-        lead.owner_id = new_owner_id
-        lead.last_modified_by_id = current_user_id
-        await lead.save()
-        
-        # Populate owner name for response
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(lead, "owner_name", owner.name)
-            
-        return lead
+    # NOTE: A second `change_owner` definition used to live here and silently
+    # overrode the canonical one above via Python's method-resolution order,
+    # losing the tenant-validation + activity-logging in the process.
+    # It has been deleted; the only `change_owner` for Lead is the secure one
+    # earlier in this class.

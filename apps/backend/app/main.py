@@ -35,11 +35,71 @@ def _custom_rate_limit_handler(request, exc):
     return None
 
 from app.core.config import settings
+from app.core.logging_config import configure_logging
 from app.core.rate_limiter import limiter
 from app.core.cache import init_cache, close_cache
 from app.db.mongodb import init_db
 from app.middleware.activity_context import activity_context_middleware
 from app.api.v1 import accounts
+
+# Configure root logger before anything else runs. JSON output in prod
+# (parseable by log shippers), human-readable text in dev. Sensitive fields
+# (password, token, authorization) are redacted by a filter.
+configure_logging(settings.ENVIRONMENT)
+
+
+# ── Sentry ──────────────────────────────────────────────────────────────────
+# Initialize Sentry early — before app construction — so any startup error is
+# captured. DSN is optional in dev (no DSN → SDK is a no-op).
+_sentry_dsn = getattr(settings, "SENTRY_DSN", None)
+if _sentry_dsn:
+    try:
+        import sentry_sdk
+        from sentry_sdk.integrations.fastapi import FastApiIntegration
+
+        def _scrub_event(event, hint):
+            """Drop tokens / passwords / API keys from breadcrumbs and request data."""
+            sensitive_keys = (
+                "password", "token", "access_token", "refresh_token",
+                "authorization", "api_key", "secret", "smtp_password",
+            )
+
+            def _scrub(obj):
+                if isinstance(obj, dict):
+                    return {
+                        k: ("[REDACTED]" if k.lower() in sensitive_keys else _scrub(v))
+                        for k, v in obj.items()
+                    }
+                if isinstance(obj, list):
+                    return [_scrub(v) for v in obj]
+                return obj
+
+            # Scrub request data
+            request = event.get("request", {})
+            if isinstance(request.get("headers"), dict):
+                request["headers"] = _scrub(request["headers"])
+            if isinstance(request.get("cookies"), dict):
+                request["cookies"] = _scrub(request["cookies"])
+            if isinstance(request.get("data"), dict):
+                request["data"] = _scrub(request["data"])
+            # Scrub breadcrumbs
+            crumbs = event.get("breadcrumbs", {})
+            if isinstance(crumbs, dict) and isinstance(crumbs.get("values"), list):
+                for crumb in crumbs["values"]:
+                    if isinstance(crumb, dict) and isinstance(crumb.get("data"), dict):
+                        crumb["data"] = _scrub(crumb["data"])
+            return event
+
+        sentry_sdk.init(
+            dsn=_sentry_dsn,
+            environment=settings.ENVIRONMENT,
+            integrations=[FastApiIntegration()],
+            traces_sample_rate=float(getattr(settings, "SENTRY_TRACES_SAMPLE_RATE", 0.0)),
+            send_default_pii=False,
+            before_send=_scrub_event,
+        )
+    except Exception:
+        _logger.exception("Failed to initialize Sentry — continuing without it")
 
 # Lifespan context manager for startup/shutdown
 @asynccontextmanager
@@ -83,22 +143,26 @@ app.add_middleware(
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    import json
     from fastapi.encoders import jsonable_encoder
-    
-    print(f"DEBUG: 422 Validation Error at {request.url.path}")
-    
+
     encoded_errors = jsonable_encoder(exc.errors())
-    print(f"DEBUG: Error details: {json.dumps(encoded_errors, indent=2)}")
-    print(f"DEBUG: Request body: {exc.body}")
-    
-    return JSONResponse(
-        status_code=422,
-        content={"detail": encoded_errors, "body": str(exc.body)},
-    )
+
+    is_production = settings.ENVIRONMENT == "production"
+    if not is_production:
+        _logger.warning(
+            "422 Validation Error at %s: %s", request.url.path, encoded_errors
+        )
+
+    content: dict = {"detail": encoded_errors}
+    if not is_production:
+        content["body"] = str(exc.body)
+
+    return JSONResponse(status_code=422, content=content)
 
 # Include routers
 from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial, hierarchies
+# BD Panel — Phase 4+ (visits, expenses, tracking, automation rules)
+from app.api.v1 import bd_visits, expenses as bd_expenses, tracking as bd_tracking, automation_rules
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
 # Phase 1 — Field registry + picklists
@@ -133,6 +197,12 @@ from app.api.v1 import itineraries_extra
 from app.api.v1 import mobile
 # Phase 17 — Misc / utility
 from app.api.v1 import misc
+# Industry verticals — healthcare APIs (gated by per-tenant module flags)
+from app.api.v1 import patients, providers, appointments, care_plans, referrals
+# Industry verticals — education APIs
+from app.api.v1 import programs, enrollments
+# Industry verticals — manufacturing APIs
+from app.api.v1 import boms, production_orders, inventory
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication (Alias)"]) # Fallback for misconfigured clients
@@ -179,6 +249,11 @@ app.include_router(reports.router, prefix="/api/v1/reports", tags=["Reports"])
 app.include_router(dashboards_extra.router, prefix="/api/v1/dashboards", tags=["Dashboards Extras"])
 app.include_router(dashboards.router, prefix="/api/v1/dashboards", tags=["Dashboards"])
 app.include_router(territories.router, prefix="/api/v1/territories", tags=["Territories"])
+# BD Panel — visits, expenses, live tracking
+app.include_router(bd_visits.router, prefix="/api/v1/bd-visits", tags=["BD Visits"])
+app.include_router(bd_expenses.router, prefix="/api/v1/expenses", tags=["BD Expenses"])
+app.include_router(bd_tracking.router, prefix="/api/v1/tracking", tags=["BD Tracking"])
+app.include_router(automation_rules.router, prefix="/api/v1/automation-rules", tags=["Automation Rules"])
 app.include_router(incentives.router, prefix="/api/v1/incentives", tags=["Incentives"])
 app.include_router(billing.router, prefix="/api/v1/billing", tags=["Billing"])
 app.include_router(webhooks.router, prefix="/api/v1/webhooks", tags=["Webhooks"])
@@ -207,6 +282,24 @@ app.include_router(imports_exports.router, prefix="/api/v1/imports", tags=["Impo
 app.include_router(mobile.router, prefix="/api/v1/mobile", tags=["Mobile"])
 # Phase 17 — Misc / utility (s3 url, lat-long, country, FB stubs, public verify)
 app.include_router(misc.router, prefix="/api/v1/misc", tags=["Misc"])
+
+# Industry verticals — Healthcare CRUD routers, gated by the corresponding
+# `modules.{patients,providers,appointments,care_plans,referrals}` flag on the
+# tenant. A travel tenant therefore gets 403 from these endpoints.
+app.include_router(patients.router, prefix="/api/v1/patients", tags=["Healthcare - Patients"])
+app.include_router(providers.router, prefix="/api/v1/providers", tags=["Healthcare - Providers"])
+app.include_router(appointments.router, prefix="/api/v1/appointments", tags=["Healthcare - Appointments"])
+app.include_router(care_plans.router, prefix="/api/v1/care-plans", tags=["Healthcare - Care Plans"])
+app.include_router(referrals.router, prefix="/api/v1/referrals", tags=["Healthcare - Referrals"])
+
+# Industry verticals — Education
+app.include_router(programs.router, prefix="/api/v1/programs", tags=["Education - Programs"])
+app.include_router(enrollments.router, prefix="/api/v1/enrollments", tags=["Education - Enrollments"])
+
+# Industry verticals — Manufacturing
+app.include_router(boms.router, prefix="/api/v1/boms", tags=["Manufacturing - BOM"])
+app.include_router(production_orders.router, prefix="/api/v1/production-orders", tags=["Manufacturing - Production Orders"])
+app.include_router(inventory.router, prefix="/api/v1/inventory", tags=["Manufacturing - Inventory"])
 
 @app.get("/")
 async def root():
@@ -238,7 +331,9 @@ async def redis_health_check():
 
 @app.get("/debug/cors")
 async def debug_cors():
-    """Debug endpoint to check CORS configuration"""
+    """Debug endpoint to check CORS configuration. Dev only — disabled in production."""
+    if settings.ENVIRONMENT == "production":
+        return JSONResponse(status_code=404, content={"detail": "Not found"})
     return {
         "cors_origins": settings.cors_origins_list,
         "environment": settings.ENVIRONMENT

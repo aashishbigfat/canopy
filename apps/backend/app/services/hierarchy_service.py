@@ -18,26 +18,36 @@ class HierarchyService:
     ) -> Optional[RoleHierarchy]:
         if not parent_id:
             return None
-        parent = await RoleHierarchy.get(ObjectId(parent_id))
-        if (
-            not parent
-            or parent.tenant_id != tenant_id
-            or parent.deleted_at is not None
-        ):
+        try:
+            pid = ObjectId(parent_id)
+        except Exception:
+            raise ValueError("Parent hierarchy not found")
+        parent = await RoleHierarchy.find_one(
+            {"_id": pid, "tenant_id": tenant_id, "deleted_at": None}
+        )
+        if not parent:
             raise ValueError("Parent hierarchy not found")
         return parent
 
     async def _would_create_cycle(
-        self, node_id: ObjectId, new_parent_id: ObjectId
+        self, node_id: ObjectId, new_parent_id: ObjectId, tenant_id: ObjectId
     ) -> bool:
-        """True if new_parent_id is node_id or lies under node_id in the tree."""
+        """True if new_parent_id is node_id or lies under node_id in the tree.
+
+        SECURITY: traversal is scoped to the tenant so a planted parent_id
+        pointing into another tenant's tree cannot bypass the cycle check.
+        """
         if new_parent_id == node_id:
             return True
-        current = await RoleHierarchy.get(new_parent_id)
+        current = await RoleHierarchy.find_one(
+            {"_id": new_parent_id, "tenant_id": tenant_id, "deleted_at": None}
+        )
         while current and current.parent_id:
             if current.parent_id == node_id:
                 return True
-            current = await RoleHierarchy.get(current.parent_id)
+            current = await RoleHierarchy.find_one(
+                {"_id": current.parent_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
         return False
 
     async def create_hierarchy(
@@ -72,10 +82,13 @@ class HierarchyService:
         return hierarchy
 
     async def get_hierarchy(self, hierarchy_id: str, tenant_id: ObjectId) -> Optional[RoleHierarchy]:
-        hierarchy = await RoleHierarchy.get(ObjectId(hierarchy_id))
-        if hierarchy and hierarchy.tenant_id == tenant_id and not hierarchy.deleted_at:
-            return hierarchy
-        return None
+        try:
+            oid = ObjectId(hierarchy_id)
+        except Exception:
+            return None
+        return await RoleHierarchy.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
 
     async def update_hierarchy(
         self,
@@ -112,7 +125,7 @@ class HierarchyService:
                 )
                 if parent is None:
                     raise ValueError("Parent hierarchy not found")
-                if await self._would_create_cycle(hierarchy.id, new_parent_id):
+                if await self._would_create_cycle(hierarchy.id, new_parent_id, tenant_id):
                     raise ValueError("Cannot move a hierarchy under itself or its descendant")
                 hierarchy.parent_id = parent.id
             else:

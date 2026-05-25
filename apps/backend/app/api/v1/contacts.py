@@ -107,13 +107,15 @@ async def create_contact(
         except InvalidId:
             raise HTTPException(status_code=422, detail="Invalid account_id format")
 
-        account = await Account.get(acc_id)
-        if not account or account.tenant_id != current_user.tenant_id or account.deleted_at:
+        account = await Account.find_one(
+            {"_id": acc_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+        )
+        if not account:
             raise HTTPException(status_code=422, detail="account_id does not resolve to a valid account")
 
-        # Resolve tenant industry
-        tenant = await Tenant.get(current_user.tenant_id)
-        industry = tenant.industry if tenant else "travel"
+        # Resolve tenant industry — resolver raises if tenant missing
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(current_user.tenant_id)
         contact_data.industry_data = validate_industry_data(
             industry=industry,
             data=contact_data.industry_data or {},
@@ -282,8 +284,14 @@ async def get_contact(
         current_user.tenant_id
     )
     
-    # Increment view count
-    contact = await Contact.get(ObjectId(contact_id))
+    # Increment view count — tenant-scoped lookup
+    try:
+        _cid = ObjectId(contact_id)
+        contact = await Contact.find_one(
+            {"_id": _cid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+        )
+    except Exception:
+        contact = None
     if contact:
         await contact.increment_view_count()
 
@@ -327,8 +335,8 @@ async def update_contact(
         raise HTTPException(status_code=404, detail="Contact not found")
         
     if contact_data.industry_data is not None:
-        tenant = await Tenant.get(current_user.tenant_id)
-        industry = tenant.industry if tenant else "travel"
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(current_user.tenant_id)
         contact_data.industry_data = validate_industry_data(
             industry=industry,
             data=contact_data.industry_data,

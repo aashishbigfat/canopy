@@ -41,12 +41,14 @@ class ProductService:
         product_id: str,
         tenant_id: ObjectId
     ) -> Optional[Product]:
-        """Get product by ID"""
-        product = await Product.get(ObjectId(product_id))
-        
-        if product and product.tenant_id == tenant_id and not product.deleted_at:
-            return product
-        return None
+        """Get product by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(product_id)
+        except Exception:
+            return None
+        return await Product.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_product_by_code(
         self,

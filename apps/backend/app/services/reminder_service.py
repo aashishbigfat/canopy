@@ -35,8 +35,13 @@ class ReminderService:
         return reminder
     
     async def get_reminder(self, reminder_id: str, user_id: ObjectId) -> Optional[Reminder]:
-        reminder = await Reminder.get(ObjectId(reminder_id))
-        return reminder if reminder and reminder.user_id == user_id and not reminder.deleted_at else None
+        try:
+            oid = ObjectId(reminder_id)
+        except Exception:
+            return None
+        return await Reminder.find_one(
+            {"_id": oid, "user_id": user_id, "deleted_at": None}
+        )
     
     async def update_reminder(
         self, reminder_id: str, data: ReminderUpdate, user_id: ObjectId

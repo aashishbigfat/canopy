@@ -2,7 +2,7 @@
 Opportunity API endpoints - Sales Pipeline Management
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import asyncio
 from bson import ObjectId
 from app.core.segment_constants import Segment
@@ -43,8 +43,8 @@ async def get_sales_stages(
 
     # Auto-seed industry-specific stages for this tenant if none exist
     if not tenant_stages:
-        tenant = await Tenant.get(current_user.tenant_id)
-        industry = tenant.industry if tenant else "travel"
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(current_user.tenant_id)
         service = OpportunityService()
         await service.seed_standard_stages(current_user.tenant_id, industry)
         # Re-fetch after seeding
@@ -172,9 +172,9 @@ async def create_opportunity(
     body = await request.json()
     
     # Determine tenant industry
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
-    
+    from app.services.industry_service import get_tenant_industry
+    industry = await get_tenant_industry(current_user.tenant_id)
+
     try:
         opp_data = OpportunityCreate(**body)
         if opp_data.industry_data:
@@ -297,12 +297,15 @@ async def get_opportunities(
         owner_ids = {opp.owner_id for opp in opportunities if opp.owner_id}
         account_ids = {opp.account_id for opp in opportunities if opp.account_id}
 
-        # 2. Batch fetch related documents
+        # 2. Batch fetch related documents — every $in lookup must be
+        # tenant-scoped, otherwise a cross-tenant ObjectId in any pivot field
+        # would surface another tenant's entity in the response.
+        _tid = current_user.tenant_id
         [stages, opp_types, owners, accounts] = await asyncio.gather(
-            SalesStage.find({"_id": {"$in": list(sales_stage_ids)}}).to_list(),
-            OpportunityType.find({"_id": {"$in": list(opportunity_type_ids)}}).to_list(),
-            UserDoc.find({"_id": {"$in": list(owner_ids)}}).to_list(),
-            AccountDoc.find({"_id": {"$in": list(account_ids)}}).to_list(),
+            SalesStage.find({"_id": {"$in": list(sales_stage_ids)}, "tenant_id": _tid}).to_list(),
+            OpportunityType.find({"_id": {"$in": list(opportunity_type_ids)}, "tenant_id": _tid}).to_list(),
+            UserDoc.find({"_id": {"$in": list(owner_ids)}, "tenant_id": _tid, "deleted_at": None}).to_list(),
+            AccountDoc.find({"_id": {"$in": list(account_ids)}, "tenant_id": _tid, "deleted_at": None}).to_list(),
         )
 
         # 3. Create lookup maps
@@ -481,6 +484,30 @@ async def get_opportunity(
         opp_response.segment = segment
         opp_response.creation_type = creation_type
 
+        # BD triple name enrichment for the right-side panel
+        try:
+            from app.models.territory import Territory as TerritoryDoc
+            if opportunity.bd_owner_id:
+                bd_owner = await UserDoc.get(opportunity.bd_owner_id)
+                if bd_owner:
+                    opp_response.bd_owner_name = bd_owner.name
+            if opportunity.reporting_manager_id:
+                mgr = await UserDoc.get(opportunity.reporting_manager_id)
+                if mgr:
+                    opp_response.reporting_manager_name = mgr.name
+            if opportunity.operation_user_id:
+                op_user = await UserDoc.get(opportunity.operation_user_id)
+                if op_user:
+                    opp_response.operation_user_name = op_user.name
+            if opportunity.territory_id:
+                terr = await TerritoryDoc.find_one(
+                    {"_id": opportunity.territory_id, "tenant_id": current_user.tenant_id}
+                )
+                if terr:
+                    opp_response.territory_name = terr.name
+        except Exception:
+            pass
+
         # Sprint D — populate custom_fields
         try:
             from app.services import field_registry_service
@@ -528,9 +555,9 @@ async def update_opportunity(
         body = await request.json()
         
         # Determine tenant industry
-        tenant = await Tenant.get(current_user.tenant_id)
-        industry = tenant.industry if tenant else "travel"
-        
+        from app.services.industry_service import get_tenant_industry as _get_industry
+        industry = await _get_industry(current_user.tenant_id)
+
         # Visibility pre-check
         existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
         if not existing:
@@ -917,6 +944,65 @@ async def change_opportunity_owner(
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+@router.post("/{opportunity_id}/reassign-bd", response_model=Dict[str, Any])
+async def reassign_opportunity_bd(
+    opportunity_id: str,
+    payload: dict,
+    current_user: User = Depends(check_permission("edit_opportunity")),
+):
+    """Manually override the BD owner / reporting manager on an opportunity."""
+    service = OpportunityService()
+    try:
+        bd_owner_oid = ObjectId(payload["bd_owner_id"]) if payload.get("bd_owner_id") else None
+        manager_oid = ObjectId(payload["reporting_manager_id"]) if payload.get("reporting_manager_id") else None
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid ObjectId in payload")
+    try:
+        opp = await service.reassign_bd(
+            opportunity_id=opportunity_id,
+            tenant_id=current_user.tenant_id,
+            current_user_id=current_user.id,
+            bd_owner_id=bd_owner_oid,
+            reporting_manager_id=manager_oid,
+            reason=payload.get("reason"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    if not opp:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    return {
+        "error": False, "message": "BD reassigned",
+        "opportunity_id": str(opp.id),
+        "bd_owner_id": str(opp.bd_owner_id) if opp.bd_owner_id else None,
+        "reporting_manager_id": str(opp.reporting_manager_id) if opp.reporting_manager_id else None,
+        "territory_match_source": opp.territory_match_source,
+    }
+
+
+@router.post("/{opportunity_id}/resolve-territory", response_model=Dict[str, Any])
+async def resolve_opportunity_territory(
+    opportunity_id: str,
+    current_user: User = Depends(check_permission("edit_opportunity")),
+):
+    """Re-run automatic BD resolution for an opportunity."""
+    service = OpportunityService()
+    opp = await service.resolve_territory(
+        opportunity_id=opportunity_id,
+        tenant_id=current_user.tenant_id,
+        current_user_id=current_user.id,
+    )
+    if not opp:
+        raise HTTPException(status_code=404, detail="Opportunity not found")
+    return {
+        "error": False, "message": "Territory resolved",
+        "opportunity_id": str(opp.id),
+        "territory_id": str(opp.territory_id) if opp.territory_id else None,
+        "bd_owner_id": str(opp.bd_owner_id) if opp.bd_owner_id else None,
+        "reporting_manager_id": str(opp.reporting_manager_id) if opp.reporting_manager_id else None,
+        "territory_match_source": opp.territory_match_source,
+    }
 
 
 @router.get("/{opportunity_id}/history", response_model=List[OpportunityHistoryResponse])

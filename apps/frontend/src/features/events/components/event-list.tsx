@@ -29,11 +29,11 @@ export function EventList({ events, isLoading }: EventListProps) {
 
     const getStatusColor = (status: string) => {
         switch (status) {
-            case "Planned": return "bg-blue-100 text-blue-800";
-            case "Held": return "bg-green-100 text-green-800";
-            case "Not Held": return "bg-yellow-100 text-yellow-800";
-            case "Cancelled": return "bg-red-100 text-red-800";
-            default: return "bg-gray-100 text-gray-800";
+            case "Planned": return "bg-blue-500/20 text-blue-300";
+            case "Held": return "bg-green-500/20 text-green-300";
+            case "Not Held": return "bg-yellow-500/20 text-yellow-300";
+            case "Cancelled": return "bg-red-500/20 text-red-300";
+            default: return "bg-slate-700 text-slate-100";
         }
     };
 

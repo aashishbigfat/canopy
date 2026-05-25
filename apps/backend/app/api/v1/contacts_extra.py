@@ -66,25 +66,33 @@ async def get_edit_form_data(
     from app.models.contact_views import AdditionalFieldContact
     from app.models.user_contact_view import ContactCustomField
     
-    # Get contact
-    contact = await Contact.get(ObjectId(contact_id))
-    if not contact or contact.tenant_id != current_user.tenant_id:
+    # Get contact — tenant-scoped lookup
+    try:
+        cid = ObjectId(contact_id)
+    except Exception:
         raise HTTPException(status_code=404, detail="Contact not found")
-    
+    contact = await Contact.find_one(
+        {"_id": cid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+
     # Get form data - using direct dict query to avoid field access issues
     accounts = await Account.find({
         "tenant_id": current_user.tenant_id,
         "deleted_at": None
     }).sort("+name").limit(100).to_list()
-    
+
     users = await User.find({
         "tenant_id": current_user.tenant_id,
         "is_active": True
     }).sort("+name").to_list()
-    
-    # Get custom field values for this contact - using direct dict query to avoid field access issues
+
+    # Get custom field values for this contact — tenant-scoped to prevent
+    # cross-tenant custom-field exposure via a shared contact_id.
     custom_field_values = await ContactCustomField.find({
-        "contact_id": contact.id
+        "contact_id": contact.id,
+        "tenant_id": current_user.tenant_id,
     }).to_list()
     
     return {
@@ -108,10 +116,15 @@ async def update_single_column(
     field_value: str = Query(...),
     current_user: User = Depends(check_permission("edit_contact"))
 ):
-    """Update a single column of a contact"""
-    contact = await Contact.get(ObjectId(contact_id))
-    
-    if not contact or contact.tenant_id != current_user.tenant_id:
+    """Update a single column of a contact, scoped to tenant."""
+    try:
+        cid = ObjectId(contact_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    contact = await Contact.find_one(
+        {"_id": cid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     
     # Update the field

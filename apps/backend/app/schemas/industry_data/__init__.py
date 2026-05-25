@@ -89,33 +89,30 @@ def validate_industry_data(
     Args:
         industry: The tenant's industry identifier (e.g. "travel").
         data: Raw industry_data dict from the API request.
-        mode: "lead", "opportunity", or "quote" — selects the validator registry.
+        mode: "lead", "opportunity", "quote", "account", or "contact".
 
     Returns:
         Validated and cleaned dict (None values excluded).
 
     Raises:
-        pydantic.ValidationError on invalid data.
+        ValueError on unknown `mode` or `industry` (was previously a silent
+        pass-through, which masked configuration drift — a misspelled industry
+        like "healtcare" would write unvalidated data to the DB).
+        pydantic.ValidationError on invalid field values.
     """
-    import logging
-    logger = logging.getLogger(__name__)
-
     registry = _REGISTRY_MAP.get(mode)
     if registry is None:
-        logger.warning("validate_industry_data: unknown mode '%s' — skipping validation", mode)
-        return data
+        raise ValueError(
+            f"validate_industry_data: unknown mode '{mode}'. "
+            f"Supported modes: {sorted(_REGISTRY_MAP.keys())}"
+        )
 
     schema_cls = registry.get(industry)
-
     if schema_cls is None:
-        # Unknown industry — log warning so misconfigurations are caught early.
-        # Data is still accepted to avoid breaking existing flows.
-        logger.warning(
-            "validate_industry_data: no %s validator for industry '%s' — "
-            "data passed through without validation",
-            mode, industry,
+        raise ValueError(
+            f"validate_industry_data: no {mode} validator for industry '{industry}'. "
+            f"Supported industries: {sorted(registry.keys())}"
         )
-        return data
 
     validated = schema_cls(**data)
     return validated.model_dump(exclude_none=True)

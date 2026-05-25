@@ -3,14 +3,109 @@ Webhook service for managing endpoints and triggering events.
 """
 from datetime import datetime
 from typing import Optional, List, Dict, Any
+import asyncio
 import hashlib
 import hmac
+import ipaddress
 import json
+import logging
+import socket
+from urllib.parse import urlparse
+
 import httpx
 from beanie import PydanticObjectId
 
+from app.core.config import settings
 from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
 from app.schemas.webhook import WebhookEndpointCreate, WebhookEndpointUpdate
+
+
+_logger = logging.getLogger(__name__)
+
+
+class WebhookURLError(ValueError):
+    """Raised when a webhook URL is rejected by the SSRF allowlist."""
+
+
+def _is_blocked_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    """Return True for IPs that must never receive outbound webhook delivery.
+
+    Blocks:
+    - Loopback (127.0.0.0/8, ::1)
+    - Link-local incl. AWS/GCP/Azure instance metadata at 169.254.169.254
+    - Private RFC 1918 ranges (10/8, 172.16/12, 192.168/16) and IPv6 ULA
+    - Unspecified (0.0.0.0)
+    - Reserved / multicast
+    """
+    return (
+        ip.is_loopback
+        or ip.is_link_local
+        or ip.is_private
+        or ip.is_unspecified
+        or ip.is_multicast
+        or ip.is_reserved
+    )
+
+
+async def _resolve_hostname(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+    """Resolve hostname to all addresses. Runs DNS in a thread to keep the loop responsive."""
+    loop = asyncio.get_running_loop()
+    try:
+        infos = await loop.run_in_executor(
+            None, lambda: socket.getaddrinfo(host, None, type=socket.SOCK_STREAM)
+        )
+    except socket.gaierror as exc:
+        raise WebhookURLError(f"Could not resolve host: {host}") from exc
+    addrs = []
+    for info in infos:
+        sockaddr = info[4]
+        try:
+            addrs.append(ipaddress.ip_address(sockaddr[0]))
+        except ValueError:
+            continue
+    return addrs
+
+
+async def validate_webhook_url(url: str) -> None:
+    """Validate a webhook URL is safe to deliver to.
+
+    Raises WebhookURLError on any of:
+    - Missing/invalid scheme (only http/https allowed)
+    - Missing host
+    - Host resolves to a blocked IP range (private/loopback/link-local/metadata)
+    - Literal IP that is itself in a blocked range
+
+    Resolves DNS and rechecks the resolved IP, which prevents the common
+    bypass of pointing a public DNS record at 127.0.0.1 or 169.254.169.254.
+    """
+    parsed = urlparse(url)
+    scheme = (parsed.scheme or "").lower()
+    if scheme not in {"http", "https"}:
+        raise WebhookURLError(f"URL scheme must be http or https, got '{scheme}'")
+    host = parsed.hostname
+    if not host:
+        raise WebhookURLError("URL must include a host")
+
+    # If the host is already an IP literal, check it directly
+    try:
+        literal = ipaddress.ip_address(host)
+        if _is_blocked_ip(literal):
+            raise WebhookURLError(
+                f"URL host {host} resolves to a blocked address range"
+            )
+        return
+    except ValueError:
+        # Not a literal IP — fall through to DNS resolution
+        pass
+
+    addrs = await _resolve_hostname(host)
+    if not addrs:
+        raise WebhookURLError(f"Could not resolve host: {host}")
+    for ip in addrs:
+        if _is_blocked_ip(ip):
+            raise WebhookURLError(
+                f"URL host {host} resolves to a blocked address ({ip})"
+            )
 
 
 class WebhookService:
@@ -24,7 +119,8 @@ class WebhookService:
         user_id: str,
         tenant_id: str
     ) -> WebhookEndpoint:
-        """Create a new webhook endpoint."""
+        """Create a new webhook endpoint after SSRF-validating its URL."""
+        await validate_webhook_url(data.url)
         endpoint = WebhookEndpoint(
             **data.model_dump(),
             created_by=user_id,
@@ -50,17 +146,19 @@ class WebhookService:
         data: WebhookEndpointUpdate,
         tenant_id: str
     ) -> Optional[WebhookEndpoint]:
-        """Update an endpoint."""
+        """Update an endpoint. If the URL is being changed, SSRF-validate the new value."""
         endpoint = await self.get_endpoint(endpoint_id, tenant_id)
         if not endpoint:
             return None
-        
+
         update_data = data.model_dump(exclude_unset=True)
+        if "url" in update_data and update_data["url"] != endpoint.url:
+            await validate_webhook_url(update_data["url"])
         update_data["updated_at"] = datetime.utcnow()
-        
+
         for key, value in update_data.items():
             setattr(endpoint, key, value)
-            
+
         await endpoint.save()
         return endpoint
     
@@ -168,18 +266,23 @@ class WebhookService:
         
         start_time = datetime.utcnow()
         try:
-            async with httpx.AsyncClient() as client:
+            # SSRF defense-in-depth: re-validate at delivery time. The endpoint
+            # was validated on create/update, but DNS records can change to
+            # point at internal IPs between then and now.
+            await validate_webhook_url(endpoint.url)
+
+            async with httpx.AsyncClient(follow_redirects=False) as client:
                 response = await client.post(
                     endpoint.url,
                     headers=headers,
                     content=payload_json,
                     timeout=10.0
                 )
-                
+
             delivery.status_code = response.status_code
             delivery.response_headers = dict(response.headers)
-            delivery.response_body = response.text[:1000] # Truncate log
-            
+            delivery.response_body = response.text[:1000]  # Truncate log
+
             if 200 <= response.status_code < 300:
                 delivery.status = "success"
                 endpoint.last_delivery_status = "success"
@@ -188,7 +291,16 @@ class WebhookService:
                 delivery.error_message = f"HTTP {response.status_code}"
                 endpoint.last_delivery_status = "failed"
                 endpoint.failure_count += 1
-                
+
+        except WebhookURLError as e:
+            delivery.status = "failed"
+            delivery.error_message = f"URL rejected: {e}"
+            endpoint.last_delivery_status = "blocked"
+            endpoint.failure_count += 1
+            _logger.warning(
+                "Blocked webhook delivery to %s (endpoint %s): %s",
+                endpoint.url, endpoint.id, e,
+            )
         except Exception as e:
             delivery.status = "failed"
             delivery.error_message = str(e)

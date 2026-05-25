@@ -318,7 +318,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
         return (
             <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                <span className="ml-2 text-slate-500 text-sm">Loading costing...</span>
+                <span className="ml-2 text-slate-400 text-sm">Loading costing...</span>
             </div>
         );
     }
@@ -337,25 +337,25 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                     valueColor="text-blue-200"
                 />
                 <SummaryCard
-                    icon={<ShoppingCart className="h-4 w-4 text-slate-600" />}
+                    icon={<ShoppingCart className="h-4 w-4 text-slate-300" />}
                     label="Total Cost"
                     value={formatCurrency(totalCost)}
-                    bg="bg-slate-50 border-slate-200"
-                    iconBg="bg-slate-100"
-                    labelColor="text-slate-500"
-                    valueColor="text-slate-700"
+                    bg="bg-slate-800 border-slate-700"
+                    iconBg="bg-slate-700"
+                    labelColor="text-slate-400"
+                    valueColor="text-slate-200"
                 />
                 <SummaryCard
-                    icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600" : "text-red-600"}`} />}
+                    icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`} />}
                     label={profit >= 0 ? "Profit" : "Loss"}
                     value={formatCurrency(profit)}
-                    bg={profit >= 0 ? "bg-emerald-50 border-emerald-100" : "bg-red-50 border-red-100"}
-                    iconBg={profit >= 0 ? "bg-emerald-100" : "bg-red-100"}
-                    labelColor={profit >= 0 ? "text-emerald-500" : "text-red-500"}
-                    valueColor={profit >= 0 ? "text-emerald-700" : "text-red-700"}
+                    bg={profit >= 0 ? "bg-emerald-500/20 border-emerald-500/40" : "bg-red-500/20 border-red-500/40"}
+                    iconBg={profit >= 0 ? "bg-emerald-500/30" : "bg-red-500/30"}
+                    labelColor={profit >= 0 ? "text-emerald-300" : "text-red-300"}
+                    valueColor={profit >= 0 ? "text-emerald-200" : "text-red-200"}
                 />
                 <SummaryCard
-                    icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-600" : "text-red-600"}`} />}
+                    icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-400" : "text-red-400"}`} />}
                     label={profitPct >= 0 ? "Profit %" : "Loss %"}
                     value={`${profitPct.toFixed(2)}%`}
                     bg={profitPct >= 0 ? "bg-purple-500/10 border-purple-500/30" : "bg-red-500/10 border-red-500/30"}
@@ -367,17 +367,17 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
             {/* ── Add Items Multi-Select ── */}
             <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Add Item&apos;s</p>
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Add Item&apos;s</p>
                 <div className="relative" ref={dropdownRef}>
                     <div
-                        className="flex flex-wrap items-center gap-1.5 min-h-[38px] border border-slate-200 rounded-md px-2 py-1.5 bg-white cursor-pointer focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-100"
+                        className="flex flex-wrap items-center gap-1.5 min-h-[38px] border border-slate-700 rounded-md px-2 py-1.5 bg-slate-900 cursor-pointer focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-500/20"
                         onClick={() => setIsTypeDropdownOpen((v) => !v)}
                     >
                         {selectedTypes.map((type) => (
                             <Badge
                                 key={type}
                                 variant="secondary"
-                                className="bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 flex items-center gap-1 text-xs h-6 px-2"
+                                className="bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 flex items-center gap-1 text-xs h-6 px-2"
                                 onClick={(e) => { e.stopPropagation(); removeItemType(type); }}
                             >
                                 {type}
@@ -389,17 +389,17 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                         )}
                         <div className="ml-auto flex items-center gap-1">
                             <X
-                                className="h-4 w-4 text-slate-400 hover:text-slate-600 cursor-pointer"
+                                className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-pointer"
                                 onClick={(e) => { e.stopPropagation(); }}
                             />
-                            <div className="w-px h-4 bg-slate-200" />
+                            <div className="w-px h-4 bg-slate-700" />
                             <Plus className="h-4 w-4 text-slate-400" />
                         </div>
                     </div>
 
                     {/* Dropdown list */}
                     {isTypeDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-white border border-slate-200 rounded-md shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-lg overflow-hidden max-h-64 overflow-y-auto">
                             {allItemTypes.filter((t) => !selectedTypes.includes(t)).length === 0 ? (
                                 <div className="px-3 py-2 text-sm text-slate-400 italic">All item types added</div>
                             ) : (
@@ -410,8 +410,8 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                             key={type}
                                             className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
                                                 isSelected
-                                                    ? "text-blue-700 font-semibold bg-blue-50"
-                                                    : "text-slate-700 hover:bg-blue-50 hover:text-blue-700"
+                                                    ? "text-blue-300 font-semibold bg-blue-500/20"
+                                                    : "text-slate-200 hover:bg-blue-500/20 hover:text-blue-300"
                                             }`}
                                             onClick={() => !isSelected && addItemType(type)}
                                         >
@@ -426,36 +426,36 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
             </div>
 
             {/* ── Line Items Table ── */}
-            <div className="border border-slate-200 rounded-lg overflow-hidden">
+            <div className="border border-slate-700 rounded-lg overflow-hidden">
                 <div className="overflow-x-auto scrollbar-hide">
                     <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">Item&apos;s</th>
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Supplier</th>
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide">Select Destinations</th>
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-500 uppercase tracking-wide w-32">Amount</th>
+                        <tr className="bg-slate-800 border-b border-slate-700">
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide w-32">Item&apos;s</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">Select Supplier</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">Select Destinations</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide w-32">Amount</th>
                             <th className="w-8"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100">
+                    <tbody className="divide-y divide-slate-800">
                         {/* Dynamic rows */}
                         {items.map((item, idx) => (
-                            <tr key={item.item_type} className="hover:bg-slate-50/60 transition-colors">
+                            <tr key={item.item_type} className="hover:bg-slate-800/40 transition-colors">
                                 <td className="px-3 py-2.5">
-                                    <span className="text-blue-600 font-medium text-xs">{item.item_type}</span>
+                                    <span className="text-blue-400 font-medium text-xs">{item.item_type}</span>
                                 </td>
                                 <td className="px-3 py-2">
                                     {item.supplier_id ? (
                                         <div className="flex items-center gap-1">
-                                            <Badge 
-                                                variant="secondary" 
-                                                className="bg-slate-100 text-slate-700 flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] cursor-pointer hover:bg-slate-200 transition-colors group"
+                                            <Badge
+                                                variant="secondary"
+                                                className="bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] cursor-pointer hover:bg-slate-600 transition-colors group"
                                                 onClick={() => clearSupplier(idx)}
                                                 title="Click to change supplier"
                                             >
                                                 <span className="truncate">{item.supplier_name}</span>
-                                                <div className="flex items-center justify-center h-4 w-4 rounded-full hover:bg-red-100 hover:text-red-600 transition-colors">
+                                                <div className="flex items-center justify-center h-4 w-4 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors">
                                                     <X
                                                         className="h-3 w-3 flex-shrink-0"
                                                     />
@@ -468,11 +468,11 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                             value=""
                                             onValueChange={(val) => updateSupplier(idx, val)}
                                             placeholder="Select supplier..."
-                                            className={`w-full ${validationErrors[item.item_type] ? "border-red-400" : ""}`}
+                                            className={`w-full ${validationErrors[item.item_type] ? "border-red-500/40" : ""}`}
                                         />
                                     )}
                                     {validationErrors[item.item_type] && (
-                                        <p className="text-red-500 text-[10px] mt-0.5">{validationErrors[item.item_type]}</p>
+                                        <p className="text-red-400 text-[10px] mt-0.5">{validationErrors[item.item_type]}</p>
                                     )}
                                 </td>
                                 <td className="px-3 py-2">
@@ -499,7 +499,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                 <td className="px-2 py-2">
                                     <button
                                         onClick={() => removeItemType(item.item_type)}
-                                        className="h-6 w-6 rounded hover:bg-red-50 flex items-center justify-center text-slate-400 hover:text-red-500 transition-colors"
+                                        className="h-6 w-6 rounded hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors"
                                         title="Remove item"
                                     >
                                         <X className="h-3.5 w-3.5" />
@@ -670,18 +670,18 @@ function DestinationMultiSelect({
     return (
         <div className="relative" ref={ref}>
             <div
-                className="flex flex-wrap items-center gap-1 min-h-[32px] border border-slate-200 rounded-md px-2 py-1 bg-white cursor-pointer hover:border-blue-300 transition-colors"
+                className="flex flex-wrap items-center gap-1 min-h-[32px] border border-slate-700 rounded-md px-2 py-1 bg-slate-900 cursor-pointer hover:border-blue-500/40 transition-colors"
                 onClick={() => setOpen((v) => !v)}
             >
                 {selected.map((id, i) => (
                     <Badge
                         key={id}
                         variant="secondary"
-                        className="bg-slate-100 text-slate-700 hover:bg-slate-200 flex items-center gap-1 text-[11px] h-5 px-1.5"
+                        className="bg-slate-700 text-slate-200 hover:bg-slate-600 flex items-center gap-1 text-[11px] h-5 px-1.5"
                         onClick={(e) => { e.stopPropagation(); onRemove(id); }}
                     >
                         {selectedNames[i] || id}
-                        <X className="h-2.5 w-2.5 cursor-pointer hover:text-red-500" />
+                        <X className="h-2.5 w-2.5 cursor-pointer hover:text-red-400" />
                     </Badge>
                 ))}
                 {selected.length === 0 && (
@@ -690,14 +690,14 @@ function DestinationMultiSelect({
             </div>
 
             {open && (
-                <div className="absolute top-full left-0 z-50 mt-1 w-56 bg-white border border-slate-200 rounded-md shadow-lg">
+                <div className="absolute top-full left-0 z-50 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-md shadow-lg">
                     <div className="p-2 border-b">
                         <input
                             autoFocus
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search..."
-                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 focus:outline-none focus:border-blue-400"
+                            className="w-full text-xs border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-400"
                             onClick={(e) => e.stopPropagation()}
                         />
                     </div>
@@ -710,7 +710,7 @@ function DestinationMultiSelect({
                             filtered.map((o) => (
                                 <div
                                     key={o.value}
-                                    className="px-3 py-1.5 text-xs text-slate-700 hover:bg-blue-50 hover:text-blue-700 cursor-pointer"
+                                    className="px-3 py-1.5 text-xs text-slate-200 hover:bg-blue-500/20 hover:text-blue-300 cursor-pointer"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggle(o.value, o.label);
@@ -723,7 +723,7 @@ function DestinationMultiSelect({
                         )}
                     </div>
                     <div
-                        className="border-t px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-50 cursor-pointer"
+                        className="border-t px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800/40 cursor-pointer"
                         onClick={() => setOpen(false)}
                     >
                         Close

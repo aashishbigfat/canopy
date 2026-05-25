@@ -56,7 +56,7 @@ export function GlobalSearchBar() {
                 </button>
 
                 {dropdownOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-48 rounded-md border border-slate-200 bg-white shadow-xl z-[200] overflow-hidden py-1">
+                    <div className="absolute left-0 top-full mt-2 w-48 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-[200] overflow-hidden py-1">
                         {modules.map((m) => (
                             <button
                                 key={m.value}
@@ -66,8 +66,8 @@ export function GlobalSearchBar() {
                                     setDropdownOpen(false);
                                 }}
                                 className={cn(
-                                    "w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-slate-100 transition-colors",
-                                    m.value === module && "bg-blue-50 text-[#1a6bb0] font-medium"
+                                    "w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors",
+                                    m.value === module && "bg-blue-500/20 text-[#1a6bb0] font-medium"
                                 )}
                             >
                                 {m.label}

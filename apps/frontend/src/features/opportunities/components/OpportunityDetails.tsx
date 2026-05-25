@@ -74,6 +74,7 @@ import {
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
 import { useGetUsers } from "@/features/admin/api/use-users";
 import { OpportunityFormDrawer } from "./OpportunityFormDrawer";
+import { VisitsByParentSection } from "@/features/bd/visits/components/VisitsByParentSection";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -339,13 +340,13 @@ export function OpportunityDetails({
                                     Opportunity <span className="text-muted-foreground font-normal">({record.is_person_account ? "Person Account" : "Account"})</span>
                                 </h1>
                                 {record.creation_type && (
-                                    <Badge variant="secondary" className="bg-orange-100 text-orange-700 font-normal">
+                                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-300 font-normal">
                                         {record.creation_type}
                                     </Badge>
                                 )}
                             </div>
                             <h2 className="text-lg font-medium">{record.name}</h2>
-                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600 pt-1">
+                            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-300 pt-1">
                                 <div className="space-y-1">
                                     {!record.is_person_account && record.account_name && (
                                         <div className="mb-2">
@@ -366,12 +367,12 @@ export function OpportunityDetails({
                                             {record.contact_name ? (
                                                 <Link 
                                                     href={record.contact_id ? `/contacts/${record.contact_id}` : "#"} 
-                                                    className="font-medium text-slate-700 hover:text-blue-500 hover:underline cursor-pointer"
+                                                    className="font-medium text-slate-200 hover:text-blue-500 hover:underline cursor-pointer"
                                                 >
                                                     {record.contact_name}
                                                 </Link>
                                             ) : (
-                                                <span className="font-medium text-slate-700">-</span>
+                                                <span className="font-medium text-slate-200">-</span>
                                             )}
                                         </div>
                                     )}
@@ -385,7 +386,7 @@ export function OpportunityDetails({
                                 {industry === "travel" ? (
                                     <div className="space-y-1">
                                         <p className="text-xs text-slate-400">Travel Date | No of Pax</p>
-                                        <p className="font-medium text-slate-700">
+                                        <p className="font-medium text-slate-200">
                                             {record.industry_data?.travel_date
                                                 ? formatDate(record.industry_data.travel_date)
                                                 : "-"} | {record.industry_data?.no_of_pax || "-"}
@@ -394,7 +395,7 @@ export function OpportunityDetails({
                                 ) : (
                                     <div className="space-y-1">
                                         <p className="text-xs text-slate-400">Close Date | Amount</p>
-                                        <p className="font-medium text-slate-700">
+                                        <p className="font-medium text-slate-200">
                                             {record.close_date
                                                 ? formatDate(record.close_date)
                                                 : "-"} | {record.amount ? formatCurrency(record.amount) : "-"}
@@ -422,21 +423,40 @@ export function OpportunityDetails({
 
                         <div className="w-full mt-4 space-y-2 text-xs text-right">
                             <div className="flex justify-between border-b pb-1">
-                                <span className="text-slate-500">Opportunity Owner</span>
+                                <span className="text-slate-400">Opportunity Owner</span>
                                 <button
                                     onClick={() => setIsOwnerDialogOpen(true)}
-                                    className="font-medium text-blue-500 flex items-center gap-1 hover:text-blue-700 transition-colors"
+                                    className="font-medium text-blue-500 flex items-center gap-1 hover:text-blue-300 transition-colors"
                                 >
                                     {record.owner_name} <UserIcon className="h-3 w-3" />
                                 </button>
                             </div>
                             <div className="flex justify-between border-b pb-1">
-                                <span className="text-slate-500">Operation Owner</span>
-                                <span className="font-medium">-</span>
+                                <span className="text-slate-400">Operation Owner</span>
+                                <span className="font-medium">{record.operation_user_name || "-"}</span>
+                            </div>
+                            <div className="flex justify-between border-b pb-1">
+                                <span className="text-slate-400">BD Owner</span>
+                                <span className="font-medium text-blue-500">
+                                    {record.bd_owner_name || (record.bd_owner_id ? "(unknown)" : "Unassigned")}
+                                </span>
+                            </div>
+                            <div className="flex justify-between border-b pb-1">
+                                <span className="text-slate-400">Territory</span>
+                                <span className="font-medium">
+                                    {record.territory_name || (record.territory_id ? "(unresolved)" : "Unassigned")}
+                                    {record.territory_match_source && (
+                                        <span className="ml-1 text-[10px] text-slate-500">
+                                            via {record.territory_match_source}
+                                        </span>
+                                    )}
+                                </span>
                             </div>
                             <div className="flex justify-between pb-1">
-                                <span className="text-slate-500">Territory Manger</span>
-                                <span className="font-medium text-blue-500">System</span>
+                                <span className="text-slate-400">Reporting Manager</span>
+                                <span className="font-medium text-blue-500">
+                                    {record.reporting_manager_name || (record.reporting_manager_id ? "(unknown)" : "—")}
+                                </span>
                             </div>
                         </div>
                     </div>
@@ -459,8 +479,8 @@ export function OpportunityDetails({
                                     className={cn(
                                         "relative flex-1 py-2 px-4 text-center text-xs font-medium cursor-pointer transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
                                         s.id === selectedStageId ? "bg-blue-500/15 border-blue-400 text-blue-300" :
-                                            index < currentStageIndex ? "bg-slate-100 border-slate-200 text-slate-500 hover:bg-slate-200" :
-                                                "bg-white border-slate-200 text-slate-500 hover:bg-slate-50"
+                                            index < currentStageIndex ? "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700" :
+                                                "bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800/40"
                                     )}
                                     style={{
                                         clipPath: index < orderedStages.length - 1 ?
@@ -502,7 +522,7 @@ export function OpportunityDetails({
                             <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">{industry === "travel" ? "Supplier" : "Vendor"}</TabsTrigger>
                             <TabsTrigger value="attachments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Attachments</TabsTrigger>
                             <span className="flex items-center px-4 py-3">
-                                <button onClick={() => setIsEditDrawerOpen(true)} className="text-sm font-medium text-slate-500 hover:text-blue-600 flex items-center gap-1">
+                                <button onClick={() => setIsEditDrawerOpen(true)} className="text-sm font-medium text-slate-400 hover:text-blue-600 flex items-center gap-1">
                                     <Edit className="h-3.5 w-3.5" /> Edit
                                 </button>
                             </span>
@@ -512,14 +532,14 @@ export function OpportunityDetails({
                         <TabsContent value="activity" className="p-6 focus-visible:outline-none focus-visible:ring-0">
                             <div className="flex gap-4 border-b pb-4 mb-4">
                                 <Button className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-semibold rounded-sm">Task</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-500 hover:text-slate-900"><PhoneCall className="h-3 w-3 mr-2" /> Log a Call</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-500 hover:text-slate-900"><Mail className="h-3 w-3 mr-2" /> Email</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-500 hover:text-slate-900"><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
+                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><PhoneCall className="h-3 w-3 mr-2" /> Log a Call</Button>
+                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><Mail className="h-3 w-3 mr-2" /> Email</Button>
+                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
                             </div>
 
                             <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-6">
                                 <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-500 font-medium">Subject</label>
+                                    <label className="text-xs text-slate-400 font-medium">Subject</label>
                                     <input 
                                         type="text" 
                                         value={taskSubject}
@@ -529,11 +549,11 @@ export function OpportunityDetails({
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-500 font-medium">Assigned To</label>
-                                    <select 
+                                    <label className="text-xs text-slate-400 font-medium">Assigned To</label>
+                                    <select
                                         value={taskAssignedTo}
                                         onChange={(e) => setTaskAssignedTo(e.target.value)}
-                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-white"
+                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-slate-900"
                                     >
                                         {users.map((user: any) => (
                                             <option key={user.id || user._id} value={user.id || user._id}>
@@ -544,35 +564,35 @@ export function OpportunityDetails({
                                     </select>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-500 font-medium">Select Due Date</label>
-                                    <input 
-                                        type="datetime-local" 
+                                    <label className="text-xs text-slate-400 font-medium">Select Due Date</label>
+                                    <input
+                                        type="datetime-local"
                                         value={taskDueDate}
                                         onChange={(e) => setTaskDueDate(e.target.value)}
-                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 text-slate-600" 
+                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 text-slate-300"
                                     />
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-500 font-medium">Name</label>
-                                    <div className="w-full border rounded text-sm px-3 py-1.5 bg-slate-50 text-blue-600 hover:underline cursor-pointer font-medium">
+                                    <label className="text-xs text-slate-400 font-medium">Name</label>
+                                    <div className="w-full border rounded text-sm px-3 py-1.5 bg-slate-800 text-blue-400 hover:underline cursor-pointer font-medium">
                                         <Link href={record.is_person_account ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
                                             {record.contact_name || record.account_name || ""}
                                         </Link>
                                     </div>
                                 </div>
                                 <div className="space-y-1.5">
-                                    <label className="text-xs text-slate-500 font-medium">Related to</label>
-                                    <p className="text-sm text-slate-700 pt-1.5">{record.name}</p>
+                                    <label className="text-xs text-slate-400 font-medium">Related to</label>
+                                    <p className="text-sm text-slate-200 pt-1.5">{record.name}</p>
                                 </div>
                                 <div className="space-y-1.5 mt-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
+                                        <input
+                                            type="checkbox"
                                             checked={taskAddReminder}
                                             onChange={(e) => setTaskAddReminder(e.target.checked)}
-                                            className="rounded border-slate-300" 
+                                            className="rounded border-slate-700"
                                         />
-                                        <span className="text-xs text-slate-600 font-medium">Add Reminder</span>
+                                        <span className="text-xs text-slate-300 font-medium">Add Reminder</span>
                                     </label>
                                 </div>
                             </div>
@@ -589,48 +609,48 @@ export function OpportunityDetails({
 
                             {/* Task List */}
                             <div className="space-y-4">
-                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-700">
+                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-200">
                                     <span className="w-24">Next Task</span>
-                                    <div className="flex-1 border-b border-dashed border-slate-300"></div>
+                                    <div className="flex-1 border-b border-dashed border-slate-700"></div>
                                 </div>
                                 <ul className="space-y-2">
                                     {tasks.filter(t => t.status !== "Completed").length === 0 ? (
-                                        <li className="text-sm text-slate-500 italic py-2 pl-28">No open tasks</li>
+                                        <li className="text-sm text-slate-400 italic py-2 pl-28">No open tasks</li>
                                     ) : (
                                         tasks.filter(t => t.status !== "Completed").map(task => (
                                             <li key={task.id} className="flex items-center gap-3 pl-28 py-1 group">
-                                                <div className="h-5 w-5 rounded border border-slate-300 flex items-center justify-center cursor-pointer hover:border-blue-500">
+                                                <div className="h-5 w-5 rounded border border-slate-700 flex items-center justify-center cursor-pointer hover:border-blue-500">
                                                     <CheckCircle2 className="h-3 w-3 text-transparent group-hover:text-blue-200" />
                                                 </div>
-                                                <a href="#" className="text-sm text-blue-600 hover:underline">{task.name}</a>
-                                                {task.due_date && <span className="text-xs text-slate-500">({format(new Date(task.due_date), "dd MMM yyyy HH:mm")})</span>}
-                                                {task.priority === "High" && <Badge variant="secondary" className="bg-red-50 text-red-600 px-1.5 py-0 text-[10px] h-4">high</Badge>}
+                                                <a href="#" className="text-sm text-blue-400 hover:underline">{task.name}</a>
+                                                {task.due_date && <span className="text-xs text-slate-400">({format(new Date(task.due_date), "dd MMM yyyy HH:mm")})</span>}
+                                                {task.priority === "High" && <Badge variant="secondary" className="bg-red-500/20 text-red-300 px-1.5 py-0 text-[10px] h-4">high</Badge>}
                                             </li>
                                         ))
                                     )}
                                 </ul>
 
-                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-700 mt-8">
+                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-200 mt-8">
                                     <span className="w-24">Previous Task</span>
-                                    <div className="flex-1 border-b border-dashed border-slate-300"></div>
+                                    <div className="flex-1 border-b border-dashed border-slate-700"></div>
                                 </div>
                                 <ul className="space-y-2">
                                     {tasks.filter(t => t.status === "Completed").map(task => (
                                         <li key={task.id} className="flex items-center gap-3 pl-28 py-1">
-                                            <div className="h-5 w-5 rounded bg-blue-50 text-blue-500 flex items-center justify-center">
+                                            <div className="h-5 w-5 rounded bg-blue-500/20 text-blue-300 flex items-center justify-center">
                                                 <CheckCircle2 className="h-3 w-3" />
                                             </div>
-                                            <span className="text-sm text-slate-500 line-through">{task.name}</span>
+                                            <span className="text-sm text-slate-400 line-through">{task.name}</span>
                                             {task.completed_at && <span className="text-xs text-slate-400">({format(new Date(task.completed_at), "dd MMM yyyy")})</span>}
                                         </li>
                                     ))}
                                 </ul>
 
-                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-700 mt-8">
-                                    <span className="w-24 border border-orange-200 bg-orange-50 text-orange-600 px-2 rounded-sm inline-flex justify-between items-center h-6">
+                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-200 mt-8">
+                                    <span className="w-24 border border-orange-500/40 bg-orange-500/20 text-orange-300 px-2 rounded-sm inline-flex justify-between items-center h-6">
                                         Email <RefreshCw className="h-3 w-3" />
                                     </span>
-                                    <div className="flex-1 border-b border-dashed border-slate-300"></div>
+                                    <div className="flex-1 border-b border-dashed border-slate-700"></div>
                                 </div>
                             </div>
                         </TabsContent>
@@ -638,7 +658,7 @@ export function OpportunityDetails({
                         {/* ── DEPARTURES TAB ── */}
                         <TabsContent value="departures" className="p-6 focus-visible:outline-none focus-visible:ring-0">
                             <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-blue-500" />
                                     Departures
                                 </h3>
@@ -660,71 +680,71 @@ export function OpportunityDetails({
                                         title="Opportunity Information"
                                         icon={<Briefcase className="h-4 w-4" />}
                                         defaultOpen={true}
-                                        className="border-slate-200"
+                                        className="border-slate-700"
                                     >
                                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Name</p>
-                                                <p className="text-sm font-bold text-slate-900 pt-1">{record.name}</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Opportunity Name</p>
+                                                <p className="text-sm font-bold text-slate-100 pt-1">{record.name}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</p>
-                                                <p className="text-sm font-semibold text-slate-900 pt-1">{record.account_name || record.contact_name || "-"}</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Account</p>
+                                                <p className="text-sm font-semibold text-slate-100 pt-1">{record.account_name || record.contact_name || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Owner</p>
-                                                <p className="text-sm font-semibold text-slate-900 pt-1">{record.owner_name || "-"}</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Opportunity Owner</p>
+                                                <p className="text-sm font-semibold text-slate-100 pt-1">{record.owner_name || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Stage</p>
-                                                <p className="text-sm font-semibold text-slate-900 pt-1">
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stage</p>
+                                                <p className="text-sm font-semibold text-slate-100 pt-1">
                                                     {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
                                                 </p>
                                             </div>
                                             {record.close_lost_reason && (
-                                                <div className="space-y-1 col-span-full bg-red-50 p-2 rounded border border-red-100">
+                                                <div className="space-y-1 col-span-full bg-red-500/20 p-2 rounded border border-red-500/40">
                                                     <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Close Lost Reason</p>
-                                                    <p className="text-sm text-red-800 pt-1 italic">
+                                                    <p className="text-sm text-red-300 pt-1 italic">
                                                         "{record.close_lost_reason}"
                                                     </p>
                                                 </div>
                                             )}
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Amount</p>
-                                                <p className="text-lg font-bold text-slate-900">
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Amount</p>
+                                                <p className="text-lg font-bold text-slate-100">
                                                     {record.amount ? formatCurrency(record.amount) : formatCurrency(0)}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Probability</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Probability</p>
                                                 <div className="flex items-center gap-3 pt-1">
                                                     <span className="text-base font-semibold">{record.probability || 0}%</span>
-                                                    <div className="flex-1 max-w-[100px] h-2 bg-slate-100 rounded-full overflow-hidden">
+                                                    <div className="flex-1 max-w-[100px] h-2 bg-slate-800 rounded-full overflow-hidden">
                                                         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
                                                     </div>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Revenue</p>
-                                                <p className="text-lg font-bold text-emerald-600">
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Expected Revenue</p>
+                                                <p className="text-lg font-bold text-emerald-400">
                                                     {formatCurrency(((record.amount || 0) * (record.probability || 0)) / 100)}
                                                 </p>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Segment</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Segment</p>
                                                 <Badge variant="secondary" className={cn("uppercase font-bold mt-1", getSegmentBadgeClass(record.segment))}>
                                                     {getSegmentLabel(record.segment)}
                                                 </Badge>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Expected Close Date</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Expected Close Date</p>
                                                 <span className="text-sm font-medium pt-1 block">
                                                     {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
                                                 </span>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Opportunity Source</p>
-                                                <span className="text-sm font-medium pt-1 block text-blue-600 cursor-pointer hover:underline">
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Opportunity Source</p>
+                                                <span className="text-sm font-medium pt-1 block text-blue-400 cursor-pointer hover:underline">
                                                     {(record as any).source_name || "-"}
                                                 </span>
                                             </div>
@@ -733,33 +753,33 @@ export function OpportunityDetails({
                                             {industry === "travel" && (
                                                 <>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Experience</p>
-                                                        <span className="text-sm font-medium pt-1 block text-slate-700">
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Experience</p>
+                                                        <span className="text-sm font-medium pt-1 block text-slate-200">
                                                             {record.experience_name || "-"}
                                                         </span>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Date of Travel</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Date of Travel</p>
                                                         <span className="text-sm font-medium pt-1 block">
                                                             {record.industry_data?.travel_date ? format(new Date(record.industry_data.travel_date), "PPP") : "Not Set"}
                                                         </span>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Pax</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">No. of Pax</p>
                                                         <p className="text-sm font-semibold pt-1">{record.industry_data?.no_of_pax || "-"}</p>
                                                     </div>
                                                     {record.industry_data?.no_of_nights > 0 && (
                                                         <div className="space-y-1">
-                                                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">No. of Nights</p>
+                                                            <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">No. of Nights</p>
                                                             <p className="text-sm font-semibold pt-1">{record.industry_data.no_of_nights}</p>
                                                         </div>
                                                     )}
                                                     <div className="space-y-2 col-span-full mt-4">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Destinations</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Destinations</p>
                                                         <div className="flex flex-wrap gap-2 pt-1">
                                                             {record.industry_data?.destination_names && record.industry_data.destination_names.length > 0 ? (
                                                                 record.industry_data.destination_names.map((dest: string, i: number) => (
-                                                                    <Badge key={i} variant="outline" className="bg-slate-50 px-3 py-1 font-medium border-slate-200">
+                                                                    <Badge key={i} variant="outline" className="bg-slate-800 px-3 py-1 font-medium border-slate-700">
                                                                         <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
                                                                         {dest}
                                                                     </Badge>
@@ -770,11 +790,11 @@ export function OpportunityDetails({
                                                         </div>
                                                     </div>
                                                     <div className="space-y-2 col-span-full mt-2">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Inclusions</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Inclusions</p>
                                                         <div className="flex flex-wrap gap-2 pt-1">
                                                             {record.industry_data?.inclusions && record.industry_data.inclusions.length > 0 ? (
                                                                 record.industry_data.inclusions.map((inclusion: string, i: number) => (
-                                                                    <Badge key={i} variant="secondary" className="bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border-emerald-100 px-3 py-1 font-medium">
+                                                                    <Badge key={i} variant="secondary" className="bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border-emerald-500/40 px-3 py-1 font-medium">
                                                                         <CheckCircle2 className="h-3 w-3 mr-1.5 text-emerald-600" />
                                                                         {inclusion}
                                                                     </Badge>
@@ -789,15 +809,15 @@ export function OpportunityDetails({
                                             {industry === "healthcare" && (
                                                 <>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Treatment Type</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Treatment Type</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.treatment_type || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Appointment Date</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Appointment Date</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.appointment_date ? format(new Date((record as any).industry_data.appointment_date), "PPP") : "Not Set"}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Insurance Pre-Auth</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Insurance Pre-Auth</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.insurance_preauth || "-"}</p>
                                                     </div>
                                                 </>
@@ -805,15 +825,15 @@ export function OpportunityDetails({
                                             {industry === "education" && (
                                                 <>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Program / Course</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Program / Course</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.program || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Admission Status</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Admission Status</p>
                                                         <p className="text-sm font-semibold pt-1 capitalize">{(record as any).industry_data?.admission_status || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Interview Date</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Interview Date</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.interview_date ? format(new Date((record as any).industry_data.interview_date), "PPP") : "Not Set"}</p>
                                                     </div>
                                                 </>
@@ -821,46 +841,55 @@ export function OpportunityDetails({
                                             {industry === "manufacturing" && (
                                                 <>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Product / SKU</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Product / SKU</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.product_category || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Quantity / UOM</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Quantity / UOM</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.quantity || "-"} {(record as any).industry_data?.uom || ""}</p>
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Delivery Date</p>
+                                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Delivery Date</p>
                                                         <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.delivery_date ? format(new Date((record as any).industry_data.delivery_date), "PPP") : "Not Set"}</p>
                                                     </div>
                                                 </>
                                             )}
                                             <div className="space-y-1 col-span-full mt-2">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Description</p>
-                                                <p className="text-sm text-slate-700 pt-1 whitespace-pre-wrap">
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Description</p>
+                                                <p className="text-sm text-slate-200 pt-1 whitespace-pre-wrap">
                                                     {record.description || "-"}
                                                 </p>
                                             </div>
                                         </div>
                                     </CollapsibleDetailSection>
 
+                                    {/* BD Visits linked to this opportunity */}
+                                    <div className="rounded-lg border border-slate-700 p-3">
+                                        <VisitsByParentSection
+                                            parentType="Opportunity"
+                                            parentId={record.id}
+                                            parentName={record.name}
+                                        />
+                                    </div>
+
                                     <CollapsibleDetailSection
                                         title="System Information"
                                         icon={<UserIcon className="h-4 w-4" />}
                                         defaultOpen={false}
-                                        className="border-slate-200"
+                                        className="border-slate-700"
                                     >
                                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Created By</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Created By</p>
                                                 <div className="flex items-center gap-2 pt-1">
-                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{record.created_by_name || "Unknown"}</p>
+                                                    <p className="text-sm font-medium text-blue-400 cursor-pointer hover:underline">{record.created_by_name || "Unknown"}</p>
                                                     <span className="text-slate-400 text-[10px]">{format(new Date(record.created_at), "MMM d, yyyy HH:mm")}</span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
-                                                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Last Modified By</p>
+                                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Last Modified By</p>
                                                 <div className="flex items-center gap-2 pt-1">
-                                                    <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{record.last_modified_by_name || record.created_by_name || "Unknown"}</p>
+                                                    <p className="text-sm font-medium text-blue-400 cursor-pointer hover:underline">{record.last_modified_by_name || record.created_by_name || "Unknown"}</p>
                                                     <span className="text-slate-400 text-[10px]">{format(new Date(record.updated_at), "MMM d, yyyy HH:mm")}</span>
                                                 </div>
                                             </div>
@@ -884,7 +913,7 @@ export function OpportunityDetails({
                             <div className="space-y-6">
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-700">Supplier</label>
+                                        <label className="text-sm font-semibold text-slate-200">Supplier</label>
                                         <SearchableSelect
                                             options={suppliers}
                                             value={selectedSupplierId}
@@ -896,7 +925,7 @@ export function OpportunityDetails({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-700">Email Template</label>
+                                        <label className="text-sm font-semibold text-slate-200">Email Template</label>
                                         <SearchableSelect
                                             options={templates.map(t => ({ label: t.name, value: t.id }))}
                                             value={selectedTemplateId}
@@ -908,7 +937,7 @@ export function OpportunityDetails({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-700">Subject</label>
+                                        <label className="text-sm font-semibold text-slate-200">Subject</label>
                                         <Input
                                             value={emailSubject}
                                             onChange={(e) => setEmailSubject(e.target.value)}
@@ -940,7 +969,7 @@ export function OpportunityDetails({
                         {/* ── ATTACHMENTS TAB ── */}
                         <TabsContent value="attachments" className="p-6 focus-visible:outline-none focus-visible:ring-0">
                             <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
                                     <Paperclip className="h-4 w-4 text-blue-500" />
                                     Attachments
                                 </h3>
@@ -1028,18 +1057,18 @@ export function OpportunityDetails({
                                             <Table>
                                             <TableHeader className="sticky top-0 z-10 bg-muted shadow-sm">
                                                 <TableRow>
-                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Stage</TableHead>
-                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Amount</TableHead>
-                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Prob</TableHead>
-                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-500">Modified</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-400">Stage</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-400">Amount</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-400">Prob</TableHead>
+                                                    <TableHead className="py-2 text-[10px] uppercase font-bold text-slate-400">Modified</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {tableRows.map((row: any, i) => (
-                                                    <TableRow key={row.id || i} className="hover:bg-slate-50/50">
+                                                    <TableRow key={row.id || i} className="hover:bg-slate-800/40">
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
-                                                                <p className={`text-xs font-semibold truncate max-w-[80px] ${row.isStageChange ? 'text-blue-600' : 'text-slate-700'}`} title={row.displayStage}>
+                                                                <p className={`text-xs font-semibold truncate max-w-[80px] ${row.isStageChange ? 'text-blue-400' : 'text-slate-200'}`} title={row.displayStage}>
                                                                     {row.displayStage}
                                                                 </p>
                                                                 {row.isAmountChange && (
@@ -1048,18 +1077,18 @@ export function OpportunityDetails({
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="py-2">
-                                                            <p className="text-xs text-slate-600">
+                                                            <p className="text-xs text-slate-300">
                                                                 {formatCurrency(row.displayAmount)}
                                                             </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
-                                                            <p className="text-xs text-slate-600">
+                                                            <p className="text-xs text-slate-300">
                                                                 {row.displayProb}%
                                                             </p>
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
-                                                                <span className="text-[10px] font-medium text-slate-900 truncate max-w-[70px]" title={row.user_name || "System"}>
+                                                                <span className="text-[10px] font-medium text-slate-100 truncate max-w-[70px]" title={row.user_name || "System"}>
                                                                     {row.user_name || "System"}
                                                                 </span>
                                                                 <span className="text-[9px] text-slate-400 capitalize">

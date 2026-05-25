@@ -112,10 +112,13 @@ class InvoiceService(ActivityMixin):
         return invoice
     
     async def get_invoice(self, invoice_id: str, tenant_id: ObjectId) -> Optional[Invoice]:
-        invoice = await Invoice.get(ObjectId(invoice_id))
-        if invoice and invoice.tenant_id == tenant_id and not invoice.deleted_at:
-            return invoice
-        return None
+        try:
+            oid = ObjectId(invoice_id)
+        except Exception:
+            return None
+        return await Invoice.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_invoice_with_details(self, invoice_id: str, tenant_id: ObjectId) -> Optional[Dict]:
         invoice = await self.get_invoice(invoice_id, tenant_id)

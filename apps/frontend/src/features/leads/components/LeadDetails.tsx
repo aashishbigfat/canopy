@@ -49,6 +49,7 @@ import { destinationsService } from "@/lib/api/services/destinations.service";
 import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
 import { useIndustry, useIndustryLabels } from "@/lib/industry-labels";
+import { VisitsByParentSection } from "@/features/bd/visits/components/VisitsByParentSection";
 
 interface LeadDetailsProps {
     lead: Lead;
@@ -176,7 +177,7 @@ function IndustryDetailSection({ industry, lead, experiences = [] }: { industry:
                 {config.fields.map((f, i) => (
                     <div key={i} className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.label}</p>
-                        <p className="text-sm font-medium text-slate-700">{f.value || "-"}</p>
+                        <p className="text-sm font-medium text-slate-200">{f.value || "-"}</p>
                     </div>
                 ))}
             </div>
@@ -270,19 +271,19 @@ export function LeadDetails({
                         <TabsList className="bg-transparent border-b w-full justify-start rounded-none h-11 p-0 gap-8">
                             <TabsTrigger
                                 value="details"
-                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-400 data-[state=active]:text-blue-600"
                             >
                                 Details
                             </TabsTrigger>
                             <TabsTrigger
                                 value="activity"
-                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-400 data-[state=active]:text-blue-600"
                             >
                                 Activity
                             </TabsTrigger>
                             <TabsTrigger
                                 value="attachments"
-                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-500 data-[state=active]:text-blue-600"
+                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-400 data-[state=active]:text-blue-600"
                             >
                                 Attachments
                             </TabsTrigger>
@@ -295,42 +296,42 @@ export function LeadDetails({
                                     title="Lead Information"
                                     icon={<UserIcon className="h-4 w-4" />}
                                     defaultOpen={true}
-                                    className="border-slate-200"
+                                    className="border-slate-700"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salutation</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.salutation || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.salutation || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Name</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.full_name}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.full_name}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
-                                            <p className="text-sm font-medium text-blue-600 underline">{lead.email || "-"}</p>
+                                            <p className="text-sm font-medium text-blue-400 underline">{lead.email || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.phone || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.phone || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.mobile || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.mobile || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Status</p>
-                                            <Badge variant="outline" className="text-emerald-600 border-emerald-200 bg-emerald-50">
+                                            <Badge variant="outline" className="text-emerald-300 border-emerald-500/40 bg-emerald-500/20">
                                                 {status?.name || "New"}
                                             </Badge>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
-                                            <p className="text-sm font-medium text-slate-700">{leadIndustry?.name || industry || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{leadIndustry?.name || industry || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Owner</p>
-                                            <p className="text-sm font-medium text-slate-700">{owner?.name || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{owner?.name || "-"}</p>
                                         </div>
                                     </div>
                                 </CollapsibleDetailSection>
@@ -340,32 +341,32 @@ export function LeadDetails({
                                     title="Company & Source"
                                     icon={<Building2 className="h-4 w-4" />}
                                     defaultOpen={true}
-                                    className="border-slate-200"
+                                    className="border-slate-700"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.company || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.company || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website</p>
-                                            <p className="text-sm font-medium text-blue-600 underline">{lead.website || "-"}</p>
+                                            <p className="text-sm font-medium text-blue-400 underline">{lead.website || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No of Employees</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.no_employees || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.no_employees || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source</p>
-                                            <p className="text-sm font-medium text-slate-700">{source?.name || "Direct"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{source?.name || "Direct"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source Medium</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.source_medium || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.source_medium || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Campaign Name</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.campaign_name || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.campaign_name || "-"}</p>
                                         </div>
                                     </div>
                                 </CollapsibleDetailSection>
@@ -378,47 +379,101 @@ export function LeadDetails({
                                     title="Address Information"
                                     icon={<MapPin className="h-4 w-4" />}
                                     defaultOpen={false}
-                                    className="border-slate-200"
+                                    className="border-slate-700"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Country</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.country || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.country || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">State/Province</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.state || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.state || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">City</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.city || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.city || "-"}</p>
                                         </div>
                                         <div className="space-y-1 md:col-span-2">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Street Address</p>
-                                            <p className="text-sm font-medium text-slate-700">{lead.street || "-"}</p>
+                                            <p className="text-sm font-medium text-slate-200">{lead.street || "-"}</p>
                                         </div>
                                     </div>
                                 </CollapsibleDetailSection>
+
+                                {/* BD Assignment (Phase 1) — auto-resolved from territory + role hierarchy */}
+                                <CollapsibleDetailSection
+                                    title="Territory & BD"
+                                    icon={<MapPin className="h-4 w-4" />}
+                                    defaultOpen={true}
+                                    className="border-slate-700"
+                                >
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Territory</p>
+                                            <p className="text-sm font-medium text-slate-200">
+                                                {lead.territory_name || (lead.territory_id ? "(unresolved)" : "Unassigned")}
+                                            </p>
+                                            {lead.territory_match_source && (
+                                                <p className="text-[10px] text-slate-500">
+                                                    matched by {lead.territory_match_source}
+                                                </p>
+                                            )}
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BD Owner</p>
+                                            <p className="text-sm font-medium text-slate-200">
+                                                {lead.bd_owner_name || (lead.bd_owner_id ? "(unknown)" : "Unassigned")}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reporting Manager</p>
+                                            <p className="text-sm font-medium text-slate-200">
+                                                {lead.reporting_manager_name || (lead.reporting_manager_id ? "(unknown)" : "Unassigned")}
+                                            </p>
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Requires Field Meeting</p>
+                                            <Badge
+                                                variant="outline"
+                                                className={lead.requires_field_meeting
+                                                    ? "text-amber-300 border-amber-500/40 bg-amber-500/20"
+                                                    : "text-slate-300 border-slate-500/40 bg-slate-500/20"}
+                                            >
+                                                {lead.requires_field_meeting ? "Yes" : "No"}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                </CollapsibleDetailSection>
+
+                                {/* BD Visits linked to this lead */}
+                                <div className="rounded-lg border border-slate-700 p-3">
+                                    <VisitsByParentSection
+                                        parentType="Lead"
+                                        parentId={lead.id}
+                                        parentName={lead.full_name}
+                                    />
+                                </div>
 
                                 {/* System Information */}
                                 <CollapsibleDetailSection
                                     title="System Information"
                                     icon={<UserIcon className="h-4 w-4" />}
                                     defaultOpen={false}
-                                    className="border-slate-200"
+                                    className="border-slate-700"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Created By</p>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{lead.created_by_name || "Unknown"}</p>
+                                                <p className="text-sm font-medium text-blue-400 cursor-pointer hover:underline">{lead.created_by_name || "Unknown"}</p>
                                                 <span className="text-slate-400 text-xs">at {formatDateTime(lead.created_at)}</span>
                                             </div>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Last Modified By</p>
                                             <div className="flex items-center gap-2">
-                                                <p className="text-sm font-medium text-blue-600 cursor-pointer hover:underline">{lead.last_modified_by_name || lead.created_by_name || "Unknown"}</p>
+                                                <p className="text-sm font-medium text-blue-400 cursor-pointer hover:underline">{lead.last_modified_by_name || lead.created_by_name || "Unknown"}</p>
                                                 <span className="text-slate-400 text-xs">at {formatDateTime(lead.updated_at)}</span>
                                             </div>
                                         </div>
@@ -432,15 +487,15 @@ export function LeadDetails({
 
                             <TabsContent value="activity" className="mt-0">
                                 {/* Standard Activity components could go here, or simple timeline */}
-                                <div className="p-4 border rounded-lg bg-slate-50/50">
-                                    <p className="text-sm text-slate-500 italic">Activity history is shown in the sidebar.</p>
+                                <div className="p-4 border rounded-lg bg-slate-800/50">
+                                    <p className="text-sm text-slate-400 italic">Activity history is shown in the sidebar.</p>
                                 </div>
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
                                 <div className="crm-empty-state">
                                     <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
-                                    <p className="text-slate-500">No attachments found.</p>
+                                    <p className="text-slate-400">No attachments found.</p>
                                     <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
                                 </div>
                             </TabsContent>

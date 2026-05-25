@@ -100,6 +100,16 @@ CORE_PERMISSIONS = [
     # Backward compat — keep old department permission strings so existing
     # stored role docs don't break.  They map to hierarchy ops now.
     "view_department", "create_department", "edit_department", "delete_department",
+
+    # BD Panel (universal across industries) — territory-based field ops
+    "view_bd_panel", "manage_bd_panel",
+    "view_bd_visit", "create_bd_visit", "edit_bd_visit", "delete_bd_visit",
+    "approve_bd_visit", "check_in_bd_visit",
+    "view_expense", "create_expense", "edit_expense", "delete_expense",
+    "approve_expense", "reimburse_expense",
+    "view_live_tracking", "manage_live_tracking",
+    "manage_territory",
+    "manage_automation_rules",
 ]
 
 # Travel-only permissions — destinations, itineraries, packages
@@ -110,16 +120,52 @@ TRAVEL_PERMISSIONS = [
     "manage_package_pricing", "feature_package",
 ]
 
+# Healthcare-only permissions
+HEALTHCARE_PERMISSIONS = [
+    "view_patient", "create_patient", "edit_patient", "delete_patient",
+    "view_provider", "create_provider", "edit_provider", "delete_provider",
+    "view_appointment", "create_appointment", "edit_appointment", "delete_appointment",
+    "view_care_plan", "create_care_plan", "edit_care_plan", "delete_care_plan",
+    "view_insurance_verification", "create_insurance_verification",
+    "edit_insurance_verification", "delete_insurance_verification",
+    "view_referral", "create_referral", "edit_referral", "delete_referral",
+]
+
+# Education-only permissions
+EDUCATION_PERMISSIONS = [
+    "view_program", "create_program", "edit_program", "delete_program",
+    "view_admission", "create_admission", "edit_admission", "delete_admission",
+    "view_enrollment", "create_enrollment", "edit_enrollment", "delete_enrollment",
+]
+
+# Manufacturing-only permissions
+MANUFACTURING_PERMISSIONS = [
+    "view_product_catalog", "create_product_catalog", "edit_product_catalog", "delete_product_catalog",
+    "view_bom", "create_bom", "edit_bom", "delete_bom",
+    "view_production_order", "create_production_order", "edit_production_order", "delete_production_order",
+    "view_inventory", "create_inventory", "edit_inventory", "delete_inventory",
+    "view_quality_inspection", "create_quality_inspection", "edit_quality_inspection", "delete_quality_inspection",
+    "view_warehouse", "create_warehouse", "edit_warehouse", "delete_warehouse",
+    "view_work_order", "create_work_order", "edit_work_order", "delete_work_order",
+]
+
 # Per-industry extra permissions (extend as modules grow)
 INDUSTRY_PERMISSIONS: dict = {
     "travel": TRAVEL_PERMISSIONS,
-    "healthcare": [],   # Future: view_patient, view_appointment, etc.
-    "education": [],
-    "manufacturing": [],
+    "healthcare": HEALTHCARE_PERMISSIONS,
+    "education": EDUCATION_PERMISSIONS,
+    "manufacturing": MANUFACTURING_PERMISSIONS,
 }
 
-# Flat list — backward compatibility (validation uses this)
-ALL_PERMISSIONS = CORE_PERMISSIONS + TRAVEL_PERMISSIONS
+# Flat list — backward compatibility (validation uses this for any-tenant flows).
+# Includes every per-industry permission so legacy code paths don't reject them.
+ALL_PERMISSIONS = (
+    CORE_PERMISSIONS
+    + TRAVEL_PERMISSIONS
+    + HEALTHCARE_PERMISSIONS
+    + EDUCATION_PERMISSIONS
+    + MANUFACTURING_PERMISSIONS
+)
 
 
 class RoleService(ActivityMixin):
@@ -145,9 +191,8 @@ class RoleService(ActivityMixin):
             raise ValueError(f"Role with name '{role_data.name}' already exists")
         
         # Validate permissions against the tenant's industry
-        from app.models.tenant import Tenant
-        tenant = await Tenant.get(tenant_id)
-        industry = tenant.industry if tenant else "travel"
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(tenant_id)
         valid_perms = self.get_permissions_for_industry(industry)
         invalid_perms = [p for p in role_data.permissions if p not in valid_perms]
         if invalid_perms:
@@ -181,12 +226,14 @@ class RoleService(ActivityMixin):
         role_id: str,
         tenant_id: ObjectId
     ) -> Optional[Role]:
-        """Get role by ID"""
-        role = await Role.get(ObjectId(role_id))
-        
-        if role and role.tenant_id == tenant_id and not role.deleted_at:
-            return role
-        return None
+        """Get role by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(role_id)
+        except Exception:
+            return None
+        return await Role.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_role(
         self,
@@ -215,9 +262,8 @@ class RoleService(ActivityMixin):
         
         # Validate permissions if being updated
         if role_data.permissions is not None:
-            from app.models.tenant import Tenant
-            tenant = await Tenant.get(tenant_id)
-            industry = tenant.industry if tenant else "travel"
+            from app.services.industry_service import get_tenant_industry
+            industry = await get_tenant_industry(tenant_id)
             valid_perms = self.get_permissions_for_industry(industry)
             invalid_perms = [p for p in role_data.permissions if p not in valid_perms]
             if invalid_perms:
@@ -304,9 +350,8 @@ class RoleService(ActivityMixin):
             return None
         
         # Validate permissions against the tenant's industry
-        from app.models.tenant import Tenant
-        tenant = await Tenant.get(tenant_id)
-        industry = tenant.industry if tenant else "travel"
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(tenant_id)
         valid_perms = self.get_permissions_for_industry(industry)
         invalid_perms = [p for p in permission_data.permissions if p not in valid_perms]
         if invalid_perms:

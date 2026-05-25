@@ -1,6 +1,7 @@
 """
 Account service layer - Business logic for Account operations
 """
+import logging
 from typing import Optional, List, Dict, Any
 from bson import ObjectId
 from datetime import datetime
@@ -13,6 +14,9 @@ from app.services.webhook_service import webhook_service
 from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
 import json
+
+
+_logger = logging.getLogger(__name__)
 
 class AccountService(ActivityMixin):
     """Service for Account business logic"""
@@ -134,12 +138,14 @@ class AccountService(ActivityMixin):
         return account
     
     async def get_account(self, account_id: str, tenant_id: ObjectId) -> Optional[Account]:
-        """Get account by ID"""
-        account = await Account.get(ObjectId(account_id))
-        
-        if account and account.tenant_id == tenant_id and not account.deleted_at:
-            return account
-        return None
+        """Get account by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(account_id)
+        except Exception:
+            return None
+        return await Account.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_account_with_relations(
         self,
@@ -152,12 +158,20 @@ class AccountService(ActivityMixin):
         if not account:
             return None
         
-        # Get owner information
-        owner = await User.get(account.owner_id)
-        
-        # Get creator and modifier information
-        creator = await User.get(account.created_by)
-        modifier = await User.get(account.last_modified_by_id) if account.last_modified_by_id else None
+        # Get owner / creator / modifier — bulk tenant-scoped lookup avoids
+        # cross-tenant user data leakage even if a stale user_id reference exists.
+        ref_user_ids = {account.owner_id, account.created_by}
+        if account.last_modified_by_id:
+            ref_user_ids.add(account.last_modified_by_id)
+        ref_users_map: Dict = {}
+        if ref_user_ids:
+            ref_users = await User.find(
+                {"_id": {"$in": list(ref_user_ids)}, "tenant_id": tenant_id, "deleted_at": None}
+            ).to_list()
+            ref_users_map = {u.id: u for u in ref_users}
+        owner = ref_users_map.get(account.owner_id)
+        creator = ref_users_map.get(account.created_by)
+        modifier = ref_users_map.get(account.last_modified_by_id) if account.last_modified_by_id else None
         
         # Get related contacts
         related_contacts = []
@@ -166,13 +180,13 @@ class AccountService(ActivityMixin):
             from app.models.contact import Contact
             
             pivots = await AccountContact.find(
-                AccountContact.account_id == account.id
+                {"account_id": account.id, "tenant_id": tenant_id}
             ).to_list()
-            
+
             contact_ids = [p.contact_id for p in pivots]
             if contact_ids:
                 contacts = await Contact.find(
-                    {"_id": {"$in": contact_ids}, "deleted_at": None}
+                    {"_id": {"$in": contact_ids}, "tenant_id": tenant_id, "deleted_at": None}
                 ).to_list()
                 
                 for contact in contacts:
@@ -185,7 +199,7 @@ class AccountService(ActivityMixin):
                         "title": contact.title
                     })
         except Exception as e:
-            print(f"Error loading contacts: {e}")
+            _logger.warning("Error loading contacts for account %s: %s", account.id, e)
         
         # Get related opportunities
         related_opportunities = []
@@ -208,7 +222,9 @@ class AccountService(ActivityMixin):
                 
             users_map = {}
             if owner_ids:
-                owners = await User.find({"_id": {"$in": owner_ids}}).to_list()
+                owners = await User.find(
+                    {"_id": {"$in": owner_ids}, "tenant_id": tenant_id, "deleted_at": None}
+                ).to_list()
                 users_map = {str(u.id): u.name for u in owners}
             # -----------------------------------------------------------
             
@@ -233,7 +249,7 @@ class AccountService(ActivityMixin):
                     "created_at": opp.created_at.isoformat()
                 })
         except Exception as e:
-            print(f"Error loading opportunities: {e}")
+            _logger.warning("Error loading opportunities for account %s: %s", account.id, e)
         
         # Get related tasks
         related_tasks = []
@@ -248,7 +264,9 @@ class AccountService(ActivityMixin):
             user_ids = list({task.assigned_user_id for task in tasks if task.assigned_user_id})
             users_map = {}
             if user_ids:
-                users = await User.find({"_id": {"$in": user_ids}}).to_list()
+                users = await User.find(
+                    {"_id": {"$in": user_ids}, "tenant_id": tenant_id, "deleted_at": None}
+                ).to_list()
                 users_map = {str(u.id): u.name for u in users}
             # ---------------------------------------------------
             
@@ -266,28 +284,41 @@ class AccountService(ActivityMixin):
                     "created_at": task.created_at.isoformat()
                 })
         except Exception as e:
-            print(f"Error loading tasks: {e}")
+            _logger.warning("Error loading tasks for account %s: %s", account.id, e)
         
-        # Get parent account name
+        # Get parent account name — must be scoped to same tenant
         parent_account_name = None
         if account.acc_parent_id:
-            parent = await Account.get(account.acc_parent_id)
+            parent = await Account.find_one(
+                {"_id": account.acc_parent_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
             if parent:
                 parent_account_name = parent.name
         
-        # Get account type name
+        # Get account type name — picklists are platform-defaults (tenant_id=None)
+        # OR tenant-specific overrides. Match either, but never another tenant's override.
         account_type_name = None
         if account.acc_type_id:
             from app.models.picklists import AccountType
-            acc_type = await AccountType.get(account.acc_type_id)
+            acc_type = await AccountType.find_one(
+                {
+                    "_id": account.acc_type_id,
+                    "$or": [{"tenant_id": tenant_id}, {"tenant_id": None}],
+                }
+            )
             if acc_type:
                 account_type_name = acc_type.name
-        
-        # Get industry name
+
+        # Get industry name (same picklist scoping rules)
         industry_name = None
         if account.industry_id:
             from app.models.picklists import Industry
-            industry = await Industry.get(account.industry_id)
+            industry = await Industry.find_one(
+                {
+                    "_id": account.industry_id,
+                    "$or": [{"tenant_id": tenant_id}, {"tenant_id": None}],
+                }
+            )
             if industry:
                 industry_name = industry.name
         
@@ -605,25 +636,34 @@ class AccountService(ActivityMixin):
         current_user_id: ObjectId,
         tenant_id: ObjectId
     ) -> Optional[Account]:
-        """Change account owner"""
+        """Change account owner.
+
+        SECURITY: new_owner_id must belong to the same tenant. Otherwise a
+        privilege escalation would be possible by reassigning a record to a
+        cross-tenant user that has no other relationship to this data.
+        """
         account = await self.get_account(account_id, tenant_id)
-        
+
         if not account:
             return None
-        
+
+        # Validate new owner belongs to the same tenant and is active
+        owner = await User.find_one(
+            {"_id": new_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+        )
+        if not owner:
+            raise ValueError("new_owner_id must reference an active user in this tenant")
+
         old_owner_id = account.owner_id
         account.owner_id = new_owner_id
         account.last_modified_by_id = current_user_id
         await account.save()
-        
-        # Populate owner name for the response
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(account, 'owner_name', owner.name)
-        
+
+        setattr(account, 'owner_name', owner.name)
+
         # TODO: Send email notification about owner change
         # TODO: Dispatch background job for owner change tracking
-        
+
         return account
     
     async def get_parent_accounts(
@@ -645,10 +685,13 @@ class AccountService(ActivityMixin):
         """Track that a user viewed an account"""
         from app.models.user_account_view import UserAccountView
         
-        # Check if view exists
+        # Check if view exists — scope by tenant to prevent collision across tenants
         view = await UserAccountView.find_one(
-            UserAccountView.user_id == user_id,
-            UserAccountView.account_id == account_id
+            {
+                "user_id": user_id,
+                "account_id": account_id,
+                "tenant_id": tenant_id,
+            }
         )
         
         if view:

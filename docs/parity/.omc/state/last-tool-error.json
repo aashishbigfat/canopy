@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"C:/Users/abhis/Desktop/BIGFATLLP/Projects/tutterfly/tfc8/Tutterfly-main/apps/backend\\\" && python -c \\\"from app.models.field_registry import AdditionalFieldLead, StandardField; from ap...",
-  "error": "Exit code 1\nTraceback (most recent call last):\r\n  File \"<string>\", line 1, in <module>\r\n  File \"C:\\Users\\abhis\\Desktop\\BIGFATLLP\\Projects\\tutterfly\\tfc8\\Tutterfly-main\\apps\\backend\\app\\api\\v1\\custom_fields.py\", line 12, in <module>\r\n    from app.api.deps import get_current_user\r\n  File \"C:\\Users\\abhis\\Desktop\\BIGFATLLP\\Projects\\tutterfly\\tfc8\\Tutterfly-main\\apps\\backend\\app\\api\\deps.py\", line 11, in <module>\r\n    from app.core.config import settings\r\n  File \"C:\\Users\\abhis\\Desktop\\BIGFATLLP\\Proj...",
-  "timestamp": "2026-05-02T13:36:42.141Z",
-  "retry_count": 1
-}

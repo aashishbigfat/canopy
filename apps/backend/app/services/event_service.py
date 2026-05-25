@@ -33,12 +33,14 @@ class EventService:
         return event
     
     async def get_event(self, event_id: str, tenant_id: ObjectId) -> Optional[Event]:
-        """Get event by ID"""
-        event = await Event.get(ObjectId(event_id))
-        
-        if event and event.tenant_id == tenant_id and not event.deleted_at:
-            return event
-        return None
+        """Get event by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(event_id)
+        except Exception:
+            return None
+        return await Event.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_event(
         self,

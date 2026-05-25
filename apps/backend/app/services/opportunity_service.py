@@ -7,6 +7,7 @@ from datetime import datetime
 from app.models.opportunity import Opportunity
 from app.models.opportunity_picklists import OpportunityHistory
 from app.models.destination import DestinationOpportunity
+from app.models.user import User
 from app.schemas.opportunity import OpportunityCreate, OpportunityUpdate, OpportunityStageChange
 from app.services.notification_service import NotificationService
 from app.mixins.activity_mixin import ActivityMixin
@@ -24,6 +25,97 @@ class OpportunityService(ActivityMixin):
         self.notification_service = NotificationService()
         self.repository = OpportunityRepository()
     
+    async def reassign_bd(
+        self,
+        opportunity_id: str,
+        tenant_id: ObjectId,
+        current_user_id: ObjectId,
+        bd_owner_id: Optional[ObjectId] = None,
+        reporting_manager_id: Optional[ObjectId] = None,
+        reason: Optional[str] = None,
+    ):
+        """Manually override the BD triple on an opportunity."""
+        from app.models.user import User
+        from app.services.bd_assignment_service import bd_assignment_service
+        opp = await self.get_opportunity(opportunity_id, tenant_id)
+        if not opp:
+            return None
+        previous_bd = str(opp.bd_owner_id) if opp.bd_owner_id else None
+        previous_manager = str(opp.reporting_manager_id) if opp.reporting_manager_id else None
+        if bd_owner_id is not None:
+            owner = await User.find_one(
+                {"_id": bd_owner_id, "tenant_id": tenant_id, "is_active": True, "deleted_at": None}
+            )
+            if not owner:
+                raise ValueError("bd_owner_id must reference an active user in this tenant")
+            opp.bd_owner_id = bd_owner_id
+            if reporting_manager_id is None:
+                opp.reporting_manager_id = await bd_assignment_service.resolve_manager_for_user(
+                    tenant_id, bd_owner_id
+                )
+        if reporting_manager_id is not None:
+            mgr = await User.find_one(
+                {"_id": reporting_manager_id, "tenant_id": tenant_id, "is_active": True, "deleted_at": None}
+            )
+            if not mgr:
+                raise ValueError("reporting_manager_id must reference an active user in this tenant")
+            opp.reporting_manager_id = reporting_manager_id
+        opp.territory_match_source = "manual"
+        opp.territory_assigned_at = datetime.utcnow()
+        opp.last_modified_by_id = current_user_id
+        await opp.save()
+        await self.log_custom_activity(
+            action="bd_reassigned",
+            entity_type="opportunity",
+            entity=opp,
+            description=f"BD reassigned (reason: {reason or 'manual override'})",
+            changes={
+                "bd_owner_id": {"old": previous_bd, "new": str(opp.bd_owner_id) if opp.bd_owner_id else None},
+                "reporting_manager_id": {"old": previous_manager, "new": str(opp.reporting_manager_id) if opp.reporting_manager_id else None},
+            },
+        )
+        return opp
+
+    async def resolve_territory(
+        self,
+        opportunity_id: str,
+        tenant_id: ObjectId,
+        current_user_id: ObjectId,
+    ):
+        """Re-run automatic BD resolution for an existing opportunity (from
+        account billing address, then lead address as fallback)."""
+        from app.services.bd_assignment_service import bd_assignment_service
+        opp = await self.get_opportunity(opportunity_id, tenant_id)
+        if not opp:
+            return None
+        country = state = zip_code = None
+        if opp.account_id:
+            from app.models.account import Account
+            acct = await Account.find_one({"_id": opp.account_id, "tenant_id": tenant_id, "deleted_at": None})
+            if acct:
+                country, state, zip_code = acct.billing_country, acct.billing_state, acct.billing_zip
+        if not (country or state or zip_code) and opp.lead_id:
+            from app.models.lead import Lead
+            ld = await Lead.find_one({"_id": opp.lead_id, "tenant_id": tenant_id})
+            if ld:
+                country, state, zip_code = ld.country, ld.state, ld.zip
+        if not (country or state or zip_code):
+            return opp
+        assignment = await bd_assignment_service.resolve_for_address(
+            tenant_id=tenant_id, country=country, state=state, zip_code=zip_code,
+        )
+        if assignment.is_empty():
+            return opp
+        opp.territory_id = assignment.territory_id
+        opp.region_id = assignment.region_id
+        opp.bd_owner_id = assignment.bd_owner_id
+        opp.reporting_manager_id = assignment.reporting_manager_id
+        opp.territory_match_source = assignment.match_source
+        opp.territory_assigned_at = datetime.utcnow()
+        opp.last_modified_by_id = current_user_id
+        await opp.save()
+        return opp
+
     async def create_opportunity(
         self,
         opp_data,  # OpportunityCreate (unified for all industries)
@@ -70,7 +162,60 @@ class OpportunityService(ActivityMixin):
                 opportunity.team_member_ids = [ObjectId(t) for t in opp_data.team_member_ids]
             
             await opportunity.insert()
-            
+
+            # BD triple auto-resolution. Source the address from the linked
+            # account's billing fields (most opportunities have one); fall back
+            # to the converting lead's address when called via convert_lead.
+            try:
+                from app.services.bd_assignment_service import bd_assignment_service
+                country = state = zip_code = None
+                if opportunity.account_id:
+                    from app.models.account import Account
+                    acct = await Account.find_one(
+                        {"_id": opportunity.account_id, "tenant_id": tenant_id, "deleted_at": None}
+                    )
+                    if acct:
+                        country = acct.billing_country
+                        state = acct.billing_state
+                        zip_code = acct.billing_zip
+                if not (country or state or zip_code) and opportunity.lead_id:
+                    from app.models.lead import Lead
+                    src_lead = await Lead.find_one(
+                        {"_id": opportunity.lead_id, "tenant_id": tenant_id}
+                    )
+                    if src_lead:
+                        # If the lead already has the triple resolved, just inherit it.
+                        if src_lead.territory_id:
+                            opportunity.territory_id = src_lead.territory_id
+                            opportunity.region_id = src_lead.region_id
+                            opportunity.bd_owner_id = src_lead.bd_owner_id
+                            opportunity.reporting_manager_id = src_lead.reporting_manager_id
+                            opportunity.territory_match_source = src_lead.territory_match_source
+                            from datetime import datetime as _dt
+                            opportunity.territory_assigned_at = _dt.utcnow()
+                            await opportunity.save()
+                        else:
+                            country = src_lead.country
+                            state = src_lead.state
+                            zip_code = src_lead.zip
+
+                if (country or state or zip_code) and not opportunity.territory_id:
+                    assignment = await bd_assignment_service.resolve_for_address(
+                        tenant_id=tenant_id, country=country, state=state, zip_code=zip_code,
+                    )
+                    if not assignment.is_empty():
+                        opportunity.territory_id = assignment.territory_id
+                        opportunity.region_id = assignment.region_id
+                        opportunity.bd_owner_id = assignment.bd_owner_id
+                        opportunity.reporting_manager_id = assignment.reporting_manager_id
+                        opportunity.territory_match_source = assignment.match_source
+                        from datetime import datetime as _dt
+                        opportunity.territory_assigned_at = _dt.utcnow()
+                        await opportunity.save()
+            except Exception:
+                import logging as _l
+                _l.getLogger(__name__).warning("Opportunity BD auto-assignment failed", exc_info=True)
+
             # Log opportunity creation
             await self.log_entity_created(
                 entity=opportunity,
@@ -177,16 +322,21 @@ class OpportunityService(ActivityMixin):
         # Update fields
         update_data = opp_data.model_dump(exclude_unset=True)
         
-        # Auto-update probability if stage changed
+        # Auto-update probability if stage changed — stage MUST belong to
+        # this tenant. Otherwise a client could send another tenant's
+        # sales_stage_id and pin this opportunity to a foreign stage.
         if "sales_stage_id" in update_data and str(update_data["sales_stage_id"]) != str(opp.sales_stage_id):
             from app.models.opportunity_picklists import SalesStage
             new_stage_id = ObjectId(update_data["sales_stage_id"])
-            new_stage = await SalesStage.get(new_stage_id)
-            if new_stage:
-                # Only auto-update if probability wasn't explicitly provided in update_data
-                if "probability" not in update_data:
-                    opp.probability = new_stage.probability
-                    updated_fields["probability"] = new_stage.probability
+            new_stage = await SalesStage.find_one(
+                {"_id": new_stage_id, "tenant_id": tenant_id}
+            )
+            if not new_stage:
+                raise ValueError("Invalid sales_stage_id for this tenant")
+            # Only auto-update if probability wasn't explicitly provided
+            if "probability" not in update_data:
+                opp.probability = new_stage.probability
+                updated_fields["probability"] = new_stage.probability
 
         for field, value in update_data.items():
             old_values[field] = getattr(opp, field, None)
@@ -443,23 +593,26 @@ class OpportunityService(ActivityMixin):
         
         old_stage_id = opp.sales_stage_id
         new_stage_id = ObjectId(stage_change.new_stage_id)
-        
+
         # Guard: Only skip if stage is same AND reason is same
         if old_stage_id == new_stage_id and opp.close_lost_reason == stage_change.reason:
             return opp
 
+        # Validate new stage belongs to THIS tenant before applying.
+        from app.models.opportunity_picklists import SalesStage
+        new_stage = await SalesStage.find_one(
+            {"_id": new_stage_id, "tenant_id": tenant_id}
+        )
+        if not new_stage:
+            raise ValueError("Invalid sales stage for this tenant")
+
         # Update stage
         opp.sales_stage_id = new_stage_id
         opp.last_modified_by_id = user_id
-        
-        # Update probability and close lost reason based on stage
-        from app.models.opportunity_picklists import SalesStage
-        new_stage = await SalesStage.get(new_stage_id)
-        if new_stage:
-            opp.probability = new_stage.probability
-            # If moving to a lost stage, store the reason in close_lost_reason
-            if getattr(new_stage, 'is_lost', False) and stage_change.reason:
-                opp.close_lost_reason = stage_change.reason
+        opp.probability = new_stage.probability
+        # If moving to a lost stage, store the reason in close_lost_reason
+        if getattr(new_stage, 'is_lost', False) and stage_change.reason:
+            opp.close_lost_reason = stage_change.reason
         
         await opp.save()
         
@@ -518,30 +671,10 @@ class OpportunityService(ActivityMixin):
         await opp.unlock()
         return opp
     
-    async def change_owner(
-        self,
-        opp_id: str,
-        new_owner_id: ObjectId,
-        current_user_id: ObjectId,
-        tenant_id: ObjectId
-    ) -> Optional[Opportunity]:
-        """Change opportunity owner"""
-        opp = await self.get_opportunity(opp_id, tenant_id)
-        
-        if not opp:
-            return None
-        
-        opp.owner_id = new_owner_id
-        opp.last_modified_by_id = current_user_id
-        await opp.save()
-        
-        # Populate owner name for the response
-        from app.models.user import User
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(opp, 'owner_name', owner.name)
-        
-        return opp
+    # NOTE: An earlier `change_owner` definition was here but the SECOND
+    # definition below silently overrode it via Python method resolution.
+    # Removed; the canonical one is `change_owner` further down (now hardened
+    # with tenant-scoped owner validation).
 
     # Industry-specific default pipeline definitions
     INDUSTRY_STAGE_SETS = {
@@ -635,18 +768,25 @@ class OpportunityService(ActivityMixin):
         current_user_id: ObjectId,
         tenant_id: ObjectId
     ) -> Optional[Opportunity]:
-        """Change opportunity owner"""
+        """Change opportunity owner.
+
+        SECURITY: validates new_owner_id belongs to the same tenant BEFORE
+        reassigning. The previous code reassigned first and then fetched the
+        owner unscoped — so a foreign user id could become the owner with
+        only the response name silently dropping.
+        """
         opportunity = await self.get_opportunity(opportunity_id, tenant_id)
         if not opportunity:
             return None
-        
+
+        owner = await User.find_one(
+            {"_id": new_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+        )
+        if not owner:
+            raise ValueError("new_owner_id must reference an active user in this tenant")
+
         opportunity.owner_id = new_owner_id
         opportunity.last_modified_by_id = current_user_id
         await opportunity.save()
-        
-        # Populate owner name for response
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(opportunity, "owner_name", owner.name)
-            
+        setattr(opportunity, "owner_name", owner.name)
         return opportunity

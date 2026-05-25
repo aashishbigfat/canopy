@@ -49,6 +49,16 @@ class Opportunity(BaseDocument):
     owner_id: Indexed(PydanticObjectId)
     operation_user_id: Optional[PydanticObjectId] = None
     team_member_ids: List[PydanticObjectId] = Field(default_factory=list)
+
+    # BD multi-owner triple — auto-resolved from address (account billing fields
+    # if account-linked, else lead address at conversion time). See
+    # bd_assignment_service.resolve_for_address().
+    territory_id: Optional[PydanticObjectId] = None
+    region_id: Optional[PydanticObjectId] = None
+    bd_owner_id: Optional[PydanticObjectId] = None
+    reporting_manager_id: Optional[PydanticObjectId] = None
+    territory_match_source: Optional[str] = None  # postal_code|postal_code_pattern|state|country|manual
+    territory_assigned_at: Optional[datetime] = None
     
     # Tenant & Audit
     tenant_id: Indexed(PydanticObjectId)
@@ -91,28 +101,36 @@ class Opportunity(BaseDocument):
 
     
     async def get_owner(self):
-        # """Get opportunity owner"""
+        """Get opportunity owner, scoped to this opportunity's tenant."""
         from app.models.user import User
-        return await User.get(self.owner_id)
-    
+        return await User.find_one(
+            {"_id": self.owner_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_account(self):
-        # """Get associated account"""
-        if self.account_id:
-            from app.models.account import Account
-            return await Account.get(self.account_id)
-        return None
-    
+        """Get associated account, scoped to this opportunity's tenant."""
+        if not self.account_id:
+            return None
+        from app.models.account import Account
+        return await Account.find_one(
+            {"_id": self.account_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_contact(self):
-        # """Get associated contact"""
-        if self.contact_id:
-            from app.models.contact import Contact
-            return await Contact.get(self.contact_id)
-        return None
-    
+        """Get associated contact, scoped to this opportunity's tenant."""
+        if not self.contact_id:
+            return None
+        from app.models.contact import Contact
+        return await Contact.find_one(
+            {"_id": self.contact_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_sales_stage(self):
-        # """Get current sales stage"""
+        """Get current sales stage, scoped to this opportunity's tenant."""
         from app.models.opportunity_picklists import SalesStage
-        return await SalesStage.get(self.sales_stage_id)
+        return await SalesStage.find_one(
+            {"_id": self.sales_stage_id, "tenant_id": self.tenant_id}
+        )
     
     async def lock(self, user_id: PydanticObjectId):
         # """Lock opportunity for editing"""

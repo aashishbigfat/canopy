@@ -1,7 +1,9 @@
 # Core Framework (FastAPI >=0.115 required for Pydantic 2.12+ / Python 3.13)
 fastapi>=0.104,<1
 uvicorn[standard]>=0.24,<1
-python-multipart==0.0.6
+# python-multipart: 0.0.6 has DoS CVE-2024-24762 (excessive boundary parsing).
+# 0.0.18 is the first fully patched line.
+python-multipart>=0.0.18,<1
 jinja2>=3.0.0
 
 # Database (MongoDB)
@@ -10,7 +12,10 @@ beanie==1.23.6
 pymongo==4.6.0
 
 # Authentication & Security
-python-jose[cryptography]==3.3.0
+# Migrated from python-jose (unmaintained since 2022, open CVE-2024-33663
+# algorithm confusion) to PyJWT. PyJWT is actively maintained and rejects
+# `alg: none` by default. HS256-only usage is unchanged.
+PyJWT>=2.8,<3
 passlib[bcrypt]==1.7.4
 bcrypt==3.2.2
 slowapi==0.1.9
@@ -48,7 +53,8 @@ xlsxwriter==3.1.9
 twilio==8.10.0
 
 # Caching
-aioredis==2.0.1
+# aioredis 2.0.1 is EOL (merged back into redis>=4.2.0rc1). The codebase now uses
+# `redis.asyncio` exclusively — see app/core/cache.py.
 fastapi-cache2==0.2.1
 
 # Logging & Monitoring

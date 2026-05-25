@@ -71,7 +71,25 @@ class Settings(BaseSettings):
     
     # CORS
     CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,http://15.206.79.199:3000,https://tutterfly-frontend.vercel.app"
-    
+
+    # Frontend URL — used by password-reset / verification emails. MUST be set
+    # to the production URL in prod, otherwise reset links go to localhost.
+    FRONTEND_URL: str = "http://localhost:3000"
+
+    # Sentry (optional). If unset, Sentry SDK is not initialized.
+    SENTRY_DSN: str = ""
+    SENTRY_TRACES_SAMPLE_RATE: float = 0.0
+
+    # Meta (WhatsApp / Messenger) webhook secrets — REQUIRED in prod if the
+    # /messaging/chatbot/webhook endpoint is exposed publicly. Without these,
+    # any anonymous POST to the webhook will be accepted.
+    META_WEBHOOK_VERIFY_TOKEN: str = ""
+    META_WEBHOOK_APP_SECRET: str = ""
+
+    # Shared signing key for the PDF renderer callback. Render service signs
+    # callback requests with this key; we verify on receipt. Empty in dev.
+    PDF_CALLBACK_SECRET: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string"""

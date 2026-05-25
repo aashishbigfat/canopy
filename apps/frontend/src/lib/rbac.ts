@@ -28,6 +28,35 @@ const ROUTE_RULES: { prefix: string; permission: string }[] = [
     { prefix: "/search", permission: "view_dashboard" },
     { prefix: "/departure", permission: "view_dashboard" },
     { prefix: "/dashboard", permission: "view_dashboard" },
+
+    // BD Panel (universal across industries)
+    { prefix: "/bd/approvals", permission: "approve_bd_visit" },
+    { prefix: "/bd/expenses", permission: "view_expense" },
+    { prefix: "/bd/tracking", permission: "view_live_tracking" },
+    { prefix: "/bd/visits", permission: "view_bd_visit" },
+    { prefix: "/bd", permission: "view_bd_panel" },
+    { prefix: "/settings/automation", permission: "manage_automation_rules" },
+    { prefix: "/settings/territory", permission: "manage_territory" },
+
+    // Healthcare vertical
+    { prefix: "/patients", permission: "view_patient" },
+    { prefix: "/providers", permission: "view_provider" },
+    { prefix: "/appointments", permission: "view_appointment" },
+    { prefix: "/care-plans", permission: "view_care_plan" },
+    { prefix: "/referrals", permission: "view_referral" },
+
+    // Education vertical
+    { prefix: "/programs", permission: "view_program" },
+    { prefix: "/admissions", permission: "view_admission" },
+    { prefix: "/enrollments", permission: "view_enrollment" },
+
+    // Manufacturing vertical
+    { prefix: "/boms", permission: "view_bom" },
+    { prefix: "/production-orders", permission: "view_production_order" },
+    { prefix: "/work-orders", permission: "view_work_order" },
+    { prefix: "/inventory", permission: "view_inventory" },
+    { prefix: "/quality-inspections", permission: "view_quality_inspection" },
+    { prefix: "/product-catalog", permission: "view_product_catalog" },
 ];
 
 const sortedRules = [...ROUTE_RULES].sort((a, b) => b.prefix.length - a.prefix.length);
@@ -61,7 +90,7 @@ export function filterNavItemsForPermissions(
     const out: NavItem[] = [];
     for (const item of items) {
         const req = item.requiredPermission;
-        
+
         // ENFORCE PARENT PERMISSION FIRST
         // If a parent item requires a permission, the user MUST have it to see the item or its submenus.
         if (req && !perms.includes(req)) {
@@ -74,7 +103,7 @@ export function filterNavItemsForPermissions(
             out.push({ ...item, submenu: sub });
             continue;
         }
-        
+
         out.push(item);
     }
     return out;

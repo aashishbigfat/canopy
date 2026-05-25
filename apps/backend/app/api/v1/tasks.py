@@ -15,8 +15,10 @@ from app.api.deps import get_current_user, check_permission
 router = APIRouter()
 
 
-async def _enrich_task(task: Task, user_map: dict, entity_name_map: dict = {}) -> dict:
+async def _enrich_task(task: Task, user_map: dict, entity_name_map: dict | None = None) -> dict:
     """Convert task to dict with all resolved names for CRM table display."""
+    if entity_name_map is None:
+        entity_name_map = {}
     task_resp = TaskResponse.from_orm(task)
     data = task_resp.model_dump()
     data["assigned_user_name"] = user_map.get(task.assigned_user_id, None)
@@ -28,9 +30,17 @@ async def _enrich_task(task: Task, user_map: dict, entity_name_map: dict = {}) -
 
 
 async def _build_enriched_tasks(tasks: List[Task]) -> List[dict]:
-    """Batch-fetch all user names and entity names for a list of tasks."""
+    """Batch-fetch all user names and entity names for a list of tasks.
+
+    SECURITY: User and entity lookups are tenant-scoped using the tasks'
+    own tenant_id. Tasks in a single call always share a tenant (callers
+    filter by tenant_id before invoking this helper), so deriving tenant
+    from tasks[0].tenant_id is safe.
+    """
     if not tasks:
         return []
+
+    tenant_id = tasks[0].tenant_id
 
     # Collect all user IDs
     user_ids = set()
@@ -44,11 +54,14 @@ async def _build_enriched_tasks(tasks: List[Task]) -> List[dict]:
 
     user_map = {}
     if user_ids:
-        users = await User.find(In(User.id, list(user_ids))).to_list()
+        # Tenant-scoped user lookup
+        users = await User.find(
+            {"_id": {"$in": list(user_ids)}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
         user_map = {u.id: u.name for u in users}
 
     # Resolve entity names by taskable_type
-    entity_name_map = {}
+    entity_name_map: dict = {}
     from collections import defaultdict
     by_type = defaultdict(list)
     for t in tasks:
@@ -58,17 +71,21 @@ async def _build_enriched_tasks(tasks: List[Task]) -> List[dict]:
     import asyncio
 
     async def resolve_entities(taskable_type: str, ids: list):
+        # All taskable lookups must be tenant-scoped — otherwise a corrupted
+        # task.taskable_id pointing into another tenant would surface a
+        # cross-tenant entity name in this tenant's task list.
+        common_filter = {"_id": {"$in": ids}, "tenant_id": tenant_id, "deleted_at": None}
         if taskable_type == "Account":
             from app.models.account import Account
-            docs = await Account.find({"_id": {"$in": ids}, "deleted_at": None}).to_list()
+            docs = await Account.find(common_filter).to_list()
             return {str(d.id): d.name for d in docs}
         elif taskable_type == "Opportunity":
             from app.models.opportunity import Opportunity
-            docs = await Opportunity.find({"_id": {"$in": ids}, "deleted_at": None}).to_list()
+            docs = await Opportunity.find(common_filter).to_list()
             return {str(d.id): d.name for d in docs}
         elif taskable_type == "Contact":
             from app.models.contact import Contact
-            docs = await Contact.find({"_id": {"$in": ids}, "deleted_at": None}).to_list()
+            docs = await Contact.find(common_filter).to_list()
             return {str(d.id): f"{d.first_name} {d.last_name}".strip() for d in docs}
         return {}
 

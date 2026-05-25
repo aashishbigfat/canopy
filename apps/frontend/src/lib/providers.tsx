@@ -18,7 +18,7 @@ export function Providers({ children, session }: { children: React.ReactNode, se
 
     return (
         <SessionProvider session={session} refetchOnWindowFocus={false} refetchInterval={0}>
-            <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+            <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
                 <QueryClientProvider client={queryClient}>
                     {children}
                 </QueryClientProvider>

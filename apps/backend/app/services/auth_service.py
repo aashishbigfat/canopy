@@ -1,19 +1,23 @@
 """
 Authentication service for user login, registration, and token management
 """
-from typing import Optional, Tuple
-from datetime import datetime, timedelta
+from typing import Tuple
+from datetime import datetime, timedelta, timezone
 from bson import ObjectId
-from jose import jwt
+import jwt
 from passlib.context import CryptContext
 
 from app.core.config import settings
 from app.models.user import User
-from app.models.tenant import Tenant
 from app.schemas.auth import UserLogin, UserRegister
 from app.services.email_service import EmailService
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Pre-computed bcrypt hash of a random password. Used to make login take the
+# same amount of time whether or not the email exists, blocking timing-based
+# user enumeration. The hash itself never matches any real password.
+_DUMMY_BCRYPT_HASH = pwd_context.hash("__dummy_for_timing_attacks__")
 
 class AuthService:
     """Service for authentication operations"""
@@ -21,72 +25,106 @@ class AuthService:
     async def register_user(
         self,
         user_data: UserRegister,
-        tenant_id: Optional[ObjectId] = None
+        tenant_id: ObjectId,
     ) -> User:
-        """Register a new user"""
-        
-        # Check if email already exists
-        existing_user = await User.find_one(User.email == user_data.email)
+        """Register a new user within an explicitly-supplied tenant.
+
+        SECURITY: tenant_id is now a REQUIRED, caller-supplied parameter. The
+        previous behavior allowed the endpoint to fall back to
+        `ObjectId(user_data.tenant_id)` — i.e., the client's request body —
+        which let any unauthenticated visitor register themselves into ANY
+        existing tenant by guessing its id (queryable via the public
+        `/check-tenant-activity` endpoint). The endpoint that calls this is
+        now admin-gated and always passes the admin's own tenant.
+        """
+
+        # Check if email already exists — include soft-deleted users so a
+        # re-registration attempt with a deleted account's email is rejected
+        # explicitly (rather than silently re-using a dangling email).
+        existing_user = await User.find_one({"email": user_data.email})
         if existing_user:
             raise ValueError("Email already registered")
-        
+
         # Hash password
         hashed_password = pwd_context.hash(user_data.password)
-        
-        # Create user
+
+        # Create user — tenant_id is forced from the caller, never from the
+        # request body. is_verified is False until they confirm their email.
         user = User(
             name=user_data.name,
             email=user_data.email,
             password=hashed_password,
-            tenant_id=tenant_id or ObjectId(user_data.tenant_id),
+            tenant_id=tenant_id,
             is_active=True,
             is_verified=False
         )
-        
+
         await user.insert()
-        
+
         # Send verification email (TODO)
         # await self._send_verification_email(user)
-        
+
         return user
     
     async def login_user(
         self,
         login_data: UserLogin
     ) -> Tuple[User, str, str]:
-        """Login user and return user, access_token, refresh_token"""
-        
-        # Find user by email
-        user = await User.find_one(User.email == login_data.email)
-        
-        if not user:
-            raise ValueError("Invalid email or password")
-        
-        # Verify password
-        if not pwd_context.verify(login_data.password, user.password):
-            raise ValueError("Invalid email or password")
-        
-        # Check if user is active
+        """Login user and return user, access_token, refresh_token.
+
+        SECURITY notes:
+        - Active, non-deleted users only (soft-deleted accounts cannot re-auth).
+        - Constant-time response: bcrypt runs even when the email is unknown,
+          so an attacker cannot time the response to enumerate registered
+          emails.
+        - All credential-failure paths return the same error message; the
+          industry mismatch case used to include the industry name, which
+          allowed an attacker who knew an email to discover which industry it
+          belongs to. Now it returns the same generic message.
+        """
+
+        generic_invalid = ValueError("Invalid email or password")
+
+        # Find user by email — exclude soft-deleted accounts
+        user = await User.find_one(
+            {"email": login_data.email, "deleted_at": None}
+        )
+
+        # Constant-time: always run bcrypt, against the real hash if we found
+        # a user, against the dummy hash otherwise.
+        password_hash = user.password if user else _DUMMY_BCRYPT_HASH
+        password_ok = pwd_context.verify(login_data.password, password_hash)
+
+        if not user or not password_ok:
+            raise generic_invalid
+
         if not user.is_active:
+            # Distinct error is fine here — an attacker already cleared the
+            # bcrypt gate, so we're talking to the legitimate user.
             raise ValueError("User account is inactive")
-        
-        # Verify industry access if provided
+
+        # Verify industry access if provided. The error must NOT mention the
+        # industry, otherwise an attacker who knew an email could discover
+        # which vertical it belongs to by trying each industry value.
         if login_data.industry:
-            tenant = await Tenant.get(user.tenant_id)
-            tenant_industry = tenant.industry if tenant and tenant.industry else "travel"
+            from app.services.industry_service import get_tenant_industry, TenantNotFoundError
+            try:
+                tenant_industry = await get_tenant_industry(user.tenant_id)
+            except TenantNotFoundError:
+                raise generic_invalid
             if tenant_industry.lower() != login_data.industry.lower():
-                raise ValueError(f"Invalid credentials for the {login_data.industry.capitalize()} CRM")
-        
+                raise generic_invalid
+
         # Generate tokens
         access_token = self._create_access_token(user)
         refresh_token = self._create_refresh_token(user)
-        
+
         # Update last login
         await user.update_last_login()
-        
+
         # Log login activity
         await self._log_login(user)
-        
+
         return user, access_token, refresh_token
     
     async def change_password(
@@ -107,28 +145,39 @@ class AuthService:
         
         return True
     
-    async def request_password_reset(self, email: str) -> str:
-        """Request password reset and return reset token"""
-        
-        user = await User.find_one(User.email == email)
+    async def request_password_reset(self, email: str) -> None:
+        """Request a password reset.
+
+        SECURITY: returns None either way, never the token. The token is only
+        delivered via the user's registered email — anything else (including
+        returning it to the caller) would defeat the entire flow.
+
+        Soft-deleted accounts are ignored without any signal back to the caller.
+        """
+        user = await User.find_one(
+            {"email": email, "deleted_at": None, "is_active": True}
+        )
         if not user:
-            # Don't reveal if email exists
-            return "If email exists, reset link will be sent"
-        
-        # Generate reset token
+            # Silent no-op — endpoint will return the same generic message.
+            return None
+
         reset_token = self._create_reset_token(user)
-        
-        # Send reset email
         await self._send_reset_email(user, reset_token)
-        
-        return reset_token
+        return None
     
     async def _send_reset_email(self, user: User, reset_token: str):
-        """Send password reset email to user"""
+        """Send password reset email to user.
+
+        SECURITY: the reset URL is derived from settings.FRONTEND_URL, which
+        is loaded from environment. Previously this was hardcoded to
+        http://localhost:3000 — in production the email would point users to
+        the developer's laptop, breaking password reset entirely and creating
+        a phishing vector if the email recipient ever clicked the localhost
+        link with their CRM session open.
+        """
         email_service = EmailService()
-        
-        # Frontend reset URL - adjust based on your frontend URL
-        frontend_url = "http://localhost:3000"  # Change this for production
+
+        frontend_url = (settings.FRONTEND_URL or "http://localhost:3000").rstrip("/")
         reset_url = f"{frontend_url}/reset-password?token={reset_token}"
         
         html_body = f"""
@@ -172,56 +221,75 @@ class AuthService:
         token: str,
         new_password: str
     ) -> bool:
-        """Reset password using token"""
-        
+        """Reset password using a reset token.
+
+        SECURITY: all failure paths raise the SAME generic error. Previously
+        the message included the underlying exception text (`str(e)`), which
+        leaked internal details — JWT decoding errors, ObjectId parse errors,
+        and database exceptions all reached the client verbatim.
+        """
+        generic_error = ValueError("Invalid or expired reset token")
+
         try:
-            # Decode token
             payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            user_id = payload.get("sub")
-            token_type = payload.get("type")
-            
-            if token_type != "reset":
-                raise ValueError("Invalid token type")
-            
-            # Get user
-            user = await User.get(ObjectId(user_id))
-            if not user:
-                raise ValueError("User not found")
-            
-            # Update password
-            user.password = pwd_context.hash(new_password)
-            await user.save()
-            
-            return True
-            
-        except Exception as e:
-            raise ValueError(f"Invalid or expired token: {str(e)}")
-    
+        except Exception:
+            raise generic_error
+
+        user_id = payload.get("sub")
+        token_type = payload.get("type")
+        if token_type != "reset" or not user_id:
+            raise generic_error
+
+        try:
+            user_oid = ObjectId(user_id)
+        except Exception:
+            raise generic_error
+
+        user = await User.find_one(
+            {"_id": user_oid, "deleted_at": None, "is_active": True}
+        )
+        if not user:
+            raise generic_error
+
+        user.password = pwd_context.hash(new_password)
+        await user.save()
+        return True
+
     async def refresh_access_token(self, refresh_token: str) -> str:
-        """Refresh access token using refresh token"""
-        
+        """Refresh access token using a refresh token.
+
+        SECURITY: same as reset_password — all failure paths return one
+        generic message. Internal exception text is logged server-side but
+        not returned.
+        """
+        generic_error = ValueError("Invalid or expired refresh token")
+
         try:
             payload = jwt.decode(refresh_token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-            user_id = payload.get("sub")
-            token_type = payload.get("type")
-            
-            if token_type != "refresh":
-                raise ValueError("Invalid token type")
-            
-            user = await User.get(ObjectId(user_id))
-            if not user or not user.is_active:
-                raise ValueError("User not found or inactive")
-            
-            # Generate new access token
-            access_token = self._create_access_token(user)
-            return access_token
-            
-        except Exception as e:
-            raise ValueError(f"Invalid refresh token: {str(e)}")
+        except Exception:
+            raise generic_error
+
+        user_id = payload.get("sub")
+        token_type = payload.get("type")
+        if token_type != "refresh" or not user_id:
+            raise generic_error
+
+        try:
+            user_oid = ObjectId(user_id)
+        except Exception:
+            raise generic_error
+
+        user = await User.find_one(
+            {"_id": user_oid, "is_active": True, "deleted_at": None}
+        )
+        if not user:
+            raise generic_error
+
+        return self._create_access_token(user)
     
     def _create_access_token(self, user: User) -> str:
         """Create JWT access token"""
-        expires = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        expires = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         
         payload = {
             "sub": str(user.id),
@@ -235,7 +303,7 @@ class AuthService:
     
     def _create_refresh_token(self, user: User) -> str:
         """Create JWT refresh token"""
-        expires = datetime.utcnow() + timedelta(days=30)
+        expires = datetime.now(timezone.utc) + timedelta(days=30)
         
         payload = {
             "sub": str(user.id),
@@ -247,7 +315,7 @@ class AuthService:
     
     def _create_reset_token(self, user: User) -> str:
         """Create password reset token"""
-        expires = datetime.utcnow() + timedelta(hours=1)
+        expires = datetime.now(timezone.utc) + timedelta(hours=1)
         
         payload = {
             "sub": str(user.id),

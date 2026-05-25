@@ -58,17 +58,17 @@ export default function DashboardClientPage() {
             <div className="space-y-6">
                 {/* Skeleton KPI cards */}
                 <div className="space-y-4">
-                    <div className="h-7 w-80 animate-pulse rounded-lg bg-slate-200" />
+                    <div className="h-7 w-80 animate-pulse rounded-lg bg-slate-800" />
                     <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8">
                         {Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i} className="h-32 animate-pulse rounded-2xl bg-slate-100" />
+                            <div key={i} className="h-32 animate-pulse rounded-2xl bg-slate-800" />
                         ))}
                     </div>
                 </div>
                 {/* Skeleton charts */}
                 <div className="grid gap-4 xl:grid-cols-3">
-                    <div className="xl:col-span-2 h-[360px] animate-pulse rounded-2xl bg-slate-100" />
-                    <div className="h-[360px] animate-pulse rounded-2xl bg-slate-100" />
+                    <div className="xl:col-span-2 h-[360px] animate-pulse rounded-2xl bg-slate-800" />
+                    <div className="h-[360px] animate-pulse rounded-2xl bg-slate-800" />
                 </div>
             </div>
         );
@@ -79,13 +79,13 @@ export default function DashboardClientPage() {
             <div className="space-y-6">
                 <div className="flex h-96 items-center justify-center">
                     <div className="text-center">
-                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-50">
+                        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/20">
                             <svg className="h-8 w-8 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                             </svg>
                         </div>
-                        <h2 className="mb-2 text-xl font-bold text-slate-800">Failed to load dashboard</h2>
-                        <p className="mb-4 text-sm text-slate-500">Something went wrong while fetching your data</p>
+                        <h2 className="mb-2 text-xl font-bold text-slate-100">Failed to load dashboard</h2>
+                        <p className="mb-4 text-sm text-slate-400">Something went wrong while fetching your data</p>
                         <button
                             onClick={() => window.location.reload()}
                             className="rounded-lg bg-indigo-600 px-5 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-indigo-700 hover:shadow-md"
@@ -159,7 +159,7 @@ export default function DashboardClientPage() {
                             className="flex w-full items-center justify-between rounded-xl border border-border bg-card/80 px-5 py-4 text-sm font-semibold text-foreground transition-all hover:bg-accent/50 hover:shadow-sm"
                         >
                             <span className="flex items-center gap-2">
-                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-600">
+                                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/15 text-amber-300">
                                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 </span>
                                 Missed Tasks ({taskSummary?.missed_count ?? 0})
@@ -262,7 +262,7 @@ export default function DashboardClientPage() {
                                                     <td className="py-3.5 pr-3 text-muted-foreground">{idata.quantity || "-"}</td>
                                                 </>
                                             )}
-                                            <td className="py-3.5 pr-3 font-semibold text-emerald-600">
+                                            <td className="py-3.5 pr-3 font-semibold text-emerald-300">
                                                 {deal.amount ? `₹${Number(deal.amount).toLocaleString("en-IN")}` : "-"}
                                             </td>
                                             <td className="py-3.5 pr-3">
@@ -278,7 +278,7 @@ export default function DashboardClientPage() {
                                 <tr className="border-b">
                                     <td colSpan={7} className="py-8 text-center text-muted-foreground">
                                         No key deals.{" "}
-                                        <Link href="/opportunities" className="text-indigo-600 hover:underline font-semibold">
+                                        <Link href="/opportunities" className="text-indigo-300 hover:underline font-semibold">
                                             View opportunities
                                         </Link>
                                     </td>

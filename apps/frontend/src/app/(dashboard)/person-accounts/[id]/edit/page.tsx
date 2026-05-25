@@ -36,7 +36,7 @@ export default async function EditPersonAccountPage(props: EditPersonAccountPage
                 <h1 className="text-3xl font-bold">Edit Person Account</h1>
                 <p className="text-muted-foreground">Update the details for {account.name}</p>
             </div>
-            <div className="bg-white rounded-lg border p-6">
+            <div className="bg-slate-900 rounded-lg border p-6">
                 <AccountForm
                     id={params.id}
                     isPersonAccount={true}

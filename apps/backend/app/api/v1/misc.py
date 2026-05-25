@@ -27,9 +27,10 @@ from typing import Optional, List, Dict, Any
 import secrets
 from beanie import PydanticObjectId
 from pydantic import BaseModel
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from app.api.deps import get_current_user
+from app.core.rate_limiter import limiter
 from app.models.user import User
 from app.models.tenant import Tenant
 from app.models.country import Country
@@ -41,11 +42,17 @@ router = APIRouter()
 # ============== Tenant probes (public) ==============
 
 @router.get("/check-tenant-activity", tags=["Public"])
+@limiter.limit("10/minute")
 async def check_tenant_activity(
+    request: Request,
     tenant_id: Optional[str] = Query(None),
     domain: Optional[str] = Query(None),
 ):
-    """Mirror old `/check_tenant_activity`."""
+    """Public tenant-activity probe.
+
+    SECURITY: rate-limited to mitigate enumeration of tenant IDs / domains.
+    A request without a valid tenant_id or domain returns False uniformly.
+    """
     if tenant_id:
         try:
             t = await Tenant.get(PydanticObjectId(tenant_id))
@@ -126,16 +133,21 @@ async def search_country(
 # ============== Verification (public) ==============
 
 @router.get("/verify-email/{token}", tags=["Public"])
-async def verify_email(token: str):
-    """Mirror old `/verifyemail/{token}`."""
+@limiter.limit("10/minute")
+async def verify_email(request: Request, token: str):
+    """Mirror old `/verifyemail/{token}`.
+
+    SECURITY: returns a uniform response regardless of token validity to
+    prevent enumeration of valid tokens or correlation with known user IDs.
+    """
     obj = await EmailToken.find_one({"token": token})
     if not obj:
-        raise HTTPException(404, "Invalid token")
+        return {"verified": False}
     if obj.used_at:
-        return {"verified": True, "already_used": True}
+        return {"verified": True}
     obj.used_at = datetime.utcnow()
     await obj.save()
-    user = await User.get(obj.user_id)
+    user = await User.find_one({"_id": obj.user_id, "deleted_at": None})
     if user and hasattr(user, "is_email_verified"):
         user.is_email_verified = True
         await user.save()
@@ -143,7 +155,8 @@ async def verify_email(token: str):
 
 
 @router.post("/verify-email/resend", tags=["Public"])
-async def resend_verification_email(payload: Dict[str, Any]):
+@limiter.limit("5/minute")
+async def resend_verification_email(request: Request, payload: Dict[str, Any]):
     """Mirror old `/verify/normal_email/resend`."""
     email = payload.get("email")
     if not email:
@@ -172,15 +185,70 @@ async def access_login(
     payload: AccessLoginIn,
     current_user: User = Depends(get_current_user),
 ):
-    """Mirror old `/access_login`. Admin-only impersonation token issuance."""
-    target = await User.get(payload.target_user_id)
-    if not target or target.tenant_id != current_user.tenant_id:
-        raise HTTPException(404, "Target user not found")
-    if not getattr(current_user, "is_admin", False):
-        raise HTTPException(403, "Admin only")
+    """Mirror old `/access_login`. Admin-only impersonation token issuance.
+
+    SECURITY:
+    - Admin status is resolved via tenant-scoped role lookup (the previous
+      `getattr(current_user, 'is_admin', False)` always returned False because
+      User has no such attribute — so this endpoint was effectively closed,
+      but the intent was wrong).
+    - The impersonation token is short-lived (15 minutes) regardless of the
+      configured access-token TTL, to bound exposure if the token leaks.
+    - The impersonation event is recorded in LoginLog with both
+      `impersonated_by` and target user IDs for audit.
+    """
+    from app.services.visibility_scope import _is_admin_user
     from app.api.deps import create_access_token
-    token = create_access_token({"sub": str(target.id), "impersonated_by": str(current_user.id)})
-    return {"token": token, "target_user_id": str(target.id)}
+    from datetime import timedelta
+
+    # Resolve target inside the caller's tenant — no cross-tenant impersonation.
+    target = await User.find_one(
+        {
+            "_id": payload.target_user_id,
+            "tenant_id": current_user.tenant_id,
+            "deleted_at": None,
+            "is_active": True,
+        }
+    )
+    if not target:
+        raise HTTPException(404, "Target user not found")
+
+    if not await _is_admin_user(current_user):
+        raise HTTPException(403, "Admin only")
+
+    token = create_access_token(
+        {
+            "sub": str(target.id),
+            "email": target.email,
+            "tenant_id": str(target.tenant_id),
+            "impersonated_by": str(current_user.id),
+        },
+        expires_delta=timedelta(minutes=15),
+    )
+
+    # Audit log
+    try:
+        from app.models.activity_log import LoginLog
+        log = LoginLog(
+            user_id=target.id,
+            user_name=target.name,
+            user_email=target.email,
+            tenant_id=target.tenant_id,
+        )
+        # Tag the audit row with the impersonator if the model supports it
+        if "impersonated_by" in LoginLog.model_fields:
+            setattr(log, "impersonated_by", current_user.id)
+        await log.insert()
+    except Exception:
+        # Audit failure must not block the security-critical response, but
+        # should be visible in logs.
+        import logging
+        logging.getLogger(__name__).exception(
+            "Failed to write impersonation LoginLog for %s -> %s",
+            current_user.id, target.id,
+        )
+
+    return {"token": token, "target_user_id": str(target.id), "expires_in_minutes": 15}
 
 
 # ============== Legacy logout alias ==============
@@ -376,7 +444,9 @@ async def check_pdf_status_alias(
 
 
 @router.get("/get-tenant-user-details", tags=["Public"])
+@limiter.limit("10/minute")
 async def public_tenant_user_details(
+    request: Request,
     tenant_id: str = Query(...),
 ):
     """Mirror old `/get_tenant_user_details`. Public summary for capture forms."""
@@ -402,18 +472,29 @@ class CaptureCheckIn(BaseModel):
 
 
 @router.post("/lead-capture/check-duplicate", tags=["Public"])
-async def check_capture_duplicate(payload: CaptureCheckIn):
-    """Mirror old `/check_capture_leads`. Public duplicate probe."""
+@limiter.limit("5/minute")
+async def check_capture_duplicate(request: Request, payload: CaptureCheckIn):
+    """Mirror old `/check_capture_leads`. Public duplicate probe.
+
+    SECURITY: returns only {"duplicate": bool}. The previous response also
+    included the matching lead_id, which let an unauthenticated visitor
+    enumerate stored lead IDs by iterating known emails (rate-limited but
+    still useful for downstream IDOR attempts).
+
+    Pydantic coerces email/mobile to plain strings at the boundary, so
+    operator-injection payloads like {"$ne": null} are rejected before this
+    code runs.
+    """
     from app.models.lead import Lead
     if not payload.email and not payload.mobile:
         return {"duplicate": False}
-    query: Dict[str, Any] = {"tenant_id": payload.tenant_id}
+    query: Dict[str, Any] = {"tenant_id": payload.tenant_id, "deleted_at": None}
     if payload.email:
         query["email"] = payload.email
     elif payload.mobile:
         query["mobile"] = payload.mobile
     lead = await Lead.find_one(query)
-    return {"duplicate": bool(lead), "lead_id": str(lead.id) if lead else None}
+    return {"duplicate": bool(lead)}
 
 
 class CaptureRefIn(BaseModel):
@@ -422,7 +503,8 @@ class CaptureRefIn(BaseModel):
 
 
 @router.post("/lead-capture/check-by-ref", tags=["Public"])
-async def check_capture_by_ref(payload: CaptureRefIn):
+@limiter.limit("5/minute")
+async def check_capture_by_ref(request: Request, payload: CaptureRefIn):
     """Mirror old `/check_capture_leads_ref_id`."""
     from app.models.opportunity_workflow import ExternalLead
     obj = await ExternalLead.find_one(

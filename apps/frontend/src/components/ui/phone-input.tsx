@@ -155,7 +155,7 @@ export function PhoneInput({ className, value = "", onChange, ...props }: PhoneI
             variant="outline"
             role="combobox"
             aria-expanded={open}
-            className="w-[85px] justify-between h-9 bg-white px-2 shrink-0"
+            className="w-[85px] justify-between h-9 bg-slate-900 px-2 shrink-0"
           >
             <span className="truncate flex-1 text-left text-sm">{countryCode}</span>
             <ChevronsUpDown className="ml-1 h-3 w-3 shrink-0 opacity-50" />
@@ -197,7 +197,7 @@ export function PhoneInput({ className, value = "", onChange, ...props }: PhoneI
         {...props}
         value={phoneNumber}
         onChange={handlePhoneChange}
-        className="flex-1 min-w-0 h-9 bg-white px-2 text-sm placeholder:text-xs"
+        className="flex-1 min-w-0 h-9 bg-slate-900 px-2 text-sm placeholder:text-xs"
         maxLength={10}
       />
     </div>

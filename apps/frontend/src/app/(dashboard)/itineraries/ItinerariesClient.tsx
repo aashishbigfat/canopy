@@ -49,23 +49,23 @@ export default function ItinerariesClient() {
 
     return (
         <div className="flex-1 min-w-0 w-full space-y-6 max-w-[1400px] mx-auto p-4 sm:p-6">
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-900">Itineraries</h1>
-            
-            <Card className="border-slate-200 shadow-sm min-w-0 w-full">
-                <CardHeader className="bg-slate-50 border-b border-slate-200 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-100">Itineraries</h1>
+
+            <Card className="border-slate-700 shadow-sm min-w-0 w-full">
+                <CardHeader className="bg-slate-800/60 border-b border-slate-700 py-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-0">
                     <div className="flex items-center gap-2">
                         <div className="h-8 w-8 bg-blue-500 rounded flex items-center justify-center shrink-0">
                             <FileText className="h-4 w-4 text-white" />
                         </div>
-                        <CardTitle className="text-base font-semibold text-slate-800">Itinerary Builder</CardTitle>
+                        <CardTitle className="text-base font-semibold text-slate-100">Itinerary Builder</CardTitle>
                     </div>
-                    
+
                     <div className="flex items-center gap-2 w-full sm:w-auto">
                         <div className="relative flex-1 sm:flex-initial">
                             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400" />
-                            <Input 
-                                placeholder="Search" 
-                                className="pl-9 h-9 w-full sm:w-[250px] text-sm bg-white"
+                            <Input
+                                placeholder="Search"
+                                className="pl-9 h-9 w-full sm:w-[250px] text-sm bg-slate-900 border-slate-700 text-slate-100 placeholder:text-slate-500"
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -80,70 +80,69 @@ export default function ItinerariesClient() {
                 <CardContent className="p-0">
                     <div className="w-full overflow-x-auto scrollbar-hide">
                         <Table>
-                            <TableHeader className="bg-slate-50 whitespace-nowrap">
-                                <TableRow>
-                                    <TableHead className="font-semibold text-slate-600">Itinerary Name</TableHead>
-                                    <TableHead className="font-semibold text-slate-600">Starts From</TableHead>
-                                    <TableHead className="font-semibold text-slate-600">Destinations</TableHead>
-                                    <TableHead className="font-semibold text-slate-600">Durations</TableHead>
-                                    <TableHead className="font-semibold text-slate-600">Created On</TableHead>
-                                    <TableHead className="font-semibold text-slate-600 w-[100px]"></TableHead>
+                            <TableHeader className="bg-slate-800/40 whitespace-nowrap">
+                                <TableRow className="border-slate-700 hover:bg-transparent">
+                                    <TableHead className="font-semibold text-slate-300">Itinerary Name</TableHead>
+                                    <TableHead className="font-semibold text-slate-300">Starts From</TableHead>
+                                    <TableHead className="font-semibold text-slate-300">Destinations</TableHead>
+                                    <TableHead className="font-semibold text-slate-300">Durations</TableHead>
+                                    <TableHead className="font-semibold text-slate-300">Created On</TableHead>
+                                    <TableHead className="font-semibold text-slate-300 w-[100px]"></TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {isLoading ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8">Loading itineraries...</TableCell>
+                                        <TableCell colSpan={6} className="text-center py-8 text-slate-300">Loading itineraries...</TableCell>
                                     </TableRow>
                                 ) : filteredItineraries.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={6} className="text-center py-8 text-slate-500">No itineraries found</TableCell>
+                                        <TableCell colSpan={6} className="text-center py-8 text-slate-400">No itineraries found</TableCell>
                                     </TableRow>
                                 ) : (
                                     filteredItineraries.map((itinerary) => (
-                                        <TableRow key={itinerary.id} className="hover:bg-slate-50/50 block sm:table-row">
+                                        <TableRow key={itinerary.id} className="border-slate-700 hover:bg-slate-800/40 block sm:table-row">
                                             <TableCell className="block sm:table-cell">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="h-8 w-8 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-medium text-slate-500 text-center leading-tight border border-slate-300 shrink-0">
+                                                    <div className="h-8 w-8 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-medium text-slate-300 text-center leading-tight border border-slate-600 shrink-0">
                                                         ID<br/>BLD
                                                     </div>
-                                                    <Link href={`/itineraries/${itinerary.id}`} className="text-blue-600 hover:underline font-medium break-words">
+                                                    <Link href={`/itineraries/${itinerary.id}`} className="text-blue-400 hover:text-blue-300 hover:underline font-medium break-words">
                                                         {itinerary.name}
                                                     </Link>
                                                 </div>
                                             </TableCell>
-                                            <TableCell className="text-slate-600 block sm:table-cell whitespace-nowrap">
+                                            <TableCell className="text-slate-300 block sm:table-cell whitespace-nowrap">
                                                 {itinerary.tour_starts_from || "-"}
                                             </TableCell>
-                                            <TableCell className="text-slate-600 font-medium block sm:table-cell whitespace-nowrap">
-                                                {/* Note: In a real app we'd resolve destination_ids to names. For now, showing length or a placeholder */}
+                                            <TableCell className="text-slate-300 font-medium block sm:table-cell whitespace-nowrap">
                                                 {itinerary.destination_ids?.length > 0 ? `${itinerary.destination_ids.length} Destination(s)` : "-"}
                                             </TableCell>
-                                            <TableCell className="text-slate-600 block sm:table-cell whitespace-nowrap">
+                                            <TableCell className="text-slate-300 block sm:table-cell whitespace-nowrap">
                                                 {itinerary.total_nights || 0} N / {itinerary.total_days || 0} D
                                             </TableCell>
-                                            <TableCell className="text-slate-600 block sm:table-cell whitespace-nowrap">
+                                            <TableCell className="text-slate-300 block sm:table-cell whitespace-nowrap">
                                                 {itinerary.created_at ? format(new Date(itinerary.created_at), "dd MMM yyyy") : "-"}
                                             </TableCell>
                                             <TableCell className="block sm:table-cell text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
-                                                        <Button variant="outline" className="h-8 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 border-indigo-200 pr-2">
+                                                        <Button variant="outline" className="h-8 bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border-indigo-500/40 pr-2">
                                                             Action <MoreHorizontal className="h-4 w-4 ml-1" />
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end" className="w-56">
                                                         <DropdownMenuItem onClick={() => router.push(`/itineraries/${itinerary.id}/edit`)}>
-                                                            <Edit className="h-4 w-4 mr-2 text-slate-500" /> Edit
+                                                            <Edit className="h-4 w-4 mr-2 text-slate-400" /> Edit
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem>
-                                                            <FileText className="h-4 w-4 mr-2 text-slate-500" /> Preview & Generate Pdf
+                                                            <FileText className="h-4 w-4 mr-2 text-slate-400" /> Preview & Generate Pdf
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem>
-                                                            <Mail className="h-4 w-4 mr-2 text-slate-500" /> E-mail Itinerary
+                                                            <Mail className="h-4 w-4 mr-2 text-slate-400" /> E-mail Itinerary
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem>
-                                                            <Copy className="h-4 w-4 mr-2 text-slate-500" /> Copy
+                                                            <Copy className="h-4 w-4 mr-2 text-slate-400" /> Copy
                                                         </DropdownMenuItem>
                                                         <DropdownMenuItem 
                                                             onClick={() => handleDelete(itinerary.id)}

@@ -178,7 +178,21 @@ class OpportunityResponse(BaseModel):
     creation_type: Optional[str] = "Manual"
     is_person_account: bool = False
     type: Optional[str] = None
-    
+
+    # BD multi-owner triple (auto-resolved from account billing address /
+    # converting lead). Names are enriched server-side for the right panel.
+    territory_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    region_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    territory_name: Optional[str] = None
+    bd_owner_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    bd_owner_name: Optional[str] = None
+    reporting_manager_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    reporting_manager_name: Optional[str] = None
+    operation_user_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    operation_user_name: Optional[str] = None
+    territory_match_source: Optional[str] = None
+    territory_assigned_at: Optional[datetime] = None
+
     # Industry-specific data (all industries including travel)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 

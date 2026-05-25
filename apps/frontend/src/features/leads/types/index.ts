@@ -57,8 +57,33 @@ export interface Lead {
     // Industry-specific data (travel_date, no_of_pax, destinations, etc.)
     industry_data?: Record<string, any>;
 
+    // BD multi-owner triple (auto-resolved from territory + role hierarchy)
+    territory_id?: string;
+    region_id?: string;
+    territory_name?: string;
+    territory_match_source?: 'postal_code' | 'postal_code_pattern' | 'state' | 'country' | 'manual';
+    territory_assigned_at?: string;
+    bd_owner_id?: string;
+    bd_owner_name?: string;
+    reporting_manager_id?: string;
+    reporting_manager_name?: string;
+    requires_field_meeting?: boolean;
+
     created_at: string;
     updated_at: string;
+}
+
+export interface LeadBDReassignPayload {
+    bd_owner_id?: string;
+    reporting_manager_id?: string;
+    reason?: string;
+}
+
+export interface LeadBDReassignResponse {
+    lead_id: string;
+    bd_owner_id?: string;
+    reporting_manager_id?: string;
+    territory_match_source?: string;
 }
 
 export interface LeadCreateData {

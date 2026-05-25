@@ -14,6 +14,7 @@ import {
     LogOut,
     Menu,
     Map,
+    Briefcase,
 } from "lucide-react";
 
 import type { IndustryLabelMap, IndustryType } from "@/lib/industry-labels";
@@ -79,6 +80,19 @@ function coreNavItems(labels: IndustryLabelMap): NavItem[] {
             href: "/tasks",
             icon: CheckSquare,
             requiredPermission: "view_task",
+        },
+        {
+            title: "BD Panel",
+            href: "/bd",
+            icon: Briefcase,
+            requiredPermission: "view_bd_panel",
+            submenu: [
+                { title: "Dashboard",         href: "/bd",            requiredPermission: "view_bd_panel" },
+                { title: "My Visits",         href: "/bd/visits",     requiredPermission: "view_bd_visit" },
+                { title: "Pending Approvals", href: "/bd/approvals",  requiredPermission: "approve_bd_visit" },
+                { title: "My Expenses",       href: "/bd/expenses",   requiredPermission: "view_expense" },
+                { title: "Live Tracking",     href: "/bd/tracking",   requiredPermission: "view_live_tracking" },
+            ],
         },
         {
             title: "Drive",
@@ -148,7 +162,10 @@ function trailingNavItems(): NavItem[] {
                 { title: "Auto-Assignment", href: "/settings/auto-assignment", requiredPermission: "manage_system" },
                 { title: "Leaderboard", href: "/settings/leaderboard", requiredPermission: "manage_system" },
                 { title: "Email Footer", href: "/settings/email-footer", requiredPermission: "manage_system" },
-                { title: "Territory", href: "/settings/territory", requiredPermission: "manage_system" },
+                { title: "Territory", href: "/settings/territory", requiredPermission: "manage_territory" },
+                { title: "BD Activity Types", href: "/settings/picklists/bd_activity_type", requiredPermission: "manage_system" },
+                { title: "Expense Categories", href: "/settings/picklists/expense_category", requiredPermission: "manage_system" },
+                { title: "Automation Rules", href: "/settings/automation", requiredPermission: "manage_automation_rules" },
             ],
         },
     ];

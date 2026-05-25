@@ -53,7 +53,7 @@ export function OpportunityItinerariesTab({ opportunityId }: OpportunityItinerar
 
             <div className="min-h-[150px]">
                 {isLoading ? (
-                    <div className="text-center text-slate-500 py-12">Loading...</div>
+                    <div className="text-center text-slate-400 py-12">Loading...</div>
                 ) : linkedItins.length === 0 ? (
                     <div className="crm-empty-state">
                         <Map className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />

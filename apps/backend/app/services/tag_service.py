@@ -22,8 +22,13 @@ class TagService:
         return tag
     
     async def get_tag(self, tag_id: str, tenant_id: ObjectId) -> Optional[Tag]:
-        tag = await Tag.get(ObjectId(tag_id))
-        return tag if tag and tag.tenant_id == tenant_id and not tag.deleted_at else None
+        try:
+            oid = ObjectId(tag_id)
+        except Exception:
+            return None
+        return await Tag.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_tag(self, tag_id: str, data: TagUpdate, tenant_id: ObjectId) -> Optional[Tag]:
         tag = await self.get_tag(tag_id, tenant_id)
@@ -40,9 +45,12 @@ class TagService:
         tag = await self.get_tag(tag_id, tenant_id)
         if not tag:
             return False
-        
-        # Remove all entity associations
-        await EntityTag.find(EntityTag.tag_id == tag.id).delete()
+
+        # Remove all entity associations — MUST be tenant-scoped so we never
+        # touch other tenants' EntityTag rows even if tag.id were ever shared.
+        await EntityTag.find(
+            {"tag_id": tag.id, "tenant_id": tenant_id}
+        ).delete()
         await tag.soft_delete()
         return True
     
@@ -69,9 +77,12 @@ class TagService:
             return False
         
         existing = await EntityTag.find_one(
-            EntityTag.tag_id == tag.id,
-            EntityTag.entity_type == entity_type,
-            EntityTag.entity_id == ObjectId(entity_id)
+            {
+                "tag_id": tag.id,
+                "entity_type": entity_type,
+                "entity_id": ObjectId(entity_id),
+                "tenant_id": tenant_id,
+            }
         )
         if existing:
             return True  # Already tagged
@@ -98,9 +109,12 @@ class TagService:
             return False
         
         result = await EntityTag.find_one(
-            EntityTag.tag_id == tag.id,
-            EntityTag.entity_type == entity_type,
-            EntityTag.entity_id == ObjectId(entity_id)
+            {
+                "tag_id": tag.id,
+                "entity_type": entity_type,
+                "entity_id": ObjectId(entity_id),
+                "tenant_id": tenant_id,
+            }
         )
         if result:
             await result.delete()
@@ -112,9 +126,11 @@ class TagService:
         entity_tags = await EntityTag.find(
             {"entity_type": entity_type, "entity_id": ObjectId(entity_id), "tenant_id": tenant_id}
         ).to_list()
-        
+
         tag_ids = [et.tag_id for et in entity_tags]
         if not tag_ids:
             return []
-        
-        return await Tag.find({"_id": {"$in": tag_ids}, "deleted_at": None}).to_list()
+
+        return await Tag.find(
+            {"_id": {"$in": tag_ids}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()

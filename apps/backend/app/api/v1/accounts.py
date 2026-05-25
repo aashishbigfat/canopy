@@ -121,8 +121,8 @@ async def create_account(
 ):
     """Create a new account"""
     try:
-        tenant = await Tenant.get(current_user.tenant_id)
-        industry = tenant.industry if tenant else "travel"
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(current_user.tenant_id)
         account_data.industry_data = validate_industry_data(
             industry=industry,
             data=account_data.industry_data or {},
@@ -512,9 +512,14 @@ async def get_account_address_for_contact(
     current_user: User = Depends(get_current_user)
 ):
     """Get account address fields for copying to contact"""
-    account = await Account.get(PydanticObjectId(account_id))
-    
-    if not account or account.tenant_id != current_user.tenant_id:
+    try:
+        oid = PydanticObjectId(account_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Account not found")
+    account = await Account.find_one(
+        {"_id": oid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not account:
         raise HTTPException(status_code=404, detail="Account not found")
     
     return {
@@ -542,8 +547,8 @@ async def update_account(
         from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         
         if account_data.industry_data is not None:
-            tenant = await Tenant.get(current_user.tenant_id)
-            industry = tenant.industry if tenant else "travel"
+            from app.services.industry_service import get_tenant_industry
+            industry = await get_tenant_industry(current_user.tenant_id)
             account_data.industry_data = validate_industry_data(
                 industry=industry,
                 data=account_data.industry_data,
@@ -648,9 +653,14 @@ async def update_single_column(
 ):
     """Update a single column of an account"""
     from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
-    account = await Account.get(PydanticObjectId(account_id))
-    
-    if not account or account.tenant_id != current_user.tenant_id:
+    try:
+        oid = PydanticObjectId(account_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Account not found")
+    account = await Account.find_one(
+        {"_id": oid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not account:
         raise HTTPException(status_code=404, detail="Account not found")
         
     # Visibility pre-check

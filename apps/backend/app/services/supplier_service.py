@@ -51,12 +51,14 @@ class SupplierService:
         supplier_id: str,
         tenant_id: ObjectId
     ) -> Optional[Supplier]:
-        """Get supplier by ID"""
-        supplier = await Supplier.get(ObjectId(supplier_id))
-        
-        if supplier and supplier.tenant_id == tenant_id and not supplier.deleted_at:
-            return supplier
-        return None
+        """Get supplier by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(supplier_id)
+        except Exception:
+            return None
+        return await Supplier.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_supplier(
         self,
@@ -267,10 +269,20 @@ class SupplierService:
             "opportunity_id": ObjectId(opportunity_id),
             "tenant_id": tenant_id
         }).to_list()
-        
+
+        if not links:
+            return []
+
+        # Bulk tenant-scoped fetch
+        sup_ids = [link.supplier_id for link in links]
+        suppliers = await Supplier.find(
+            {"_id": {"$in": sup_ids}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        sup_map = {s.id: s for s in suppliers}
+
         result = []
         for link in links:
-            supplier = await Supplier.get(link.supplier_id)
+            supplier = sup_map.get(link.supplier_id)
             if supplier:
                 result.append({
                     "supplier": supplier,
@@ -279,5 +291,5 @@ class SupplierService:
                     "email_subject": link.email_subject,
                     "email_body": link.email_body
                 })
-        
+
         return result

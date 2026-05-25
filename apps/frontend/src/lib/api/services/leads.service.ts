@@ -10,7 +10,9 @@ import {
     OwnerChangeResponse,
     LeadStatus,
     Source,
-    ConversionSuggestions
+    ConversionSuggestions,
+    LeadBDReassignPayload,
+    LeadBDReassignResponse,
 } from "@/features/leads/types";
 
 const BASE_URL = "/leads";
@@ -99,6 +101,21 @@ export const leadsService = {
             params: { new_owner_id: newOwnerId },
             data: ids
         });
+        return response.data;
+    },
+
+    reassignBd: async (id: string, payload: LeadBDReassignPayload): Promise<LeadBDReassignResponse> => {
+        const response: AxiosResponse<LeadBDReassignResponse> = await apiClient.post(
+            `${BASE_URL}/${id}/reassign-bd`,
+            payload
+        );
+        return response.data;
+    },
+
+    resolveTerritory: async (id: string): Promise<LeadBDReassignResponse> => {
+        const response: AxiosResponse<LeadBDReassignResponse> = await apiClient.post(
+            `${BASE_URL}/${id}/resolve-territory`
+        );
         return response.data;
     },
 };

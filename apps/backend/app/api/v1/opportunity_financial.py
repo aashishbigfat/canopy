@@ -2,11 +2,15 @@
 Opportunity Financial API endpoints - Costing, Payment Schedule, Transactions
 Routes are mounted under /api/v1/opportunities/{opportunity_id}/...
 """
+import logging
 from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 from bson import ObjectId
 
 from app.models.user import User
+
+
+_logger = logging.getLogger(__name__)
 from app.models.opportunity import Opportunity
 from app.models.opportunity_financial import (
     OpportunityCosting, PaymentScheduleItem, OpportunityTransaction,
@@ -27,12 +31,15 @@ router = APIRouter()
 # ─────────────────────────── HELPER: verify opportunity ───────────────────────
 
 async def get_opportunity_or_404(opportunity_id: str, tenant_id):
-    """Fetch an opportunity verifying tenant ownership"""
+    """Fetch an opportunity verifying tenant ownership via scoped query."""
     try:
-        opp = await Opportunity.get(ObjectId(opportunity_id))
+        oid = ObjectId(opportunity_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid opportunity ID")
-    if not opp or opp.tenant_id != tenant_id:
+    opp = await Opportunity.find_one(
+        {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+    )
+    if not opp:
         raise HTTPException(status_code=404, detail="Opportunity not found")
     return opp
 
@@ -51,11 +58,11 @@ async def get_financial_config(
 
     # 1. Fetch Tenant record directly as primary source of company name
     try:
-        tenant = await Tenant.get(current_user.tenant_id)
+        tenant = await Tenant.find_one({"_id": current_user.tenant_id, "is_active": True})
         if tenant and tenant.company_name:
             supplier_name = tenant.company_name
     except Exception as e:
-        print(f"Error fetching tenant {current_user.tenant_id}: {e}")
+        _logger.warning("Error fetching tenant %s: %s", current_user.tenant_id, e)
 
     # 2. If not found, or if we want to allow override via settings, check TenantSettings
     if not supplier_name:
@@ -103,13 +110,19 @@ async def get_costing_destinations(
 
     result = []
     opp_dest_ids = (opp.industry_data or {}).get('destination_ids', [])
-    for did in (opp_dest_ids or []):
-        try:
-            dest = await Destination.get(ObjectId(str(did)))
-            if dest:
-                result.append({"id": str(dest.id), "name": dest.name})
-        except Exception:
-            pass
+    if opp_dest_ids:
+        # Single tenant-scoped bulk lookup; no cross-tenant destination exposure.
+        oids = []
+        for did in opp_dest_ids:
+            try:
+                oids.append(ObjectId(str(did)))
+            except Exception:
+                continue
+        if oids:
+            dests = await Destination.find(
+                {"_id": {"$in": oids}, "tenant_id": current_user.tenant_id, "deleted_at": None}
+            ).to_list()
+            result = [{"id": str(d.id), "name": d.name} for d in dests]
     return {"destinations": result}
 
 
@@ -164,25 +177,40 @@ async def upsert_costing(
     """Create or update the costing sheet for an opportunity"""
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
-    # Enrich supplier & destination names for submitted items
+    # Enrich supplier & destination names for submitted items.
+    # SECURITY: lookups MUST be tenant-scoped — otherwise a forged item.supplier_id
+    # or destination_id from another tenant could inject foreign data into this
+    # tenant's costing sheet.
     for item in data.items:
         if item.supplier_id and not item.supplier_name:
             try:
-                supplier = await Supplier.get(ObjectId(item.supplier_id))
+                supplier = await Supplier.find_one(
+                    {
+                        "_id": ObjectId(item.supplier_id),
+                        "tenant_id": current_user.tenant_id,
+                        "deleted_at": None,
+                    }
+                )
                 if supplier:
                     item.supplier_name = supplier.name
             except Exception:
                 pass
 
         if item.destination_ids and not item.destination_names:
-            names = []
-            for did in item.destination_ids:
-                try:
-                    dest = await Destination.get(ObjectId(did))
-                    if dest:
-                        names.append(dest.name)
-                except Exception:
-                    pass
+            try:
+                dest_oids = [ObjectId(d) for d in item.destination_ids]
+            except Exception:
+                dest_oids = []
+            names: list[str] = []
+            if dest_oids:
+                dests = await Destination.find(
+                    {
+                        "_id": {"$in": dest_oids},
+                        "tenant_id": current_user.tenant_id,
+                        "deleted_at": None,
+                    }
+                ).to_list()
+                names = [d.name for d in dests]
             item.destination_names = names
 
     # Calculate totals
@@ -335,11 +363,14 @@ async def update_payment_schedule_item(
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     try:
-        item = await PaymentScheduleItem.get(ObjectId(item_id))
+        iid = ObjectId(item_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid item ID")
 
-    if not item or item.tenant_id != current_user.tenant_id:
+    item = await PaymentScheduleItem.find_one(
+        {"_id": iid, "tenant_id": current_user.tenant_id}
+    )
+    if not item:
         raise HTTPException(status_code=404, detail="Payment schedule item not found")
 
     update_data = data.model_dump(exclude_none=True)
@@ -376,10 +407,12 @@ async def update_payment_schedule_item(
     # If reverting from Received back to Pending, clear paid_at and delete the linked transaction
     if new_status == "Pending" and old_status == "Received":
         update_data["paid_at"] = None
-        # Delete the linked Receive transaction if it exists
+        # Delete the linked Receive transaction if it exists — tenant-scoped.
         if item.transaction_id:
             try:
-                linked_txn = await OpportunityTransaction.get(item.transaction_id)
+                linked_txn = await OpportunityTransaction.find_one(
+                    {"_id": item.transaction_id, "tenant_id": current_user.tenant_id}
+                )
                 if linked_txn:
                     await linked_txn.delete()
             except Exception:
@@ -429,11 +462,14 @@ async def delete_payment_schedule_item(
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     try:
-        item = await PaymentScheduleItem.get(ObjectId(item_id))
+        iid = ObjectId(item_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid item ID")
 
-    if not item or item.tenant_id != current_user.tenant_id:
+    item = await PaymentScheduleItem.find_one(
+        {"_id": iid, "tenant_id": current_user.tenant_id}
+    )
+    if not item:
         raise HTTPException(status_code=404, detail="Payment schedule item not found")
 
     # Cannot delete if already received
@@ -525,11 +561,14 @@ async def update_transaction(
     await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     try:
-        txn = await OpportunityTransaction.get(ObjectId(txn_id))
+        tid = ObjectId(txn_id)
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid transaction ID")
 
-    if not txn or txn.tenant_id != current_user.tenant_id:
+    txn = await OpportunityTransaction.find_one(
+        {"_id": tid, "tenant_id": current_user.tenant_id}
+    )
+    if not txn:
         raise HTTPException(status_code=404, detail="Transaction not found")
 
     update_data = data.model_dump(exclude_none=True)

@@ -377,12 +377,12 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <div className="crm-surface mb-1 flex items-center gap-2 p-3">
-                        <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account Type:</span>
+                        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Account Type:</span>
                         <Badge variant="outline" className={cn(
                             "px-2 py-0.5 font-bold text-[10px] transition-colors",
                             isPersonAccount
-                                ? "bg-orange-100 text-orange-700 border-orange-200"
-                                : "bg-blue-100 text-blue-700 border-blue-200"
+                                ? "bg-orange-500/20 text-orange-300 border-orange-500/40"
+                                : "bg-blue-500/20 text-blue-300 border-blue-500/40"
                         )}>
                             {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
                         </Badge>
@@ -412,7 +412,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                 }}
                                 className="cursor-pointer"
                             />
-                            <label htmlFor="account-type-company" className="text-sm font-medium text-slate-700 cursor-pointer">Account</label>
+                            <label htmlFor="account-type-company" className="text-sm font-medium text-slate-200 cursor-pointer">Account</label>
                         </div>
                         <div className="flex items-center gap-2">
                             <input
@@ -438,7 +438,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                 }}
                                 className="cursor-pointer"
                             />
-                            <label htmlFor="account-type-person" className="text-sm font-medium text-slate-700 cursor-pointer">Personal Account</label>
+                            <label htmlFor="account-type-person" className="text-sm font-medium text-slate-200 cursor-pointer">Personal Account</label>
                         </div>
                     </div>
                     <div className="crm-surface grid gap-6 p-4 md:grid-cols-2">
@@ -565,7 +565,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                             {...field}
                                             readOnly
                                             disabled
-                                            className="bg-slate-50 text-slate-500 cursor-not-allowed"
+                                            className="bg-slate-800 text-slate-400 cursor-not-allowed"
                                         />
                                     </FormControl>
                                     <FormMessage />
@@ -641,7 +641,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                                     variant="outline"
                                                     role="combobox"
                                                     className={cn(
-                                                        "min-h-[36px] h-auto w-full justify-between bg-white px-3 py-1",
+                                                        "min-h-[36px] h-auto w-full justify-between bg-slate-900 px-3 py-1",
                                                         selected.length === 0 && "text-muted-foreground"
                                                     )}
                                                 >
@@ -733,7 +733,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                     <FormLabel className="text-red-600 font-semibold">Close Lost Reason *</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value || ""}>
                                         <FormControl>
-                                            <SelectTrigger className="border-red-200 focus:ring-red-500">
+                                            <SelectTrigger className="border-red-500/40 focus:ring-red-500">
                                                 <SelectValue placeholder="Select reason" />
                                             </SelectTrigger>
                                         </FormControl>

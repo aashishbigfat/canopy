@@ -28,9 +28,9 @@ async def create_quote(
     """Create a new quote with items -- unified schema for all industries"""
     service = QuoteService()
     
-    # Determine tenant industry
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
+    # Determine tenant industry — resolver raises if tenant missing
+    from app.services.industry_service import get_tenant_industry
+    industry = await get_tenant_industry(current_user.tenant_id)
     
     try:
         # Validate industry_data if present
@@ -136,9 +136,9 @@ async def update_quote(
     """Update a quote -- unified schema for all industries"""
     service = QuoteService()
     
-    # Determine tenant industry
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
+    # Determine tenant industry — resolver raises if tenant missing
+    from app.services.industry_service import get_tenant_industry
+    industry = await get_tenant_industry(current_user.tenant_id)
     
     try:
         # Validate industry_data if present

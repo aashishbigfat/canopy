@@ -7,7 +7,7 @@ import type { ActivityLog } from "@/features/dashboard/services/dashboardService
 
 const typeIcons: Record<string, React.ReactNode> = {
     task: <ClipboardList className="h-4 w-4 text-blue-500" />,
-    personal_account: <Building2 className="h-4 w-4 text-zinc-500" />,
+    personal_account: <Building2 className="h-4 w-4 text-slate-400" />,
     opportunity: <Lightbulb className="h-4 w-4 text-violet-500" />,
     lead: <UserPlus className="h-4 w-4 text-amber-500" />,
     contact: <Users className="h-4 w-4 text-sky-500" />,

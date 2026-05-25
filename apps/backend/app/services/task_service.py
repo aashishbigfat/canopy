@@ -77,12 +77,14 @@ class TaskService(ActivityMixin):
         return task
     
     async def get_task(self, task_id: str, tenant_id: ObjectId) -> Optional[Task]:
-        """Get task by ID"""
-        task = await Task.get(ObjectId(task_id))
-        
-        if task and task.tenant_id == tenant_id and not task.deleted_at:
-            return task
-        return None
+        """Get task by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(task_id)
+        except Exception:
+            return None
+        return await Task.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_task(
         self,

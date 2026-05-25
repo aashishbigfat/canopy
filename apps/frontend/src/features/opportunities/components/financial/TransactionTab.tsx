@@ -83,7 +83,7 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
         return (
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                <span className="ml-2 text-slate-500 text-sm">Loading transactions...</span>
+                <span className="ml-2 text-slate-400 text-sm">Loading transactions...</span>
             </div>
         );
     }
@@ -94,7 +94,7 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
         <div className="space-y-4">
             {/* Header with Pay Amount primary + Refund dropdown */}
             <div className="flex justify-between items-center">
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                     Receivables
                 </p>
 
@@ -109,16 +109,16 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                     </button>
 
                     {showDropdown && (
-                        <div className="absolute right-0 mt-1 w-44 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
+                        <div className="absolute right-0 mt-1 w-44 bg-slate-900 border border-slate-700 rounded-lg shadow-lg z-20 py-1 animate-in fade-in slide-in-from-top-1 duration-150">
                             <button
                                 onClick={() => openCreateModal("Pay")}
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-blue-500/20 hover:text-blue-300 transition-colors"
                             >
                                 Pay Amount
                             </button>
                             <button
                                 onClick={() => openCreateModal("Refund")}
-                                className="w-full text-left px-4 py-2 text-sm text-slate-700 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                                className="w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-blue-500/20 hover:text-blue-300 transition-colors"
                             >
                                 Refund Amount
                             </button>
@@ -129,39 +129,39 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
 
             {/* Transaction Table */}
             {transactions.length > 0 ? (
-                <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <div className="border border-slate-700 rounded-lg overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
-                                <tr className="bg-slate-50 border-b border-slate-200">
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                <tr className="bg-slate-800 border-b border-slate-700">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Date
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Received
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Paid
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Refund
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Reference ID
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Mode
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Supplier
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Service
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Destination
                                     </th>
-                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+                                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 whitespace-nowrap">
                                         Note
                                     </th>
                                 </tr>
@@ -170,63 +170,63 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                                 {transactions.map((txn) => (
                                     <tr
                                         key={txn.id}
-                                        className="border-b border-slate-100 last:border-b-0 hover:bg-slate-50/50 transition-colors"
+                                        className="border-b border-slate-800 last:border-b-0 hover:bg-slate-800/40 transition-colors"
                                     >
                                         {/* Date */}
-                                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                                             {txn.transaction_date
                                                 ? formatDate(txn.transaction_date)
                                                 : "—"}
                                         </td>
 
                                         {/* Received */}
-                                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                                             {txn.transaction_type === "Receive"
                                                 ? formatCurrency(txn.amount)
                                                 : ""}
                                         </td>
 
                                         {/* Paid */}
-                                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                                             {txn.transaction_type === "Pay"
                                                 ? formatCurrency(txn.amount)
                                                 : ""}
                                         </td>
 
                                         {/* Refund */}
-                                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                                             {txn.transaction_type === "Refund"
                                                 ? formatCurrency(txn.amount)
                                                 : ""}
                                         </td>
 
                                         {/* Reference ID */}
-                                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
                                             {txn.reference_id || ""}
                                         </td>
 
                                         {/* Mode */}
-                                        <td className="px-4 py-3 text-slate-700 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-200 whitespace-nowrap">
                                             {txn.payment_mode || ""}
                                         </td>
 
                                         {/* Supplier */}
-                                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
                                             {txn.supplier || ""}
                                         </td>
 
                                         {/* Service */}
-                                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
                                             {txn.service || ""}
                                         </td>
 
                                         {/* Destination */}
-                                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap">
+                                        <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
                                             {txn.destination || ""}
                                         </td>
 
                                         {/* Note */}
-                                        <td className="px-4 py-3 text-slate-500 whitespace-nowrap max-w-[150px] truncate">
+                                        <td className="px-4 py-3 text-slate-400 whitespace-nowrap max-w-[150px] truncate">
                                             {txn.note || ""}
                                         </td>
                                     </tr>
@@ -235,31 +235,31 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
 
                             {/* Footer Summary — 10 columns total */}
                             <tfoot>
-                                <tr className="bg-slate-50 border-t-2 border-slate-200 font-semibold text-sm">
-                                    <td className="px-4 py-3 text-slate-600">
+                                <tr className="bg-slate-800 border-t-2 border-slate-700 font-semibold text-sm">
+                                    <td className="px-4 py-3 text-slate-300">
                                         Total Receivables
                                     </td>
-                                    <td className="px-4 py-3 text-slate-800">
+                                    <td className="px-4 py-3 text-slate-100">
                                         {formatCurrency(totalReceivables)}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">
+                                    <td className="px-4 py-3 text-slate-300">
                                         Total Received
                                     </td>
-                                    <td className="px-4 py-3 text-slate-800">
+                                    <td className="px-4 py-3 text-slate-100">
                                         {formatCurrency(totalReceived)}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">
+                                    <td className="px-4 py-3 text-slate-300">
                                         Total Paid
                                     </td>
-                                    <td className="px-4 py-3 text-slate-800">
+                                    <td className="px-4 py-3 text-slate-100">
                                         {formatCurrency(totalPaid)}
                                     </td>
-                                    <td className="px-4 py-3 text-slate-600">
+                                    <td className="px-4 py-3 text-slate-300">
                                         Total Balance
                                     </td>
                                     <td
                                         className={`px-4 py-3 font-bold ${
-                                            totalBalance > 0 ? "text-amber-600" : "text-emerald-600"
+                                            totalBalance > 0 ? "text-amber-400" : "text-emerald-400"
                                         }`}
                                         colSpan={3}
                                     >

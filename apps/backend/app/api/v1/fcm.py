@@ -74,8 +74,11 @@ async def deactivate_fcm_token(
     token_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await FCMToken.get(token_id)
-    if not obj or obj.user_id != current_user.id:
+    # Tenant + user scoped — the token belongs to one user inside one tenant.
+    obj = await FCMToken.find_one(
+        {"_id": token_id, "user_id": current_user.id, "tenant_id": current_user.tenant_id}
+    )
+    if not obj:
         raise HTTPException(404, "Token not found")
     obj.is_active = False
     obj.updated_at = datetime.utcnow()

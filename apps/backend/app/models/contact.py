@@ -4,6 +4,7 @@ Contact model matching Laravel Contact
 from beanie import Indexed
 from pydantic import EmailStr, Field
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from beanie import PydanticObjectId
 from app.models.base import BaseDocument
 
@@ -62,7 +63,15 @@ class Contact(BaseDocument):
     # Metadata
     view_count: int = 0
     is_favorite: bool = False
-    
+
+    # BD multi-owner triple — resolved from mailing address.
+    territory_id: Optional[PydanticObjectId] = None
+    region_id: Optional[PydanticObjectId] = None
+    bd_owner_id: Optional[PydanticObjectId] = None
+    reporting_manager_id: Optional[PydanticObjectId] = None
+    territory_match_source: Optional[str] = None
+    territory_assigned_at: Optional[datetime] = None
+
     class Settings:
         name = "contacts"
         indexes = [
@@ -87,16 +96,20 @@ class Contact(BaseDocument):
         return " ".join(parts)
     
     async def get_owner(self):
-        # """Get contact owner"""
+        """Get contact owner, scoped to this contact's tenant."""
         from app.models.user import User
-        return await User.get(self.owner_id)
-    
+        return await User.find_one(
+            {"_id": self.owner_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_account(self):
-        # """Get primary account"""
-        if self.account_id:
-            from app.models.account import Account
-            return await Account.get(self.account_id)
-        return None
+        """Get primary account, scoped to this contact's tenant."""
+        if not self.account_id:
+            return None
+        from app.models.account import Account
+        return await Account.find_one(
+            {"_id": self.account_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
     
     async def get_accounts(self):
         """Get all associated accounts (many-to-many)"""

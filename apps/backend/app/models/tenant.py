@@ -3,28 +3,19 @@ from pydantic import EmailStr, Field
 from typing import Optional, List, Dict, Literal
 from datetime import datetime
 from app.models.base import BaseDocument
+from app.constants.industry_registry import (
+    SUPPORTED_INDUSTRIES,
+    INDUSTRY_MODULE_DEFAULTS,
+    get_default_modules as _registry_get_default_modules,
+)
 
-# Valid industry identifiers — kept in sync with frontend IndustryType
-VALID_INDUSTRIES = ("travel", "healthcare", "education", "manufacturing")
+# Valid industry identifiers — kept in sync with frontend IndustryType.
+# Sourced from industry_registry to keep one source of truth.
+VALID_INDUSTRIES = tuple(SUPPORTED_INDUSTRIES)
 
-# Default modules seeded per industry so require_module() guards work out of the box
-DEFAULT_MODULES_BY_INDUSTRY: Dict[str, Dict[str, bool]] = {
-    "travel": {
-        "destinations": True,
-        "itineraries": True,
-        "packages": True,
-        "suppliers": True,
-    },
-    "healthcare": {
-        "suppliers": True,
-    },
-    "education": {
-        "suppliers": True,
-    },
-    "manufacturing": {
-        "suppliers": True,
-    },
-}
+# Re-exported for backward-compatibility; new code should import from
+# app.constants.industry_registry directly.
+DEFAULT_MODULES_BY_INDUSTRY: Dict[str, Dict[str, bool]] = INDUSTRY_MODULE_DEFAULTS
 
 class Tenant(BaseDocument):
     """Tenant model for multi-tenancy"""
@@ -82,8 +73,12 @@ class Tenant(BaseDocument):
 
     @classmethod
     def get_default_modules(cls, industry: str) -> Dict[str, bool]:
-        """Return the default module flags for a given industry."""
-        return DEFAULT_MODULES_BY_INDUSTRY.get(industry, {}).copy()
+        """Return the default module flags for a given industry.
+
+        Delegates to industry_registry.get_default_modules so tenant.py and
+        the registry can never drift out of sync.
+        """
+        return _registry_get_default_modules(industry)
 
     async def insert(self, *args, **kwargs):
         """Override insert to automatically seed default modules based on industry."""

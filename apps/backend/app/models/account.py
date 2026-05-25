@@ -1,6 +1,7 @@
 from beanie import Indexed
 from pydantic import EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
+from datetime import datetime
 from beanie import PydanticObjectId
 from app.models.base import BaseDocument
 
@@ -56,9 +57,18 @@ class Account(BaseDocument):
     view_count: int = 0
     is_favorite: bool = False
     
-    # Territory
+    # Territory (legacy fields)
     territory_state_id: Optional[PydanticObjectId] = None
     territory_country_id: Optional[PydanticObjectId] = None
+
+    # BD multi-owner triple — auto-resolved from billing address. See
+    # bd_assignment_service.resolve_for_address().
+    territory_id: Optional[PydanticObjectId] = None
+    region_id: Optional[PydanticObjectId] = None
+    bd_owner_id: Optional[PydanticObjectId] = None
+    reporting_manager_id: Optional[PydanticObjectId] = None
+    territory_match_source: Optional[str] = None
+    territory_assigned_at: Optional[datetime] = None
     
     @field_validator(
         "acc_type_id", "acc_parent_id", "industry_id",
@@ -96,15 +106,19 @@ class Account(BaseDocument):
     
     # Helper methods for relationships (will be used in services)
     async def get_owner(self):
-        """Get account owner"""
+        """Get account owner, scoped to this account's tenant."""
         from app.models.user import User
-        return await User.get(self.owner_id)
-    
+        return await User.find_one(
+            {"_id": self.owner_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_parent(self):
-        """Get parent account"""
-        if self.acc_parent_id:
-            return await Account.get(self.acc_parent_id)
-        return None
+        """Get parent account, scoped to this account's tenant."""
+        if not self.acc_parent_id:
+            return None
+        return await Account.find_one(
+            {"_id": self.acc_parent_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
     
     async def get_children(self):
         """Get child accounts"""

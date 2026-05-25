@@ -1,11 +1,15 @@
 """
 Email service for sending notifications
 """
+import logging
 from typing import Optional
 from app.core.config import settings
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+
+
+_logger = logging.getLogger(__name__)
 
 class EmailService:
     """Service for sending emails"""
@@ -46,7 +50,7 @@ class EmailService:
             
             return True
         except Exception as e:
-            print(f"Failed to send email: {str(e)}")
+            _logger.warning("Failed to send email to %s: %s", to_email, e)
             return False
     
     async def send_html_email(
@@ -78,5 +82,5 @@ class EmailService:
             
             return True
         except Exception as e:
-            print(f"Failed to send email: {str(e)}")
+            _logger.warning("Failed to send email to %s: %s", to_email, e)
             return False
