@@ -37,10 +37,9 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
 
 // Response Interceptor: Handle 401 (expired backend token)
 //
-// The backend JWT has a fixed expiry and there is no /auth/refresh endpoint.
-// When the token expires, every API call returns 401. Rather than auto-signing
-// out (which is disruptive during HMR / hot-reload), we show a single toast
-// warning and let the user manually re-login.
+// When the backend JWT expires all API calls return 401. We sign out and
+// redirect to /login automatically. The has401Warned flag ensures only one
+// signOut is triggered when multiple concurrent requests all fail at once.
 let has401Warned = false;
 
 apiClient.interceptors.response.use(
@@ -76,16 +75,10 @@ apiClient.interceptors.response.use(
                     }
                 }
 
-                // Token is the same → expired. Show warning ONCE.
+                // Token is the same → expired. Sign out and redirect immediately.
                 if (!has401Warned) {
                     has401Warned = true;
-                    toast.error("Session expired — please log in again.", {
-                        duration: 10000,
-                        action: {
-                            label: "Log in",
-                            onClick: () => signOut({ callbackUrl: '/login' }),
-                        },
-                    });
+                    await signOut({ callbackUrl: '/login', redirect: true });
                 }
             } catch {
                 // getSession itself failed — silently reject
