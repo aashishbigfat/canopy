@@ -134,9 +134,34 @@ class DashboardService:
                 return dashboard
         
         # Fall back to system default
-        return await Dashboard.find_one(
+        dashboard = await Dashboard.find_one(
             {"tenant_id": tenant_obj_id, "is_default": True}
         )
+        if not dashboard:
+            # Create a default system dashboard for this tenant
+            new_dashboard = Dashboard(
+                name="Default Dashboard",
+                description="Default system dashboard for the workspace.",
+                layout="grid",
+                columns=3,
+                widgets=[],
+                is_default=True,
+                is_public=True,
+                created_by=user_id,
+                owner_id=user_id,
+                tenant_id=tenant_obj_id
+            )
+            try:
+                await new_dashboard.insert()
+                dashboard = new_dashboard
+            except Exception:
+                # Handle concurrency: if another concurrent thread/process inserted it first, fetch it
+                dashboard = await Dashboard.find_one(
+                    {"tenant_id": tenant_obj_id, "is_default": True}
+                )
+                if not dashboard:
+                    dashboard = new_dashboard
+        return dashboard
     
     async def set_default_dashboard(
         self,

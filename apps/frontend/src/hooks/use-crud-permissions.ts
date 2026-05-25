@@ -8,6 +8,7 @@ import {
 
 export function useCrudPermissions(resource: CrudResource) {
     const { data: session } = useSession();
-    const permissions = session?.user?.permissions ?? [];
+    const permissions = (session?.user as any)?.permissions ?? [];
     return getCrudPermissions(permissions, resource);
 }
+
