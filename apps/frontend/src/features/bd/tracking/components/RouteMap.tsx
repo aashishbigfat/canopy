@@ -55,7 +55,7 @@ export function RouteMap({
       : [0, 0];
 
   return (
-    <div style={{ height }} className="rounded-md overflow-hidden border">
+    <div style={{ height }} className="rounded-md overflow-hidden border relative z-0">
       <MapContainer center={center as [number, number]} zoom={13} style={{ height: "100%", width: "100%" }}>
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
