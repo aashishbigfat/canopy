@@ -12,6 +12,7 @@ Mirrors old Laravel:
                     send-whatsapp-template, config-webhook
 """
 from __future__ import annotations
+import logging
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
@@ -19,11 +20,15 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request, Body
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+from app.core.config import settings
+from app.core.webhook_signatures import verify_meta_signature
 from app.models.user import User
 from app.models.messaging import (
     GmailIntegration, EmailMessage,
     WhatsAppTemplate, WhatsAppMessage, ChatbotWebhookEvent,
 )
+
+_logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -329,21 +334,70 @@ async def check_valid_whatsapp_user(
 
 @router.get("/chatbot/webhook")
 async def verify_chatbot_webhook(request: Request):
-    """
-    Mirror Meta's webhook GET verification challenge.
-    Echoes hub.challenge if hub.verify_token matches an env-configured value.
+    """Mirror Meta's webhook GET verification challenge.
+
+    SECURITY: only echoes hub.challenge if hub.verify_token matches the
+    configured META_WEBHOOK_VERIFY_TOKEN. Previously echoed the challenge
+    unconditionally, which is enough for an attacker to register their own
+    Meta app with this URL as its webhook target.
     """
     params = dict(request.query_params)
+    mode = params.get("hub.mode") or params.get("hub_mode")
+    token = params.get("hub.verify_token") or params.get("hub_verify_token")
     challenge = params.get("hub.challenge") or params.get("hub_challenge")
-    return challenge or {"verified": False}
+
+    expected = settings.META_WEBHOOK_VERIFY_TOKEN
+    if not expected:
+        # Dev-only: if no verify token is configured, refuse rather than
+        # silently accepting anything. Set META_WEBHOOK_VERIFY_TOKEN in env.
+        raise HTTPException(status_code=503, detail="Webhook verification not configured")
+    if mode != "subscribe" or token != expected:
+        raise HTTPException(status_code=403, detail="Verification failed")
+    return challenge or {"verified": True}
 
 
 @router.post("/chatbot/webhook", status_code=200)
-async def receive_chatbot_event(payload: Dict[str, Any] = Body(...)):
-    """Public inbound webhook — store raw payload, mark unprocessed."""
+async def receive_chatbot_event(request: Request):
+    """Public inbound webhook — store raw payload, mark unprocessed.
+
+    SECURITY: verifies the X-Hub-Signature-256 HMAC over the raw request body
+    using META_WEBHOOK_APP_SECRET. The signature MUST be computed over the
+    bytes exactly as sent — that's why we read request.body() instead of
+    accepting a parsed Pydantic body. Without this check, anyone could POST
+    arbitrary payloads, persist them, and trigger downstream message
+    processing.
+    """
+    raw_body = await request.body()
+    signature = request.headers.get("X-Hub-Signature-256")
+    secret = settings.META_WEBHOOK_APP_SECRET
+
+    if not secret:
+        # Fail closed in any environment with an exposed endpoint
+        raise HTTPException(status_code=503, detail="Webhook signature not configured")
+
+    if not verify_meta_signature(raw_body, signature, secret):
+        _logger.warning("Chatbot webhook signature verification failed")
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    try:
+        import json as _json
+        payload = _json.loads(raw_body.decode("utf-8") or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="Body must be a JSON object")
+
+    entries = payload.get("entry") if isinstance(payload.get("entry"), list) else []
+    first_field = None
+    if entries and isinstance(entries[0], dict):
+        changes = entries[0].get("changes")
+        if isinstance(changes, list) and changes and isinstance(changes[0], dict):
+            first_field = changes[0].get("field")
+
     obj = ChatbotWebhookEvent(
-        source=payload.get("object", "meta") or "meta",
-        event_type=payload.get("entry", [{}])[0].get("changes", [{}])[0].get("field") if isinstance(payload.get("entry"), list) else None,
+        source=payload.get("object") or "meta",
+        event_type=first_field,
         raw_payload=payload,
     )
     await obj.insert()

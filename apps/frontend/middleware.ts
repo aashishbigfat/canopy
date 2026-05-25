@@ -1,13 +1,27 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import { getRoutePermission } from "@/lib/rbac";
+import { getRouteModule } from "@/lib/rbac-modules";
 
 /**
  * Protects routes that require auth (session from backend /api/v1/auth/login).
  * All API calls from the app already use NEXT_PUBLIC_API_URL (env) which includes /api/v1.
+ *
+ * SECURITY: this middleware enforces BOTH auth and permission/module checks
+ * server-side. Doing the check only on the client (component code) is
+ * bypassable by direct URL navigation — a user with `view_lead` could
+ * navigate to `/admin/users` and see the page render until API calls fail.
+ * Catching it here means unauthorized requests never even render the page.
  */
-const PUBLIC_PATHS = ["/login", "/forgot-password", "/register", "/coming-soon"];
+const PUBLIC_PATHS = ["/login", "/forgot-password", "/register", "/coming-soon", "/unauthorized"];
 const AUTH_API = "/api/auth";
+
+function isOpenRedirectSafe(callbackUrl: string): boolean {
+    // Only same-origin relative paths are accepted as callbackUrl. Blocks
+    // open-redirect attacks via `?callbackUrl=https://evil.com`.
+    return callbackUrl.startsWith("/") && !callbackUrl.startsWith("//");
+}
 
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
@@ -27,14 +41,36 @@ export async function middleware(req: NextRequest) {
         return NextResponse.next();
     }
 
-    // All other routes (dashboard, accounts, contacts, etc.) require a valid session
+    // All other routes require a valid session
     const secret = process.env.NEXTAUTH_SECRET;
     const token = await getToken({ req, secret });
 
     if (!token) {
         const loginUrl = new URL("/login", req.url);
-        loginUrl.searchParams.set("callbackUrl", pathname);
+        const safeCallback = isOpenRedirectSafe(pathname) ? pathname : "/dashboard";
+        loginUrl.searchParams.set("callbackUrl", safeCallback);
         return NextResponse.redirect(loginUrl);
+    }
+
+    // Permission gate — server-side RBAC enforcement
+    const requiredPerm = getRoutePermission(pathname);
+    if (requiredPerm) {
+        const userPerms = (token.permissions as string[]) || [];
+        if (!userPerms.includes(requiredPerm)) {
+            return NextResponse.redirect(new URL("/unauthorized", req.url));
+        }
+    }
+
+    // Module gate — industry-vertical pages (e.g. /patients) require the
+    // tenant to have that module enabled. A travel tenant trying to navigate
+    // to /patients is bounced to /unauthorized rather than rendering the page
+    // and then hitting a 403 on the data fetch.
+    const requiredModule = getRouteModule(pathname);
+    if (requiredModule) {
+        const modules = (token.modules as Record<string, boolean>) || {};
+        if (!modules[requiredModule]) {
+            return NextResponse.redirect(new URL("/unauthorized", req.url));
+        }
     }
 
     return NextResponse.next();

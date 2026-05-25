@@ -33,12 +33,17 @@ class NoteService:
         tenant_id: ObjectId,
         user_id: ObjectId
     ) -> Optional[Note]:
-        """Get note by ID (respecting privacy)"""
-        note = await Note.get(ObjectId(note_id))
-        
-        if not note or note.tenant_id != tenant_id or note.deleted_at:
+        """Get note by ID (respecting privacy), scoped to tenant."""
+        try:
+            oid = ObjectId(note_id)
+        except Exception:
             return None
-        
+        note = await Note.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
+        if not note:
+            return None
+
         # Check privacy
         if note.is_private and note.owner_id != user_id:
             return None

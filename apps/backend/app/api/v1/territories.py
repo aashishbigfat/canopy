@@ -21,7 +21,7 @@ router = APIRouter()
 @router.post("/regions", response_model=RegionResponse)
 async def create_region(
     data: RegionCreate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("manage_territory"))
 ):
     """Create a new region."""
     region = await territory_service.create_region(
@@ -83,7 +83,7 @@ async def get_region(
 async def update_region(
     region_id: str,
     data: RegionUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("manage_territory"))
 ):
     """Update a region."""
     region = await territory_service.update_region(
@@ -102,7 +102,7 @@ async def update_region(
 @router.delete("/regions/{region_id}")
 async def delete_region(
     region_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("manage_territory"))
 ):
     """Delete a region."""
     try:
@@ -119,7 +119,7 @@ async def delete_region(
 @router.post("/territories", response_model=TerritoryResponse)
 async def create_territory(
     data: TerritoryCreate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("manage_territory"))
 ):
     """Create a new territory."""
     try:
@@ -219,7 +219,7 @@ async def get_territory(
 async def update_territory(
     territory_id: str,
     data: TerritoryUpdate,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("manage_territory"))
 ):
     """Update a territory."""
     territory = await territory_service.update_territory(
@@ -238,7 +238,7 @@ async def update_territory(
 @router.delete("/territories/{territory_id}")
 async def delete_territory(
     territory_id: str,
-    current_user: User = Depends(get_current_user)
+    current_user: User = Depends(check_permission("manage_territory"))
 ):
     """Delete a territory."""
     try:

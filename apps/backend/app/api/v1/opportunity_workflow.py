@@ -382,9 +382,14 @@ async def accept_handover(
     handover_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await HandoverRequest.get(handover_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.opportunity_id != opp_id):
+    obj = await HandoverRequest.find_one(
+        {
+            "_id": handover_id,
+            "tenant_id": current_user.tenant_id,
+            "opportunity_id": opp_id,
+        }
+    )
+    if not obj:
         raise HTTPException(404, "Handover not found")
     if obj.to_user_id != current_user.id:
         raise HTTPException(403, "Only the receiving user can accept")
@@ -392,8 +397,10 @@ async def accept_handover(
     obj.handover_at = datetime.utcnow()
     obj.updated_at = datetime.utcnow()
     await obj.save()
-    # Transfer opportunity ownership
-    opp = await Opportunity.get(opp_id)
+    # Transfer opportunity ownership — tenant-scoped lookup
+    opp = await Opportunity.find_one(
+        {"_id": opp_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
     if opp:
         opp.owner_id = current_user.id
         opp.last_modified_by_id = current_user.id
@@ -407,9 +414,14 @@ async def reject_handover(
     handover_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await HandoverRequest.get(handover_id)
-    if (not obj or obj.tenant_id != current_user.tenant_id
-            or obj.opportunity_id != opp_id):
+    obj = await HandoverRequest.find_one(
+        {
+            "_id": handover_id,
+            "tenant_id": current_user.tenant_id,
+            "opportunity_id": opp_id,
+        }
+    )
+    if not obj:
         raise HTTPException(404, "Handover not found")
     obj.status = "rejected"
     obj.updated_at = datetime.utcnow()
@@ -553,8 +565,10 @@ async def delete_external_lead(
     external_lead_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await ExternalLead.get(external_lead_id)
-    if not obj or obj.tenant_id != current_user.tenant_id:
+    obj = await ExternalLead.find_one(
+        {"_id": external_lead_id, "tenant_id": current_user.tenant_id}
+    )
+    if not obj:
         raise HTTPException(404, "External lead not found")
     await obj.delete()
 
@@ -565,8 +579,10 @@ async def mark_external_lead_processed(
     payload: Dict[str, Any],
     current_user: User = Depends(get_current_user),
 ):
-    obj = await ExternalLead.get(external_lead_id)
-    if not obj or obj.tenant_id != current_user.tenant_id:
+    obj = await ExternalLead.find_one(
+        {"_id": external_lead_id, "tenant_id": current_user.tenant_id}
+    )
+    if not obj:
         raise HTTPException(404, "External lead not found")
     obj.is_processed = True
     obj.processed_at = datetime.utcnow()

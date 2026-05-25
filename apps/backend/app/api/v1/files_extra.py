@@ -68,8 +68,10 @@ async def get_folder(
     folder_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await FileFolder.get(folder_id)
-    if not obj or obj.tenant_id != current_user.tenant_id or obj.deleted_at:
+    obj = await FileFolder.find_one(
+        {"_id": folder_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not obj:
         raise HTTPException(404, "Folder not found")
     return obj.model_dump()
 
@@ -80,8 +82,10 @@ async def update_folder(
     payload: FolderIn,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await FileFolder.get(folder_id)
-    if not obj or obj.tenant_id != current_user.tenant_id or obj.deleted_at:
+    obj = await FileFolder.find_one(
+        {"_id": folder_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not obj:
         raise HTTPException(404, "Folder not found")
     if obj.owner_id != current_user.id:
         raise HTTPException(403, "Only the folder owner can edit")
@@ -97,8 +101,10 @@ async def delete_folder(
     folder_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await FileFolder.get(folder_id)
-    if not obj or obj.tenant_id != current_user.tenant_id:
+    obj = await FileFolder.find_one(
+        {"_id": folder_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not obj:
         raise HTTPException(404, "Folder not found")
     if obj.owner_id != current_user.id:
         raise HTTPException(403, "Only the folder owner can delete")
@@ -139,10 +145,12 @@ async def create_share(
         )
         await obj.insert()
         created.append(obj.model_dump())
-    # Mirror onto folder.shared_with_user_ids
+    # Mirror onto folder.shared_with_user_ids — tenant-scoped lookup
     if payload.folder_id:
-        folder = await FileFolder.get(payload.folder_id)
-        if folder and folder.tenant_id == current_user.tenant_id:
+        folder = await FileFolder.find_one(
+            {"_id": payload.folder_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+        )
+        if folder:
             existing_ids = set(folder.shared_with_user_ids or [])
             existing_ids.update(payload.user_ids)
             folder.shared_with_user_ids = list(existing_ids)

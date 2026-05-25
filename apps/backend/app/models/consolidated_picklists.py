@@ -186,6 +186,40 @@ class SupplierType(BasePicklist):
 class DestinationPicklist(BasePicklist):
     """Destination name picklist for quick selection"""
     picklist_type: Literal["destination"] = "destination"
-    
+
+    class Settings:
+        name = "picklists"
+
+
+# ============================================================================
+# BD Panel Picklists (universal across industries; industry slug optional)
+# ============================================================================
+class BDActivityType(BasePicklist):
+    """Type of BD field activity (Demo, Site Survey, Cold Visit, etc.).
+
+    Drives the BD Visit flow: items with requires_approval=True must be
+    approved by the reporting manager before the BD checks in.
+    """
+    picklist_type: Literal["bd_activity_type"] = "bd_activity_type"
+    requires_field_meeting: bool = True
+    requires_check_in: bool = True
+    requires_approval: bool = True
+    expected_duration_min: int = 30
+
+    class Settings:
+        name = "picklists"
+
+
+class ExpenseCategory(BasePicklist):
+    """Expense category for BD claims (Meals, Travel, Lodging, etc.).
+
+    max_amount: optional cap per submission (enforced server-side).
+    auto_approve_under: if set and amount <= this, expense skips manager queue.
+    """
+    picklist_type: Literal["expense_category"] = "expense_category"
+    requires_receipt: bool = True
+    max_amount: Optional[float] = None
+    auto_approve_under: Optional[float] = None
+
     class Settings:
         name = "picklists"

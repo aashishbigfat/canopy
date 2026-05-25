@@ -20,7 +20,6 @@ export const authOptions: NextAuthOptions = {
                 // We strip out the "/api/v1" suffix from the base URL so we hit the root.
                 const baseUrl = getApiBaseUrlNoSlash().replace(/\/api\/v1$/, "");
                 const backendUrl = `${baseUrl}/auth/login`;
-                console.log("[Auth] Calling backend at", backendUrl);
                 try {
                     const res = await fetch(backendUrl, {
                         method: "POST",

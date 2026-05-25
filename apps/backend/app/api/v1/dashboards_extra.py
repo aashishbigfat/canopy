@@ -65,8 +65,10 @@ async def delete_quick_link(
     link_id: PydanticObjectId,
     current_user: User = Depends(get_current_user),
 ):
-    obj = await QuickLink.get(link_id)
-    if not obj or obj.tenant_id != current_user.tenant_id or obj.user_id != current_user.id:
+    obj = await QuickLink.find_one(
+        {"_id": link_id, "tenant_id": current_user.tenant_id, "user_id": current_user.id}
+    )
+    if not obj:
         raise HTTPException(404, "Quick link not found")
     await obj.delete()
 
@@ -157,8 +159,15 @@ async def bd_graph_performance(current_user: User = Depends(get_current_user)):
 
 @router.get("/bd/stage-percentage")
 async def bd_stage_percentage(current_user: User = Depends(get_current_user)):
-    """Mirror old `/get_bd_stage_oppo_percentage`."""
-    stages = await SalesStage.find_all().to_list()
+    """Mirror old `/get_bd_stage_oppo_percentage`.
+
+    SECURITY: previously used SalesStage.find_all() which returned every
+    tenant's sales stages — a cross-tenant leak even though only id/name were
+    exposed. Now tenant-scoped.
+    """
+    stages = await SalesStage.find(
+        {"tenant_id": current_user.tenant_id, "is_active": True}
+    ).to_list()
     return {"stages": [{"id": str(s.id), "name": s.name, "percentage": 0} for s in stages]}
 
 
@@ -172,8 +181,10 @@ async def opp_graph_performance(current_user: User = Depends(get_current_user)):
 
 @router.get("/opportunity/stage-percentage")
 async def stage_percentage(current_user: User = Depends(get_current_user)):
-    """Mirror old `/stage_percentage`."""
-    stages = await SalesStage.find_all().to_list()
+    """Mirror old `/stage_percentage`. Tenant-scoped."""
+    stages = await SalesStage.find(
+        {"tenant_id": current_user.tenant_id, "is_active": True}
+    ).to_list()
     return [{"id": str(s.id), "name": s.name, "count": 0, "percentage": 0} for s in stages]
 
 

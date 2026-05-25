@@ -1,6 +1,7 @@
 """
 Activity Log API endpoints
 """
+import logging
 from fastapi import APIRouter, Depends
 from typing import Optional
 
@@ -11,6 +12,9 @@ from app.schemas.activity_log import (
 )
 from app.services.activity_log_service import ActivityLogService
 from app.api.deps import get_current_user, check_permission
+
+
+_logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -29,7 +33,6 @@ async def get_activity_logs(
 ):
     """Get activity logs with filters"""
     try:
-        print(f"DEBUG: Entering get_activity_logs for user {current_user.id}")
         service = ActivityLogService()
         logs = await service.get_activity_logs(
             current_user.tenant_id,
@@ -41,19 +44,13 @@ async def get_activity_logs(
             skip=skip,
             limit=limit
         )
-        print(f"DEBUG: Service returned {len(logs)} logs")
-        
-        response_data = ActivityLogListResponse(
+        return ActivityLogListResponse(
             logs=[ActivityLogResponse.from_orm(l) for l in logs],
             total=len(logs)
         )
-        print(f"DEBUG: Response object created successfully")
-        return response_data
-    except Exception as e:
-        print(f"ERROR in get_activity_logs: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return ActivityLogListResponse(logs=[], total=0) # Return empty list on error to avoid crash
+    except Exception:
+        _logger.exception("Error in get_activity_logs for user %s", current_user.id)
+        return ActivityLogListResponse(logs=[], total=0)  # Empty fallback to avoid crash
 
 
 @router.get("/events/entity/{entity_type}/{entity_id}")

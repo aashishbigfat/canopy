@@ -5,6 +5,7 @@ Mirrors old Laravel `*_m` mobile variants. Endpoints delegate to existing
 desktop services with mobile-shaped (lighter) responses.
 """
 from __future__ import annotations
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,6 +19,56 @@ from app.models.lead import Lead
 from app.models.opportunity import Opportunity
 
 router = APIRouter()
+
+
+async def _validate_owner_in_tenant(new_owner_id: PydanticObjectId, tenant_id: PydanticObjectId) -> None:
+    """Raise 400 if new_owner_id does not belong to an active user in this tenant."""
+    owner = await User.find_one(
+        {
+            "_id": new_owner_id,
+            "tenant_id": tenant_id,
+            "deleted_at": None,
+            "is_active": True,
+        }
+    )
+    if not owner:
+        raise HTTPException(
+            status_code=400,
+            detail="new_owner_id must reference an active user in this tenant",
+        )
+
+
+async def _bulk_change_owner(
+    model,
+    record_ids: List[PydanticObjectId],
+    new_owner_id: PydanticObjectId,
+    tenant_id: PydanticObjectId,
+    modifier_id: PydanticObjectId,
+) -> int:
+    """Atomic, tenant-scoped bulk owner reassignment.
+
+    A single `update_many` filtered on tenant_id replaces the previous
+    per-record fetch/check/save loop. Closes both the cross-tenant IDOR risk
+    (records from other tenants are excluded by the filter) and the TOCTOU
+    race between the tenant check and the save.
+    """
+    if not record_ids:
+        return 0
+    update_set: Dict[str, Any] = {
+        "owner_id": new_owner_id,
+        "updated_at": datetime.now(timezone.utc),
+    }
+    if "last_modified_by_id" in model.model_fields:
+        update_set["last_modified_by_id"] = modifier_id
+    filter_query: Dict[str, Any] = {
+        "_id": {"$in": list(record_ids)},
+        "tenant_id": tenant_id,
+    }
+    if "deleted_at" in model.model_fields:
+        filter_query["deleted_at"] = None
+    result = await model.find(filter_query).update({"$set": update_set})
+    # Beanie returns a Mongo UpdateResult-like object
+    return getattr(result, "modified_count", 0) or 0
 
 
 # ============== DASHBOARD ==============
@@ -86,13 +137,14 @@ async def mobile_account_change_owner(
     payload: OwnerChangeIn,
     current_user: User = Depends(get_current_user),
 ):
-    updated = 0
-    for rid in payload.record_ids:
-        a = await Account.get(rid)
-        if a and getattr(a, "tenant_id", None) == current_user.tenant_id and hasattr(a, "owner_id"):
-            a.owner_id = payload.new_owner_id
-            await a.save()
-            updated += 1
+    await _validate_owner_in_tenant(payload.new_owner_id, current_user.tenant_id)
+    updated = await _bulk_change_owner(
+        Account,
+        payload.record_ids,
+        payload.new_owner_id,
+        current_user.tenant_id,
+        current_user.id,
+    )
     return {"updated": updated}
 
 
@@ -129,13 +181,14 @@ async def mobile_contact_change_owner(
     payload: OwnerChangeIn,
     current_user: User = Depends(get_current_user),
 ):
-    updated = 0
-    for rid in payload.record_ids:
-        c = await Contact.get(rid)
-        if c and getattr(c, "tenant_id", None) == current_user.tenant_id and hasattr(c, "owner_id"):
-            c.owner_id = payload.new_owner_id
-            await c.save()
-            updated += 1
+    await _validate_owner_in_tenant(payload.new_owner_id, current_user.tenant_id)
+    updated = await _bulk_change_owner(
+        Contact,
+        payload.record_ids,
+        payload.new_owner_id,
+        current_user.tenant_id,
+        current_user.id,
+    )
     return {"updated": updated}
 
 
@@ -172,13 +225,14 @@ async def mobile_opp_change_owner(
     payload: OwnerChangeIn,
     current_user: User = Depends(get_current_user),
 ):
-    updated = 0
-    for rid in payload.record_ids:
-        o = await Opportunity.get(rid)
-        if o and o.tenant_id == current_user.tenant_id:
-            o.owner_id = payload.new_owner_id
-            await o.save()
-            updated += 1
+    await _validate_owner_in_tenant(payload.new_owner_id, current_user.tenant_id)
+    updated = await _bulk_change_owner(
+        Opportunity,
+        payload.record_ids,
+        payload.new_owner_id,
+        current_user.tenant_id,
+        current_user.id,
+    )
     return {"updated": updated}
 
 
@@ -193,8 +247,14 @@ async def mobile_opp_change_stage(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/rest_opportunities_sales_stages_m`."""
-    o = await Opportunity.get(payload.opportunity_id)
-    if not o or o.tenant_id != current_user.tenant_id:
+    o = await Opportunity.find_one(
+        {
+            "_id": payload.opportunity_id,
+            "tenant_id": current_user.tenant_id,
+            "deleted_at": None,
+        }
+    )
+    if not o:
         raise HTTPException(404, "Opportunity not found")
     o.sales_stage_id = payload.sales_stage_id
     await o.save()
@@ -235,13 +295,14 @@ async def mobile_lead_change_owner(
     payload: OwnerChangeIn,
     current_user: User = Depends(get_current_user),
 ):
-    updated = 0
-    for rid in payload.record_ids:
-        l = await Lead.get(rid)
-        if l and l.tenant_id == current_user.tenant_id:
-            l.owner_id = payload.new_owner_id
-            await l.save()
-            updated += 1
+    await _validate_owner_in_tenant(payload.new_owner_id, current_user.tenant_id)
+    updated = await _bulk_change_owner(
+        Lead,
+        payload.record_ids,
+        payload.new_owner_id,
+        current_user.tenant_id,
+        current_user.id,
+    )
     return {"updated": updated}
 
 

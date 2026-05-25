@@ -105,7 +105,7 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
                             </div>
 
                             <div className="flex items-center gap-2">
-                                <Target className="h-[13px] w-[13px] shrink-0 text-slate-500" />
+                                <Target className="h-[13px] w-[13px] shrink-0 text-slate-400" />
                                 <span className={cn(
                                     "text-[11px] font-bold",
                                     opp.sales_stage_name?.toLowerCase().includes('lost') ? "text-red-500" : "text-blue-500"

@@ -45,12 +45,14 @@ class DestinationService:
         destination_id: str,
         tenant_id: ObjectId
     ) -> Optional[Destination]:
-        """Get destination by ID"""
-        destination = await Destination.get(ObjectId(destination_id))
-        
-        if destination and destination.tenant_id == tenant_id and not destination.deleted_at:
-            return destination
-        return None
+        """Get destination by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(destination_id)
+        except Exception:
+            return None
+        return await Destination.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_destination_with_counts(
         self,
@@ -260,16 +262,26 @@ class DestinationService:
         opportunity_id: str,
         tenant_id: ObjectId
     ) -> List[Dict]:
-        """Get all destinations linked to an opportunity"""
-        
+        """Get all destinations linked to an opportunity (tenant-scoped end-to-end)."""
+
         links = await DestinationOpportunity.find(
             {"opportunity_id": ObjectId(opportunity_id), "tenant_id": tenant_id}
         ).to_list()
-        
+
+        if not links:
+            return []
+
+        # Bulk fetch all destinations in one tenant-scoped query
+        dest_ids = [link.destination_id for link in links]
+        destinations = await Destination.find(
+            {"_id": {"$in": dest_ids}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        dest_map = {d.id: d for d in destinations}
+
         result = []
         for link in links:
-            destination = await Destination.get(link.destination_id)
-            if destination and not destination.deleted_at:
+            destination = dest_map.get(link.destination_id)
+            if destination:
                 result.append({
                     "destination": destination,
                     "is_primary": link.is_primary,
@@ -354,16 +366,26 @@ class DestinationService:
         lead_id: str,
         tenant_id: ObjectId
     ) -> List[Dict]:
-        """Get all destinations linked to a lead"""
-        
+        """Get all destinations linked to a lead (tenant-scoped end-to-end)."""
+
         links = await DestinationLead.find(
             {"lead_id": ObjectId(lead_id), "tenant_id": tenant_id}
         ).to_list()
-        
+
+        if not links:
+            return []
+
+        # Bulk tenant-scoped fetch
+        dest_ids = [link.destination_id for link in links]
+        destinations = await Destination.find(
+            {"_id": {"$in": dest_ids}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        dest_map = {d.id: d for d in destinations}
+
         result = []
         for link in links:
-            destination = await Destination.get(link.destination_id)
-            if destination and not destination.deleted_at:
+            destination = dest_map.get(link.destination_id)
+            if destination:
                 result.append({
                     "destination": destination,
                     "is_primary": link.is_primary,

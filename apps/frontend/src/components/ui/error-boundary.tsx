@@ -84,13 +84,13 @@ function DefaultErrorFallback({
         </CardHeader>
         <CardContent className="space-y-4">
           {process.env.NODE_ENV === "development" && error && (
-            <div className="p-3 bg-gray-100 rounded-md">
-              <p className="text-sm font-mono text-red-600 mb-2">Error details:</p>
-              <p className="text-xs text-gray-600 break-all">{error.message}</p>
+            <div className="p-3 bg-slate-800 rounded-md">
+              <p className="text-sm font-mono text-red-300 mb-2">Error details:</p>
+              <p className="text-xs text-slate-300 break-all">{error.message}</p>
               {errorInfo && (
                 <details className="mt-2">
-                  <summary className="text-xs cursor-pointer text-gray-500">Stack trace</summary>
-                  <pre className="text-xs text-gray-500 mt-1 whitespace-pre-wrap">
+                  <summary className="text-xs cursor-pointer text-slate-400">Stack trace</summary>
+                  <pre className="text-xs text-slate-400 mt-1 whitespace-pre-wrap">
                     {errorInfo.componentStack}
                   </pre>
                 </details>

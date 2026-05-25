@@ -59,6 +59,13 @@ class LeadBase(BaseModel):
     # Industry-specific data (validated per-industry via validate_industry_data)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
+    # BD multi-owner triple — clients usually omit these (auto-resolved server-side),
+    # but explicit overrides at create time are allowed for imports.
+    territory_id: Optional[str] = None
+    bd_owner_id: Optional[str] = None
+    reporting_manager_id: Optional[str] = None
+    requires_field_meeting: Optional[bool] = False
+
 
 class LeadCreate(LeadBase):
     """Schema for creating a lead"""
@@ -97,6 +104,18 @@ class LeadUpdate(BaseModel):
     # Industry-specific data
     industry_data: Optional[Dict[str, Any]] = None
     custom_fields: Optional[Dict[str, Any]] = None
+
+    # BD fields (optional; usually re-resolved server-side when address changes)
+    bd_owner_id: Optional[str] = None
+    reporting_manager_id: Optional[str] = None
+    requires_field_meeting: Optional[bool] = None
+
+
+class LeadBDReassign(BaseModel):
+    """Payload for manually overriding a lead's BD triple."""
+    bd_owner_id: Optional[str] = None
+    reporting_manager_id: Optional[str] = None
+    reason: Optional[str] = None
 
 
 class LeadResponse(BaseModel):
@@ -146,6 +165,18 @@ class LeadResponse(BaseModel):
     is_converted: bool = False
     opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     view_count: int = 0
+
+    # BD multi-owner triple (auto-resolved from territory + role hierarchy)
+    territory_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    region_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    bd_owner_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    bd_owner_name: Optional[str] = None
+    reporting_manager_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    reporting_manager_name: Optional[str] = None
+    territory_name: Optional[str] = None
+    territory_match_source: Optional[str] = None
+    territory_assigned_at: Optional[datetime] = None
+    requires_field_meeting: Optional[bool] = False
     
     # Industry-specific data (all industries including travel)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)

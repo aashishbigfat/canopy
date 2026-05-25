@@ -67,7 +67,7 @@ export function SalesChart({
                         </span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="h-3 w-3 rounded-full bg-slate-300" />
+                        <span className="h-3 w-3 rounded-full bg-slate-500" />
                         <span className="text-sm font-semibold text-muted-foreground">Target</span>
                     </div>
                 </div>

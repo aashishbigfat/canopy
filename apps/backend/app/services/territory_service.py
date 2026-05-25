@@ -279,12 +279,14 @@ class TerritoryService:
         return None
 
     async def _build_assignment_response(
-        self, 
-        territory: Territory, 
+        self,
+        territory: Territory,
         matched_by: str
     ) -> TerritoryAssignmentResponse:
-        """Helper to build assignment response."""
-        region = await Region.get(territory.region_id)
+        """Helper to build assignment response — region scoped to territory's tenant."""
+        region = await Region.find_one(
+            {"_id": territory.region_id, "tenant_id": territory.tenant_id}
+        )
         return TerritoryAssignmentResponse(
             territory_id=str(territory.id),
             territory_name=territory.name,

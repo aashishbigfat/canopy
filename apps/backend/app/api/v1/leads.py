@@ -17,7 +17,7 @@ from app.models.lead_picklists import LeadStatus, Source, SourceMedium
 from app.models.lead_custom_fields import UserLeadView
 from app.schemas.lead import (
     LeadCreate, LeadUpdate, LeadResponse, LeadListResponse, LeadConvert,
-    LeadOwnerChange
+    LeadOwnerChange, LeadBDReassign,
 )
 from app.schemas.industry_data import validate_industry_data
 from app.services.lead_service import LeadService
@@ -84,9 +84,9 @@ async def create_lead(
     service.set_request_context(request, current_user)
     body = await request.json()
     
-    # Determine tenant industry
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
+    # Determine tenant industry — resolver raises if tenant missing
+    from app.services.industry_service import get_tenant_industry as _get_industry
+    industry = await _get_industry(current_user.tenant_id)
     
     try:
         # Unified schema -- no more dual routing
@@ -242,9 +242,9 @@ async def update_lead(
     service.set_request_context(request, current_user)
     body = await request.json()
     
-    # Determine tenant industry
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
+    # Determine tenant industry — resolver raises if tenant missing
+    from app.services.industry_service import get_tenant_industry as _get_industry
+    industry = await _get_industry(current_user.tenant_id)
     
     # Visibility pre-check
     existing = await service.get_lead(lead_id, current_user.tenant_id)
@@ -326,9 +326,9 @@ async def convert_lead(
     """Convert lead to opportunity -- unified schema for all industries"""
     body = await request.json()
     
-    # Determine tenant industry
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
+    # Determine tenant industry — resolver raises if tenant missing
+    from app.services.industry_service import get_tenant_industry as _get_industry
+    industry = await _get_industry(current_user.tenant_id)
     
     try:
         conversion_data = LeadConvert(**body)
@@ -414,10 +414,15 @@ async def update_single_column(
     field_value: str = Query(...),
     current_user: User = Depends(check_permission("edit_lead"))
 ):
-    """Update a single column of a lead"""
-    lead = await Lead.get(ObjectId(lead_id))
-    
-    if not lead or lead.tenant_id != current_user.tenant_id:
+    """Update a single column of a lead, scoped to tenant."""
+    try:
+        lid = ObjectId(lead_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    lead = await Lead.find_one(
+        {"_id": lid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
     # Update the field
@@ -479,6 +484,76 @@ async def export_leads(
     return {
         "error": False,
         "message": "Export functionality coming soon"
+    }
+
+
+@router.post("/{lead_id}/reassign-bd", response_model=Dict[str, Any])
+async def reassign_lead_bd(
+    lead_id: str,
+    payload: LeadBDReassign,
+    current_user: User = Depends(check_permission("edit_lead")),
+    service: LeadService = Depends(get_lead_service),
+):
+    """Manually override a lead's BD owner and/or reporting manager.
+
+    Both ids are validated to belong to the caller's tenant. Auto-resolution
+    will not overwrite a manual assignment unless `resolve-territory` is
+    explicitly called.
+    """
+    try:
+        bd_owner_oid = ObjectId(payload.bd_owner_id) if payload.bd_owner_id else None
+        manager_oid = ObjectId(payload.reporting_manager_id) if payload.reporting_manager_id else None
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid ObjectId in payload")
+
+    try:
+        lead = await service.reassign_bd(
+            lead_id=lead_id,
+            tenant_id=current_user.tenant_id,
+            current_user_id=current_user.id,
+            bd_owner_id=bd_owner_oid,
+            reporting_manager_id=manager_oid,
+            reason=payload.reason,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    return {
+        "error": False,
+        "message": "BD reassigned",
+        "lead_id": str(lead.id),
+        "bd_owner_id": str(lead.bd_owner_id) if lead.bd_owner_id else None,
+        "reporting_manager_id": str(lead.reporting_manager_id) if lead.reporting_manager_id else None,
+        "territory_match_source": lead.territory_match_source,
+    }
+
+
+@router.post("/{lead_id}/resolve-territory", response_model=Dict[str, Any])
+async def resolve_lead_territory(
+    lead_id: str,
+    current_user: User = Depends(check_permission("edit_lead")),
+    service: LeadService = Depends(get_lead_service),
+):
+    """Re-run automatic territory + BD resolution for a single lead."""
+    lead = await service.resolve_territory(
+        lead_id=lead_id,
+        tenant_id=current_user.tenant_id,
+        current_user_id=current_user.id,
+    )
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    return {
+        "error": False,
+        "message": "Territory resolved",
+        "lead_id": str(lead.id),
+        "territory_id": str(lead.territory_id) if lead.territory_id else None,
+        "bd_owner_id": str(lead.bd_owner_id) if lead.bd_owner_id else None,
+        "reporting_manager_id": str(lead.reporting_manager_id) if lead.reporting_manager_id else None,
+        "territory_match_source": lead.territory_match_source,
     }
 
 

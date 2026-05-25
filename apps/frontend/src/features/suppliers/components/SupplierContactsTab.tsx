@@ -141,7 +141,7 @@ export function SupplierContactsTab({ supplierId }: SupplierContactsTabProps) {
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                     <Users className="h-5 w-5 text-blue-600" />
-                    <h3 className="text-lg font-semibold text-slate-800">
+                    <h3 className="text-lg font-semibold text-slate-100">
                         Contacts <span className="text-slate-400 text-sm font-normal">({contacts.length})</span>
                     </h3>
                 </div>
@@ -179,7 +179,7 @@ export function SupplierContactsTab({ supplierId }: SupplierContactsTabProps) {
             {contacts.length === 0 && !showForm ? (
                 <div className="crm-empty-state">
                     <Users className="h-12 w-12 mx-auto mb-3 text-slate-300" />
-                    <p className="text-slate-500 text-sm">No contacts added yet.</p>
+                    <p className="text-slate-400 text-sm">No contacts added yet.</p>
                     <p className="text-slate-400 text-xs mt-1">Add contacts to manage all people associated with this supplier.</p>
                     <Button
                         onClick={() => setShowForm(true)}
@@ -244,7 +244,7 @@ function ContactCard({
     onDelete: () => void;
 }) {
     return (
-        <div className="group relative flex items-start gap-4 p-4 rounded-xl border border-slate-200 bg-white hover:border-blue-200 hover:shadow-sm transition-all">
+        <div className="group relative flex items-start gap-4 p-4 rounded-xl border border-slate-700 bg-slate-900 hover:border-blue-500/40 hover:shadow-sm transition-all">
             {/* Avatar */}
             <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm">
                 {contact.name.charAt(0).toUpperCase()}
@@ -253,33 +253,33 @@ function ContactCard({
             {/* Info */}
             <div className="flex-1 min-w-0 space-y-1">
                 <div className="flex items-center gap-2">
-                    <span className="font-semibold text-slate-800 text-sm">{contact.name}</span>
+                    <span className="font-semibold text-slate-100 text-sm">{contact.name}</span>
                     {contact.is_primary && (
-                        <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px] px-1.5 py-0 font-semibold gap-0.5">
+                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40 text-[10px] px-1.5 py-0 font-semibold gap-0.5">
                             <Star className="h-2.5 w-2.5" /> Primary
                         </Badge>
                     )}
                 </div>
                 {(contact.designation || contact.department) && (
-                    <p className="text-xs text-slate-500 flex items-center gap-1">
+                    <p className="text-xs text-slate-400 flex items-center gap-1">
                         {contact.designation && <><Briefcase className="h-3 w-3" />{contact.designation}</>}
                         {contact.designation && contact.department && <span className="text-slate-300">•</span>}
                         {contact.department && <><Building2 className="h-3 w-3" />{contact.department}</>}
                     </p>
                 )}
-                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-500">
+                <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-slate-400">
                     {contact.email && (
-                        <a href={`mailto:${contact.email}`} className="flex items-center gap-1 hover:text-blue-600">
+                        <a href={`mailto:${contact.email}`} className="flex items-center gap-1 hover:text-blue-400">
                             <Mail className="h-3 w-3" />{contact.email}
                         </a>
                     )}
                     {contact.phone && (
-                        <a href={`tel:${contact.phone}`} className="flex items-center gap-1 hover:text-blue-600">
+                        <a href={`tel:${contact.phone}`} className="flex items-center gap-1 hover:text-blue-400">
                             <Phone className="h-3 w-3" />{contact.phone}
                         </a>
                     )}
                     {contact.mobile && (
-                        <a href={`tel:${contact.mobile}`} className="flex items-center gap-1 hover:text-blue-600">
+                        <a href={`tel:${contact.mobile}`} className="flex items-center gap-1 hover:text-blue-400">
                             <Smartphone className="h-3 w-3" />{contact.mobile}
                         </a>
                     )}
@@ -291,10 +291,10 @@ function ContactCard({
 
             {/* Actions */}
             <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-600" onClick={onEdit}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-blue-400" onClick={onEdit}>
                     <Edit2 className="h-3.5 w-3.5" />
                 </Button>
-                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-600" onClick={onDelete}>
+                <Button variant="ghost" size="icon" className="h-7 w-7 text-slate-400 hover:text-red-400" onClick={onDelete}>
                     <Trash2 className="h-3.5 w-3.5" />
                 </Button>
             </div>
@@ -345,9 +345,9 @@ function ContactForm({
 
     return (
         <Form {...form}>
-            <form onSubmit={form.handleSubmit(handleSubmit)} className="border border-blue-200 bg-blue-50/30 rounded-xl p-5 space-y-4">
+            <form onSubmit={form.handleSubmit(handleSubmit)} className="border border-blue-500/40 bg-blue-500/10 rounded-xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-semibold text-slate-700">
+                    <h4 className="text-sm font-semibold text-slate-200">
                         {initial ? "Edit Contact" : "New Contact"}
                     </h4>
                     <Button type="button" variant="ghost" size="icon" className="h-7 w-7" onClick={onCancel}>
@@ -363,7 +363,7 @@ function ContactForm({
                             <FormItem>
                                 <FormLabel>Name <span className="text-red-500">*</span></FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Full name" {...field} className="bg-white" />
+                                    <Input placeholder="Full name" {...field} className="bg-slate-900" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -377,7 +377,7 @@ function ContactForm({
                             <FormItem>
                                 <FormLabel>Designation</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g. Sales Manager" {...field} className="bg-white" />
+                                    <Input placeholder="e.g. Sales Manager" {...field} className="bg-slate-900" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -391,7 +391,7 @@ function ContactForm({
                             <FormItem>
                                 <FormLabel>Department</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="e.g. Reservations" {...field} className="bg-white" />
+                                    <Input placeholder="e.g. Reservations" {...field} className="bg-slate-900" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -405,7 +405,7 @@ function ContactForm({
                             <FormItem>
                                 <FormLabel>Email</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="email@example.com" {...field} className="bg-white" />
+                                    <Input placeholder="email@example.com" {...field} className="bg-slate-900" />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -448,7 +448,7 @@ function ContactForm({
                         <FormItem>
                             <FormLabel>Notes</FormLabel>
                             <FormControl>
-                                <Textarea placeholder="Any notes about this contact..." {...field} className="min-h-[60px] bg-white" />
+                                <Textarea placeholder="Any notes about this contact..." {...field} className="min-h-[60px] bg-slate-900" />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
@@ -468,7 +468,7 @@ function ContactForm({
                                         onCheckedChange={(checked) => field.onChange(checked === true)}
                                     />
                                 </FormControl>
-                                <Label htmlFor="primary" className="text-xs text-slate-600 cursor-pointer">
+                                <Label htmlFor="primary" className="text-xs text-slate-300 cursor-pointer">
                                     Mark as Primary Contact
                                 </Label>
                             </FormItem>

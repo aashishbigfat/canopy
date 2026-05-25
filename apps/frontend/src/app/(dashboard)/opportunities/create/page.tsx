@@ -12,10 +12,10 @@ function CreateOpportunityContent() {
     return (
         <div className="container mx-auto py-8">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-slate-800">New Opportunity</h1>
-                <p className="text-slate-500 text-sm">Fill in the details to create a new opportunity.</p>
+                <h1 className="text-2xl font-bold text-slate-100">New Opportunity</h1>
+                <p className="text-slate-400 text-sm">Fill in the details to create a new opportunity.</p>
             </div>
-            <div className="bg-white border rounded-xl shadow-sm overflow-hidden">
+            <div className="bg-slate-900 border rounded-xl shadow-sm overflow-hidden">
                 <OpportunityForm 
                     initialAccountId={accountId} 
                     initialContactId={contactId}

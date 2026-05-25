@@ -76,11 +76,17 @@ async def get_edit_form_data(
     from app.core.picklist_query import build_picklist_query, dedup_picklist_items
     from app.models.tenant import Tenant
     
-    # Get account
-    account = await Account.get(ObjectId(account_id))
-    if not account or account.tenant_id != current_user.tenant_id:
+    # Get account — tenant-scoped lookup
+    try:
+        aid = ObjectId(account_id)
+    except Exception:
         raise HTTPException(status_code=404, detail="Account not found")
-    
+    account = await Account.find_one(
+        {"_id": aid, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not account:
+        raise HTTPException(status_code=404, detail="Account not found")
+
     # Resolve tenant industry for picklist scoping
     tenant = await Tenant.get(current_user.tenant_id)
     tenant_industry = tenant.industry if tenant else None

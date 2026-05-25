@@ -52,7 +52,7 @@ const getNotificationIcon = (type?: string, entityType?: string) => {
         case "email":
             return <Mail className={cn(iconClass, "text-red-500")} />;
         default:
-            return <Bell className={cn(iconClass, "text-slate-500")} />;
+            return <Bell className={cn(iconClass, "text-slate-400")} />;
     }
 };
 

@@ -66,28 +66,32 @@ class Event(BaseDocument):
         # ]
     
     async def get_owner(self):
-        # """Get event owner"""
+        """Get event owner, scoped to this event's tenant."""
         from app.models.user import User
-        return await User.get(self.owner_id)
-    
+        return await User.find_one(
+            {"_id": self.owner_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_eventable(self):
-        # """Get the related entity (polymorphic)"""
+        """Get the related entity (polymorphic), scoped to this event's tenant."""
         if not self.eventable_type or not self.eventable_id:
             return None
-        
+
+        common = {"_id": self.eventable_id, "tenant_id": self.tenant_id, "deleted_at": None}
+
         if self.eventable_type == "Account":
             from app.models.account import Account
-            return await Account.get(self.eventable_id)
+            return await Account.find_one(common)
         elif self.eventable_type == "Contact":
             from app.models.contact import Contact
-            return await Contact.get(self.eventable_id)
+            return await Contact.find_one(common)
         elif self.eventable_type == "Lead":
             from app.models.lead import Lead
-            return await Lead.get(self.eventable_id)
+            return await Lead.find_one(common)
         elif self.eventable_type == "Opportunity":
             from app.models.opportunity import Opportunity
-            return await Opportunity.get(self.eventable_id)
-        
+            return await Opportunity.find_one(common)
+
         return None
     
     async def mark_held(self, user_id: PydanticObjectId):

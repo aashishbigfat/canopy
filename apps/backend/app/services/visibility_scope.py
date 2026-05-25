@@ -16,49 +16,34 @@ from bson import ObjectId
 
 from app.models.user import User
 from app.models.role import Role, RoleHierarchy
+from app.services import hierarchy_walker
 
 
 async def _is_admin_user(user: User) -> bool:
-    """Check if user has any admin role (is_admin=True on the role)."""
+    """Check if user has any admin role (is_admin=True on the role).
+
+    SECURITY: Roles must be fetched scoped to the user's tenant_id. A role_id
+    referencing another tenant's role (whether by accident or attack) must not
+    grant admin privileges in this tenant.
+    """
     if not user.role_ids:
         return False
-    for role_id in user.role_ids:
-        role = await Role.get(role_id)
-        if role and role.is_admin:
-            return True
-    return False
+    # Single tenant-scoped query for all the user's role_ids — safer and faster
+    # than per-id fetches.
+    role = await Role.find_one(
+        {
+            "_id": {"$in": list(user.role_ids)},
+            "tenant_id": user.tenant_id,
+            "is_admin": True,
+            "deleted_at": None,
+        }
+    )
+    return role is not None
 
 
 async def _collect_descendant_user_ids(tenant_id: ObjectId, hierarchy_node_id: ObjectId) -> List[ObjectId]:
-    """
-    BFS from direct children of hierarchy_node_id.
-    Returns user IDs from all descendant nodes (NOT the node itself — peers excluded).
-    """
-    descendant_node_ids: List[ObjectId] = []
-    frontier: List[ObjectId] = [hierarchy_node_id]
-
-    while frontier:
-        current_node_id = frontier.pop(0)
-        children = await RoleHierarchy.find(
-            {"tenant_id": tenant_id, "parent_id": current_node_id, "deleted_at": None}
-        ).to_list()
-        for child in children:
-            descendant_node_ids.append(child.id)
-            frontier.append(child.id)
-
-    # Now fetch all users assigned to any descendant node
-    if not descendant_node_ids:
-        return []
-
-    users = await User.find(
-        {
-            "tenant_id": tenant_id,
-            "role_hierarchy_id": {"$in": descendant_node_ids},
-            "is_active": True,
-            "deleted_at": None,
-        }
-    ).to_list()
-    return [u.id for u in users]
+    """Delegates to the shared hierarchy_walker so up/down BFS lives in one place."""
+    return await hierarchy_walker.descendant_user_ids(tenant_id, hierarchy_node_id)
 
 
 async def get_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:
@@ -126,3 +111,31 @@ def is_task_visible(task_owner_id: Optional[ObjectId], task_assigned_id: Optiona
     if task_assigned_id and task_assigned_id in visible_owner_ids:
         return True
     return False
+
+
+def apply_lead_bd_visibility_filter(
+    query: dict,
+    visible_owner_ids: Optional[List[ObjectId]],
+) -> dict:
+    """
+    Lead-specific filter that grants visibility when the user is EITHER the
+    sales owner OR the BD owner OR the reporting manager. Admin (None) is
+    unchanged.
+
+    Use this in /bd/* views where BDs need to see leads they are field-owners
+    of even if the sales owner is outside their hierarchy.
+    """
+    if visible_owner_ids is None:
+        return query
+    or_clauses = [
+        {"owner_id": {"$in": visible_owner_ids}},
+        {"bd_owner_id": {"$in": visible_owner_ids}},
+        {"reporting_manager_id": {"$in": visible_owner_ids}},
+    ]
+    # Merge with existing $or rather than overwrite, if any.
+    existing_or = query.pop("$or", None)
+    if existing_or:
+        query["$and"] = [{"$or": existing_or}, {"$or": or_clauses}]
+    else:
+        query["$or"] = or_clauses
+    return query

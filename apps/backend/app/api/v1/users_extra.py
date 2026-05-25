@@ -157,8 +157,10 @@ async def update_current_target(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/admin/updateCurrentTarget`."""
-    target_user = await User.get(payload.user_id)
-    if not target_user or target_user.tenant_id != current_user.tenant_id:
+    target_user = await User.find_one(
+        {"_id": payload.user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not target_user:
         raise HTTPException(404, "User not found")
     if hasattr(target_user, "current_target"):
         target_user.current_target = payload.target_amount
@@ -171,11 +173,22 @@ async def update_all_targets(
     payloads: List[TargetIn],
     current_user: User = Depends(get_current_user),
 ):
-    """Mirror old `/admin/updateAllUserTargets`."""
+    """Mirror old `/admin/updateAllUserTargets`.
+
+    Bulk tenant-scoped fetch: one query instead of N, and the query itself
+    rejects user_ids that don't belong to this tenant.
+    """
+    user_ids = [p.user_id for p in payloads if p.user_id]
+    if not user_ids:
+        return {"updated": 0}
+    users = await User.find(
+        {"_id": {"$in": user_ids}, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    ).to_list()
+    by_id = {str(u.id): u for u in users}
     updated = 0
     for p in payloads:
-        u = await User.get(p.user_id)
-        if u and u.tenant_id == current_user.tenant_id and hasattr(u, "current_target"):
+        u = by_id.get(str(p.user_id))
+        if u and hasattr(u, "current_target"):
             u.current_target = p.target_amount
             await u.save()
             updated += 1
@@ -295,8 +308,10 @@ async def get_bd_user_detail(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/get_bd_user_detail`."""
-    u = await User.get(user_id)
-    if not u or u.tenant_id != current_user.tenant_id:
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
         raise HTTPException(404, "User not found")
     return {
         "id": str(u.id),
@@ -318,8 +333,10 @@ async def deactivate_user(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/admin/rest_users_deactivate`."""
-    u = await User.get(user_id)
-    if not u or u.tenant_id != current_user.tenant_id:
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
         raise HTTPException(404, "User not found")
     u.is_active = False
     if hasattr(u, "updated_at"):
@@ -334,8 +351,10 @@ async def reactivate_user(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/admin/rest_users_reactivate`."""
-    u = await User.get(user_id)
-    if not u or u.tenant_id != current_user.tenant_id:
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
         raise HTTPException(404, "User not found")
     u.is_active = True
     if hasattr(u, "updated_at"):
@@ -355,8 +374,10 @@ async def update_user_sales_org(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/admin/update_user_sales_org`."""
-    u = await User.get(user_id)
-    if not u or u.tenant_id != current_user.tenant_id:
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
         raise HTTPException(404, "User not found")
     if hasattr(u, "sales_org_id"):
         u.sales_org_id = payload.sales_org_id
@@ -370,8 +391,10 @@ async def admin_send_password_reset(
     current_user: User = Depends(get_current_user),
 ):
     """Mirror old `/admin/send_reset_pswd`. Triggers password reset email."""
-    u = await User.get(user_id)
-    if not u or u.tenant_id != current_user.tenant_id:
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
         raise HTTPException(404, "User not found")
     return {"email_sent": True, "user_id": str(user_id)}
 

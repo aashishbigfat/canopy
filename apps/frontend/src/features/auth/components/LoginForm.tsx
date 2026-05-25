@@ -99,7 +99,19 @@ function LoginFormContent() {
         <div className="grid gap-6">
             <Form {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                    {/* Industry selector */}
+                    {/* Industry selector.
+                        - `value` (not `defaultValue`) makes the Select fully
+                          controlled by react-hook-form; with `defaultValue`
+                          the Select's internal state desynced from the form on
+                          re-render, which looked like "the dropdown doesn't
+                          work" — the value never made it to onSubmit.
+                        - `w-full` on the trigger overrides the shadcn
+                          default `w-fit` so it matches the Email/Password
+                          inputs width.
+                        - Icons live OUTSIDE the SelectItem's text node so
+                          Radix's ItemText only mirrors the label into the
+                          trigger; otherwise the icon's text-color class
+                          fights the placeholder/trigger color. */}
                     <FormField
                         control={form.control}
                         name="industry"
@@ -108,11 +120,11 @@ function LoginFormContent() {
                                 <FormLabel>Industry</FormLabel>
                                 <Select
                                     onValueChange={field.onChange}
-                                    defaultValue={field.value}
+                                    value={field.value || undefined}
                                     disabled={isLoading}
                                 >
                                     <FormControl>
-                                        <SelectTrigger>
+                                        <SelectTrigger className="w-full">
                                             <SelectValue placeholder="Select your industry" />
                                         </SelectTrigger>
                                     </FormControl>
@@ -121,10 +133,8 @@ function LoginFormContent() {
                                             const Icon = ind.icon;
                                             return (
                                                 <SelectItem key={ind.value} value={ind.value}>
-                                                    <span className="flex items-center gap-2">
-                                                        <Icon className={`h-4 w-4 ${ind.color}`} />
-                                                        {ind.label}
-                                                    </span>
+                                                    <Icon className={`h-4 w-4 ${ind.color}`} />
+                                                    <span>{ind.label}</span>
                                                 </SelectItem>
                                             );
                                         })}

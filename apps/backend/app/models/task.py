@@ -59,28 +59,32 @@ class Task(BaseDocument):
         # ]
     
     async def get_assigned_user(self):
-        # """Get assigned user"""
+        """Get assigned user, scoped to this task's tenant."""
         from app.models.user import User
-        return await User.get(self.assigned_user_id)
-    
+        return await User.find_one(
+            {"_id": self.assigned_user_id, "tenant_id": self.tenant_id, "deleted_at": None}
+        )
+
     async def get_taskable(self):
-        # """Get the related entity (polymorphic)"""
+        """Get the related entity (polymorphic), scoped to this task's tenant."""
         if not self.taskable_type or not self.taskable_id:
             return None
-        
+
+        common = {"_id": self.taskable_id, "tenant_id": self.tenant_id, "deleted_at": None}
+
         if self.taskable_type == "Account":
             from app.models.account import Account
-            return await Account.get(self.taskable_id)
+            return await Account.find_one(common)
         elif self.taskable_type == "Contact":
             from app.models.contact import Contact
-            return await Contact.get(self.taskable_id)
+            return await Contact.find_one(common)
         elif self.taskable_type == "Lead":
             from app.models.lead import Lead
-            return await Lead.get(self.taskable_id)
+            return await Lead.find_one(common)
         elif self.taskable_type == "Opportunity":
             from app.models.opportunity import Opportunity
-            return await Opportunity.get(self.taskable_id)
-        
+            return await Opportunity.find_one(common)
+
         return None
     
     async def mark_completed(self, user_id: PydanticObjectId):

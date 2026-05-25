@@ -32,8 +32,13 @@ class CommentService:
         return comment
     
     async def get_comment(self, comment_id: str, tenant_id: ObjectId) -> Optional[Comment]:
-        comment = await Comment.get(ObjectId(comment_id))
-        return comment if comment and comment.tenant_id == tenant_id and not comment.deleted_at else None
+        try:
+            oid = ObjectId(comment_id)
+        except Exception:
+            return None
+        return await Comment.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_comment(
         self, comment_id: str, data: CommentUpdate, user_id: ObjectId, tenant_id: ObjectId

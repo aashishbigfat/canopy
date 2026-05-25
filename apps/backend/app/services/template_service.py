@@ -23,8 +23,13 @@ class TemplateService:
         return template
     
     async def get_template(self, template_id: str, tenant_id: ObjectId) -> Optional[Template]:
-        template = await Template.get(ObjectId(template_id))
-        return template if template and template.tenant_id == tenant_id and not template.deleted_at else None
+        try:
+            oid = ObjectId(template_id)
+        except Exception:
+            return None
+        return await Template.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def update_template(
         self, template_id: str, data: TemplateUpdate, tenant_id: ObjectId

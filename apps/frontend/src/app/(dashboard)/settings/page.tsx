@@ -9,6 +9,9 @@ import {
   UserCog,
   ShieldCheck,
   Map,
+  Briefcase,
+  Receipt,
+  Zap,
 } from "lucide-react";
 
 const CARDS = [
@@ -65,6 +68,24 @@ const CARDS = [
     title: "Territory",
     desc: "Regions, sub-regions, country trees, BD reports.",
     icon: Map,
+  },
+  {
+    href: "/settings/picklists/bd_activity_type",
+    title: "BD Activity Types",
+    desc: "Visit categories (Demo, Site Survey, Follow-up). Per-industry overrides.",
+    icon: Briefcase,
+  },
+  {
+    href: "/settings/picklists/expense_category",
+    title: "Expense Categories",
+    desc: "Meals, Travel, Lodging. Set auto-approve thresholds and receipt rules.",
+    icon: Receipt,
+  },
+  {
+    href: "/settings/automation",
+    title: "Automation Rules",
+    desc: "Trigger BD visits, notifications, owner changes when conditions match.",
+    icon: Zap,
   },
 ];
 

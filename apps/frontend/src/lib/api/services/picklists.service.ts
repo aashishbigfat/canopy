@@ -21,7 +21,9 @@ export type PicklistType =
   | "inclusion"
   | "supplier_type"
   | "destination"
-  | "itinerary_inclusion";
+  | "itinerary_inclusion"
+  | "bd_activity_type"
+  | "expense_category";
 
 export interface PicklistItem {
   id: string;
@@ -29,6 +31,16 @@ export interface PicklistItem {
   description?: string | null;
   sorting: number;
   is_active: boolean;
+  color?: string | null;
+  // BD activity type extras
+  requires_field_meeting?: boolean | null;
+  requires_check_in?: boolean | null;
+  requires_approval?: boolean | null;
+  expected_duration_min?: number | null;
+  // Expense category extras
+  requires_receipt?: boolean | null;
+  max_amount?: number | null;
+  auto_approve_under?: number | null;
 }
 
 export interface PicklistItemCreate {

@@ -71,12 +71,14 @@ class EmailService:
         email_id: str,
         tenant_id: ObjectId
     ) -> Optional[Email]:
-        """Get email by ID"""
-        email = await Email.get(ObjectId(email_id))
-        
-        if email and email.tenant_id == tenant_id and not email.deleted_at:
-            return email
-        return None
+        """Get email by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(email_id)
+        except Exception:
+            return None
+        return await Email.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_emails_by_entity(
         self,
@@ -148,10 +150,15 @@ class EmailService:
         variables: dict,
         tenant_id: ObjectId
     ) -> dict:
-        """Apply template with variables"""
-        template = await EmailTemplate.get(ObjectId(template_id))
-        
-        if not template or template.tenant_id != tenant_id:
+        """Apply template with variables. Tenant-scoped template lookup."""
+        try:
+            tid = ObjectId(template_id)
+        except Exception:
+            raise ValueError("Template not found")
+        template = await EmailTemplate.find_one(
+            {"_id": tid, "tenant_id": tenant_id, "deleted_at": None}
+        )
+        if not template:
             raise ValueError("Template not found")
         
         # Replace variables

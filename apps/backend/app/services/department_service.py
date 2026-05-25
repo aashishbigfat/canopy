@@ -48,12 +48,14 @@ class DepartmentService:
         department_id: str,
         tenant_id: ObjectId
     ) -> Optional[Department]:
-        """Get department by ID"""
-        department = await Department.get(ObjectId(department_id))
-        
-        if department and department.tenant_id == tenant_id and not department.deleted_at:
-            return department
-        return None
+        """Get department by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(department_id)
+        except Exception:
+            return None
+        return await Department.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_department_with_details(
         self,
@@ -76,10 +78,12 @@ class DepartmentService:
             {"parent_id": ObjectId(department_id), "tenant_id": tenant_id, "deleted_at": None}
         ).count()
         
-        # Get manager name
+        # Get manager name — scoped to the department's tenant
         manager_name = None
         if department.manager_id:
-            manager = await User.get(department.manager_id)
+            manager = await User.find_one(
+                {"_id": department.manager_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
             if manager:
                 manager_name = manager.name
         
@@ -216,10 +220,12 @@ class DepartmentService:
         if not department:
             return None
         
-        # Get parent
+        # Get parent — scoped to the department's tenant
         parent = None
         if department.parent_id:
-            parent = await Department.get(department.parent_id)
+            parent = await Department.find_one(
+                {"_id": department.parent_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
         
         # Get children
         children = await department.get_children()

@@ -425,11 +425,12 @@ class DashboardService:
         if user_id:
             base_query["owner_id"] = PydanticObjectId(user_id)
         
-        # Determine tenant industry for conditional metrics
-        from app.models.tenant import Tenant
-        tenant = await Tenant.get(tenant_obj_id)
-        industry = tenant.industry if tenant else "travel"
-        is_travel = (industry == "travel")
+        # Determine tenant industry for conditional metrics. Resolver raises
+        # if the tenant is missing — dashboards must never report travel KPIs
+        # for a different industry just because a tenant lookup failed.
+        from app.services.industry_service import get_tenant_industry
+        from app.services.industry_strategies import get_dashboard_kpis_strategy
+        industry = await get_tenant_industry(tenant_obj_id)
         
         # Generic counts
         accounts_total = await Account.find(base_query).count()
@@ -493,39 +494,22 @@ class DashboardService:
         no_segment_count = await Opportunity.find(no_segment_query).count()
         b2c_open_opportunities += no_segment_count
         
-        # ── Travel-specific KPIs (only computed for travel tenants) ────────
-        tomorrow_departures = 0
-        today_checkout = 0
-        
-        if is_travel:
-            # Tomorrow's Departures — reads from industry_data.travel_date
-            tomorrow_dep_query = {**base_query, "industry_data.travel_date": {"$gte": tomorrow_start.isoformat(), "$lt": tomorrow_end.isoformat()}}
-            tomorrow_departures = await Opportunity.find(tomorrow_dep_query).count()
-            
-            # Today's checkout — calculate in-app since travel_date is a string in industry_data
-            try:
-                checkout_candidates = await Opportunity.find({
-                    **base_query,
-                    "industry_data.travel_date": {"$exists": True}
-                }).to_list()
-                for opp in checkout_candidates:
-                    td = (opp.industry_data or {}).get('travel_date')
-                    nights = (opp.industry_data or {}).get('no_of_nights', 0) or 0
-                    if td and nights:
-                        try:
-                            if isinstance(td, str):
-                                td_dt = datetime.fromisoformat(td.replace('Z', '+00:00')).replace(tzinfo=None)
-                            elif isinstance(td, datetime):
-                                td_dt = td
-                            else:
-                                continue
-                            checkout_dt = td_dt + timedelta(days=int(nights))
-                            if today_start <= checkout_dt < today_end:
-                                today_checkout += 1
-                        except (ValueError, TypeError):
-                            pass
-            except Exception:
-                pass
+        # ── Industry-specific KPIs ────────────────────────────────────────
+        # Per-industry strategy returns {kpi_name: value} dict. For travel
+        # that's {today_checkout, tomorrow_departures}; for other industries
+        # this is empty today and grows as vertical-specific KPIs are added
+        # without needing to touch this service.
+        industry_kpi_extras = await get_dashboard_kpis_strategy(industry).compute(
+            base_query=base_query,
+            today_start=today_start,
+            today_end=today_end,
+            tomorrow_start=tomorrow_start,
+            tomorrow_end=tomorrow_end,
+        )
+        # Travel keys remain at the top level for backward compat with
+        # frontend code that reads dashboard.tomorrow_departures directly.
+        tomorrow_departures = industry_kpi_extras.get("tomorrow_departures", 0)
+        today_checkout = industry_kpi_extras.get("today_checkout", 0)
         
         # Today's Revenue (won today)
         won_today_query = {
@@ -536,13 +520,10 @@ class DashboardService:
         won_today_list = await Opportunity.find(won_today_query).to_list()
         today_revenue = sum(getattr(opp, "amount", 0) or 0 for opp in won_today_list)
         
-        # Build industry-specific KPIs (only populated for relevant industries)
-        industry_kpis = {}
-        if is_travel:
-            industry_kpis = {
-                "today_checkout": today_checkout,
-                "tomorrow_departures": tomorrow_departures,
-            }
+        # Build industry-specific KPIs — the strategy already returned the
+        # per-industry dict; we just pass it through. Empty for non-travel
+        # industries today; grows naturally as new strategies surface KPIs.
+        industry_kpis = dict(industry_kpi_extras)
         
         return {
             "accounts_total": accounts_total,

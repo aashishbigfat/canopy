@@ -88,12 +88,17 @@ def custom_key_builder(func, namespace: str = "", *, request=None, response=None
         user_id = str(func_args[2])
 
     if not tenant_id:
-        # Last resort — this should never happen in production
-        tenant_id = "global"
+        # SECURITY: a cached endpoint called without tenant_id would otherwise
+        # share its cache entry across tenants — a silent data leak. Fail loudly
+        # so the caller is fixed instead of degrading isolation.
         import logging
-        logging.getLogger(__name__).warning(
-            "Cache key built without tenant_id for %s.%s — data isolation is broken!",
+        logging.getLogger(__name__).error(
+            "Cache key built without tenant_id for %s.%s — refusing to build a "
+            "non-tenant-scoped key. Update the caller to pass tenant_id.",
             func.__module__, func.__name__,
+        )
+        raise ValueError(
+            f"Cache key requires tenant_id for {func.__module__}.{func.__name__}"
         )
 
     base_key = f"{FastAPICache.get_prefix()}:{namespace}:{func.__module__}:{func.__name__}"

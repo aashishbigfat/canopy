@@ -23,9 +23,23 @@ class ImportExportService:
         # Convert accounts to dict
         data = []
         for account in accounts:
-            # Get related data
-            acc_type = await AccountType.get(account.acc_type_id) if account.acc_type_id else None
-            industry = await Industry.get(account.industry_id) if account.industry_id else None
+            # Picklist lookups scoped to this account's tenant OR platform defaults.
+            acc_type = None
+            if account.acc_type_id:
+                acc_type = await AccountType.find_one(
+                    {
+                        "_id": account.acc_type_id,
+                        "$or": [{"tenant_id": account.tenant_id}, {"tenant_id": None}],
+                    }
+                )
+            industry = None
+            if account.industry_id:
+                industry = await Industry.find_one(
+                    {
+                        "_id": account.industry_id,
+                        "$or": [{"tenant_id": account.tenant_id}, {"tenant_id": None}],
+                    }
+                )
             
             data.append({
                 "Name": account.name,

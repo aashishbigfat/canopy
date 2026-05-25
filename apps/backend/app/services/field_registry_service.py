@@ -127,8 +127,10 @@ async def get_additional_field(
     tenant_id: PydanticObjectId,
 ) -> Document:
     Doc = _resolve_additional_doc(entity_type)
-    obj = await Doc.get(field_id)
-    if not obj or obj.tenant_id != tenant_id:
+    obj = await Doc.find_one(
+        {"_id": field_id, "tenant_id": tenant_id, "entity_type": entity_type}
+    )
+    if not obj:
         raise HTTPException(404, f"{entity_type} additional field not found")
     return obj
 
@@ -180,11 +182,13 @@ async def delete_additional_field(
     tenant_id: PydanticObjectId,
 ) -> None:
     obj = await get_additional_field(entity_type, field_id, tenant_id)
-    # Cascade-delete the associated custom-field values
+    # Cascade-delete the associated custom-field values — MUST be tenant-scoped
+    # so a shared field_id cannot ever delete value rows belonging to another
+    # tenant.
     cfg = _resolve_value_config(entity_type)
     ValueDoc = cfg["doc"]
     field_fk = cfg["field_fk"]
-    await ValueDoc.find(getattr(ValueDoc, field_fk) == field_id).delete()
+    await ValueDoc.find({field_fk: field_id, "tenant_id": tenant_id}).delete()
     await obj.delete()
 
 
@@ -196,9 +200,17 @@ async def sort_additional_fields(
     """Bulk update sort order. Items: [{id, sorting}]."""
     Doc = _resolve_additional_doc(entity_type)
     updated = 0
+    # Bulk tenant-scoped fetch — avoids per-item TOCTOU and cuts N queries to 1.
+    ids = [item["id"] for item in items if item.get("id")]
+    if not ids:
+        return 0
+    docs = await Doc.find(
+        {"_id": {"$in": ids}, "tenant_id": tenant_id}
+    ).to_list()
+    docs_by_id = {str(d.id): d for d in docs}
     for item in items:
-        obj = await Doc.get(item["id"])
-        if obj and obj.tenant_id == tenant_id:
+        obj = docs_by_id.get(str(item.get("id")))
+        if obj is not None:
             obj.sorting = item["sorting"]
             obj.updated_at = datetime.utcnow()
             await obj.save()
@@ -477,8 +489,10 @@ async def update_standard_field(
     payload: StandardFieldUpdate,
     tenant_id: PydanticObjectId,
 ) -> StandardField:
-    obj = await StandardField.get(field_id)
-    if not obj or obj.tenant_id != tenant_id:
+    obj = await StandardField.find_one(
+        {"_id": field_id, "tenant_id": tenant_id}
+    )
+    if not obj:
         raise HTTPException(404, "Standard field not found")
     if obj.system_mandatory and payload.is_mandatory is False:
         raise HTTPException(400, "Cannot disable mandatory on system_mandatory field")
@@ -497,14 +511,24 @@ async def sort_standard_fields(
     items: List[Dict[str, Any]],
     tenant_id: PydanticObjectId,
 ) -> int:
+    # Bulk tenant-scoped fetch — collapses N lookups to one and guarantees
+    # we never touch another tenant's standard fields.
+    ids = [item["id"] for item in items if item.get("id")]
+    if not ids:
+        return 0
+    docs = await StandardField.find(
+        {"_id": {"$in": ids}, "tenant_id": tenant_id, "entity_type": entity_type}
+    ).to_list()
+    by_id = {str(d.id): d for d in docs}
     updated = 0
     for item in items:
-        obj = await StandardField.get(item["id"])
-        if obj and obj.tenant_id == tenant_id and obj.entity_type == entity_type:
-            obj.sorting = item["sorting"]
-            obj.updated_at = datetime.utcnow()
-            await obj.save()
-            updated += 1
+        obj = by_id.get(str(item.get("id")))
+        if obj is None:
+            continue
+        obj.sorting = item["sorting"]
+        obj.updated_at = datetime.utcnow()
+        await obj.save()
+        updated += 1
     return updated
 
 
@@ -579,12 +603,19 @@ async def write_custom_field_values(
 
     written = 0
     for v in values:
-        defn = await Doc.get(v.additional_field_id)
-        if not defn or defn.tenant_id != tenant_id:
+        defn = await Doc.find_one(
+            {"_id": v.additional_field_id, "tenant_id": tenant_id, "entity_type": entity_type}
+        )
+        if not defn:
             continue
+        # Existing lookup is also tenant-scoped — the value doc inherits the
+        # tenant, never write to another tenant's value row.
         existing = await ValueDoc.find_one(
-            getattr(ValueDoc, entity_fk) == entity_id,
-            getattr(ValueDoc, field_fk) == v.additional_field_id,
+            {
+                entity_fk: entity_id,
+                field_fk: v.additional_field_id,
+                "tenant_id": tenant_id,
+            }
         )
         if existing:
             existing.field_value = v.field_value

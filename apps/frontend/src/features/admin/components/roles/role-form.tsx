@@ -69,7 +69,13 @@ interface ProfileFormSheetProps {
 // ---------------------------------------------------------------------------
 // Permission grouping logic
 // ---------------------------------------------------------------------------
-const ACTION_ORDER = ["view", "create", "edit", "delete", "upload", "download", "share", "public_link", "send", "manage", "feature", "lock", "owner"];
+const ACTION_ORDER = ["view", "create", "edit", "delete", "upload", "download", "share", "public_link", "send", "manage", "approve", "reimburse", "check_in", "feature", "lock", "owner"];
+
+const TWO_WORD_ACTIONS = new Set([
+    "public_link",
+    "owner_change",
+    "check_in",  // for check_in_bd_visit
+]);
 
 function groupPermissions(perms: string[]) {
     const groups: Record<string, { action: string; perm: string }[]> = {};
@@ -79,10 +85,10 @@ function groupPermissions(perms: string[]) {
         let action = parts[0];
         let entity = parts.slice(1).join("_");
 
-        // Handle multi-word actions like "public_link", "owner_change"
+        // Handle multi-word actions like "public_link", "owner_change", "check_in"
         if (parts.length >= 3) {
             const twoWordAction = `${parts[0]}_${parts[1]}`;
-            if (["public_link", "owner_change"].includes(twoWordAction)) {
+            if (TWO_WORD_ACTIONS.has(twoWordAction)) {
                 action = twoWordAction;
                 entity = parts.slice(2).join("_");
             }

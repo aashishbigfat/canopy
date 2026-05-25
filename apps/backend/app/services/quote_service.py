@@ -111,12 +111,14 @@ class QuoteService(ActivityMixin):
         quote_id: str,
         tenant_id: ObjectId
     ) -> Optional[Quote]:
-        """Get quote by ID"""
-        quote = await Quote.get(ObjectId(quote_id))
-        
-        if quote and quote.tenant_id == tenant_id and not quote.deleted_at:
-            return quote
-        return None
+        """Get quote by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(quote_id)
+        except Exception:
+            return None
+        return await Quote.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_quote_with_items(
         self,
@@ -306,46 +308,60 @@ class QuoteService(ActivityMixin):
         item_data: QuoteItemUpdate,
         tenant_id: ObjectId
     ) -> Optional[QuoteItem]:
-        """Update quote item"""
-        item = await QuoteItem.get(ObjectId(item_id))
-        
-        if not item or item.tenant_id != tenant_id or item.deleted_at:
+        """Update quote item, scoped to tenant."""
+        try:
+            iid = ObjectId(item_id)
+        except Exception:
             return None
-        
+        item = await QuoteItem.find_one(
+            {"_id": iid, "tenant_id": tenant_id, "deleted_at": None}
+        )
+        if not item:
+            return None
+
         # Update fields
         update_data = item_data.model_dump(exclude_unset=True, exclude={'product_id'})
         for field, value in update_data.items():
             setattr(item, field, value)
-        
+
         if item_data.product_id is not None:
             item.product_id = ObjectId(item_data.product_id) if item_data.product_id else None
-        
+
         item = self._calculate_item_totals(item)
         await item.save()
-        
-        # Recalculate quote totals
-        quote = await Quote.get(item.quote_id)
+
+        # Recalculate quote totals — tenant-scoped lookup
+        quote = await Quote.find_one(
+            {"_id": item.quote_id, "tenant_id": tenant_id, "deleted_at": None}
+        )
         if quote:
             await self._recalculate_quote_totals(quote)
-        
+
         return item
-    
+
     async def delete_item(
         self,
         item_id: str,
         tenant_id: ObjectId
     ) -> bool:
-        """Delete quote item"""
-        item = await QuoteItem.get(ObjectId(item_id))
-        
-        if not item or item.tenant_id != tenant_id or item.deleted_at:
+        """Delete quote item, scoped to tenant."""
+        try:
+            iid = ObjectId(item_id)
+        except Exception:
             return False
-        
+        item = await QuoteItem.find_one(
+            {"_id": iid, "tenant_id": tenant_id, "deleted_at": None}
+        )
+        if not item:
+            return False
+
         quote_id = item.quote_id
         await item.soft_delete()
-        
-        # Recalculate quote totals
-        quote = await Quote.get(quote_id)
+
+        # Recalculate quote totals — tenant-scoped lookup
+        quote = await Quote.find_one(
+            {"_id": quote_id, "tenant_id": tenant_id, "deleted_at": None}
+        )
         if quote:
             await self._recalculate_quote_totals(quote)
         

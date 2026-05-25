@@ -33,9 +33,13 @@ class NotificationService:
         self, user_id: ObjectId, tenant_id: ObjectId,
         title: str, message: str, type: str = "info",
         entity_type: Optional[str] = None, entity_id: Optional[ObjectId] = None,
-        action_url: Optional[str] = None
+        action_url: Optional[str] = None,
+        push: bool = True,
     ) -> Notification:
-        """Quick method to create notification"""
+        """Create an in-app notification and (when push=True) fan out to FCM tokens.
+
+        Push failures are swallowed — the in-app row is the source of truth.
+        """
         notification = Notification(
             user_id=user_id,
             tenant_id=tenant_id,
@@ -47,6 +51,23 @@ class NotificationService:
             action_url=action_url
         )
         await notification.insert()
+        if push:
+            try:
+                from app.services import push_service
+                await push_service.send_to_user(
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    title=title,
+                    body=message,
+                    data={
+                        "entity_type": entity_type or "",
+                        "entity_id": str(entity_id or ""),
+                        "action_url": action_url or "",
+                        "type": type,
+                    },
+                )
+            except Exception:
+                pass
         return notification
     
     async def get_user_notifications(
@@ -64,8 +85,14 @@ class NotificationService:
         ).count()
     
     async def mark_as_read(self, notification_id: str, user_id: ObjectId) -> Optional[Notification]:
-        notification = await Notification.get(ObjectId(notification_id))
-        if notification and notification.user_id == user_id and not notification.is_read:
+        try:
+            oid = ObjectId(notification_id)
+        except Exception:
+            return None
+        notification = await Notification.find_one(
+            {"_id": oid, "user_id": user_id}
+        )
+        if notification and not notification.is_read:
             notification.is_read = True
             notification.read_at = datetime.now(timezone.utc)
             await notification.save()
@@ -85,8 +112,14 @@ class NotificationService:
         return count
     
     async def delete_notification(self, notification_id: str, user_id: ObjectId) -> bool:
-        notification = await Notification.get(ObjectId(notification_id))
-        if notification and notification.user_id == user_id:
+        try:
+            oid = ObjectId(notification_id)
+        except Exception:
+            return False
+        notification = await Notification.find_one(
+            {"_id": oid, "user_id": user_id}
+        )
+        if notification:
             await notification.soft_delete()
             return True
         return False

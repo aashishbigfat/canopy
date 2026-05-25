@@ -24,8 +24,8 @@ async def get_supplier_form_data(current_user: User = Depends(get_current_user))
     from app.models.tenant import Tenant
 
     # Determine industry for this tenant
-    tenant = await Tenant.get(current_user.tenant_id)
-    industry = tenant.industry if tenant else "travel"
+    from app.services.industry_service import get_tenant_industry
+    industry = await get_tenant_industry(current_user.tenant_id)
 
     # Industry-specific default services to auto-seed
     INDUSTRY_SERVICES = {
@@ -403,9 +403,21 @@ async def update_supplier_contact(
     data: SupplierContactUpdate,
     current_user: User = Depends(check_permission("edit_supplier"))
 ):
-    """Update a supplier contact"""
-    contact = await SupplierContact.get(ObjectId(contact_id))
-    if not contact or contact.supplier_id != ObjectId(supplier_id) or contact.tenant_id != current_user.tenant_id:
+    """Update a supplier contact, scoped to tenant + supplier."""
+    try:
+        cid = ObjectId(contact_id)
+        sid = ObjectId(supplier_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    contact = await SupplierContact.find_one(
+        {
+            "_id": cid,
+            "supplier_id": sid,
+            "tenant_id": current_user.tenant_id,
+            "deleted_at": None,
+        }
+    )
+    if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
 
     update_data = data.model_dump(exclude_unset=True)
@@ -437,9 +449,21 @@ async def delete_supplier_contact(
     contact_id: str,
     current_user: User = Depends(check_permission("edit_supplier"))
 ):
-    """Delete a supplier contact"""
-    contact = await SupplierContact.get(ObjectId(contact_id))
-    if not contact or contact.supplier_id != ObjectId(supplier_id) or contact.tenant_id != current_user.tenant_id:
+    """Delete a supplier contact, scoped to tenant + supplier."""
+    try:
+        cid = ObjectId(contact_id)
+        sid = ObjectId(supplier_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    contact = await SupplierContact.find_one(
+        {
+            "_id": cid,
+            "supplier_id": sid,
+            "tenant_id": current_user.tenant_id,
+            "deleted_at": None,
+        }
+    )
+    if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
 
     await contact.delete()

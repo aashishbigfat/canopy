@@ -49,6 +49,19 @@ export interface Opportunity {
 
     // All industry-specific data (travel_date, no_of_pax, destinations, inclusions, etc.)
     industry_data?: Record<string, any>;
+
+    // BD multi-owner triple (auto-resolved from account billing address / lead conversion)
+    territory_id?: string;
+    region_id?: string;
+    territory_name?: string;
+    bd_owner_id?: string;
+    bd_owner_name?: string;
+    reporting_manager_id?: string;
+    reporting_manager_name?: string;
+    operation_user_id?: string;
+    operation_user_name?: string;
+    territory_match_source?: string;
+    territory_assigned_at?: string;
 }
 
 export interface OpportunityCreateData {

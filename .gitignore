@@ -43,6 +43,9 @@ tsconfig.tsbuildinfo
 .vscode/
 *.swp
 *.swo
+.qodo/
+.claude/
+.omc/
 
 # OS System Files
 .DS_Store

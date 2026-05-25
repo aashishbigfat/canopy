@@ -110,36 +110,55 @@ class User(BaseDocument):
         """Hash password"""
         return pwd_context.hash(password)
     
+    async def _load_active_roles(self) -> "List[Any]":
+        """Load this user's roles in a single tenant-scoped query.
+
+        SECURITY: roles MUST be filtered by this user's tenant_id. A role_id
+        from another tenant (whether by data corruption or attack) must not
+        grant any permission here — this is the gate that `check_permission`
+        relies on for every authenticated API call. Previously each role was
+        loaded via the unscoped `Role.get(role_id)`, which made cross-tenant
+        permission inheritance possible. Cutting the per-id queries to one
+        bulk lookup is also an N+1 fix.
+        """
+        from app.models.role import Role
+
+        if not self.role_ids:
+            return []
+        return await Role.find(
+            {
+                "_id": {"$in": list(self.role_ids)},
+                "tenant_id": self.tenant_id,
+                "deleted_at": None,
+            }
+        ).to_list()
+
     async def has_permission(self, permission: str) -> bool:
-        """Check if user has a specific permission"""
-        # Import here to avoid circular dependency
-        from app.models.role import Role
-        
-        for role_id in self.role_ids:
-            role = await Role.get(role_id)
-            if role and permission in role.permissions:
-                return True
-        return False
-    
+        """Check if user has a specific permission (tenant-scoped)."""
+        roles = await self._load_active_roles()
+        return any(permission in (r.permissions or []) for r in roles)
+
     async def has_any_permission(self, permissions: List[str]) -> bool:
-        """Check if user has any of the specified permissions"""
-        for permission in permissions:
-            if await self.has_permission(permission):
+        """Check if user has any of the specified permissions (tenant-scoped)."""
+        if not permissions:
+            return False
+        wanted = set(permissions)
+        roles = await self._load_active_roles()
+        for r in roles:
+            if wanted.intersection(r.permissions or []):
                 return True
         return False
-        
+
     async def get_permissions(self) -> List[str]:
-        """Get all permissions across all assigned roles"""
-        from app.models.role import Role
-        
-        perms = set()
-        for role_id in self.role_ids:
-            role = await Role.get(role_id)
-            if role:
-                perms.update(role.permissions)
+        """Get all permissions across all assigned roles (tenant-scoped, deduped)."""
+        roles = await self._load_active_roles()
+        perms: set[str] = set()
+        for r in roles:
+            perms.update(r.permissions or [])
         return list(perms)
-    
+
     async def update_last_login(self):
-        """Update last login timestamp"""
-        self.last_login_at = datetime.utcnow()
+        """Update last login timestamp."""
+        from datetime import timezone as _tz
+        self.last_login_at = datetime.now(_tz.utc)
         await self.save()

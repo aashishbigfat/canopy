@@ -118,10 +118,26 @@ INDUSTRY_LABELS: Dict[str, Dict[str, str]] = {
 
 def get_default_modules(industry: str) -> Dict[str, bool]:
     """Return the default module flags for a given industry.
-    Falls back to travel defaults if the industry is unrecognised."""
-    return INDUSTRY_MODULE_DEFAULTS.get(industry, INDUSTRY_MODULE_DEFAULTS["travel"]).copy()
+
+    Raises ValueError on an unrecognised industry instead of silently falling
+    back to travel. A silent fallback caused new industries to inherit
+    travel-only module flags and biased the system toward one vertical.
+    """
+    if industry not in INDUSTRY_MODULE_DEFAULTS:
+        raise ValueError(
+            f"Unknown industry '{industry}'. Supported: {SUPPORTED_INDUSTRIES}"
+        )
+    return INDUSTRY_MODULE_DEFAULTS[industry].copy()
 
 
 def get_industry_labels(industry: str) -> Dict[str, str]:
-    """Return the UI label map for a given industry."""
-    return INDUSTRY_LABELS.get(industry, INDUSTRY_LABELS["travel"]).copy()
+    """Return the UI label map for a given industry.
+
+    Raises ValueError on an unrecognised industry — see get_default_modules
+    for the rationale.
+    """
+    if industry not in INDUSTRY_LABELS:
+        raise ValueError(
+            f"Unknown industry '{industry}'. Supported: {SUPPORTED_INDUSTRIES}"
+        )
+    return INDUSTRY_LABELS[industry].copy()

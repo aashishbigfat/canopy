@@ -18,13 +18,30 @@ router = APIRouter()
 
 @router.post("/register", response_model=dict, status_code=status.HTTP_201_CREATED)
 @limiter.limit("5/minute")
-async def register(request: Request, response: Response, user_data: UserRegister):
-    """Register a new user"""
+async def register(
+    request: Request,
+    response: Response,
+    user_data: UserRegister,
+    current_user: User = Depends(get_current_user),
+):
+    """Register a new user inside the current admin's tenant.
+
+    SECURITY: this endpoint was previously PUBLIC and accepted `tenant_id`
+    from the request body. That allowed any visitor to join any existing
+    tenant by guessing its id (the public /check-tenant-activity probe
+    revealed valid ids). Now:
+
+    - Caller must be authenticated.
+    - tenant_id is taken from current_user.tenant_id; the body value is ignored.
+    - For true self-serve SaaS signup (creating a brand-new tenant), build a
+      separate /signup endpoint that creates the Tenant + first admin user
+      transactionally.
+    """
     service = AuthService()
-    
+
     try:
-        user = await service.register_user(user_data)
-        
+        user = await service.register_user(user_data, tenant_id=current_user.tenant_id)
+
         return {
             "error": False,
             "message": "User registered successfully. Please verify your email.",
@@ -52,10 +69,18 @@ async def login(request: Request, response: Response, login_data: UserLogin):
         
         permissions = await user.get_permissions()
         
-        # Fetch tenant to include industry + modules in response
+        # Fetch tenant to include industry + modules in response. If the
+        # tenant lookup fails, fail the login — issuing a token with a
+        # default industry would silently mis-scope the whole session.
         from app.models.tenant import Tenant
-        tenant = await Tenant.get(user.tenant_id)
-        
+        tenant = await Tenant.find_one({"_id": user.tenant_id, "is_active": True})
+        if not tenant:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Tenant is inactive or not found",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
         return TokenResponse(
             access_token=access_token,
             token_type="bearer",
@@ -67,8 +92,8 @@ async def login(request: Request, response: Response, login_data: UserLogin):
                 "tenant_id": str(user.tenant_id),
                 "role_ids": [str(r) for r in user.role_ids],
                 "permissions": permissions,
-                "industry": tenant.industry if tenant else "travel",
-                "modules": tenant.modules if tenant else {},
+                "industry": tenant.industry,
+                "modules": tenant.modules or {},
             }
         )
     except ValueError as e:
@@ -130,8 +155,13 @@ async def refresh_token(request: Request, response: Response, token_data: Refres
 async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
     from app.models.tenant import Tenant
-    tenant = await Tenant.get(current_user.tenant_id)
-    
+    tenant = await Tenant.find_one({"_id": current_user.tenant_id, "is_active": True})
+    if not tenant:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Tenant is inactive or not found",
+        )
+
     return {
         "id": str(current_user.id),
         "name": current_user.name,
@@ -142,8 +172,8 @@ async def get_current_user_info(current_user: User = Depends(get_current_user)):
         "is_active": current_user.is_active,
         "is_verified": current_user.is_verified,
         "last_login_at": current_user.last_login_at,
-        "industry": tenant.industry if tenant else "travel",
-        "modules": tenant.modules if tenant else {},
+        "industry": tenant.industry,
+        "modules": tenant.modules or {},
     }
 
 

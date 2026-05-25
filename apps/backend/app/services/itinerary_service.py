@@ -69,12 +69,14 @@ class ItineraryService:
         itinerary_id: str,
         tenant_id: ObjectId
     ) -> Optional[Itinerary]:
-        """Get itinerary by ID"""
-        itinerary = await Itinerary.get(ObjectId(itinerary_id))
-        
-        if itinerary and itinerary.tenant_id == tenant_id and not itinerary.deleted_at:
-            return itinerary
-        return None
+        """Get itinerary by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(itinerary_id)
+        except Exception:
+            return None
+        return await Itinerary.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_itinerary_with_days(
         self,
@@ -226,19 +228,30 @@ class ItineraryService:
         opportunity_id: str,
         tenant_id: ObjectId
     ) -> List[dict]:
-        """Get all itineraries linked to an opportunity"""
-        
+        """Get all itineraries linked to an opportunity (tenant-scoped end-to-end)."""
+
         links = await ItineraryOpportunity.find(
             {"opportunity_id": ObjectId(opportunity_id), "tenant_id": tenant_id}
         ).to_list()
-        
+
+        if not links:
+            return []
+
+        # Bulk tenant-scoped fetch — no cross-tenant itinerary surfaces even
+        # if a link row referenced one.
+        itin_ids = [link.itinerary_id for link in links]
+        itineraries = await Itinerary.find(
+            {"_id": {"$in": itin_ids}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        itin_map = {i.id: i for i in itineraries}
+
         result = []
         for link in links:
-            itinerary = await Itinerary.get(link.itinerary_id)
+            itinerary = itin_map.get(link.itinerary_id)
             if itinerary:
                 result.append({
                     "itinerary": itinerary,
                     "notes": link.notes
                 })
-        
+
         return result

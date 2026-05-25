@@ -56,23 +56,25 @@ class Email(BaseDocument):
         # ]
     
     async def get_emailable(self):
-        # """Get the related entity (polymorphic)"""
+        """Get the related entity (polymorphic), scoped to this email's tenant."""
         if not self.emailable_type or not self.emailable_id:
             return None
-        
+
+        common = {"_id": self.emailable_id, "tenant_id": self.tenant_id, "deleted_at": None}
+
         if self.emailable_type == "Account":
             from app.models.account import Account
-            return await Account.get(self.emailable_id)
+            return await Account.find_one(common)
         elif self.emailable_type == "Contact":
             from app.models.contact import Contact
-            return await Contact.get(self.emailable_id)
+            return await Contact.find_one(common)
         elif self.emailable_type == "Lead":
             from app.models.lead import Lead
-            return await Lead.get(self.emailable_id)
+            return await Lead.find_one(common)
         elif self.emailable_type == "Opportunity":
             from app.models.opportunity import Opportunity
-            return await Opportunity.get(self.emailable_id)
-        
+            return await Opportunity.find_one(common)
+
         return None
     
     async def mark_sent(self):

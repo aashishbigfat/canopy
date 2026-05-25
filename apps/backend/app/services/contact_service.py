@@ -1,6 +1,7 @@
 """
 Contact service layer - Business logic for Contact operations
 """
+import logging
 from typing import List, Optional, Dict
 from bson import ObjectId
 from datetime import datetime
@@ -13,6 +14,9 @@ from app.services.notification_service import NotificationService
 from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
 import json
+
+
+_logger = logging.getLogger(__name__)
 
 class ContactService(ActivityMixin):
     """Service for Contact business logic"""
@@ -172,12 +176,14 @@ class ContactService(ActivityMixin):
         return contact
     
     async def get_contact(self, contact_id: str, tenant_id: ObjectId) -> Optional[Contact]:
-        """Get contact by ID"""
-        contact = await Contact.get(ObjectId(contact_id))
-        
-        if contact and contact.tenant_id == tenant_id and not contact.deleted_at:
-            return contact
-        return None
+        """Get contact by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(contact_id)
+        except Exception:
+            return None
+        return await Contact.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
 
     async def get_contact_with_relations(
         self,
@@ -195,19 +201,27 @@ class ContactService(ActivityMixin):
         from app.models.opportunity import Opportunity
         from app.models.task import Task
         
-        # Get owner information
-        owner = await User.get(contact.owner_id)
-        
-        # Get account name
+        # Bulk tenant-scoped lookups — no cross-tenant user/account leakage even
+        # if stale reference IDs exist.
+        ref_user_ids = {contact.owner_id, contact.created_by}
+        if contact.last_modified_by_id:
+            ref_user_ids.add(contact.last_modified_by_id)
+        ref_users = await User.find(
+            {"_id": {"$in": list(ref_user_ids)}, "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        ref_users_map = {u.id: u for u in ref_users}
+        owner = ref_users_map.get(contact.owner_id)
+        creator = ref_users_map.get(contact.created_by)
+        modifier = ref_users_map.get(contact.last_modified_by_id) if contact.last_modified_by_id else None
+
+        # Get account name — scoped to tenant
         account_name = None
         if contact.account_id:
-            account = await Account.get(contact.account_id)
+            account = await Account.find_one(
+                {"_id": contact.account_id, "tenant_id": tenant_id, "deleted_at": None}
+            )
             if account:
                 account_name = account.name
-        
-        # Get creator and modifier information
-        creator = await User.get(contact.created_by)
-        modifier = await User.get(contact.last_modified_by_id) if contact.last_modified_by_id else None
         
         # Get related opportunities
         related_opportunities = []
@@ -221,7 +235,9 @@ class ContactService(ActivityMixin):
             stage_ids = list({opp.sales_stage_id for opp in opportunities if opp.sales_stage_id})
             stages_map = {}
             if stage_ids:
-                stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
+                stages = await SalesStage.find(
+                    {"_id": {"$in": stage_ids}, "tenant_id": tenant_id}
+                ).to_list()
                 stages_map = {str(stage.id): stage.name for stage in stages}
             # ------------------------------------------------
             
@@ -243,7 +259,7 @@ class ContactService(ActivityMixin):
                     "created_at": opp.created_at.isoformat()
                 })
         except Exception as e:
-            print(f"Error loading opportunities for contact: {e}")
+            _logger.warning("Error loading opportunities for contact %s: %s", contact.id, e)
             
         # Get related tasks
         related_tasks = []
@@ -274,7 +290,7 @@ class ContactService(ActivityMixin):
                     "created_at": task.created_at.isoformat()
                 })
         except Exception as e:
-            print(f"Error loading tasks for contact: {e}")
+            _logger.warning("Error loading tasks for contact %s: %s", contact.id, e)
 
         return {
             "id": str(contact.id),
@@ -413,23 +429,31 @@ class ContactService(ActivityMixin):
                 if new_account_id:
                     from app.models.opportunity import Opportunity
                     from app.models.account import Account as AccountModel
-                    
-                    # Fetch the new account once to determine its type
-                    new_account_obj = await AccountModel.get(new_account_id)
-                    new_opp_type = "PersonalAccount" if (new_account_obj and new_account_obj.is_person_account) else "Account"
-                    
-                    # Find and update all opportunities for this contact
+
+                    # Verify the new account is in this tenant before
+                    # reassigning opportunities to it — otherwise a forged
+                    # account_id could leak this contact's opportunities into
+                    # another tenant's account.
+                    new_account_obj = await AccountModel.find_one(
+                        {"_id": new_account_id, "tenant_id": tenant_id, "deleted_at": None}
+                    )
+                    if not new_account_obj:
+                        raise ValueError(
+                            "new_account_id does not reference an account in this tenant"
+                        )
+                    new_opp_type = "PersonalAccount" if new_account_obj.is_person_account else "Account"
+
+                    # Tenant-scoped opportunity lookup too
                     opportunities = await Opportunity.find(
-                        {"contact_id": contact.id, "deleted_at": None}
+                        {"contact_id": contact.id, "tenant_id": tenant_id, "deleted_at": None}
                     ).to_list()
-                    
+
                     for opp in opportunities:
                         opp.account_id = new_account_id
-                        # Update polymorphic reference if it exists
                         if opp.opportunitable_type in ["Account", "PersonalAccount"]:
                             opp.opportunitable_id = new_account_id
                             opp.opportunitable_type = new_opp_type
-                        
+
                         await opp.save()
 
         # Track changes
@@ -588,46 +612,6 @@ class ContactService(ActivityMixin):
         
         return contacts, total
     
-    async def change_owner(
-        self,
-        contact_id: str,
-        new_owner_id: ObjectId,
-        current_user_id: ObjectId,
-        tenant_id: ObjectId
-    ) -> Optional[Contact]:
-        """Change contact owner"""
-        contact = await self.get_contact(contact_id, tenant_id)
-        
-        if not contact:
-            return None
-        
-        contact.owner_id = new_owner_id
-        contact.last_modified_by_id = current_user_id
-        await contact.save()
-        
-        # Populate owner name for the response
-        from app.models.user import User
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(contact, 'owner_name', owner.name)
-        
-        # Send email notification
-        try:
-            from app.tasks.account_tasks import send_owner_change_email
-            send_owner_change_email.delay(
-                "Contact",
-                str(new_owner_id),
-                contact.full_name,
-                "contactDetails",
-                str(tenant_id),
-                str(contact.id)
-            )
-        except Exception as e:
-            import logging
-            logging.getLogger(__name__).warning("Failed to dispatch Celery tasks: %s", e)
-        
-        return contact
-    
     async def link_to_account(
         self,
         contact_id: str,
@@ -706,25 +690,48 @@ class ContactService(ActivityMixin):
                 view_count=1
             )
             await view.insert()
+
     async def change_owner(
         self,
         contact_id: str,
         new_owner_id: ObjectId,
         current_user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
     ) -> Optional[Contact]:
-        """Change contact owner"""
+        """Change contact owner.
+
+        SECURITY: new_owner_id must belong to the same tenant — otherwise an
+        attacker could shift a record outside the visible scope of this tenant
+        or attach it to a foreign user.
+        """
         contact = await self.get_contact(contact_id, tenant_id)
         if not contact:
             return None
-        
+
+        owner = await User.find_one(
+            {"_id": new_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+        )
+        if not owner:
+            raise ValueError("new_owner_id must reference an active user in this tenant")
+
         contact.owner_id = new_owner_id
         contact.last_modified_by_id = current_user_id
         await contact.save()
-        
-        # Populate owner name for response
-        owner = await User.get(new_owner_id)
-        if owner:
-            setattr(contact, "owner_name", owner.name)
-            
+
+        setattr(contact, "owner_name", owner.name)
+
+        try:
+            from app.tasks.account_tasks import send_owner_change_email
+            send_owner_change_email.delay(
+                "Contact",
+                str(new_owner_id),
+                contact.full_name,
+                "contactDetails",
+                str(tenant_id),
+                str(contact.id),
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery task: %s", e)
+
         return contact

@@ -68,7 +68,7 @@ export function EntityDetailHeader({
                         </div>
                         <div>
                             <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-slate-500 uppercase tracking-wider">{customLabel || type}</span>
+                                <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">{customLabel || type}</span>
                             </div>
                             <div className="flex items-center gap-2">
                                 <h1 className="text-2xl font-semibold">{name}</h1>
@@ -119,14 +119,14 @@ export function EntityDetailHeader({
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">Phone</p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase">Phone</p>
                         <div className="flex items-center gap-2">
                             {phone ? (
                                 <a href={`tel:${phone}`} className="text-sm text-primary font-medium hover:underline">
                                     {phone}
                                 </a>
                             ) : (
-                                <span className="text-sm text-slate-500 font-medium">No Phone</span>
+                                <span className="text-sm text-slate-400 font-medium">No Phone</span>
                             )}
                             {phone && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => handleCopy(phone)}>
@@ -136,14 +136,14 @@ export function EntityDetailHeader({
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">Email</p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase">Email</p>
                         <div className="flex items-center gap-2 overflow-hidden">
                             {email ? (
                                 <a href={`mailto:${email}`} className="text-sm text-primary font-medium truncate max-w-full hover:underline">
                                     {email}
                                 </a>
                             ) : (
-                                <span className="text-sm text-slate-500 font-medium">No Email</span>
+                                <span className="text-sm text-slate-400 font-medium">No Email</span>
                             )}
                             {email && (
                                 <Button variant="ghost" size="icon" className="h-4 w-4 flex-shrink-0" onClick={() => handleCopy(email)}>
@@ -153,16 +153,16 @@ export function EntityDetailHeader({
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">{type} Owner</p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase">{type} Owner</p>
                         <div className="flex items-center gap-2">
                             <span className="text-sm text-primary font-medium">{ownerName || "Unassigned"}</span>
                             <User className="h-3 w-3 text-primary" />
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-500 uppercase">{type} ID</p>
+                        <p className="text-xs font-semibold text-slate-400 uppercase">{type} ID</p>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-600 font-medium">{id?.slice(-8) || "N/A"}</span>
+                            <span className="text-sm text-slate-300 font-medium">{id?.slice(-8) || "N/A"}</span>
                         </div>
                     </div>
                 </div>

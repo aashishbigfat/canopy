@@ -10,7 +10,7 @@ export default function LeadsLoading() {
                         Track and manage your potential business opportunities.
                     </p>
                 </div>
-                <div className="h-10 w-32 bg-gray-200 rounded-md animate-pulse" />
+                <div className="h-10 w-32 bg-slate-800 rounded-md animate-pulse" />
             </div>
 
             <div className="border rounded-lg">

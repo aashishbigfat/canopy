@@ -39,7 +39,7 @@ export default function SupplierDetailsPage({ params }: SupplierDetailsPageProps
     if (isLoading || loadingMeta) {
         return (
             <div className="flex h-[600px] w-full items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+                <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
             </div>
         );
     }
@@ -47,7 +47,7 @@ export default function SupplierDetailsPage({ params }: SupplierDetailsPageProps
     if (isError || !supplier) {
         return (
             <div className="flex h-[600px] w-full flex-col items-center justify-center gap-4">
-                <p className="text-xl font-semibold text-slate-900">Supplier not found</p>
+                <p className="text-xl font-semibold text-slate-100">Supplier not found</p>
                 <Button variant="outline" onClick={() => router.push("/suppliers")}>
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Back to Suppliers

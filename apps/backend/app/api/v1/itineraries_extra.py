@@ -12,13 +12,16 @@ Mirrors old Laravel:
 All routes are guarded by ``require_module("itineraries")``.
 """
 from __future__ import annotations
-from datetime import datetime
+import logging
+from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
+from app.core.config import settings
+from app.core.webhook_signatures import verify_hmac_sha256
 from app.models.user import User
 from app.models.itinerary import Itinerary, ItineraryDay, ItineraryOpportunity
 from app.models.itinerary_extras import (
@@ -28,6 +31,8 @@ from app.models.itinerary_extras import (
     ItineraryHeaderFooter, ProformaInvoice, TourItinerary,
     ItineraryPDFJob,
 )
+
+_logger = logging.getLogger(__name__)
 from app.middleware.industry_guard import require_module
 
 router = APIRouter(dependencies=[Depends(require_module("itineraries"))])
@@ -859,22 +864,55 @@ async def get_pdf_status(
     return obj.model_dump()
 
 
-class PDFCallbackIn(BaseModel):
-    job_id: PydanticObjectId
-    status: str
-    pdf_url: Optional[str] = None
-    error: Optional[str] = None
-
-
 @router.post("/pdf/callback", tags=["Public"])
-async def pdf_callback(payload: PDFCallbackIn):
-    """Mirror old `/pdf_response`. Public callback from Azure renderer."""
-    obj = await ItineraryPDFJob.get(payload.job_id)
+async def pdf_callback(request: Request):
+    """Public callback from the Azure PDF renderer.
+
+    SECURITY: verifies HMAC-SHA256 over the raw body using PDF_CALLBACK_SECRET.
+    Previously this endpoint took any unauthenticated POST and let the caller
+    mark any job ID as completed with a malicious pdf_url — meaning anyone
+    could swap legitimate PDFs for attacker-controlled URLs.
+
+    The renderer must send `X-Signature` containing the hex HMAC-SHA256 of
+    the request body computed with the same secret.
+    """
+    secret = settings.PDF_CALLBACK_SECRET
+    if not secret:
+        raise HTTPException(
+            status_code=503,
+            detail="PDF callback signature not configured",
+        )
+
+    raw_body = await request.body()
+    signature = request.headers.get("X-Signature")
+    if not verify_hmac_sha256(raw_body, signature, secret):
+        _logger.warning("PDF callback signature verification failed")
+        raise HTTPException(status_code=403, detail="Invalid signature")
+
+    import json as _json
+    try:
+        body = _json.loads(raw_body.decode("utf-8") or "{}")
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid JSON body")
+
+    try:
+        job_id = PydanticObjectId(body.get("job_id", ""))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid job_id")
+
+    status_value = body.get("status")
+    pdf_url = body.get("pdf_url")
+    error = body.get("error")
+
+    if status_value not in ("queued", "running", "completed", "failed"):
+        raise HTTPException(status_code=400, detail="Invalid status")
+
+    obj = await ItineraryPDFJob.find_one({"_id": job_id})
     if not obj:
         raise HTTPException(404, "Job not found")
-    obj.status = payload.status
-    obj.pdf_url = payload.pdf_url
-    obj.error = payload.error
-    obj.completed_at = datetime.utcnow()
+    obj.status = status_value
+    obj.pdf_url = pdf_url
+    obj.error = error
+    obj.completed_at = datetime.now(timezone.utc)
     await obj.save()
     return {"received": True}

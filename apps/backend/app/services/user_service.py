@@ -38,9 +38,21 @@ class UserService(ActivityMixin):
         
         # Hash password
         hashed_password = User.hash_password(user_data.password)
-        
-        # Convert role IDs
+
+        # Convert role IDs — SECURITY: every role must belong to this tenant.
         role_ids = [ObjectId(rid) for rid in user_data.role_ids] if user_data.role_ids else []
+        if role_ids:
+            valid_roles = await Role.find(
+                {
+                    "_id": {"$in": role_ids},
+                    "tenant_id": tenant_id,
+                    "deleted_at": None,
+                }
+            ).to_list()
+            if len(valid_roles) != len(role_ids):
+                raise ValueError(
+                    "One or more role_ids are invalid or do not belong to this tenant"
+                )
         
         # Convert destination IDs
         destination_ids = [ObjectId(did) for did in user_data.assigned_destinations] if user_data.assigned_destinations else []
@@ -89,12 +101,14 @@ class UserService(ActivityMixin):
         user_id: str,
         tenant_id: ObjectId
     ) -> Optional[User]:
-        """Get user by ID"""
-        user = await User.get(ObjectId(user_id))
-        
-        if user and user.tenant_id == tenant_id and not user.deleted_at:
-            return user
-        return None
+        """Get user by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(user_id)
+        except Exception:
+            return None
+        return await User.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
     
     async def get_user_with_details(
         self,
@@ -107,29 +121,43 @@ class UserService(ActivityMixin):
         if not user:
             return None
         
-        # Get roles
+        # Get roles — single tenant-scoped query, prevents cross-tenant role exposure
         roles = []
-        for role_id in user.role_ids:
-            role = await Role.get(role_id)
-            if role:
-                roles.append({
+        if user.role_ids:
+            role_docs = await Role.find(
+                {
+                    "_id": {"$in": list(user.role_ids)},
+                    "tenant_id": tenant_id,
+                    "deleted_at": None,
+                }
+            ).to_list()
+            roles = [
+                {
                     "id": str(role.id),
                     "name": role.name,
                     "display_name": role.display_name,
-                    "permissions": role.permissions
-                })
-        
+                    "permissions": role.permissions,
+                }
+                for role in role_docs
+            ]
+
         # Get department (if Department model exists)
         department = None
         if user.department_id:
             # TODO: Implement when Department model is created
             department = {"id": str(user.department_id), "name": "Department"}
-        
+
         # Get hierarchy (if needed)
         hierarchy = None
         if user.role_hierarchy_id:
             from app.models.role import RoleHierarchy
-            hierarchy_obj = await RoleHierarchy.get(user.role_hierarchy_id)
+            hierarchy_obj = await RoleHierarchy.find_one(
+                {
+                    "_id": user.role_hierarchy_id,
+                    "tenant_id": tenant_id,
+                    "deleted_at": None,
+                }
+            )
             if hierarchy_obj:
                 hierarchy = {
                     "id": str(hierarchy_obj.id),
@@ -186,10 +214,25 @@ class UserService(ActivityMixin):
                     setattr(user, field, value)
                     updated_fields[field] = value
         
-        # Handle role_ids
+        # Handle role_ids — SECURITY: every role must belong to this tenant.
+        # Rejects cross-tenant role assignment attempts that would escalate
+        # privileges by attaching an admin role from another tenant.
         if user_data.role_ids is not None:
+            requested_role_ids = [ObjectId(rid) for rid in user_data.role_ids]
+            if requested_role_ids:
+                valid_roles = await Role.find(
+                    {
+                        "_id": {"$in": requested_role_ids},
+                        "tenant_id": tenant_id,
+                        "deleted_at": None,
+                    }
+                ).to_list()
+                if len(valid_roles) != len(requested_role_ids):
+                    raise ValueError(
+                        "One or more role_ids are invalid or do not belong to this tenant"
+                    )
             old_values['role_ids'] = [str(rid) for rid in user.role_ids]
-            user.role_ids = [ObjectId(rid) for rid in user_data.role_ids]
+            user.role_ids = requested_role_ids
             updated_fields['role_ids'] = user_data.role_ids
         
         # Handle destination IDs
@@ -340,14 +383,24 @@ class UserService(ActivityMixin):
             return None
         
         old_role_ids = [str(rid) for rid in user.role_ids]
-        
-        # Verify all roles exist and belong to tenant
-        role_ids = []
-        for role_id_str in role_assignment.role_ids:
-            role = await Role.get(ObjectId(role_id_str))
-            if role and role.tenant_id == tenant_id:
-                role_ids.append(ObjectId(role_id_str))
-        
+
+        # SECURITY: single tenant-scoped query for all role_ids — prevents
+        # cross-tenant role attachment and IDOR via guessed ObjectIds.
+        requested_role_ids = [ObjectId(rid) for rid in role_assignment.role_ids]
+        if requested_role_ids:
+            valid_roles = await Role.find(
+                {
+                    "_id": {"$in": requested_role_ids},
+                    "tenant_id": tenant_id,
+                    "deleted_at": None,
+                }
+            ).to_list()
+            if len(valid_roles) != len(requested_role_ids):
+                raise ValueError(
+                    "One or more role_ids are invalid or do not belong to this tenant"
+                )
+        role_ids = requested_role_ids
+
         user.role_ids = role_ids
         await user.save()
         
@@ -423,10 +476,11 @@ class UserService(ActivityMixin):
         from app.models.event import Event
         from app.models.email import Email
         
-        # Get current month start
-        now = datetime.utcnow()
-        month_start = datetime(now.year, now.month, 1)
-        
+        # Get current month start — timezone-aware UTC matches BaseDocument.created_at
+        from datetime import timezone as _tz
+        now = datetime.now(_tz.utc)
+        month_start = datetime(now.year, now.month, 1, tzinfo=_tz.utc)
+
         # Build a stage lookup map: stage_id → SalesStage document
         # Convert ObjectId → PydanticObjectId for Beanie model comparison
         from beanie import PydanticObjectId as _PydObjId
@@ -479,24 +533,33 @@ class UserService(ActivityMixin):
         
         pipeline_value = sum(opp.amount or 0 for opp in pipeline_opps)
         
-        # Activity metrics
+        # Activity metrics — single-dict queries are unambiguous; the previous
+        # multi-positional .find(dict, dict, dict) form worked only because
+        # Beanie happened to AND them.
+        user_oid = ObjectId(user_id)
         tasks_completed = await Task.find(
-            {"assigned_user_id": ObjectId(user_id)},
-            {"tenant_id": tenant_id},
-            {"status": "Completed"},
-            {"deleted_at": None}
+            {
+                "assigned_user_id": user_oid,
+                "tenant_id": tenant_id,
+                "status": "Completed",
+                "deleted_at": None,
+            }
         ).count()
-        
+
         events_attended = await Event.find(
-            {"assigned_user_ids": ObjectId(user_id)},
-            {"tenant_id": tenant_id},
-            {"deleted_at": None}
+            {
+                "assigned_user_ids": user_oid,
+                "tenant_id": tenant_id,
+                "deleted_at": None,
+            }
         ).count()
-        
+
         emails_sent = await Email.find(
-            {"owner_id": ObjectId(user_id)},
-            {"tenant_id": tenant_id},
-            {"deleted_at": None}
+            {
+                "owner_id": user_oid,
+                "tenant_id": tenant_id,
+                "deleted_at": None,
+            }
         ).count()
         
         return {
