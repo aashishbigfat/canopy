@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId, useRef } from "react";
 import { MapContainer, Marker, Polyline, Popup, TileLayer, useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -41,6 +41,30 @@ export function RouteMap({
   targetMarker,
   height = 480,
 }: RouteMapProps) {
+  // Unique key per component instance — forces React to destroy and recreate
+  // the MapContainer when the component remounts (e.g. during HMR), preventing
+  // the "Map container is being reused by another instance" Leaflet error.
+  const mapKey = useId();
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Cleanup: on unmount, remove any leftover Leaflet map instance from the
+  // DOM so a future mount doesn't collide with a stale instance.
+  useEffect(() => {
+    return () => {
+      const el = containerRef.current;
+      if (el) {
+        const leafletEl = el.querySelector(".leaflet-container") as any;
+        if (leafletEl?._leaflet_id) {
+          try {
+            leafletEl._leaflet?.remove?.();
+          } catch {
+            // best effort
+          }
+        }
+      }
+    };
+  }, []);
+
   if (polyline.length === 0 && !targetMarker) {
     return (
       <div className="text-sm text-muted-foreground py-6 text-center">
@@ -48,6 +72,7 @@ export function RouteMap({
       </div>
     );
   }
+
   const center = polyline.length > 0
     ? [polyline[0][0], polyline[0][1]]
     : targetMarker
@@ -55,8 +80,13 @@ export function RouteMap({
       : [0, 0];
 
   return (
-    <div style={{ height }} className="rounded-md overflow-hidden border relative z-0">
-      <MapContainer center={center as [number, number]} zoom={13} style={{ height: "100%", width: "100%" }}>
+    <div ref={containerRef} style={{ height }} className="rounded-md overflow-hidden border relative z-0">
+      <MapContainer
+        key={mapKey}
+        center={center as [number, number]}
+        zoom={13}
+        style={{ height: "100%", width: "100%" }}
+      >
         <TileLayer
           attribution='&copy; OpenStreetMap contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
