@@ -14,7 +14,7 @@ import {
     Target
 } from "lucide-react";
 import Link from "next/link";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -98,8 +98,8 @@ export function RelatedOpportunitiesCards({ opportunities, accountId, contactId,
                                 <Calendar className="h-[13px] w-[13px] shrink-0" />
                                 <span className="text-[11px] font-semibold text-foreground/90">
                                     {industry === "travel"
-                                        ? (((opp as any).industry_data?.travel_date || (opp as any).travel_date) ? format(new Date(((opp as any).industry_data?.travel_date || (opp as any).travel_date)), "dd MMM yyyy") : "TBD")
-                                        : (opp.close_date ? format(new Date(opp.close_date), "dd MMM yyyy") : "TBD")
+                                        ? (((opp as any).industry_data?.travel_date || (opp as any).travel_date) ? formatDate((opp as any).industry_data?.travel_date || (opp as any).travel_date) : "TBD")
+                                        : (opp.close_date ? formatDate(opp.close_date) : "TBD")
                                     }
                                 </span>
                             </div>

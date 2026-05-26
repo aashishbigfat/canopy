@@ -160,7 +160,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     return JSONResponse(status_code=422, content=content)
 
 # Include routers
-from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial, hierarchies
+from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, events, notes, emails, files, suppliers, itineraries, packages, departures, users, roles, destinations, departments, products, quotes, invoices, countries, activity_logs, tags, notifications, comments, reminders, templates, reports, dashboards, territories, incentives, billing, webhooks, search, opportunity_financial, hierarchies
 # BD Panel — Phase 4+ (visits, expenses, tracking, automation rules)
 from app.api.v1 import bd_visits, expenses as bd_expenses, tracking as bd_tracking, automation_rules
 from app.api.v1 import settings as settings_routes
@@ -224,6 +224,7 @@ app.include_router(suppliers.router, prefix="/api/v1/suppliers", tags=["Supplier
 app.include_router(itineraries_extra.router, prefix="/api/v1/itineraries", tags=["Itineraries Extras"])
 app.include_router(itineraries.router, prefix="/api/v1/itineraries", tags=["Itineraries"])
 app.include_router(packages.router, prefix="/api/v1/packages", tags=["Packages"])
+app.include_router(departures.router, prefix="/api/v1/departures", tags=["Departures"])
 # Phase 10 — User mgmt extras (profile, targets, directory, login logs)
 app.include_router(users_extra.router, prefix="/api/v1/users", tags=["Users Extras"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["Users"])

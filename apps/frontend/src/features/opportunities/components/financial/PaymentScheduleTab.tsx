@@ -13,6 +13,7 @@ import { formatCurrency, formatDate } from "@/lib/format";
 interface Props {
     opportunityId: string;
     opportunityAmount: number;
+    isLocked?: boolean;
 }
 
 interface ScheduleRow {
@@ -202,7 +203,7 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) {
+export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked = false }: Props) {
     const queryClient = useQueryClient();
     const { data: savedItems = [], isLoading } = usePaymentSchedule(opportunityId);
     const updateMutation = useUpdatePaymentItem(opportunityId);
@@ -426,13 +427,15 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                             Payment Schedule
                         </p>
-                        <button
-                            onClick={() => setEditMode(true)}
-                            className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-medium transition-colors"
-                        >
-                            <Pencil className="h-3 w-3" />
-                            Edit Schedule
-                        </button>
+                        {!isLocked && (
+                            <button
+                                onClick={() => setEditMode(true)}
+                                className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-medium transition-colors"
+                            >
+                                <Pencil className="h-3 w-3" />
+                                Edit Schedule
+                            </button>
+                        )}
                     </div>
 
                     {/* Table */}
@@ -468,7 +471,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                                                     onChange={(e) =>
                                                         handleStatusChange(item.id, e.target.value)
                                                     }
-                                                    disabled={updateMutation.isPending}
+                                                    disabled={updateMutation.isPending || isLocked}
                                                     className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 ${
                                                         item.status === "Received"
                                                             ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
@@ -499,7 +502,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
                     Payment Schedule
                 </p>
-                {!editMode && !hasSavedSchedule && (
+                {!editMode && !hasSavedSchedule && !isLocked && (
                     <Button
                         size="sm"
                         className="bg-blue-600 hover:bg-blue-700 h-8 text-xs"
@@ -666,7 +669,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount }: Props) 
                     <div className="flex justify-end pt-2">
                         <Button
                             onClick={handleSave}
-                            disabled={isSaving || Math.abs(remaining) > 0.01}
+                            disabled={isSaving || Math.abs(remaining) > 0.01 || isLocked}
                             className="bg-blue-600 hover:bg-blue-700 px-8 h-9 text-sm disabled:opacity-50"
                         >
                             {isSaving ? (

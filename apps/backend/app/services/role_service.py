@@ -29,6 +29,7 @@ CORE_PERMISSIONS = [
 
     # Opportunity permissions
     "view_opportunity", "create_opportunity", "edit_opportunity", "delete_opportunity",
+    "lock_opportunity", "unlock_opportunity",
 
     # Task permissions
     "view_task", "create_task", "edit_task", "delete_task",
@@ -45,6 +46,7 @@ CORE_PERMISSIONS = [
 
     # File permissions
     "view_file", "upload_file", "delete_file", "download_file",
+    "share_file", "public_link_file",
 
     # Supplier / Provider / Vendor permissions (label differs per industry)
     "view_supplier", "create_supplier", "edit_supplier", "delete_supplier",

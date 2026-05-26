@@ -38,17 +38,36 @@ class Voucher(Document):
 
 
 class Departure(Document):
-    """Departure event for an opportunity (travel-vertical)."""
-    opportunity_id: Indexed(PydanticObjectId)
+    """Departure event for the travel vertical.
+
+    Dual-use:
+    - Standalone tour departure (opportunity_id = None): shown in the
+      Departure Report page with seat counts and pricing.
+    - Opportunity-linked departure (opportunity_id set): used inside the
+      opportunity detail view for per-booking departure tracking.
+    """
+    opportunity_id: Optional[PydanticObjectId] = None   # None → standalone tour slot
     tenant_id: Indexed(PydanticObjectId)
 
+    # --- Tour departure fields (standalone use) ---
+    name: Optional[str] = None           # e.g. "Ex Delhi Almaty 4 Nights - 29 May"
+    destination: Optional[str] = None    # destination city/country for filtering
+    total_seats: int = 0
+    booked_seats: int = 0
+    held_seats: int = 0
+    price_b2b: Optional[float] = None
+    price_b2c: Optional[float] = None
+    has_flight: bool = True
+
+    # --- Shared fields ---
     departure_date: datetime
     return_date: Optional[datetime] = None
     pax_count: int = 0
     departure_city: Optional[str] = None
     return_city: Optional[str] = None
 
-    status: str = "scheduled"        # scheduled | held | held_book | booked | cancelled
+    # active | inactive | completed | cancelled | scheduled | held | held_book | booked
+    status: str = "active"
     hold_reason: Optional[str] = None
     booked_at: Optional[datetime] = None
     booked_by: Optional[PydanticObjectId] = None

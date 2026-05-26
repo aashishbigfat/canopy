@@ -12,6 +12,8 @@ import {
     Plane,
     IndianRupee,
     Briefcase,
+    Trophy,
+    Gift,
 } from "lucide-react";
 import type { LeaderBoardKPIs as LeaderBoardKPIsType } from "@/features/dashboard/services/dashboardService";
 import { formatCurrency } from "@/lib/format";
@@ -116,9 +118,27 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
 
     return (
         <div className="space-y-5">
-            <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-                Dashboard Leader Board Incentive
-            </h2>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-2xl font-semibold tracking-tight text-foreground">
+                    Dashboard Leader Board Incentive
+                </h2>
+                <div className="flex items-center gap-2">
+                    <Link
+                        href="/dashboard/leaderboard"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent hover:text-primary"
+                    >
+                        <Trophy className="h-3.5 w-3.5" />
+                        Leader Board
+                    </Link>
+                    <Link
+                        href="/dashboard/incentive"
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent hover:text-primary"
+                    >
+                        <Gift className="h-3.5 w-3.5" />
+                        Incentives
+                    </Link>
+                </div>
+            </div>
             <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-8">
                 {activeCards.map(({ key, label, gradient, iconBg, icon, format, href }) => {
                     const raw = kpis[key] ?? 0;

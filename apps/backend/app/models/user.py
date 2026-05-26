@@ -134,9 +134,18 @@ class User(BaseDocument):
         ).to_list()
 
     async def has_permission(self, permission: str) -> bool:
-        """Check if user has a specific permission (tenant-scoped)."""
+        """Check if user has a specific permission (tenant-scoped).
+
+        Admin roles (is_admin=True) automatically receive unlock_opportunity —
+        kept in sync with get_permissions().
+        """
         roles = await self._load_active_roles()
-        return any(permission in (r.permissions or []) for r in roles)
+        for r in roles:
+            if permission in (r.permissions or []):
+                return True
+            if permission == "unlock_opportunity" and getattr(r, "is_admin", False):
+                return True
+        return False
 
     async def has_any_permission(self, permissions: List[str]) -> bool:
         """Check if user has any of the specified permissions (tenant-scoped)."""
@@ -147,15 +156,28 @@ class User(BaseDocument):
         for r in roles:
             if wanted.intersection(r.permissions or []):
                 return True
+            if "unlock_opportunity" in wanted and getattr(r, "is_admin", False):
+                return True
         return False
 
     async def get_permissions(self) -> List[str]:
-        """Get all permissions across all assigned roles (tenant-scoped, deduped)."""
+        """Get all permissions across all assigned roles (tenant-scoped, deduped).
+
+        Admin roles (is_admin=True) automatically receive the unlock_opportunity
+        permission so super admins can unlock locked opportunities.
+        """
         roles = await self._load_active_roles()
         perms: set[str] = set()
         for r in roles:
             perms.update(r.permissions or [])
+            if getattr(r, "is_admin", False):
+                perms.add("unlock_opportunity")
         return list(perms)
+
+    async def is_super_admin(self) -> bool:
+        """Return True if the user holds at least one admin role."""
+        roles = await self._load_active_roles()
+        return any(getattr(r, "is_admin", False) for r in roles)
 
     async def update_last_login(self):
         """Update last login timestamp."""

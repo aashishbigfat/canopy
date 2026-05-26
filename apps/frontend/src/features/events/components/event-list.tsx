@@ -8,7 +8,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { format } from "date-fns";
+import { formatDateTime } from "@/lib/format";
 import { Event } from "@/features/events/types";
 import { EventActions } from "./event-actions";
 import { Badge } from "@/components/ui/badge";
@@ -57,10 +57,10 @@ export function EventList({ events, isLoading }: EventListProps) {
                             <TableCell className="font-medium">{event.name}</TableCell>
                             <TableCell>{event.event_type}</TableCell>
                             <TableCell>
-                                {format(new Date(event.start_datetime), "MMM d, yyyy h:mm a")}
+                                {formatDateTime(event.start_datetime)}
                             </TableCell>
                             <TableCell>
-                                {format(new Date(event.end_datetime), "MMM d, yyyy h:mm a")}
+                                {formatDateTime(event.end_datetime)}
                             </TableCell>
                             <TableCell>
                                 {event.eventable_type ? (

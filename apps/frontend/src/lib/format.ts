@@ -92,3 +92,56 @@ export function formatISODate(date: string | Date | null | undefined): string {
   const day = parts.find(p => p.type === "day")?.value;
   return `${y}-${m}-${day}`;
 }
+
+/**
+ * Format a date as "April 17, 2026" (full month name) in IST.
+ * Replaces date-fns format(date, "PPP").
+ */
+export function formatDateLong(date: string | Date | null | undefined): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: TIMEZONE,
+  });
+}
+
+/**
+ * Format a date as "17 Apr 2026, 14:30" in IST (24-hour).
+ * Replaces date-fns format(date, "dd MMM yyyy HH:mm") and "MMM d, yyyy HH:mm".
+ */
+export function formatDateTime24h(date: string | Date | null | undefined): string {
+  if (!date) return "-";
+  return new Date(date).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: TIMEZONE,
+  });
+}
+
+/**
+ * Format a date as "17 Apr 2026 | 02:30 PM" in IST.
+ * Replaces date-fns format(date, "d MMM yyyy | hh:mm aa").
+ */
+export function formatDateTimeBar(date: string | Date | null | undefined): string {
+  if (!date) return "-";
+  const d = new Date(date);
+  const datePart = d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: TIMEZONE,
+  });
+  const timePart = d.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: TIMEZONE,
+  });
+  return `${datePart} | ${timePart}`;
+}

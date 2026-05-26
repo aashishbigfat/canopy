@@ -24,6 +24,7 @@ interface Props {
 }
 
 export function FinancialTab({ opportunity }: Props) {
+    const isLocked = opportunity.is_locked ?? false;
     const [activeTab, setActiveTab] = useState<SubTabId>("costing");
     const [destOptions, setDestOptions] = useState<{ label: string; value: string }[]>([]);
 
@@ -96,12 +97,14 @@ export function FinancialTab({ opportunity }: Props) {
                         opportunityId={opportunity.id}
                         destinationOptions={destOptions}
                         opportunityAmount={opportunity.amount ?? 0}
+                        isLocked={isLocked}
                     />
                 )}
                 {activeTab === "payment-schedule" && (
                     <PaymentScheduleTab
                         opportunityId={opportunity.id}
                         opportunityAmount={opportunity.amount ?? 0}
+                        isLocked={isLocked}
                     />
                 )}
                 {activeTab === "proforma-invoice" && (
@@ -116,6 +119,7 @@ export function FinancialTab({ opportunity }: Props) {
                         opportunityAmount={opportunity.amount ?? 0}
                         costingSuppliers={costingSuppliers}
                         costingDestinations={costingDestinations}
+                        isLocked={isLocked}
                     />
                 )}
             </div>

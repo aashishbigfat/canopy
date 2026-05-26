@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
+import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
     Plus,
@@ -40,6 +41,15 @@ export default function OpportunitiesPageClient() {
     const [groupByOwner, setGroupByOwner] = useState(true);
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
     const router = useRouter();
+    const backfillRan = useRef(false);
+
+    // One-time backfill: assign opportunity_number to any existing opportunities
+    // that pre-date the feature. Safe to call repeatedly — backend skips already-numbered ones.
+    useEffect(() => {
+        if (backfillRan.current) return;
+        backfillRan.current = true;
+        opportunitiesService.backfillOpportunityNumbers().catch(() => {/* silent — non-critical */});
+    }, []);
     const searchParams = useSearchParams();
     const labels = useIndustryLabels();
     

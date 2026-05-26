@@ -22,8 +22,13 @@ export interface Opportunity {
     source_id?: string;
     source_medium_id?: string;
     source_url?: string;
+    source_name?: string;
+    experience_name?: string;
 
     key_deal: boolean;
+
+    // Sequential display ID (per-tenant, shown as 10-digit zero-padded string)
+    opportunity_number?: number;
 
     // Metadata
     owner_id: string;

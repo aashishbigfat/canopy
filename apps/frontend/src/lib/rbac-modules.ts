@@ -35,6 +35,7 @@ const MODULE_RULES: { prefix: string; module: string }[] = [
     { prefix: "/destinations", module: "destinations" },
     { prefix: "/itineraries", module: "itineraries" },
     { prefix: "/packages", module: "packages" },
+    { prefix: "/departure", module: "departures" },
 ];
 
 const sortedModuleRules = [...MODULE_RULES].sort((a, b) => b.prefix.length - a.prefix.length);

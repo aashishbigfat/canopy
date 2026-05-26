@@ -14,11 +14,89 @@ export interface QuickLink {
   sort_order: number;
 }
 
+export interface LeaderboardAccolade {
+  name: string;
+  emoji: string;
+}
+
+export interface LeaderboardRow {
+  rank: number;
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  score: number;
+  ccr: number;
+  close_won: number;
+  no_of_pax: number;
+  revenue: number;
+  accolades: LeaderboardAccolade[];
+}
+
+export interface LeaderboardResponse {
+  period: string;
+  period_label: string;
+  rows: LeaderboardRow[];
+}
+
+export interface UserIncentiveRecord {
+  month_label: string;
+  year: number;
+  month: number;
+  opportunities_won: number;
+  total_opportunities: number;
+  target: number;
+  sales_amount: number;
+  earn_rupees: number;
+  mature_rupees: number;
+}
+
+export interface UserIncentiveEntry {
+  user_id: string;
+  name: string;
+  avatar_url: string | null;
+  records: UserIncentiveRecord[];
+}
+
+export interface UserIncentiveGroup {
+  role_name: string;
+  users: UserIncentiveEntry[];
+}
+
+export interface UserIncentiveResponse {
+  groups: UserIncentiveGroup[];
+}
+
+export interface DeptIncentiveRecord {
+  month_label: string;
+  year: number;
+  month: number;
+  opportunities_won: number;
+  total_opportunities: number;
+  sales_amount: number;
+  earn_rupees: number;
+  mature_rupees: number;
+}
+
+export interface DeptIncentiveGroup {
+  department_name: string;
+  records: DeptIncentiveRecord[];
+}
+
+export interface DeptIncentiveResponse {
+  groups: DeptIncentiveGroup[];
+}
+
 export const dashboardsExtraService = {
   summary: async () => (await apiClient.get(`${BASE}/summary`)).data,
   userActivities: async () => (await apiClient.get(`${BASE}/user-activities`)).data,
-  leaderboard: async () => (await apiClient.get(`${BASE}/leaderboard`)).data,
-  myLeaderboard: async () => (await apiClient.get(`${BASE}/leaderboard/me`)).data,
+  leaderboard: async (period = "current_month"): Promise<LeaderboardResponse> =>
+    (await apiClient.get(`${BASE}/leaderboard`, { params: { period } })).data,
+  myLeaderboard: async (period = "current_month") =>
+    (await apiClient.get(`${BASE}/leaderboard/me`, { params: { period } })).data,
+  userIncentiveRecords: async (months = 12): Promise<UserIncentiveResponse> =>
+    (await apiClient.get(`${BASE}/user-incentive-records`, { params: { months } })).data,
+  departmentIncentiveRecords: async (months = 12): Promise<DeptIncentiveResponse> =>
+    (await apiClient.get(`${BASE}/department-incentive-records`, { params: { months } })).data,
 
   oppDashboardAll: async () => (await apiClient.get(`${BASE}/opportunity/all`)).data,
   oppDashboardMine: async () => (await apiClient.get(`${BASE}/opportunity/mine`)).data,

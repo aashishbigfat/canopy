@@ -46,6 +46,7 @@ import {
 } from "lucide-react";
 import type { IndustryType } from "@/lib/industry-labels";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
+import { usePicklist } from "@/hooks/use-picklist";
 
 interface IndustryOppFieldsProps {
     industry: IndustryType;
@@ -212,6 +213,8 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
 // The submit handler wraps these into `industry_data` before sending to the API.
 // ---------------------------------------------------------------------------
 function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
+    const { items: experiences } = usePicklist("experience");
+
     return (
         <div className="space-y-4">
             <div className="flex items-center gap-2 border-b border-border pb-2">
@@ -219,6 +222,23 @@ function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
                 <h3 className="text-sm font-semibold text-foreground">Travel Requirements</h3>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
+                <FormField control={form.control} name="experience_id" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Experience</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value || ""}>
+                            <FormControl>
+                                <SelectTrigger><SelectValue placeholder="Select experience" /></SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                                <SelectItem value="none">None</SelectItem>
+                                {experiences.map(e => (
+                                    <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                )} />
                 <FormField control={form.control} name="travel_date" render={({ field }) => (
                     <FormItem className="flex flex-col">
                         <FormLabel>Travel Date *</FormLabel>
