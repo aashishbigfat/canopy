@@ -1,14 +1,11 @@
 "use client";
 
-import { MoreHorizontal, Edit, Trash } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { MoreHorizontal, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { User } from "@/features/admin/types";
@@ -19,14 +16,8 @@ interface UserActionsProps {
 }
 
 export function UserActions({ user }: UserActionsProps) {
-    const router = useRouter();
     const deleteUser = useDeleteUser();
-
     const userId = user.id || user._id;
-
-    const handleEdit = () => {
-        router.push(`/admin/users/${userId}`);
-    };
 
     const handleDelete = async () => {
         if (confirm("Are you sure you want to delete this user?")) {
@@ -43,16 +34,7 @@ export function UserActions({ user }: UserActionsProps) {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(userId)}>
-                    Copy ID
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleEdit}>
-                    <Edit className="mr-2 h-4 w-4" />
-                    Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleDelete} className="text-destructive">
+                <DropdownMenuItem onClick={handleDelete} className="text-destructive focus:text-destructive cursor-pointer">
                     <Trash className="mr-2 h-4 w-4" />
                     Delete
                 </DropdownMenuItem>

@@ -23,8 +23,10 @@ class UserBase(BaseModel):
     phone: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     department_id: Optional[str] = None
     role_hierarchy_id: Optional[str] = None
+    role_hierarchy_name: Optional[str] = None
     
     # Profile
+    title: Optional[str] = None
     avatar_url: Optional[str] = None
     directory: Optional[str] = None
     
@@ -76,6 +78,8 @@ class UserUpdate(BaseModel):
     role_hierarchy_id: Optional[str] = None
     role_ids: Optional[List[str]] = None
     
+    # Profile
+    title: Optional[str] = None
     avatar_url: Optional[str] = None
     directory: Optional[str] = None
     
@@ -143,6 +147,8 @@ class UserResponse(UserBase):
             # Convert role_hierarchy_id to string
             if hasattr(obj, 'role_hierarchy_id') and obj.role_hierarchy_id:
                 data['role_hierarchy_id'] = str(obj.role_hierarchy_id)
+            if hasattr(obj, 'role_hierarchy_name') and obj.role_hierarchy_name:
+                data['role_hierarchy_name'] = obj.role_hierarchy_name
             # Convert role_ids to strings
             if hasattr(obj, 'role_ids') and obj.role_ids:
                 data['role_ids'] = [str(role_id) for role_id in obj.role_ids]

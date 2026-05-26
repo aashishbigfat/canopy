@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { MoreHorizontal, Edit, Trash, Copy } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { MoreHorizontal, Trash } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -28,6 +25,10 @@ import { useCrudPermissions } from "@/hooks/use-crud-permissions";
 import { toast } from "sonner";
 import { AxiosError } from "axios";
 
+interface RoleActionsProps {
+    role: Role;
+}
+
 function deleteErrorMessage(err: unknown): string {
     if (err instanceof AxiosError) {
         const data = err.response?.data as { detail?: unknown } | undefined;
@@ -42,21 +43,16 @@ function deleteErrorMessage(err: unknown): string {
     return "Could not delete role";
 }
 
-interface RoleActionsProps {
-    role: Role;
-}
-
 export function RoleActions({ role }: RoleActionsProps) {
-    const router = useRouter();
-    const { canEdit, canDelete } = useCrudPermissions("role");
+    const { canDelete } = useCrudPermissions("role");
     const deleteRole = useDeleteRole();
     const roleId = getRoleId(role);
     const [showDeleteAlert, setShowDeleteAlert] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleEdit = () => {
-        router.push(`/admin/role-management/${roleId}`);
-    };
+    if (!canDelete || role.is_system) {
+        return null;
+    }
 
     const handleDelete = async () => {
         if (!roleId) return;
@@ -82,37 +78,13 @@ export function RoleActions({ role }: RoleActionsProps) {
                     </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
                     <DropdownMenuItem
-                        onClick={() => {
-                            navigator.clipboard.writeText(roleId);
-                            toast.success("ID copied to clipboard");
-                        }}
+                        onClick={() => setShowDeleteAlert(true)}
+                        className="text-destructive focus:text-destructive cursor-pointer"
                     >
-                        <Copy className="mr-2 h-4 w-4" />
-                        Copy ID
+                        <Trash className="mr-2 h-4 w-4" />
+                        Delete
                     </DropdownMenuItem>
-                    {canEdit && (
-                        <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={handleEdit}>
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                            </DropdownMenuItem>
-                        </>
-                    )}
-                    {canDelete && !role.is_system && (
-                        <>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                                onClick={() => setShowDeleteAlert(true)}
-                                className="text-destructive focus:text-destructive"
-                            >
-                                <Trash className="mr-2 h-4 w-4" />
-                                Delete
-                            </DropdownMenuItem>
-                        </>
-                    )}
                 </DropdownMenuContent>
             </DropdownMenu>
 

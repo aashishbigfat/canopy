@@ -19,9 +19,11 @@ class User(BaseDocument):
     tenant_id: Indexed(PydanticObjectId)
     department_id: Optional[PydanticObjectId] = None
     role_hierarchy_id: Optional[PydanticObjectId] = None
+    role_hierarchy_name: Optional[str] = Field(None, exclude=True)
     
     # Profile
     phone: Optional[str] = None
+    title: Optional[str] = None
     avatar_url: Optional[str] = None
     directory: Optional[str] = None
     

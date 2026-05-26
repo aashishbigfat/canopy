@@ -37,6 +37,8 @@ import { getRoleId } from "@/features/admin/types/roles";
 import { User } from "@/features/admin/types";
 import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
+import { locationService } from "@/lib/api/services/locations.service";
+import { MultiSelect } from "@/components/ui/multi-select";
 
 
 
@@ -64,6 +66,8 @@ const userFormSchema = z.object({
     profile_id: z.string().min(1, "Profile is required."),
     is_active: z.boolean().default(true),
     is_available_for_assignment: z.boolean().default(true),
+    assigned_countries: z.array(z.string()).default([]),
+    not_assigned_countries: z.array(z.string()).default([]),
 });
 
 type UserFormValues = z.infer<typeof userFormSchema>;
@@ -82,6 +86,20 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
     const hierarchies = hierarchiesData?.hierarchies || hierarchiesData?.data || [];
     const [showPassword, setShowPassword] = useState(false);
     const isEditing = !!initialData;
+    const [countries, setCountries] = useState<{ id: string; name: string }[]>([]);
+    const [isLoadingCountries, setIsLoadingCountries] = useState(false);
+
+    React.useEffect(() => {
+        if (open) {
+            setIsLoadingCountries(true);
+            locationService.getCountries()
+                .then((res) => {
+                    setCountries(res.countries || []);
+                })
+                .catch((err) => console.error("Failed to load countries", err))
+                .finally(() => setIsLoadingCountries(false));
+        }
+    }, [open]);
 
 
 
@@ -107,11 +125,13 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
             phone: initialData?.phone || "",
             mobile: "",
             phone_extension: "",
-            title: "",
+            title: initialData?.title || "",
             role_hierarchy_id: initialData?.role_hierarchy_id || "",
             profile_id: initialData?.role_ids?.[0] || "",
             is_active: initialData?.is_active ?? true,
-            is_available_for_assignment: true,
+            is_available_for_assignment: initialData?.is_available_for_assignment ?? true,
+            assigned_countries: initialData?.assigned_countries || [],
+            not_assigned_countries: initialData?.not_assigned_countries || [],
         },
     });
 
@@ -127,11 +147,13 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
                 phone: initialData?.phone || "",
                 mobile: "",
                 phone_extension: "",
-                title: "",
+                title: initialData?.title || "",
                 role_hierarchy_id: initialData?.role_hierarchy_id || "",
                 profile_id: initialData?.role_ids?.[0] || "",
                 is_active: initialData?.is_active ?? true,
-                is_available_for_assignment: true,
+                is_available_for_assignment: initialData?.is_available_for_assignment ?? true,
+                assigned_countries: initialData?.assigned_countries || [],
+                not_assigned_countries: initialData?.not_assigned_countries || [],
             });
         }
     }, [open, initialData]);
@@ -147,8 +169,11 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
                 role_ids: [data.profile_id],
                 role_hierarchy_id: data.role_hierarchy_id || undefined,
                 phone: data.phone || undefined,
+                title: data.title || undefined,
                 is_active: data.is_active,
                 is_available_for_assignment: data.is_available_for_assignment,
+                assigned_countries: data.assigned_countries,
+                not_assigned_countries: data.not_assigned_countries,
             };
 
             if (isEditing) {
@@ -492,6 +517,60 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
                                         </Select>
                                     </FormItem>
                                 )}
+                            />
+
+                            {/* Countries Assign */}
+                            <FormField
+                                control={form.control}
+                                name="assigned_countries"
+                                render={({ field }) => {
+                                    const notAssignedSelected = form.watch("not_assigned_countries") || [];
+                                    const assignOptions = countries
+                                        .filter((c) => !notAssignedSelected.includes(c.name))
+                                        .map((c) => ({ value: c.name, label: c.name }));
+                                    return (
+                                        <FormItem>
+                                            <FormLabel>Countries Assign</FormLabel>
+                                            <FormControl>
+                                                <MultiSelect
+                                                    options={assignOptions}
+                                                    selected={field.value || []}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select countries to assign..."
+                                                    isLoading={isLoadingCountries}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    );
+                                }}
+                            />
+
+                            {/* Countries Not Assign */}
+                            <FormField
+                                control={form.control}
+                                name="not_assigned_countries"
+                                render={({ field }) => {
+                                    const assignedSelected = form.watch("assigned_countries") || [];
+                                    const notAssignOptions = countries
+                                        .filter((c) => !assignedSelected.includes(c.name))
+                                        .map((c) => ({ value: c.name, label: c.name }));
+                                    return (
+                                        <FormItem>
+                                            <FormLabel>Countries Not Assign</FormLabel>
+                                            <FormControl>
+                                                <MultiSelect
+                                                    options={notAssignOptions}
+                                                    selected={field.value || []}
+                                                    onChange={field.onChange}
+                                                    placeholder="Select countries to not assign..."
+                                                    isLoading={isLoadingCountries}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    );
+                                }}
                             />
                         </form>
                     </Form>

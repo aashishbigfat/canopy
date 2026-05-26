@@ -8,9 +8,11 @@ export interface User {
 
     // Profile
     phone?: string;
+    title?: string;
     avatar_url?: string;
     department_id?: string;
     role_hierarchy_id?: string;
+    role_hierarchy_name?: string;
     directory?: string;
 
     // Status
@@ -26,6 +28,8 @@ export interface User {
     max_leads_per_day: number;
     max_opportunities: number;
     is_available_for_assignment: boolean;
+    assigned_countries?: string[];
+    not_assigned_countries?: string[];
 
     // Targets
     monthly_revenue_target: number;
@@ -48,6 +52,8 @@ export interface UserInput {
     max_leads_per_day?: number;
     max_opportunities?: number;
     is_available_for_assignment?: boolean;
+    assigned_countries?: string[];
+    not_assigned_countries?: string[];
     monthly_revenue_target?: number;
     monthly_deals_target?: number;
 }

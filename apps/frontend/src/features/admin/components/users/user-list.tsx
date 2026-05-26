@@ -8,45 +8,23 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { useGetUsers } from "@/features/admin/api/use-users";
-import { useGetRoles } from "@/features/admin/api/use-roles";
-import { useGetHierarchies } from "@/features/admin/api/use-hierarchies";
+import { useGetUsers, useUpdateUser } from "@/features/admin/api/use-users";
 import { UserActions } from "./user-actions";
-import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { User } from "@/features/admin/types";
 import { UserFormSheet } from "./user-form";
 import { useMemo, useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil } from "lucide-react";
-import { getRoleId } from "@/features/admin/types/roles";
 
 export function UserList() {
     const { data, isLoading, isError } = useGetUsers();
-    const { data: roles = [], isLoading: isLoadingRoles } = useGetRoles();
-    const { data: hierarchiesData, isLoading: isLoadingHierarchies } = useGetHierarchies();
-    const hierarchies = hierarchiesData?.hierarchies || hierarchiesData?.data || [];
+    const updateUser = useUpdateUser();
 
     const [sheetOpen, setSheetOpen] = useState(false);
     const [editingUser, setEditingUser] = useState<User | undefined>(undefined);
-
-    // Build lookup maps for resolving IDs → names
-    const roleMap = useMemo(() => {
-        const map = new Map<string, string>();
-        roles.forEach((r: any) => {
-            const id = getRoleId(r);
-            map.set(id, r.display_name || r.name);
-        });
-        return map;
-    }, [roles]);
-
-    const hierarchyMap = useMemo(() => {
-        const map = new Map<string, string>();
-        hierarchies.forEach((h: any) => {
-            const id = h._id || h.id;
-            map.set(id, h.name);
-        });
-        return map;
-    }, [hierarchies]);
 
     const handleAddUser = () => {
         setEditingUser(undefined);
@@ -58,26 +36,12 @@ export function UserList() {
         setSheetOpen(true);
     };
 
-    /** Resolve role_hierarchy_id → hierarchy name (instant fallback) */
-    const getHierarchyName = (user: User): string => {
-        if (!user.role_hierarchy_id) return "—";
-        // Show resolved name if map is ready, otherwise show the raw id as placeholder
-        if (hierarchyMap.size > 0) {
-            return hierarchyMap.get(user.role_hierarchy_id) || "—";
-        }
-        return "…"; // loading indicator
-    };
-
-    /** Resolve role_ids → profile display names */
-    const getProfileNames = (user: User): string => {
-        if (!user.role_ids || user.role_ids.length === 0) return "";
-        if (roleMap.size > 0) {
-            return user.role_ids
-                .map((id) => roleMap.get(id) || id)
-                .join(", ");
-        }
-        return "…"; // loading indicator
-    };
+    const users = useMemo(() => {
+        const list = data?.users || [];
+        return [...list].sort((a, b) =>
+            (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+        );
+    }, [data]);
 
     if (isLoading) {
         return <div className="p-4 text-center">Loading users...</div>;
@@ -87,12 +51,15 @@ export function UserList() {
         return <div className="p-4 text-center text-red-500">Error loading users</div>;
     }
 
-    const users = data?.users || [];
-
     return (
         <>
             <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold">Users</h2>
+                <div className="flex items-center gap-2">
+                    <h2 className="text-xl font-semibold">Users</h2>
+                    <Badge variant="secondary" className="tabular-nums">
+                        {users.length} {users.length === 1 ? "user" : "users"}
+                    </Badge>
+                </div>
                 <Button size="sm" onClick={handleAddUser}>
                     <Plus className="mr-1 h-4 w-4" /> Add User
                 </Button>
@@ -102,11 +69,12 @@ export function UserList() {
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[60px] text-center">S.No</TableHead>
                             <TableHead>Name</TableHead>
                             <TableHead>Email</TableHead>
                             <TableHead>Phone</TableHead>
                             <TableHead>Role</TableHead>
-                            <TableHead>Profile</TableHead>
+                            <TableHead>Title</TableHead>
                             <TableHead>Status</TableHead>
                             <TableHead className="text-right">Actions</TableHead>
                         </TableRow>
@@ -114,41 +82,42 @@ export function UserList() {
                     <TableBody>
                         {users.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="h-24 text-center">
+                                <TableCell colSpan={8} className="h-24 text-center">
                                     No users found.
                                 </TableCell>
                             </TableRow>
                         ) : (
-                            users.map((user: User) => {
-                                const roleName = getHierarchyName(user);
-                                const profileName = getProfileNames(user);
+                            users.map((user: User, index: number) => {
                                 return (
                                     <TableRow key={user.id || user._id}>
+                                        <TableCell className="text-center text-muted-foreground tabular-nums">{index + 1}</TableCell>
                                         <TableCell className="font-medium">{user.name}</TableCell>
                                         <TableCell>{user.email}</TableCell>
                                         <TableCell className="text-muted-foreground">
                                             {user.phone || "—"}
                                         </TableCell>
-                                        <TableCell>
-                                            {roleName !== "—" && roleName !== "…" ? (
-                                                <span>{roleName}</span>
-                                            ) : (
-                                                <span className="text-muted-foreground">{roleName}</span>
-                                            )}
+                                        <TableCell className="text-foreground">
+                                            {user.role_hierarchy_name || "—"}
+                                        </TableCell>
+                                        <TableCell className="text-muted-foreground">
+                                            {user.title || "—"}
                                         </TableCell>
                                         <TableCell>
-                                            {user.role_ids.length > 0 ? (
-                                                <Badge variant="secondary">
-                                                    {profileName}
-                                                </Badge>
-                                            ) : (
-                                                <span className="text-muted-foreground">No profile</span>
-                                            )}
-                                        </TableCell>
-                                        <TableCell>
-                                            <Badge variant={user.is_active ? "default" : "secondary"}>
-                                                {user.is_active ? "Active" : "Inactive"}
-                                            </Badge>
+                                            <Switch
+                                                checked={user.is_active}
+                                                onCheckedChange={async (checked) => {
+                                                    try {
+                                                        await updateUser.mutateAsync({
+                                                            id: user.id || user._id,
+                                                            data: { is_active: checked }
+                                                        });
+                                                        toast.success(`User ${checked ? 'activated' : 'deactivated'} successfully`);
+                                                    } catch (err: any) {
+                                                        toast.error(err?.message || "Failed to update user status");
+                                                    }
+                                                }}
+                                                disabled={updateUser.isPending}
+                                            />
                                         </TableCell>
                                         <TableCell className="text-right">
                                             <div className="flex items-center justify-end gap-1">
