@@ -14,9 +14,10 @@ interface Props {
     opportunityAmount: number;
     costingSuppliers: string[];
     costingDestinations: string[];
+    isLocked?: boolean;
 }
 
-export function TransactionTab({ opportunityId, opportunityAmount, costingSuppliers, costingDestinations }: Props) {
+export function TransactionTab({ opportunityId, opportunityAmount, costingSuppliers, costingDestinations, isLocked = false }: Props) {
     const { data: transactions = [], isLoading } = useTransactions(opportunityId);
     const createMutation = useCreateTransaction(opportunityId);
 
@@ -101,8 +102,9 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                 <div className="relative" ref={dropdownRef}>
                     {/* Single dropdown trigger */}
                     <button
-                        onClick={() => setShowDropdown(!showDropdown)}
-                        className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 rounded-md px-3.5 py-1.5 text-sm font-medium text-white transition-colors shadow-sm"
+                        onClick={() => !isLocked && setShowDropdown(!showDropdown)}
+                        disabled={isLocked}
+                        className="inline-flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 rounded-md px-3.5 py-1.5 text-sm font-medium text-white transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                         Add Transaction
                         <ChevronDown className="h-3.5 w-3.5" />

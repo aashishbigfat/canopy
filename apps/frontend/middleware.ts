@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 import { getRoutePermission } from "@/lib/rbac";
 import { getRouteModule } from "@/lib/rbac-modules";
+import { decompressPermissions } from "@/lib/permissions-compression";
 
 /**
  * Protects routes that require auth (session from backend /api/v1/auth/login).
@@ -23,22 +24,31 @@ function isOpenRedirectSafe(callbackUrl: string): boolean {
     return callbackUrl.startsWith("/") && !callbackUrl.startsWith("//");
 }
 
+function withCookieCleanup(req: NextRequest, res: NextResponse): NextResponse {
+    req.cookies.getAll().forEach((c) => {
+        if (c.name.includes("session-token.")) {
+            res.cookies.set(c.name, "", { maxAge: 0, path: "/" });
+        }
+    });
+    return res;
+}
+
 export async function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
     // Allow NextAuth API and static/Next internals
     if (pathname.startsWith(AUTH_API) || pathname.startsWith("/_next") || pathname.startsWith("/favicon")) {
-        return NextResponse.next();
+        return withCookieCleanup(req, NextResponse.next());
     }
 
     // Allow public pages
     if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {
-        return NextResponse.next();
+        return withCookieCleanup(req, NextResponse.next());
     }
 
     // Root "/" can show login or dashboard; let the page decide (it uses getServerSession)
     if (pathname === "/") {
-        return NextResponse.next();
+        return withCookieCleanup(req, NextResponse.next());
     }
 
     // All other routes require a valid session
@@ -49,15 +59,15 @@ export async function middleware(req: NextRequest) {
         const loginUrl = new URL("/login", req.url);
         const safeCallback = isOpenRedirectSafe(pathname) ? pathname : "/dashboard";
         loginUrl.searchParams.set("callbackUrl", safeCallback);
-        return NextResponse.redirect(loginUrl);
+        return withCookieCleanup(req, NextResponse.redirect(loginUrl));
     }
 
     // Permission gate — server-side RBAC enforcement
     const requiredPerm = getRoutePermission(pathname);
     if (requiredPerm) {
-        const userPerms = (token.permissions as string[]) || [];
+        const userPerms = decompressPermissions((token as any).permissions);
         if (!userPerms.includes(requiredPerm)) {
-            return NextResponse.redirect(new URL("/unauthorized", req.url));
+            return withCookieCleanup(req, NextResponse.redirect(new URL("/unauthorized", req.url)));
         }
     }
 
@@ -69,11 +79,11 @@ export async function middleware(req: NextRequest) {
     if (requiredModule) {
         const modules = (token.modules as Record<string, boolean>) || {};
         if (!modules[requiredModule]) {
-            return NextResponse.redirect(new URL("/unauthorized", req.url));
+            return withCookieCleanup(req, NextResponse.redirect(new URL("/unauthorized", req.url)));
         }
     }
 
-    return NextResponse.next();
+    return withCookieCleanup(req, NextResponse.next());
 }
 
 export const config = {

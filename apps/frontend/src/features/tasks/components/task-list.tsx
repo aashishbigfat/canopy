@@ -3,7 +3,7 @@
 import * as React from "react";
 import { usePicklist } from "@/hooks/use-picklist";
 import Link from "next/link";
-import { format } from "date-fns";
+import { formatDateTimeBar, formatDate } from "@/lib/format";
 import { MoreHorizontal, Edit, Trash2, CheckCircle, Plus } from "lucide-react";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
@@ -205,7 +205,7 @@ export function TaskList() {
                                 {/* Due Date */}
                                 <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap">
                                     {task.due_date
-                                        ? format(new Date(task.due_date), "d MMM yyyy | hh:mm aa")
+                                        ? formatDateTimeBar(task.due_date)
                                         : "—"}
                                 </TableCell>
 
@@ -247,7 +247,7 @@ export function TaskList() {
                                 {/* Create Date */}
                                 <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap">
                                     {task.created_at
-                                        ? format(new Date(task.created_at), "dd MMM yyyy")
+                                        ? formatDate(task.created_at)
                                         : "—"}
                                 </TableCell>
 

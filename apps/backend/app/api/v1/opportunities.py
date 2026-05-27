@@ -508,6 +508,28 @@ async def get_opportunity(
         except Exception:
             pass
 
+        # Resolve source name
+        try:
+            if opportunity.source_id:
+                from app.models.consolidated_picklists import Source
+                source = await Source.get(opportunity.source_id)
+                if source:
+                    opp_response.source_name = source.name
+        except Exception:
+            pass
+
+        # Resolve experience name (travel industry)
+        try:
+            exp_id = (opportunity.industry_data or {}).get("experience_id")
+            if exp_id:
+                from bson import ObjectId as BsonObjectId
+                from app.models.opportunity_picklists import Experience as ExperienceDoc
+                exp = await ExperienceDoc.get(BsonObjectId(exp_id) if isinstance(exp_id, str) else exp_id)
+                if exp:
+                    opp_response.experience_name = exp.name
+        except Exception:
+            pass
+
         # Sprint D — populate custom_fields
         try:
             from app.services import field_registry_service
@@ -806,12 +828,12 @@ async def lock_opportunity(
             current_user.id,
             current_user.tenant_id
         )
-        
+
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
-        
-        return OpportunityResponse.from_orm(opportunity)
-    
+
+        return await get_opportunity(opportunity_id, current_user)
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -821,7 +843,7 @@ async def lock_opportunity(
 @router.post("/{opportunity_id}/unlock", response_model=OpportunityResponse)
 async def unlock_opportunity(
     opportunity_id: str,
-    current_user: User = Depends(check_permission("edit_opportunity"))
+    current_user: User = Depends(check_permission("unlock_opportunity"))
 ):
     """
     Unlock an opportunity
@@ -848,15 +870,14 @@ async def unlock_opportunity(
             
         opportunity = await service.unlock_opportunity(
             opportunity_id,
-            current_user.id,
-            current_user.tenant_id
+            current_user.tenant_id,
         )
-        
+
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
-        
-        return OpportunityResponse.from_orm(opportunity)
-    
+
+        return await get_opportunity(opportunity_id, current_user)
+
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -1220,3 +1241,46 @@ async def create_opportunity_task(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+
+# ── Backfill: assign opportunity_number to all existing opportunities ──────────
+
+@router.post("/backfill-opportunity-numbers")
+async def backfill_opportunity_numbers(
+    current_user: User = Depends(check_permission("edit_opportunity"))
+):
+    """
+    One-time migration: assign sequential opportunity_number to every existing
+    opportunity in the current tenant that does not have one yet.
+    Numbers are assigned in creation order (oldest → lowest number).
+    Safe to call multiple times — only processes records where opportunity_number is null.
+    """
+    from app.models.tenant_counter import TenantCounter
+    from pymongo import ReturnDocument
+
+    # Fetch all un-numbered opportunities for this tenant, ordered oldest first
+    unassigned = await Opportunity.find(
+        {
+            "tenant_id": current_user.tenant_id,
+            "opportunity_number": None,
+            "deleted_at": None,
+        }
+    ).sort("+created_at").to_list()
+
+    if not unassigned:
+        return {"assigned": 0, "message": "All opportunities already have a number."}
+
+    col = TenantCounter.get_motor_collection()
+    assigned = 0
+    for opp in unassigned:
+        doc = await col.find_one_and_update(
+            {"tenant_id": current_user.tenant_id, "module": "opportunity"},
+            {"$inc": {"last_value": 1}},
+            upsert=True,
+            return_document=ReturnDocument.AFTER,
+        )
+        opp.opportunity_number = doc["last_value"]
+        await opp.save()
+        assigned += 1
+
+    return {"assigned": assigned, "message": f"Assigned numbers to {assigned} opportunities."}

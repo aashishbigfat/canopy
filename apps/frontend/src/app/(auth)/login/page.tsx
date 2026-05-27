@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Building2 } from "lucide-react";
 import { LoginForm } from "@/features/auth/components/LoginForm";
+import { SessionExpiredBanner } from "@/features/auth/components/SessionExpiredBanner";
 
 export const metadata: Metadata = {
     title: "Login | Travel CRM",
@@ -46,6 +47,9 @@ export default function LoginPage() {
 
             <div className="flex items-center justify-center p-4 sm:p-6 lg:p-8">
                 <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
+                    <Suspense fallback={null}>
+                        <SessionExpiredBanner />
+                    </Suspense>
                     <div className="flex flex-col space-y-2 text-center">
                         <h1 className="text-2xl font-semibold tracking-tight">
                             Login to your account

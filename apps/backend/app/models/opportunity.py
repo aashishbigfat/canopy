@@ -1,4 +1,4 @@
-"""
+﻿"""
 Opportunity model - Industry-agnostic Sales Pipeline Management
 
 Travel-specific fields (travel_date, no_of_pax, destination_ids, etc.) have been
@@ -50,7 +50,7 @@ class Opportunity(BaseDocument):
     operation_user_id: Optional[PydanticObjectId] = None
     team_member_ids: List[PydanticObjectId] = Field(default_factory=list)
 
-    # BD multi-owner triple — auto-resolved from address (account billing fields
+    # BD multi-owner triple â€” auto-resolved from address (account billing fields
     # if account-linked, else lead address at conversion time). See
     # bd_assignment_service.resolve_for_address().
     territory_id: Optional[PydanticObjectId] = None
@@ -76,7 +76,7 @@ class Opportunity(BaseDocument):
     # Custom Fields
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
     
-    # Industry-specific data — ALL industries store metadata here.
+    # Industry-specific data â€” ALL industries store metadata here.
     # Travel: travel_date, no_of_pax, destination_ids, inclusions, etc.
     # Healthcare: treatment_type, insurance_id, etc.
     # Education: course_id, enrollment_date, etc.
@@ -88,6 +88,9 @@ class Opportunity(BaseDocument):
     is_locked: bool = False
     locked_by: Optional[PydanticObjectId] = None
     locked_at: Optional[datetime] = None
+
+    # Human-readable sequential display ID (per-tenant, zero-padded to 10 digits on frontend)
+    opportunity_number: Optional[int] = None
     
     class Settings:
         name = "opportunities"
@@ -97,6 +100,7 @@ class Opportunity(BaseDocument):
             [("tenant_id", 1), ("sales_stage_id", 1)],
             [("tenant_id", 1), ("close_date", 1)],
             [("tenant_id", 1), ("account_id", 1)],
+            [("tenant_id", 1), ("opportunity_number", 1)],
         ]
 
     

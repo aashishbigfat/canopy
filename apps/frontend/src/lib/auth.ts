@@ -2,6 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { getApiBaseUrlNoSlash } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { compressPermissions, decompressPermissions } from "@/lib/permissions-compression";
 
 export const authOptions: NextAuthOptions = {
     secret: process.env.NEXTAUTH_SECRET,
@@ -61,19 +62,33 @@ export const authOptions: NextAuthOptions = {
     ],
     session: {
         strategy: "jwt",
-        maxAge: 24 * 60 * 60, // 24 hours (align this with your backend token expiration if possible)
+        maxAge: 7 * 24 * 60 * 60, // 7 days (aligned with backend ACCESS_TOKEN_EXPIRE_MINUTES)
     },
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger, session }) {
             if (user) {
                 token.accessToken = user.accessToken;
                 token.refreshToken = user.refreshToken;
                 token.id = user.id;
                 token.role = user.role;
                 token.tenantId = user.tenantId;
-                token.permissions = user.permissions;
+                (token as any).permissions = compressPermissions(user.permissions);
                 token.industry = user.industry;
                 token.modules = user.modules;
+            }
+            if (trigger === "update" && session?.user) {
+                if (session.user.permissions) {
+                    (token as any).permissions = compressPermissions(session.user.permissions);
+                }
+                if (session.user.role) {
+                    token.role = session.user.role;
+                }
+                if (session.user.industry) {
+                    token.industry = session.user.industry;
+                }
+                if (session.user.modules) {
+                    token.modules = session.user.modules;
+                }
             }
             return token;
         },
@@ -84,7 +99,7 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = token.id as string;
                 session.user.role = token.role as string;
                 (session.user as any).tenantId = token.tenantId as string;
-                session.user.permissions = token.permissions as string[];
+                (session.user as any).permissions = decompressPermissions((token as any).permissions);
                 (session.user as any).industry = token.industry as string;
                 (session.user as any).modules = token.modules as Record<string, boolean>;
             }

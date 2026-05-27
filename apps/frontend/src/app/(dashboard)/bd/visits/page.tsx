@@ -4,7 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Loader2 } from "lucide-react";
+import { Plus, Loader2, Route } from "lucide-react";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -89,6 +89,7 @@ export default function VisitsListPage() {
                 <th className="px-3 py-2">Status</th>
                 <th className="px-3 py-2">Approval</th>
                 <th className="px-3 py-2">BD Owner</th>
+                <th className="px-3 py-2 w-10"></th>
               </tr>
             </thead>
             <tbody>
@@ -110,6 +111,13 @@ export default function VisitsListPage() {
                       {v.approval_status.replace("_", " ")}
                     </td>
                     <td className="px-3 py-2">{v.owner_name || "—"}</td>
+                    <td className="px-3 py-2">
+                      {v.status === "completed" && (
+                        <Link href={`/bd/tracking/route?visitId=${v.id}`} title="View route map">
+                          <Route className="h-4 w-4 text-muted-foreground hover:text-emerald-500 transition-colors" />
+                        </Link>
+                      )}
+                    </td>
                   </tr>
                 );
               })}

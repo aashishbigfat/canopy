@@ -21,7 +21,6 @@ Decommissioned (intentionally NOT exposed):
   /php_info  — security risk
   /exp_opp_test, /opp_graph_performance_test, /gmail-testing  — dev probes
 """
-from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 import secrets

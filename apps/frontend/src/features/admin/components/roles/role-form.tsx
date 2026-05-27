@@ -217,7 +217,16 @@ export function ProfileFormSheet({ open, onOpenChange, initialData }: ProfileFor
     // Group permissions for the matrix display
     const grouped = useMemo(() => groupPermissions(allPermissions), [allPermissions]);
 
-    const selectedPerms = form.watch("permissions");
+    const selectedPerms = form.watch("permissions") ?? [];
+
+    // Only count permissions that actually exist in the current available list.
+    // Roles can have stale/extra permissions in the DB that are no longer in the
+    // list (e.g. after permissions were renamed or industry changed), which would
+    // cause the counter to show "133 / 129 selected".
+    const validSelectedPerms = useMemo(
+        () => selectedPerms.filter(p => allPermissions.includes(p)),
+        [selectedPerms, allPermissions]
+    );
 
     const handleToggle = (perm: string, checked: boolean) => {
         const current = form.getValues("permissions");
@@ -243,6 +252,10 @@ export function ProfileFormSheet({ open, onOpenChange, initialData }: ProfileFor
     };
 
     const onSubmit = async (data: ProfileFormValues) => {
+        // Strip permissions that are no longer in the available list to avoid
+        // backend validation errors from stale DB entries.
+        const cleanedPermissions = data.permissions.filter(p => allPermissions.includes(p));
+
         try {
             if (isEditing) {
                 await updateRole.mutateAsync({
@@ -251,7 +264,7 @@ export function ProfileFormSheet({ open, onOpenChange, initialData }: ProfileFor
                         name: data.name,
                         display_name: data.display_name,
                         description: data.description,
-                        permissions: data.permissions,
+                        permissions: cleanedPermissions,
                     },
                 });
                 toast.success("Profile updated successfully");
@@ -260,7 +273,7 @@ export function ProfileFormSheet({ open, onOpenChange, initialData }: ProfileFor
                     name: data.name,
                     display_name: data.display_name,
                     description: data.description,
-                    permissions: data.permissions,
+                    permissions: cleanedPermissions,
                 });
                 toast.success("Profile created successfully");
             }
@@ -357,14 +370,14 @@ export function ProfileFormSheet({ open, onOpenChange, initialData }: ProfileFor
                                     <h3 className="text-sm font-semibold">Permissions</h3>
                                     <div className="flex items-center gap-3">
                                         <Badge variant="secondary">
-                                            {selectedPerms.length} / {allPermissions.length} selected
+                                            {validSelectedPerms.length} / {allPermissions.length} selected
                                         </Badge>
                                         <label className="flex items-center gap-1.5 text-xs cursor-pointer">
                                             <Checkbox
                                                 checked={
-                                                    selectedPerms.length === allPermissions.length && allPermissions.length > 0
+                                                    allPermissions.length > 0 && validSelectedPerms.length === allPermissions.length
                                                         ? true
-                                                        : selectedPerms.length > 0
+                                                        : validSelectedPerms.length > 0
                                                         ? "indeterminate"
                                                         : false
                                                 }

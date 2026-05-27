@@ -30,6 +30,7 @@ INDUSTRY_MODULE_DEFAULTS: Dict[str, Dict[str, bool]] = {
         "destinations": True,
         "itineraries": True,
         "packages": True,
+        "departures": True,
         "suppliers": True,
     },
     "healthcare": {

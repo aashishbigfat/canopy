@@ -12,19 +12,117 @@ Mirrors old Laravel:
   /countries_opportunities_updated, /exp_opp, /exp_opp_state
 """
 from __future__ import annotations
+from calendar import monthrange
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
-from beanie import Document, Indexed, PydanticObjectId
-from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from beanie import PydanticObjectId
+from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.opportunity import Opportunity
 from app.models.opportunity_picklists import SalesStage
 from app.models.quick_link import QuickLink
+from app.models.consolidated_settings import LeaderboardConfig
+from app.models.role import Role
 
 router = APIRouter()
+
+
+# ============== Leaderboard helpers ==============
+
+async def _won_stage_ids(tenant_id: PydanticObjectId) -> List[PydanticObjectId]:
+    stages = await SalesStage.find(
+        {"tenant_id": tenant_id, "is_won": True, "is_active": True}
+    ).to_list()
+    return [s.id for s in stages]
+
+
+def _period_bounds(period: str):
+    now = datetime.utcnow()
+    if period == "last_month":
+        if now.month == 1:
+            year, month = now.year - 1, 12
+        else:
+            year, month = now.year, now.month - 1
+    else:  # current_month
+        year, month = now.year, now.month
+    start = datetime(year, month, 1)
+    end = datetime(year, month, monthrange(year, month)[1], 23, 59, 59)
+    label = start.strftime("%B %Y")
+    return start, end, label
+
+
+async def _compute_leaderboard_rows(
+    tenant_id: PydanticObjectId,
+    period: str,
+    parameters: List[Dict[str, Any]],
+    accolades: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    period_start, period_end, period_label = _period_bounds(period)
+    won_ids = await _won_stage_ids(tenant_id)
+
+    users = await User.find(
+        {"tenant_id": tenant_id, "is_active": True}
+    ).to_list()
+
+    rows: List[Dict[str, Any]] = []
+    for user in users:
+        # All opportunities owned by this user in the period
+        all_opps = await Opportunity.find({
+            "tenant_id": tenant_id,
+            "owner_id": user.id,
+            "created_at": {"$gte": period_start, "$lte": period_end},
+        }).to_list()
+        total_count = len(all_opps)
+
+        # Won opportunities
+        won_opps = [o for o in all_opps if o.sales_stage_id in won_ids] if won_ids else []
+
+        close_won = len(won_opps)
+        revenue = sum(o.amount or 0 for o in won_opps)
+        no_of_pax = sum(
+            (o.industry_data or {}).get("no_of_pax", 0)
+            for o in won_opps
+        )
+        leads_converted = sum(1 for o in won_opps if o.lead_id)
+        ccr = round(close_won / total_count * 100, 2) if total_count else 0.0
+
+        metric_map = {
+            "closed_won_amount": revenue,
+            "deals_closed": close_won,
+            "revenue_generated": revenue,
+            "leads_converted": leads_converted,
+        }
+        score = sum(
+            metric_map.get(p.get("metric", ""), 0) * p.get("weight", 1)
+            for p in parameters
+        )
+
+        earned_accolades = [
+            {"name": a.get("name", ""), "emoji": a.get("emoji", "🏆")}
+            for a in accolades
+            if score >= a.get("threshold", 0)
+        ]
+
+        rows.append({
+            "user_id": str(user.id),
+            "name": user.name,
+            "avatar_url": user.avatar_url,
+            "score": round(score, 2),
+            "ccr": ccr,
+            "close_won": close_won,
+            "no_of_pax": int(no_of_pax),
+            "revenue": revenue,
+            "accolades": earned_accolades,
+        })
+
+    rows.sort(key=lambda r: r["score"], reverse=True)
+    for i, row in enumerate(rows, start=1):
+        row["rank"] = i
+
+    return rows, period_label
 
 
 # ============== Quick links ==============
@@ -95,15 +193,168 @@ async def user_activities(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/leaderboard")
-async def leaderboard(current_user: User = Depends(get_current_user)):
-    """Mirror old `/rest_leader_board`."""
-    return {"period": "current_month", "rows": []}
+async def leaderboard(
+    period: str = Query("current_month", pattern="^(current_month|last_month)$"),
+    current_user: User = Depends(get_current_user),
+):
+    """Ranked leaderboard for the tenant using LeaderboardConfig scoring."""
+    cfg = await LeaderboardConfig.find_one({"tenant_id": current_user.tenant_id})
+    parameters = (cfg.parameters if cfg else []) or []
+    accolades = (cfg.accolades if cfg else []) or []
+
+    rows, period_label = await _compute_leaderboard_rows(
+        current_user.tenant_id, period, parameters, accolades
+    )
+    return {"period": period, "period_label": period_label, "rows": rows}
 
 
 @router.get("/leaderboard/me")
-async def my_leaderboard(current_user: User = Depends(get_current_user)):
-    """Mirror old `/rest_leader_board-user`."""
-    return {"user_id": str(current_user.id), "rank": None, "score": 0}
+async def my_leaderboard(
+    period: str = Query("current_month", pattern="^(current_month|last_month)$"),
+    current_user: User = Depends(get_current_user),
+):
+    """Current user's leaderboard rank and score."""
+    cfg = await LeaderboardConfig.find_one({"tenant_id": current_user.tenant_id})
+    parameters = (cfg.parameters if cfg else []) or []
+    accolades = (cfg.accolades if cfg else []) or []
+
+    rows, period_label = await _compute_leaderboard_rows(
+        current_user.tenant_id, period, parameters, accolades
+    )
+    me = next((r for r in rows if r["user_id"] == str(current_user.id)), None)
+    if me:
+        return me
+    return {"user_id": str(current_user.id), "rank": None, "score": 0,
+            "ccr": 0.0, "close_won": 0, "no_of_pax": 0, "revenue": 0, "accolades": []}
+
+
+@router.get("/user-incentive-records")
+async def user_incentive_records(
+    months: int = Query(12, ge=1, le=24),
+    current_user: User = Depends(get_current_user),
+):
+    """Monthly incentive breakdown per user, grouped by role."""
+    # Build last N months list (newest first)
+    now = datetime.utcnow()
+    month_buckets = []
+    for i in range(months):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        start = datetime(y, m, 1)
+        end = datetime(y, m, monthrange(y, m)[1], 23, 59, 59)
+        label = start.strftime("%b, %Y")
+        month_buckets.append((y, m, start, end, label))
+
+    won_ids = await _won_stage_ids(current_user.tenant_id)
+
+    # Load roles for grouping
+    roles = await Role.find({"tenant_id": current_user.tenant_id}).to_list()
+    role_map: Dict[str, str] = {str(r.id): r.display_name for r in roles}
+
+    users = await User.find(
+        {"tenant_id": current_user.tenant_id, "is_active": True}
+    ).to_list()
+
+    # Group users by their primary role display name
+    groups: Dict[str, List[Dict]] = {}
+    for user in users:
+        role_name = "No Role"
+        if user.role_ids:
+            role_name = role_map.get(str(user.role_ids[0]), "No Role")
+
+        records = []
+        for year, month, start, end, label in month_buckets:
+            all_opps = await Opportunity.find({
+                "tenant_id": current_user.tenant_id,
+                "owner_id": user.id,
+                "created_at": {"$gte": start, "$lte": end},
+            }).to_list()
+            won_opps = [o for o in all_opps if o.sales_stage_id in won_ids] if won_ids else []
+            records.append({
+                "month_label": label,
+                "year": year,
+                "month": month,
+                "opportunities_won": len(won_opps),
+                "total_opportunities": len(all_opps),
+                "target": user.monthly_revenue_target or 0,
+                "sales_amount": sum(o.amount or 0 for o in won_opps),
+                "earn_rupees": 0,
+                "mature_rupees": 0,
+            })
+
+        user_entry = {
+            "user_id": str(user.id),
+            "name": user.name,
+            "avatar_url": user.avatar_url,
+            "records": records,
+        }
+        groups.setdefault(role_name, []).append(user_entry)
+
+    return {
+        "groups": [
+            {"role_name": role_name, "users": user_list}
+            for role_name, user_list in groups.items()
+        ]
+    }
+
+
+@router.get("/department-incentive-records")
+async def department_incentive_records(
+    months: int = Query(12, ge=1, le=24),
+    current_user: User = Depends(get_current_user),
+):
+    """Monthly incentive breakdown aggregated by department."""
+    now = datetime.utcnow()
+    month_buckets = []
+    for i in range(months):
+        m = now.month - i
+        y = now.year
+        while m <= 0:
+            m += 12
+            y -= 1
+        start = datetime(y, m, 1)
+        end = datetime(y, m, monthrange(y, m)[1], 23, 59, 59)
+        label = start.strftime("%b, %Y")
+        month_buckets.append((y, m, start, end, label))
+
+    won_ids = await _won_stage_ids(current_user.tenant_id)
+    users = await User.find(
+        {"tenant_id": current_user.tenant_id, "is_active": True}
+    ).to_list()
+
+    # Group by department_id
+    dept_users: Dict[str, List] = {}
+    for user in users:
+        key = str(user.department_id) if user.department_id else "No Department"
+        dept_users.setdefault(key, []).append(user)
+
+    groups = []
+    for dept_name, dept_user_list in dept_users.items():
+        records = []
+        for year, month, start, end, label in month_buckets:
+            user_ids = [u.id for u in dept_user_list]
+            all_opps = await Opportunity.find({
+                "tenant_id": current_user.tenant_id,
+                "owner_id": {"$in": user_ids},
+                "created_at": {"$gte": start, "$lte": end},
+            }).to_list()
+            won_opps = [o for o in all_opps if o.sales_stage_id in won_ids] if won_ids else []
+            records.append({
+                "month_label": label,
+                "year": year,
+                "month": month,
+                "opportunities_won": len(won_opps),
+                "total_opportunities": len(all_opps),
+                "sales_amount": sum(o.amount or 0 for o in won_opps),
+                "earn_rupees": 0,
+                "mature_rupees": 0,
+            })
+        groups.append({"department_name": dept_name, "records": records})
+
+    return {"groups": groups}
 
 
 # ============== Opportunity dashboards ==============

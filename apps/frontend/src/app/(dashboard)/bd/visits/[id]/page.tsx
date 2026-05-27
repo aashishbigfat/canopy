@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import Link from "next/link";
 import { toast } from "sonner";
-import { Loader2, MapPin, CheckCircle2, XCircle, Pencil, LogIn, LogOut } from "lucide-react";
+import { Loader2, MapPin, CheckCircle2, XCircle, Pencil, LogIn, LogOut, Route } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -25,7 +26,6 @@ import { useLiveTracking } from "@/features/bd/tracking/useLiveTracking";
 
 export default function VisitDetailPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
   const visitId = params.id as string;
   const { data: visit, isLoading } = useBDVisit(visitId);
 
@@ -37,6 +37,13 @@ export default function VisitDetailPage() {
   const reject = useRejectBDVisit();
   const checkIn = useCheckInVisit();
   const checkOut = useCheckOutVisit();
+
+  // Live GPS pings while the visit is in_progress (only when this tab is open).
+  // MUST be called unconditionally before any early return (Rules of Hooks).
+  const live = useLiveTracking({
+    visitId: visit?.id ?? visitId,
+    enabled: !!visit && visit.status === "in_progress",
+  });
 
   if (isLoading) {
     return (
@@ -54,7 +61,7 @@ export default function VisitDetailPage() {
       // Submit without GPS — backend accepts null
       try {
         await checkIn.mutateAsync({ id: visit.id });
-      } catch {}
+      } catch { }
       return;
     }
     const opts: PositionOptions = { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 };
@@ -67,14 +74,14 @@ export default function VisitDetailPage() {
             lng: pos.coords.longitude,
             accuracy_m: pos.coords.accuracy,
           });
-        } catch {}
+        } catch { }
       },
       async (err) => {
         // Permission denied / timeout — proceed without GPS
         toast.warning("Location unavailable; checking in without GPS.");
         try {
           await checkIn.mutateAsync({ id: visit.id });
-        } catch {}
+        } catch { }
       },
       opts
     );
@@ -85,12 +92,6 @@ export default function VisitDetailPage() {
     visit.status === "approved" && !visit.check_in_at;
   const canCheckOut = isCheckedIn;
   const canApprove = visit.approval_status === "pending";
-
-  // Live GPS pings while the visit is in_progress (only when this tab is open).
-  const live = useLiveTracking({
-    visitId: visit.id,
-    enabled: visit.status === "in_progress",
-  });
 
   return (
     <div className="space-y-6 max-w-5xl">
@@ -109,6 +110,13 @@ export default function VisitDetailPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {visit.status === "completed" && (
+            <Link href={`/bd/tracking/route?visitId=${visit.id}`}>
+              <Button variant="outline" size="sm">
+                <Route className="h-3.5 w-3.5 mr-1" /> View Route
+              </Button>
+            </Link>
+          )}
           <Button variant="outline" size="sm" onClick={() => setEditOpen(true)}>
             <Pencil className="h-3.5 w-3.5 mr-1" /> Edit
           </Button>

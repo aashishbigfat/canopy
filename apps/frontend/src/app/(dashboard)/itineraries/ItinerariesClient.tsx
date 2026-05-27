@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { Plus, Search, MoreHorizontal, FileText, Mail, Copy, Trash2, Edit } from "lucide-react";
 import Link from "next/link";
 
@@ -122,7 +122,7 @@ export default function ItinerariesClient() {
                                                 {itinerary.total_nights || 0} N / {itinerary.total_days || 0} D
                                             </TableCell>
                                             <TableCell className="text-slate-300 block sm:table-cell whitespace-nowrap">
-                                                {itinerary.created_at ? format(new Date(itinerary.created_at), "dd MMM yyyy") : "-"}
+                                                {itinerary.created_at ? formatDate(itinerary.created_at) : "-"}
                                             </TableCell>
                                             <TableCell className="block sm:table-cell text-right">
                                                 <DropdownMenu>

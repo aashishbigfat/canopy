@@ -163,6 +163,15 @@ class OpportunityService(ActivityMixin):
             
             await opportunity.insert()
 
+            # Assign a per-tenant sequential display ID (universal across all industries)
+            try:
+                from app.models.tenant_counter import next_opportunity_number
+                opportunity.opportunity_number = await next_opportunity_number(tenant_id)
+                await opportunity.save()
+            except Exception:
+                import logging as _l
+                _l.getLogger(__name__).warning("opportunity_number assignment failed", exc_info=True)
+
             # BD triple auto-resolution. Source the address from the linked
             # account's billing fields (most opportunities have one); fall back
             # to the converting lead's address when called via convert_lead.
@@ -362,6 +371,13 @@ class OpportunityService(ActivityMixin):
         
         opp.last_modified_by_id = user_id
         await opp.save()
+
+        # Auto-lock if stage is won and travel date has passed (handles travel_date edits)
+        if not opp.is_locked and "industry_data" in update_data:
+            from app.models.opportunity_picklists import SalesStage as _SalesStage
+            _stage = await _SalesStage.find_one({"_id": opp.sales_stage_id, "tenant_id": tenant_id})
+            if _stage and await self._should_auto_lock(opp, getattr(_stage, 'is_won', False)):
+                await opp.lock(user_id)
 
         # Custom fields write (Phase 1 §A)
         custom_field_changes = 0
@@ -578,6 +594,33 @@ class OpportunityService(ActivityMixin):
             **kwargs
         )
     
+    async def _should_auto_lock(self, opp: "Opportunity", stage_is_won: bool) -> bool:
+        """Return True if the opportunity should be auto-locked.
+
+        Condition: stage is 'Closed Won' (is_won=True) AND travel_date has passed.
+        """
+        if not stage_is_won or opp.is_locked:
+            return False
+        travel_date = (opp.industry_data or {}).get("travel_date")
+        if not travel_date:
+            return False
+        try:
+            if isinstance(travel_date, str):
+                td = datetime.fromisoformat(travel_date.replace("Z", "+00:00")) if "T" in travel_date else datetime.fromisoformat(travel_date)
+            elif isinstance(travel_date, datetime):
+                td = travel_date
+            else:
+                return False
+            # Compare calendar dates in IST (UTC+5:30) so auto-lock triggers
+            # the day AFTER travel_date, not on the travel_date itself.
+            from datetime import timezone, timedelta
+            IST = timezone(timedelta(hours=5, minutes=30))
+            now_ist = datetime.now(IST).date()
+            td_date = td.date() if td.tzinfo is None else td.astimezone(IST).date()
+            return td_date < now_ist
+        except Exception:
+            return False
+
     async def change_stage(
         self,
         opp_id: str,
@@ -587,10 +630,10 @@ class OpportunityService(ActivityMixin):
     ) -> Optional[Opportunity]:
         """Change opportunity sales stage"""
         opp = await self.get_opportunity(opp_id, tenant_id)
-        
+
         if not opp:
             return None
-        
+
         old_stage_id = opp.sales_stage_id
         new_stage_id = ObjectId(stage_change.new_stage_id)
 
@@ -610,12 +653,16 @@ class OpportunityService(ActivityMixin):
         opp.sales_stage_id = new_stage_id
         opp.last_modified_by_id = user_id
         opp.probability = new_stage.probability
-        # If moving to a lost stage, store the reason in close_lost_reason
-        if getattr(new_stage, 'is_lost', False) and stage_change.reason:
-            opp.close_lost_reason = stage_change.reason
-        
+        if getattr(new_stage, 'is_lost', False):
+            # Moving into a lost stage — store reason
+            if stage_change.reason:
+                opp.close_lost_reason = stage_change.reason
+        else:
+            # Moving away from a lost stage — clear stale reason
+            opp.close_lost_reason = None
+
         await opp.save()
-        
+
         # Log history only if stage ID actually changed
         if str(old_stage_id) != str(new_stage_id):
             history = OpportunityHistory(
@@ -629,10 +676,14 @@ class OpportunityService(ActivityMixin):
                 probability_at_change=opp.probability,
             )
             await history.insert()
-        
+
+        # Auto-lock if moving to a won stage and travel date has passed
+        if await self._should_auto_lock(opp, getattr(new_stage, 'is_won', False)):
+            await opp.lock(user_id)
+
         # Invalidate dashboard cache for this tenant
         await invalidate_tenant_cache(str(tenant_id))
-        
+
         return opp
     
     async def lock_opportunity(
@@ -656,18 +707,12 @@ class OpportunityService(ActivityMixin):
     async def unlock_opportunity(
         self,
         opp_id: str,
-        user_id: ObjectId,
-        tenant_id: ObjectId
+        tenant_id: ObjectId,
     ) -> Optional[Opportunity]:
-        """Unlock opportunity"""
+        """Unlock opportunity — caller must already hold unlock_opportunity permission."""
         opp = await self.get_opportunity(opp_id, tenant_id)
-        
         if not opp:
             return None
-        
-        if opp.is_locked and opp.locked_by != user_id:
-            raise ValueError("Cannot unlock - locked by another user")
-        
         await opp.unlock()
         return opp
     

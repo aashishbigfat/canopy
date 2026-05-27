@@ -14,7 +14,7 @@ import {
     Briefcase,
     ChevronLeft,
     TrendingUp,
-
+    Lock,
     Target,
     Map,
     MessageSquare,
@@ -24,7 +24,9 @@ import {
     Paperclip,
     Users,
     Package,
-    Receipt
+    Receipt,
+    Copy,
+    Check
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -55,13 +57,14 @@ import {
 } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Opportunity } from "../types";
-import { format } from "date-fns";
+import { formatDateLong, formatDateTime24h, formatDateTimeBar } from "@/lib/format";
 import { formatCurrency, formatDate, formatDateTime } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { UpdateStageDialog } from "./UpdateStageDialog";
 import { FinancialTab } from "./financial/FinancialTab";
 import { OpportunityItinerariesTab } from "@/features/itineraries/components/OpportunityItinerariesTab";
 import { SalesStage } from "@/lib/api/services/opportunities.service";
+import { useSession } from "next-auth/react";
 import {
     useOpportunity,
     useOpportunityHistory,
@@ -69,7 +72,9 @@ import {
     useCreateOpportunityTask,
     useUpdateOpportunityStage,
     useDeleteOpportunity,
-    useChangeOpportunityOwner
+    useChangeOpportunityOwner,
+    useUnlockOpportunity,
+    useLockOpportunity,
 } from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
 import { useGetUsers } from "@/features/admin/api/use-users";
@@ -99,12 +104,16 @@ export function OpportunityDetails({
     const router = useRouter();
     const queryClient = useQueryClient();
     const industry = useIndustry();
+    const { data: session } = useSession();
+    const sessionPermissions: string[] = (session?.user as any)?.permissions ?? [];
+    const canUnlock = sessionPermissions.includes("unlock_opportunity");
     const [isCloseLostDialogOpen, setIsCloseLostDialogOpen] = useState(false);
     const [pendingCloseLostStageId, setPendingCloseLostStageId] = useState<string>("");
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isOwnerDialogOpen, setIsOwnerDialogOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
     const { data: reactiveOpportunity } = useOpportunity(opportunity.id);
     // Use reactive data if available, fallback to initial prop
     const record = reactiveOpportunity || opportunity;
@@ -129,6 +138,8 @@ export function OpportunityDetails({
     const { data: tasks = [] } = useOpportunityTasks(record.id);
     const { mutate: updateStage } = useUpdateOpportunityStage();
     const { mutate: changeOwner } = useChangeOpportunityOwner();
+    const { mutate: lockOpportunity, isPending: isLocking } = useLockOpportunity();
+    const { mutate: unlockOpportunity, isPending: isUnlocking } = useUnlockOpportunity();
 
     // Supplier & Email Template state
     const [suppliers, setSuppliers] = useState<{ label: string; value: string }[]>([]);
@@ -344,8 +355,63 @@ export function OpportunityDetails({
                                         {record.creation_type}
                                     </Badge>
                                 )}
+                                {record.is_locked ? (
+                                    <div className="flex items-center gap-2">
+                                        <Badge variant="secondary" className="bg-red-500/20 text-red-300 border border-red-500/40 flex items-center gap-1 font-normal">
+                                            <Lock className="h-3 w-3" /> Locked
+                                        </Badge>
+                                        {canUnlock && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                className="h-6 px-2 text-xs border-red-500/40 text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                                                onClick={() => unlockOpportunity(record.id)}
+                                                disabled={isUnlocking}
+                                                title="Unlock this opportunity"
+                                            >
+                                                {isUnlocking ? "Unlocking..." : "Unlock"}
+                                            </Button>
+                                        )}
+                                    </div>
+                                ) : (
+                                    <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-6 px-2 text-xs border-slate-500/40 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 flex items-center gap-1"
+                                        onClick={() => lockOpportunity(record.id)}
+                                        disabled={isLocking}
+                                        title="Lock this opportunity"
+                                    >
+                                        <Lock className="h-3 w-3" />
+                                        {isLocking ? "Locking..." : "Lock"}
+                                    </Button>
+                                )}
                             </div>
-                            <h2 className="text-lg font-medium">{record.name}</h2>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-medium">{record.name}</h2>
+                                {record.opportunity_number != null && (
+                                    <div className="flex items-center gap-1 text-slate-400">
+                                        <span className="text-sm font-mono">
+                                            / {String(record.opportunity_number).padStart(10, '0')}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            title="Copy opportunity ID"
+                                            onClick={() => {
+                                                navigator.clipboard.writeText(String(record.opportunity_number).padStart(10, '0'));
+                                                setIsCopied(true);
+                                                setTimeout(() => setIsCopied(false), 1500);
+                                            }}
+                                            className="p-0.5 rounded hover:text-slate-200 transition-colors"
+                                        >
+                                            {isCopied
+                                                ? <Check className="h-3 w-3 text-green-400" />
+                                                : <Copy className="h-3 w-3" />
+                                            }
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-300 pt-1">
                                 <div className="space-y-1">
                                     {!record.is_person_account && record.account_name && (
@@ -365,9 +431,9 @@ export function OpportunityDetails({
                                     ) : (
                                         <div className="flex flex-col items-start leading-tight mt-0.5">
                                             {record.contact_name ? (
-                                                <Link 
-                                                    href={record.contact_id ? `/contacts/${record.contact_id}` : "#"} 
-                                                    className="font-medium text-slate-200 hover:text-blue-500 hover:underline cursor-pointer"
+                                                <Link
+                                                    href={record.contact_id ? `/contacts/${record.contact_id}` : "#"}
+                                                    className="font-medium text-blue-500 hover:underline cursor-pointer"
                                                 >
                                                     {record.contact_name}
                                                 </Link>
@@ -408,8 +474,14 @@ export function OpportunityDetails({
 
                     <div className="flex flex-col items-end justify-between min-w-[250px]">
                         <div className="flex items-center gap-2">
-                            <Button className="bg-blue-500 hover:bg-blue-600 h-8" size="sm" onClick={() => setIsEditDrawerOpen(true)}>
-                                Edit
+                            <Button
+                                className="bg-blue-500 hover:bg-blue-600 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
+                                size="sm"
+                                onClick={() => !record.is_locked && setIsEditDrawerOpen(true)}
+                                disabled={record.is_locked}
+                                title={record.is_locked ? "Opportunity is locked" : undefined}
+                            >
+                                {record.is_locked ? <><Lock className="h-3 w-3 mr-1" />Locked</> : "Edit"}
                             </Button>
                             <Button
                                 variant="destructive"
@@ -465,9 +537,16 @@ export function OpportunityDetails({
 
             {/* Sales Stage Stepper */}
             <div className="crm-surface rounded-lg border p-4 shadow-sm">
-                <h3 className="text-sm font-semibold mb-3">Sales stages</h3>
+                <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-sm font-semibold">Sales stages</h3>
+                    {record.is_locked && (
+                        <span className="flex items-center gap-1 text-xs text-red-400">
+                            <Lock className="h-3 w-3" /> Stage changes are locked
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-center justify-between">
-                    <div className="flex flex-1 items-center relative z-10">
+                    <div className={cn("flex flex-1 items-center relative z-10", record.is_locked && "opacity-60 pointer-events-none")}>
                         {orderedStages.map((s, index) => {
                             const isCurrent = index === currentStageIndex;
                             const isPast = index < currentStageIndex;
@@ -475,9 +554,10 @@ export function OpportunityDetails({
                             return (
                                 <div
                                     key={s.id}
-                                    onClick={() => handleStageClick(s.id)}
+                                    onClick={() => !record.is_locked && handleStageClick(s.id)}
                                     className={cn(
-                                        "relative flex-1 py-2 px-4 text-center text-xs font-medium cursor-pointer transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
+                                        "relative flex-1 py-2 px-4 text-center text-xs font-medium transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
+                                        record.is_locked ? "cursor-not-allowed" : "cursor-pointer",
                                         s.id === selectedStageId ? "bg-blue-500/15 border-blue-400 text-blue-300" :
                                             index < currentStageIndex ? "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700" :
                                                 "bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800/40"
@@ -497,7 +577,7 @@ export function OpportunityDetails({
                             );
                         })}
                     </div>
-                    {selectedStageId !== record.sales_stage_id && (
+                    {!record.is_locked && selectedStageId !== record.sales_stage_id && (
                         <Button
                             className="ml-4 bg-blue-500 hover:bg-blue-600 rounded-full text-xs h-8 px-6 whitespace-nowrap"
                             onClick={handleMarkAsCurrentStage}
@@ -522,8 +602,13 @@ export function OpportunityDetails({
                             <TabsTrigger value="supplier" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">{industry === "travel" ? "Supplier" : "Vendor"}</TabsTrigger>
                             <TabsTrigger value="attachments" className="rounded-none border-b-2 border-transparent data-[state=active]:border-blue-500 data-[state=active]:bg-transparent data-[state=active]:text-blue-600 px-6 py-3 font-medium text-sm">Attachments</TabsTrigger>
                             <span className="flex items-center px-4 py-3">
-                                <button onClick={() => setIsEditDrawerOpen(true)} className="text-sm font-medium text-slate-400 hover:text-blue-600 flex items-center gap-1">
-                                    <Edit className="h-3.5 w-3.5" /> Edit
+                                <button
+                                    onClick={() => !record.is_locked && setIsEditDrawerOpen(true)}
+                                    disabled={record.is_locked}
+                                    className={cn("text-sm font-medium flex items-center gap-1", record.is_locked ? "text-slate-600 cursor-not-allowed" : "text-slate-400 hover:text-blue-600")}
+                                    title={record.is_locked ? "Opportunity is locked" : undefined}
+                                >
+                                    {record.is_locked ? <><Lock className="h-3.5 w-3.5" /> Locked</> : <><Edit className="h-3.5 w-3.5" /> Edit</>}
                                 </button>
                             </span>
                         </TabsList>
@@ -623,7 +708,7 @@ export function OpportunityDetails({
                                                     <CheckCircle2 className="h-3 w-3 text-transparent group-hover:text-blue-200" />
                                                 </div>
                                                 <a href="#" className="text-sm text-blue-400 hover:underline">{task.name}</a>
-                                                {task.due_date && <span className="text-xs text-slate-400">({format(new Date(task.due_date), "dd MMM yyyy HH:mm")})</span>}
+                                                {task.due_date && <span className="text-xs text-slate-400">({formatDateTime24h(task.due_date)})</span>}
                                                 {task.priority === "High" && <Badge variant="secondary" className="bg-red-500/20 text-red-300 px-1.5 py-0 text-[10px] h-4">high</Badge>}
                                             </li>
                                         ))
@@ -641,7 +726,7 @@ export function OpportunityDetails({
                                                 <CheckCircle2 className="h-3 w-3" />
                                             </div>
                                             <span className="text-sm text-slate-400 line-through">{task.name}</span>
-                                            {task.completed_at && <span className="text-xs text-slate-400">({format(new Date(task.completed_at), "dd MMM yyyy")})</span>}
+                                            {task.completed_at && <span className="text-xs text-slate-400">({formatDateLong(task.completed_at)})</span>}
                                         </li>
                                     ))}
                                 </ul>
@@ -701,7 +786,7 @@ export function OpportunityDetails({
                                                     {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
                                                 </p>
                                             </div>
-                                            {record.close_lost_reason && (
+                                            {record.close_lost_reason && (stage as any)?.is_lost && (
                                                 <div className="space-y-1 col-span-full bg-red-500/20 p-2 rounded border border-red-500/40">
                                                     <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Close Lost Reason</p>
                                                     <p className="text-sm text-red-300 pt-1 italic">
@@ -739,13 +824,13 @@ export function OpportunityDetails({
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Expected Close Date</p>
                                                 <span className="text-sm font-medium pt-1 block">
-                                                    {record.close_date ? format(new Date(record.close_date), "PPP") : "Not Set"}
+                                                    {record.close_date ? formatDateLong(record.close_date) : "Not Set"}
                                                 </span>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Opportunity Source</p>
                                                 <span className="text-sm font-medium pt-1 block text-blue-400 cursor-pointer hover:underline">
-                                                    {(record as any).source_name || "-"}
+                                                    {record.source_name || "-"}
                                                 </span>
                                             </div>
 
@@ -761,7 +846,7 @@ export function OpportunityDetails({
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Date of Travel</p>
                                                         <span className="text-sm font-medium pt-1 block">
-                                                            {record.industry_data?.travel_date ? format(new Date(record.industry_data.travel_date), "PPP") : "Not Set"}
+                                                            {record.industry_data?.travel_date ? formatDateLong(record.industry_data.travel_date) : "Not Set"}
                                                         </span>
                                                     </div>
                                                     <div className="space-y-1">
@@ -814,7 +899,7 @@ export function OpportunityDetails({
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Appointment Date</p>
-                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.appointment_date ? format(new Date((record as any).industry_data.appointment_date), "PPP") : "Not Set"}</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.appointment_date ? formatDateLong((record as any).industry_data.appointment_date) : "Not Set"}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Insurance Pre-Auth</p>
@@ -834,7 +919,7 @@ export function OpportunityDetails({
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Interview Date</p>
-                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.interview_date ? format(new Date((record as any).industry_data.interview_date), "PPP") : "Not Set"}</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.interview_date ? formatDateLong((record as any).industry_data.interview_date) : "Not Set"}</p>
                                                     </div>
                                                 </>
                                             )}
@@ -850,7 +935,7 @@ export function OpportunityDetails({
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Delivery Date</p>
-                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.delivery_date ? format(new Date((record as any).industry_data.delivery_date), "PPP") : "Not Set"}</p>
+                                                        <p className="text-sm font-semibold pt-1">{(record as any).industry_data?.delivery_date ? formatDateLong((record as any).industry_data.delivery_date) : "Not Set"}</p>
                                                     </div>
                                                 </>
                                             )}
@@ -883,14 +968,14 @@ export function OpportunityDetails({
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Created By</p>
                                                 <div className="flex items-center gap-2 pt-1">
                                                     <p className="text-sm font-medium text-blue-400 cursor-pointer hover:underline">{record.created_by_name || "Unknown"}</p>
-                                                    <span className="text-slate-400 text-[10px]">{format(new Date(record.created_at), "MMM d, yyyy HH:mm")}</span>
+                                                    <span className="text-slate-400 text-[10px]">{formatDateTime24h(record.created_at)}</span>
                                                 </div>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Last Modified By</p>
                                                 <div className="flex items-center gap-2 pt-1">
                                                     <p className="text-sm font-medium text-blue-400 cursor-pointer hover:underline">{record.last_modified_by_name || record.created_by_name || "Unknown"}</p>
-                                                    <span className="text-slate-400 text-[10px]">{format(new Date(record.updated_at), "MMM d, yyyy HH:mm")}</span>
+                                                    <span className="text-slate-400 text-[10px]">{formatDateTime24h(record.updated_at)}</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1092,7 +1177,7 @@ export function OpportunityDetails({
                                                                     {row.user_name || "System"}
                                                                 </span>
                                                                 <span className="text-[9px] text-slate-400 capitalize">
-                                                                    {format(new Date(row.changed_at), "dd MMM yyyy, hh:mm a")}
+                                                                    {formatDateTimeBar(row.changed_at)}
                                                                 </span>
                                                             </div>
                                                         </TableCell>

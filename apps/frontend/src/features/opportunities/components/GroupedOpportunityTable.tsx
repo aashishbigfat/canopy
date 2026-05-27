@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { ChevronDown, ChevronRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Opportunity } from "../types";
@@ -98,9 +98,17 @@ function OppRow({
 
             {/* Opportunity Name */}
             <TableCell className="py-2.5">
-                <span className="text-xs font-semibold text-foreground group-hover:underline">
-                    {opp.name}
-                </span>
+                <div className="flex items-center gap-1.5">
+                    {opp.is_locked && (
+                        <Lock
+                            className="h-3 w-3 shrink-0 text-amber-500"
+                            title={opp.locked_by ? `Locked by ${opp.locked_by}` : "Locked"}
+                        />
+                    )}
+                    <span className="text-xs font-semibold text-foreground group-hover:underline">
+                        {opp.name}
+                    </span>
+                </div>
             </TableCell>
 
             {/* Destinations / Product / Program / Treatment */}

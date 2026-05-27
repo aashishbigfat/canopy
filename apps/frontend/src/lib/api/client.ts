@@ -3,19 +3,6 @@ import { getSession, signOut } from 'next-auth/react';
 import { API_BASE_URL } from '@/lib/env';
 import { toast } from 'sonner';
 
-// Token refresh management
-let isRefreshing = false;
-let refreshSubscribers: ((token: string | null) => void)[] = [];
-
-const addRefreshSubscriber = (callback: (token: string | null) => void) => {
-    refreshSubscribers.push(callback);
-};
-
-const onTokenRefreshed = (token: string | null) => {
-    refreshSubscribers.forEach(callback => callback(token));
-    refreshSubscribers = [];
-};
-
 export const apiClient = axios.create({
     baseURL: API_BASE_URL,
     headers: {
@@ -37,10 +24,6 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
         config.url = config.url.substring(1);
     }
 
-    // Diagnostic log
-    const fullUrl = config.baseURL ? `${config.baseURL}${config.url}` : config.url;
-    console.log(`[API Request] ${config.method?.toUpperCase()} ${fullUrl}`);
-
     if (typeof window !== 'undefined') {
         const session = await getSession();
         if (session?.accessToken) {
@@ -52,9 +35,19 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
     return Promise.reject(error);
 });
 
-// Response Interceptor: Handle 401 and Token Refresh
+// Response Interceptor: Handle 401 (expired backend token)
+//
+// When the token expires every in-flight API call returns 401 at once.
+// isSessionExpiring gates the redirect so only one signOut + navigation
+// fires regardless of how many concurrent requests fail simultaneously.
+let isSessionExpiring = false;
+
 apiClient.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // A successful authenticated response means the token is valid — reset gate.
+        if (isSessionExpiring) isSessionExpiring = false;
+        return response;
+    },
     async (error: AxiosError) => {
         const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
@@ -65,57 +58,50 @@ apiClient.interceptors.response.use(
 
             originalRequest._retry = true;
 
-            if (isRefreshing) {
-                return new Promise((resolve, reject) => {
-                    addRefreshSubscriber((token: string | null) => {
-                        if (token) {
-                            if (originalRequest.headers) {
-                                originalRequest.headers.Authorization = `Bearer ${token}`;
-                            }
-                            resolve(apiClient(originalRequest));
-                        } else {
-                            reject(new Error('Token refresh failed'));
-                        }
-                    });
-                });
-            }
-
-            isRefreshing = true;
-
             try {
+                // Re-fetch the session — if it was updated externally the new token may work.
                 const session = await getSession();
-                if (!session?.refreshToken) {
-                    throw new Error('No refresh token available');
+                if (session?.accessToken) {
+                    const oldToken = originalRequest.headers?.Authorization;
+                    const newBearer = `Bearer ${session.accessToken}`;
+                    if (oldToken !== newBearer) {
+                        if (originalRequest.headers) {
+                            originalRequest.headers.Authorization = newBearer;
+                        }
+                        return apiClient(originalRequest);
+                    }
                 }
 
-                const response = await axios.post(`${API_BASE_URL}auth/refresh`, {
-                    refresh_token: session.refreshToken,
-                });
+                // Token is the same (or missing) → confirmed expired.
+                if (!isSessionExpiring) {
+                    isSessionExpiring = true;
 
-                const newAccessToken = response.data.access_token;
+                    // Clear the NextAuth session cookie in the background — fire-and-forget.
+                    // We don't await this; the page is navigating away regardless.
+                    signOut({ redirect: false }).catch(() => {});
 
-                // Update the session with new token
-                if (originalRequest.headers) {
-                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+                    // Replace the current history entry so the back button skips
+                    // the expired page and doesn't loop the user back to a broken state.
+                    window.location.replace('/login?reason=expired');
                 }
-
-                onTokenRefreshed(newAccessToken);
-
-                return apiClient(originalRequest);
-            } catch (refreshError) {
-                // Refresh failed, notify subscribers and sign out user
-                onTokenRefreshed(null);
-                
-                // Start sign out immediately but do not await to unblock caller
-                signOut({ callbackUrl: '/login' });
-                
-                return Promise.reject(refreshError);
-            } finally {
-                isRefreshing = false;
+            } catch {
+                // getSession failed (e.g. auth route temporarily unavailable).
+                // Still redirect — better to send the user to login than leave them stuck.
+                if (!isSessionExpiring) {
+                    isSessionExpiring = true;
+                    signOut({ redirect: false }).catch(() => {});
+                    window.location.replace('/login?reason=expired');
+                }
             }
-        } else if (error.response?.status === 403) {
-            // Permission denied
-            if (typeof window !== 'undefined') {
+
+            // Return a promise that never settles. This prevents the 401 from
+            // propagating to the calling component (no "Failed to load" error UI).
+            // All pending promises are garbage-collected once the page unloads.
+            return new Promise(() => {});
+        }
+
+        if (error.response?.status === 403) {
+            if (typeof window !== 'undefined' && !(originalRequest as any)._suppressForbiddenToast) {
                 toast.warning("Access Denied: You do not have permission for this resource.");
             }
         }

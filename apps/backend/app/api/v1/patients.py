@@ -5,7 +5,7 @@ Patient gets a slightly customized router (the patient_id MRN is auto-generated
 per tenant on create), so we wire the routes manually rather than using the
 generic crud factory.
 """
-from __future__ import annotations
+
 
 import logging
 from datetime import datetime, timezone

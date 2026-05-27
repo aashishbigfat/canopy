@@ -189,6 +189,41 @@ export const useCreateOpportunityTask = (opportunityId: string) => {
     });
 };
 
+export const useLockOpportunity = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => opportunitiesService.lockOpportunity(id),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+            toast.success("Opportunity locked successfully");
+        },
+        onError: () => {
+            toast.error("Failed to lock opportunity");
+        },
+    });
+};
+
+export const useUnlockOpportunity = () => {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) => opportunitiesService.unlockOpportunity(id),
+        onSuccess: (data) => {
+            queryClient.invalidateQueries({ queryKey: ["opportunities", data.id] });
+            queryClient.invalidateQueries({ queryKey: ["opportunities"] });
+            toast.success("Opportunity unlocked successfully");
+        },
+        onError: (error: any) => {
+            const status = error?.response?.status;
+            if (status === 403) {
+                toast.error("You do not have permission to unlock this opportunity.");
+            } else {
+                toast.error("Failed to unlock opportunity");
+            }
+        },
+    });
+};
+
 export const useChangeOpportunityOwner = () => {
     const queryClient = useQueryClient();
     return useMutation({

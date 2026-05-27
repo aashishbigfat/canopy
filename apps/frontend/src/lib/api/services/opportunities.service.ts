@@ -77,7 +77,24 @@ export const opportunitiesService = {
             new_owner_id: newOwnerId
         });
         return response.data;
-    }
+    },
+
+    backfillOpportunityNumbers: async (): Promise<{ assigned: number; message: string }> => {
+        const response = await apiClient.post(`${BASE_URL}/backfill-opportunity-numbers`);
+        return response.data;
+    },
+
+    lockOpportunity: async (id: string): Promise<Opportunity> => {
+        const response = await apiClient.post<Opportunity>(`${BASE_URL}/${id}/lock`);
+        return response.data;
+    },
+
+    unlockOpportunity: async (id: string): Promise<Opportunity> => {
+        const response = await apiClient.post<Opportunity>(`${BASE_URL}/${id}/unlock`, null, {
+            _suppressForbiddenToast: true,
+        } as any);
+        return response.data;
+    },
 };
 
 export interface OpportunityHistoryRecord {

@@ -4,7 +4,7 @@ import { useGetEntityFiles, useDeleteFile } from "@/features/files/api/use-files
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Download, Trash, FileIcon } from "lucide-react";
-import { format } from "date-fns";
+import { formatDate } from "@/lib/format";
 import { apiClient } from "@/lib/api/client";
 
 interface FileListProps {
@@ -64,7 +64,7 @@ export function FileList({ entityType, entityId }: FileListProps) {
                                 <TableCell><FileIcon className="h-4 w-4 text-muted-foreground" /></TableCell>
                                 <TableCell className="font-medium">{file.original_filename}</TableCell>
                                 <TableCell>{(file.file_size / 1024).toFixed(1)} KB</TableCell>
-                                <TableCell>{file.created_at ? format(new Date(file.created_at), 'MMM d, yyyy') : '-'}</TableCell>
+                                <TableCell>{file.created_at ? formatDate(file.created_at) : '-'}</TableCell>
                                 <TableCell className="text-right space-x-2">
                                     <Button variant="ghost" size="sm" onClick={() => handleDownload(file._id, file.original_filename)}>
                                         <Download className="h-4 w-4" />

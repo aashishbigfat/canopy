@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Plus, X, Loader2, TrendingUp, DollarSign, ShoppingCart, Percent } from "lucide-react";
+import { Plus, X, Loader2, TrendingUp, DollarSign, ShoppingCart, Percent, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -25,9 +25,10 @@ interface Props {
     destinationOptions: DestinationOption[];
     // Bug 3: opportunity amount passed in so profit = opportunityAmount - totalCost
     opportunityAmount: number;
+    isLocked?: boolean;
 }
 
-export function CostingTab({ opportunityId, destinationOptions, opportunityAmount }: Props) {
+export function CostingTab({ opportunityId, destinationOptions, opportunityAmount, isLocked = false }: Props) {
     const { data: costing, isLoading } = useCosting(opportunityId);
     const { mutate: saveCosting, isPending: isSaving } = useUpsertCosting(opportunityId);
 
@@ -325,6 +326,12 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
     return (
         <div className="space-y-4">
+            {isLocked && (
+                <div className="flex items-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                    <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+                    This opportunity is locked. Financial data is read-only.
+                </div>
+            )}
             {/* ── Summary Bar — Bug 3 fix: Opp. Amount | Total Cost | Profit | Profit % ── */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-2">
                 <SummaryCard
@@ -370,18 +377,18 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Add Item&apos;s</p>
                 <div className="relative" ref={dropdownRef}>
                     <div
-                        className="flex flex-wrap items-center gap-1.5 min-h-[38px] border border-slate-700 rounded-md px-2 py-1.5 bg-slate-900 cursor-pointer focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-500/20"
-                        onClick={() => setIsTypeDropdownOpen((v) => !v)}
+                        className={`flex flex-wrap items-center gap-1.5 min-h-[38px] border border-slate-700 rounded-md px-2 py-1.5 bg-slate-900 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-500/20 ${isLocked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                        onClick={() => !isLocked && setIsTypeDropdownOpen((v) => !v)}
                     >
                         {selectedTypes.map((type) => (
                             <Badge
                                 key={type}
                                 variant="secondary"
                                 className="bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 flex items-center gap-1 text-xs h-6 px-2"
-                                onClick={(e) => { e.stopPropagation(); removeItemType(type); }}
+                                onClick={(e) => { e.stopPropagation(); if (!isLocked) removeItemType(type); }}
                             >
                                 {type}
-                                <X className="h-3 w-3 cursor-pointer hover:text-red-500" />
+                                {!isLocked && <X className="h-3 w-3 cursor-pointer hover:text-red-500" />}
                             </Badge>
                         ))}
                         {selectedTypes.length === 0 && (
@@ -450,18 +457,20 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                         <div className="flex items-center gap-1">
                                             <Badge
                                                 variant="secondary"
-                                                className="bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] cursor-pointer hover:bg-slate-600 transition-colors group"
-                                                onClick={() => clearSupplier(idx)}
-                                                title="Click to change supplier"
+                                                className={`bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] transition-colors group ${isLocked ? "cursor-default" : "cursor-pointer hover:bg-slate-600"}`}
+                                                onClick={() => !isLocked && clearSupplier(idx)}
+                                                title={isLocked ? undefined : "Click to change supplier"}
                                             >
                                                 <span className="truncate">{item.supplier_name}</span>
-                                                <div className="flex items-center justify-center h-4 w-4 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors">
-                                                    <X
-                                                        className="h-3 w-3 flex-shrink-0"
-                                                    />
-                                                </div>
+                                                {!isLocked && (
+                                                    <div className="flex items-center justify-center h-4 w-4 rounded-full hover:bg-red-500/20 hover:text-red-400 transition-colors">
+                                                        <X className="h-3 w-3 flex-shrink-0" />
+                                                    </div>
+                                                )}
                                             </Badge>
                                         </div>
+                                    ) : isLocked ? (
+                                        <span className="text-xs text-slate-500 italic">—</span>
                                     ) : (
                                         <SearchableSelect
                                             options={supplierOptions}
@@ -482,10 +491,10 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                         selectedNames={item.destination_names}
                                         onToggle={(id, name) => toggleDestination(idx, id, name)}
                                         onRemove={(id) => removeDestination(idx, id)}
+                                        disabled={isLocked}
                                     />
                                 </td>
                                 <td className="px-3 py-2">
-                                    {/* Bug 2: clamp to >= 0 */}
                                     <Input
                                         type="number"
                                         min={0}
@@ -494,16 +503,19 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                         onChange={(e) => updateItem(idx, "amount", clampAmount(e.target.value))}
                                         className="h-8 text-sm text-right"
                                         placeholder="0"
+                                        disabled={isLocked}
                                     />
                                 </td>
                                 <td className="px-2 py-2">
-                                    <button
-                                        onClick={() => removeItemType(item.item_type)}
-                                        className="h-6 w-6 rounded hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors"
-                                        title="Remove item"
-                                    >
-                                        <X className="h-3.5 w-3.5" />
-                                    </button>
+                                    {!isLocked && (
+                                        <button
+                                            onClick={() => removeItemType(item.item_type)}
+                                            className="h-6 w-6 rounded hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors"
+                                            title="Remove item"
+                                        >
+                                            <X className="h-3.5 w-3.5" />
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}
@@ -523,7 +535,6 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                 <div className="py-1.5 text-xs italic text-muted-foreground"></div>
                             </td>
                             <td className="px-3 py-2">
-                                {/* Bug 2: clamp to >= 0 */}
                                 <Input
                                     type="number"
                                     min={0}
@@ -532,6 +543,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                     onChange={(e) => setTaxItem((prev) => ({ ...prev, amount: clampAmount(e.target.value) }))}
                                     className="h-8 text-sm text-right"
                                     placeholder="0"
+                                    disabled={isLocked}
                                 />
                             </td>
                             <td className="px-2 py-2"></td>
@@ -543,7 +555,6 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                 <span className="text-primary font-medium text-xs">Miscellaneous</span>
                             </td>
                             <td className="px-3 py-2">
-                                {/* Bug 4: tenant-specific supplier name */}
                                 <div className="h-8 rounded-md border border-border bg-background px-3 py-1.5 text-sm text-foreground/90 flex items-center">
                                     {fixedSupplierName}
                                 </div>
@@ -555,10 +566,10 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                     selectedNames={miscItem.destination_names}
                                     onToggle={(id, name) => toggleDestination(0, id, name, "misc")}
                                     onRemove={(id) => removeDestination(0, id, "misc")}
+                                    disabled={isLocked}
                                 />
                             </td>
                             <td className="px-3 py-2">
-                                {/* Bug 2: clamp to >= 0 */}
                                 <Input
                                     type="number"
                                     min={0}
@@ -567,6 +578,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                     onChange={(e) => setMiscItem((prev) => ({ ...prev, amount: clampAmount(e.target.value) }))}
                                     className="h-8 text-sm text-right"
                                     placeholder="0"
+                                    disabled={isLocked}
                                 />
                             </td>
                             <td className="px-2 py-2"></td>
@@ -586,22 +598,24 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
             )}
 
             {/* ── Update Button ── */}
-            <div className="flex justify-end pt-2">
-                <Button
-                    onClick={handleSave}
-                    disabled={isSaving}
-                    className="bg-blue-600 hover:bg-blue-700 px-8 h-9 text-sm"
-                >
-                    {isSaving ? (
-                        <>
-                            <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
-                            Saving...
-                        </>
-                    ) : (
-                        "Update"
-                    )}
-                </Button>
-            </div>
+            {!isLocked && (
+                <div className="flex justify-end pt-2">
+                    <Button
+                        onClick={handleSave}
+                        disabled={isSaving}
+                        className="bg-blue-600 hover:bg-blue-700 px-8 h-9 text-sm"
+                    >
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                                Saving...
+                            </>
+                        ) : (
+                            "Update"
+                        )}
+                    </Button>
+                </div>
+            )}
         </div>
     );
 }
@@ -640,12 +654,14 @@ function DestinationMultiSelect({
     selectedNames,
     onToggle,
     onRemove,
+    disabled = false,
 }: {
     options: { label: string; value: string }[];
     selected: string[];
     selectedNames: string[];
     onToggle: (id: string, name: string) => void;
     onRemove: (id: string) => void;
+    disabled?: boolean;
 }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
@@ -670,18 +686,18 @@ function DestinationMultiSelect({
     return (
         <div className="relative" ref={ref}>
             <div
-                className="flex flex-wrap items-center gap-1 min-h-[32px] border border-slate-700 rounded-md px-2 py-1 bg-slate-900 cursor-pointer hover:border-blue-500/40 transition-colors"
-                onClick={() => setOpen((v) => !v)}
+                className={`flex flex-wrap items-center gap-1 min-h-[32px] border border-slate-700 rounded-md px-2 py-1 bg-slate-900 transition-colors ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:border-blue-500/40"}`}
+                onClick={() => !disabled && setOpen((v) => !v)}
             >
                 {selected.map((id, i) => (
                     <Badge
                         key={id}
                         variant="secondary"
                         className="bg-slate-700 text-slate-200 hover:bg-slate-600 flex items-center gap-1 text-[11px] h-5 px-1.5"
-                        onClick={(e) => { e.stopPropagation(); onRemove(id); }}
+                        onClick={(e) => { e.stopPropagation(); if (!disabled) onRemove(id); }}
                     >
                         {selectedNames[i] || id}
-                        <X className="h-2.5 w-2.5 cursor-pointer hover:text-red-400" />
+                        {!disabled && <X className="h-2.5 w-2.5 cursor-pointer hover:text-red-400" />}
                     </Badge>
                 ))}
                 {selected.length === 0 && (

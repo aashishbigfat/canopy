@@ -1,22 +1,31 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
+import { useGetRole } from "@/features/admin/api/use-roles";
+import { ProfileFormPage } from "@/features/admin/components/roles/role-form-page";
+import { Loader2 } from "lucide-react";
 
-/**
- * Legacy route — profile editing now happens via the Sheet slide-over
- * on the main /admin/role-management page.
- */
 export default function EditRolePage() {
-    const router = useRouter();
+    const params = useParams();
+    const id = params.id as string;
+    const { data: role, isLoading, isError } = useGetRole(id);
 
-    useEffect(() => {
-        router.replace("/admin/role-management");
-    }, [router]);
+    if (isLoading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-6 w-6 animate-spin mr-2" />
+                <p className="text-muted-foreground">Loading profile...</p>
+            </div>
+        );
+    }
 
-    return (
-        <div className="flex items-center justify-center h-64">
-            <p className="text-muted-foreground">Redirecting to Profiles &amp; Permissions...</p>
-        </div>
-    );
+    if (isError || !role) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <p className="text-destructive">Failed to load profile. Please go back and try again.</p>
+            </div>
+        );
+    }
+
+    return <ProfileFormPage initialData={role} />;
 }

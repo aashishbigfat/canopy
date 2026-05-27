@@ -38,6 +38,11 @@ function coreNavItems(labels: IndustryLabelMap): NavItem[] {
             href: "/dashboard",
             icon: LayoutDashboard,
             requiredPermission: "view_dashboard",
+            submenu: [
+                { title: "Overview",    href: "/dashboard",            requiredPermission: "view_dashboard" },
+                { title: "Leaderboard", href: "/dashboard/leaderboard", requiredPermission: "view_dashboard" },
+                { title: "Incentives",  href: "/dashboard/incentive",   requiredPermission: "view_dashboard" },
+            ],
         },
         {
             title: labels.leads,

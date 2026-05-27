@@ -303,6 +303,16 @@ class UserService(ActivityMixin):
         
         return True
     
+    async def _populate_hierarchy_names(self, users: List[User], tenant_id: ObjectId):
+        if not users:
+            return
+        from app.models.role import RoleHierarchy
+        hierarchies = await RoleHierarchy.find({"tenant_id": tenant_id, "deleted_at": None}).to_list()
+        h_map = {h.id: h.name for h in hierarchies}
+        for u in users:
+            if u.role_hierarchy_id:
+                u.role_hierarchy_name = h_map.get(u.role_hierarchy_id)
+
     async def get_users_by_tenant(
         self,
         tenant_id: ObjectId,
@@ -329,6 +339,7 @@ class UserService(ActivityMixin):
             query["is_active"] = is_active
         
         users = await User.find(query).skip(skip).limit(limit).sort("+name").to_list()
+        await self._populate_hierarchy_names(users, tenant_id)
         return users
     
     async def search_users(
@@ -351,6 +362,7 @@ class UserService(ActivityMixin):
         }
         
         users = await User.find(search_query).skip(skip).limit(limit).sort("+name").to_list()
+        await self._populate_hierarchy_names(users, tenant_id)
         return users
     
     async def update_user_status(

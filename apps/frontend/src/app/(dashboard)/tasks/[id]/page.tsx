@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { use } from "react";
-import { format } from "date-fns";
+import { formatDateTimeBar } from "@/lib/format";
 import { ClipboardList, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -65,15 +65,15 @@ export default function TaskDetailPage({ params }: EditTaskPageProps) {
     }
 
     const dueFormatted = task.due_date
-        ? format(new Date(task.due_date), "d MMM yyyy | hh:mm aa")
+        ? formatDateTimeBar(task.due_date)
         : undefined;
 
     const createdFormatted = task.created_at
-        ? format(new Date(task.created_at), "dd MMM yyyy | hh:mm aa")
+        ? formatDateTimeBar(task.created_at)
         : undefined;
 
     const updatedFormatted = task.updated_at
-        ? format(new Date(task.updated_at), "dd MMM yyyy | hh:mm aa")
+        ? formatDateTimeBar(task.updated_at)
         : undefined;
 
     return (
