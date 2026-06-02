@@ -1,6 +1,7 @@
 "use client";
 
 import { Edit, MoreHorizontal, Trash } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -53,7 +54,7 @@ export function HierarchyActions({ hierarchy }: HierarchyActionsProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => hierarchyId && navigator.clipboard.writeText(hierarchyId)}>
+                <DropdownMenuItem onClick={() => hierarchyId && copyToClipboard(hierarchyId, "Hierarchy ID")}>
                     Copy ID
                 </DropdownMenuItem>
                 {(canEdit || canDelete) && <DropdownMenuSeparator />}

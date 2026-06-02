@@ -12,6 +12,7 @@ class Account(BaseDocument):
     name: Indexed(str)
     email: Optional[Indexed(EmailStr)] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
     website: Optional[str] = None
     description: Optional[str] = None
     is_person_account: bool = False

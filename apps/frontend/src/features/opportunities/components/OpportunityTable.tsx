@@ -15,6 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { ArrowUpDown, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
+import { copyToClipboard } from "@/lib/clipboard";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -68,7 +69,7 @@ export const columns: ColumnDef<Opportunity>[] = [
         cell: ({ row }) => {
             const opp = row.original;
             return (
-                <Link href={`/opportunities/${opp.id}`} className="font-medium text-blue-600 hover:underline">
+                <Link href={`/opportunities/${opp.id}`} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">
                     {opp.name}
                 </Link>
             );
@@ -150,7 +151,7 @@ export const columns: ColumnDef<Opportunity>[] = [
                     <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(opportunity.id)}
+                            onClick={() => copyToClipboard(opportunity.id, "Opportunity ID")}
                         >
                             Copy ID
                         </DropdownMenuItem>

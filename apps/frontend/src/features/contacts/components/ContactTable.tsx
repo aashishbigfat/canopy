@@ -4,28 +4,18 @@ import * as React from "react";
 import {
     ColumnDef,
     ColumnFiltersState,
-    SortingState,
-    VisibilityState,
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
     getPaginationRowModel,
-    getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, MoreHorizontal } from "lucide-react";
+import { Pencil, Check, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuLabel,
-    DropdownMenuSeparator,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
     Table,
@@ -36,163 +26,219 @@ import {
     TableRow,
 } from "@/components/ui/table";
 import { Contact } from "../types";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { contactsService } from "@/lib/api/services/contacts.service";
+import { OwnerPopover } from "@/components/shared/OwnerPopover";
 
-export const columns: ColumnDef<Contact>[] = [
-    {
-        id: "select",
-        header: ({ table }) => (
-            <Checkbox
-                checked={
-                    table.getIsAllPageRowsSelected() ||
-                    (table.getIsSomePageRowsSelected() && "indeterminate")
-                }
-                onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-                aria-label="Select all"
-            />
-        ),
-        cell: ({ row }) => (
-            <Checkbox
-                checked={row.getIsSelected()}
-                onCheckedChange={(value) => row.toggleSelected(!!value)}
-                aria-label="Select row"
-            />
-        ),
-        enableSorting: false,
-        enableHiding: false,
-    },
-    {
-        accessorKey: "full_name",
-        header: "Name",
-        cell: ({ row }) => {
-            const contact = row.original;
-            const firstName = contact.first_name || "";
-            const lastName = contact.last_name || "";
-            const initials = `${firstName[0] || ""}${lastName[0] || ""}`;
-            return (
-                <div className="flex items-center gap-2">
-                    <Avatar className="h-8 w-8">
-                        <AvatarImage src="" />
-                        <AvatarFallback>{initials}</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col">
-                        <Link href={`/contacts/${contact.id}`} className="font-medium text-sm hover:underline hover:text-blue-600">
-                            {contact.full_name}
-                        </Link>
-                        <span className="text-xs text-muted-foreground">{contact.email}</span>
-                    </div>
-                </div>
-            );
-        },
-    },
-    {
-        accessorKey: "title",
-        header: "Job Title",
-        cell: ({ row }) => <div className="text-sm">{row.getValue("title") || "-"}</div>,
-    },
-    {
-        accessorKey: "account_id",
-        header: "Account",
-        cell: ({ row }) => {
-            const contact = row.original;
-            if (!contact.account_id) return <div className="text-sm">-</div>;
+// Pull a readable message out of an Axios/FastAPI validation error.
+function extractError(e: any): string {
+    const detail = e?.response?.data?.detail;
+    if (Array.isArray(detail)) {
+        return detail.map((d: any) => d?.msg).filter(Boolean).join("; ") || "Failed to update";
+    }
+    if (typeof detail === "string") return detail;
+    return "Failed to update";
+}
 
-            return (
-                <Link href={`/accounts/${contact.account_id}`} className="text-sm font-medium hover:underline hover:text-blue-600">
-                    {contact.account_name || "Account"}
+// ─── Inline-editable text cell ────────────────────────────────────────────────
+// Shows the value (optionally as a link to the contact) with a pencil that
+// reveals on hover. Saves a single field via PUT /contacts/{id}.
+function EditableContactCell({
+    contact,
+    field,
+    href,
+    type = "text",
+    placeholder,
+    onSaved,
+}: {
+    contact: Contact;
+    field: "first_name" | "last_name" | "email" | "phone" | "mobile";
+    href?: string;
+    type?: string;
+    placeholder?: string;
+    onSaved: () => void;
+}) {
+    const initial = (contact[field] as string) || "";
+    const [editing, setEditing] = React.useState(false);
+    const [value, setValue] = React.useState(initial);
+    const [saving, setSaving] = React.useState(false);
+
+    React.useEffect(() => setValue(initial), [initial]);
+
+    const save = async () => {
+        if (value === initial) {
+            setEditing(false);
+            return;
+        }
+        setSaving(true);
+        try {
+            await contactsService.updateContact(contact.id, { [field]: value });
+            toast.success("Updated");
+            setEditing(false);
+            onSaved();
+        } catch (e: any) {
+            toast.error(extractError(e));
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (editing) {
+        return (
+            <div className="flex items-center gap-1">
+                <Input
+                    autoFocus
+                    type={type}
+                    value={value}
+                    disabled={saving}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") save();
+                        if (e.key === "Escape") {
+                            setValue(initial);
+                            setEditing(false);
+                        }
+                    }}
+                    className="h-7 w-40 text-sm"
+                />
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={save} disabled={saving}>
+                    {saving ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                        <Check className="h-3 w-3 text-green-500" />
+                    )}
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="group/edit flex items-center gap-1.5">
+            {href ? (
+                <Link
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-primary hover:underline"
+                >
+                    {initial || placeholder || "-"}
                 </Link>
-            );
-        },
-    },
-    {
-        accessorKey: "phone",
-        header: "Phone",
-        cell: ({ row }) => <div className="text-sm">{row.getValue("phone") || "-"}</div>,
-    },
-    {
-        accessorKey: "status", // Note: Contact type doesn't have status, this might be another issue
-        header: "Status",
-        cell: ({ row }) => (
-            <div className="capitalize text-sm">{row.getValue("status") || "Active"}</div>
-        ),
-    },
-    {
-        id: "actions",
-        enableHiding: false,
-        cell: ({ row }) => {
-            const contact = row.original;
+            ) : (
+                <span className="text-sm text-muted-foreground">{initial || placeholder || "-"}</span>
+            )}
+            <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="opacity-0 transition-opacity group-hover/edit:opacity-100"
+                title="Edit"
+            >
+                <Pencil className="h-3 w-3 text-primary" />
+            </button>
+        </div>
+    );
+}
 
-            return (
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        <DropdownMenuItem
-                            onClick={() => navigator.clipboard.writeText(contact.email || "")}
-                        >
-                            Copy Email
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem>View details</DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                            <Link href={`/contacts/${contact.id}/edit`}>Edit contact</Link>
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
-            );
-        },
-    },
-];
-
-export function ContactTable({ 
-    data, 
-    pagination 
-}: { 
-    data: Contact[], 
-    pagination: { 
-        current_page: number; 
-        total: number; 
-        per_page: number; 
-        pages: number; 
-    } 
+export function ContactTable({
+    data,
+    pagination,
+    users = [],
+}: {
+    data: Contact[];
+    pagination: {
+        current_page: number;
+        total: number;
+        per_page: number;
+        pages: number;
+    };
+    /** Tenant users — used to resolve an owner's name from its id. */
+    users?: { id: string; name: string }[];
 }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = React.useTransition();
+    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
 
-    const [sorting, setSorting] = React.useState<SortingState>([]);
-    const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
-        []
+    const refresh = React.useCallback(() => {
+        startTransition(() => router.refresh());
+    }, [router]);
+
+    // Resolve owner names from the tenant user list when the row didn't carry one.
+    const ownerNameById = React.useMemo(() => {
+        const map = new Map<string, string>();
+        for (const u of users) map.set(u.id, u.name);
+        return map;
+    }, [users]);
+
+    const columns = React.useMemo<ColumnDef<Contact>[]>(
+        () => [
+            {
+                accessorKey: "first_name",
+                header: "First Name",
+                cell: ({ row }) => (
+                    <EditableContactCell
+                        contact={row.original}
+                        field="first_name"
+                        href={`/contacts/${row.original.id}`}
+                        onSaved={refresh}
+                    />
+                ),
+            },
+            {
+                accessorKey: "last_name",
+                header: "Last Name",
+                cell: ({ row }) => (
+                    <EditableContactCell contact={row.original} field="last_name" onSaved={refresh} />
+                ),
+            },
+            {
+                accessorKey: "email",
+                header: "Email",
+                cell: ({ row }) => (
+                    <EditableContactCell contact={row.original} field="email" type="email" onSaved={refresh} />
+                ),
+            },
+            {
+                accessorKey: "phone",
+                header: "Phone",
+                cell: ({ row }) => (
+                    <EditableContactCell contact={row.original} field="phone" onSaved={refresh} />
+                ),
+            },
+            {
+                accessorKey: "mobile",
+                header: "Mobile",
+                cell: ({ row }) => (
+                    <EditableContactCell contact={row.original} field="mobile" onSaved={refresh} />
+                ),
+            },
+            {
+                accessorKey: "owner_name",
+                header: "Owner",
+                cell: ({ row }) => (
+                    <OwnerPopover
+                        ownerId={row.original.owner_id}
+                        ownerName={
+                            row.original.owner_name ||
+                            (row.original.owner_id ? ownerNameById.get(row.original.owner_id) : undefined)
+                        }
+                    />
+                ),
+            },
+        ],
+        [refresh, ownerNameById]
     );
-    const [columnVisibility, setColumnVisibility] =
-        React.useState<VisibilityState>({});
-    const [rowSelection, setRowSelection] = React.useState({});
 
     const table = useReactTable({
         data,
         columns,
         pageCount: pagination.pages,
         manualPagination: true,
-        onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
-        getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
-        onColumnVisibilityChange: setColumnVisibility,
-        onRowSelectionChange: setRowSelection,
         state: {
-            sorting,
             columnFilters,
-            columnVisibility,
-            rowSelection,
         },
     });
 
@@ -201,9 +247,9 @@ export function ContactTable({
             <div className="flex items-center py-4">
                 <Input
                     placeholder="Filter contacts..."
-                    value={(table.getColumn("full_name")?.getFilterValue() as string) ?? ""}
+                    value={(table.getColumn("first_name")?.getFilterValue() as string) ?? ""}
                     onChange={(event) =>
-                        table.getColumn("full_name")?.setFilterValue(event.target.value)
+                        table.getColumn("first_name")?.setFilterValue(event.target.value)
                     }
                     className="max-w-sm"
                 />
@@ -213,28 +259,23 @@ export function ContactTable({
                     <TableHeader>
                         {table.getHeaderGroups().map((headerGroup) => (
                             <TableRow key={headerGroup.id}>
-                                {headerGroup.headers.map((header) => {
-                                    return (
-                                        <TableHead key={header.id}>
-                                            {header.isPlaceholder
-                                                ? null
-                                                : flexRender(
-                                                    header.column.columnDef.header,
-                                                    header.getContext()
-                                                )}
-                                        </TableHead>
-                                    );
-                                })}
+                                {headerGroup.headers.map((header) => (
+                                    <TableHead key={header.id}>
+                                        {header.isPlaceholder
+                                            ? null
+                                            : flexRender(
+                                                header.column.columnDef.header,
+                                                header.getContext()
+                                            )}
+                                    </TableHead>
+                                ))}
                             </TableRow>
                         ))}
                     </TableHeader>
                     <TableBody>
                         {table.getRowModel().rows?.length ? (
                             table.getRowModel().rows.map((row) => (
-                                <TableRow
-                                    key={row.id}
-                                    data-state={row.getIsSelected() && "selected"}
-                                >
+                                <TableRow key={row.id}>
                                     {row.getVisibleCells().map((cell) => (
                                         <TableCell key={cell.id}>
                                             {flexRender(

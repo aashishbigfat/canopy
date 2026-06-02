@@ -284,7 +284,7 @@ function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
                 <FormField control={form.control} name="no_of_pax" render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-sm font-medium">Total Pax</FormLabel>
-                        <FormControl><Input type="number" readOnly disabled className="cursor-not-allowed bg-muted text-foreground" {...field} /></FormControl>
+                        <FormControl><Input type="number" min="0" className="text-foreground" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />

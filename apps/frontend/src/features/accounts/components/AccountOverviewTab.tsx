@@ -59,6 +59,14 @@ export function AccountOverviewTab({ account }: AccountOverviewTabProps) {
                         </label>
                         <p className="text-sm">{account.phone || "-"}</p>
                     </div>
+                    {isB2C && (
+                        <div>
+                            <label className="text-sm font-medium text-muted-foreground">
+                                Mobile
+                            </label>
+                            <p className="text-sm">{account.mobile || "-"}</p>
+                        </div>
+                    )}
                     <div>
                         <label className="text-sm font-medium text-muted-foreground">
                             Website

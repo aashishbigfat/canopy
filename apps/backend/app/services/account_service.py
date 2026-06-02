@@ -216,10 +216,15 @@ class AccountService(ActivityMixin):
             owner_ids = list({opp.owner_id for opp in opportunities if opp.owner_id})
             
             stages_map = {}
+            stage_flags = {}  # stage_id -> (is_won, is_lost)
             if stage_ids:
                 stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
                 stages_map = {str(stage.id): stage.name for stage in stages}
-                
+                stage_flags = {
+                    str(stage.id): (bool(stage.is_won), bool(stage.is_lost))
+                    for stage in stages
+                }
+
             users_map = {}
             if owner_ids:
                 owners = await User.find(
@@ -227,12 +232,38 @@ class AccountService(ActivityMixin):
                 ).to_list()
                 users_map = {str(u.id): u.name for u in owners}
             # -----------------------------------------------------------
-            
+
+            def _to_number(v) -> float:
+                """Coerce pax/amount values (which may be None or strings) to a number."""
+                if v is None:
+                    return 0
+                try:
+                    return float(v)
+                except (TypeError, ValueError):
+                    return 0
+
+            # Opportunity summary buckets (Total / Won / Open / Lost) for the
+            # account detail sidebar. count = number of opps, pax = sum of pax,
+            # value = sum of amount.
+            summary_buckets = {
+                k: {"count": 0, "pax": 0.0, "value": 0.0}
+                for k in ("total", "won", "open", "lost")
+            }
+
             for opp in opportunities:
                 stage_name = stages_map.get(str(opp.sales_stage_id)) if opp.sales_stage_id else None
                 owner_name = users_map.get(str(opp.owner_id)) if opp.owner_id else None
                 ind = opp.industry_data or {}
-                
+
+                pax = _to_number(ind.get('no_of_pax'))
+                value = _to_number(opp.amount)
+                is_won, is_lost = stage_flags.get(str(opp.sales_stage_id), (False, False))
+                bucket = "won" if is_won else "lost" if is_lost else "open"
+                for key in ("total", bucket):
+                    summary_buckets[key]["count"] += 1
+                    summary_buckets[key]["pax"] += pax
+                    summary_buckets[key]["value"] += value
+
                 related_opportunities.append({
                     "id": str(opp.id),
                     "name": opp.name,
@@ -248,8 +279,24 @@ class AccountService(ActivityMixin):
                     "travel_date": ind.get('travel_date'),
                     "created_at": opp.created_at.isoformat()
                 })
+
+            # Won % = won / total for each metric (0 when total is 0)
+            total_b = summary_buckets["total"]
+            won_b = summary_buckets["won"]
+            opportunity_summary = {
+                **summary_buckets,
+                "won_percent": {
+                    metric: round((won_b[metric] / total_b[metric]) * 100, 2) if total_b[metric] else 0
+                    for metric in ("count", "pax", "value")
+                },
+            }
         except Exception as e:
             _logger.warning("Error loading opportunities for account %s: %s", account.id, e)
+            opportunity_summary = {
+                k: {"count": 0, "pax": 0.0, "value": 0.0}
+                for k in ("total", "won", "open", "lost")
+            }
+            opportunity_summary["won_percent"] = {"count": 0, "pax": 0, "value": 0}
         
         # Get related tasks
         related_tasks = []
@@ -340,6 +387,7 @@ class AccountService(ActivityMixin):
             "last_modified_by_name": modifier.name if modifier else None,
             "related_contacts": related_contacts,
             "related_opportunities": related_opportunities,
+            "opportunity_summary": opportunity_summary,
             "related_tasks": related_tasks,
             "parent_account_name": parent_account_name,
             "account_type_name": account_type_name,
@@ -659,7 +707,11 @@ class AccountService(ActivityMixin):
         account.last_modified_by_id = current_user_id
         await account.save()
 
-        setattr(account, 'owner_name', owner.name)
+        # Attach the resolved owner name as a transient (non-persisted) attribute
+        # so account_to_response() can surface it without an extra query. Pydantic's
+        # __setattr__ rejects undeclared fields, so write straight to the instance
+        # __dict__; model_dump()/save() ignore it, so it never hits the database.
+        object.__setattr__(account, 'owner_name', owner.name)
 
         # TODO: Send email notification about owner change
         # TODO: Dispatch background job for owner change tracking

@@ -199,13 +199,16 @@ async def get_contacts(
         
         # Map account ID to name
         account_map = {a.id: a.name for a in accounts}
-        
+        # Map owner (user) ID to name so each row can show its owner
+        user_name_map = {str(u.id): u.name for u in users}
+
         # Prepare response
         contact_responses = []
         for c in contacts:
             resp = contact_to_response(c)
             if c.account_id and c.account_id in account_map:
                 resp.account_name = account_map[c.account_id]
+            resp.owner_name = user_name_map.get(str(c.owner_id))
             contact_responses.append(resp)
         
         return {

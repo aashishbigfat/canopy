@@ -93,6 +93,7 @@ export interface OpportunityCreateData {
 
     key_deal?: boolean;
     close_lost_reason?: string;
+    creation_type?: string; // "Manual" or "Auto"
 
     // All industry-specific fields go here
     industry_data?: Record<string, any>;

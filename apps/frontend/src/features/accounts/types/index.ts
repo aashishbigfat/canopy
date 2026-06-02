@@ -86,6 +86,9 @@ export interface AccountFilters {
     page?: number;
     per_page?: number;
     search?: string;
+    owner_id?: string;
+    view_id?: string;
+    billing_city?: string;
     industry_id?: string;
     acc_type_id?: string;
     sort_by?: string;

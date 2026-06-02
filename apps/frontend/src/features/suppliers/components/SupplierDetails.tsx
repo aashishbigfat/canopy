@@ -105,6 +105,7 @@ export function SupplierDetails({
                 phone={supplier.phone || supplier.mobile}
                 email={supplier.email}
                 ownerName={owner?.name}
+                ownerId={supplier.owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
                 badge={supplier.supplier_type}

@@ -4,9 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { usePicklist } from "@/hooks/use-picklist";
 import { useSession } from "next-auth/react";
+import { Paperclip, X } from "lucide-react";
 import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 
 import { Button } from "@/components/ui/button";
@@ -19,10 +20,13 @@ import {
     FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Separator } from "@/components/ui/separator";
 import { accountService } from "@/features/accounts/services/accountService";
+import { useUploadFile } from "@/features/files/api/use-files";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -43,7 +47,20 @@ const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
     phone: z.string().min(1, "Phone is required").refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
         message: "Please select a country code and enter exactly a 10-digit number."
     }),
-    website: z.string().url("Invalid URL.").optional().or(z.literal("")),
+    mobile: z.string().optional().refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
+        message: "Please select a country code and enter exactly a 10-digit number."
+    }),
+    website: z
+        .string()
+        .trim()
+        .transform((v) => (v && !/^https?:\/\//i.test(v) ? `https://${v}` : v))
+        .refine(
+            (v) => !v || /^https?:\/\/[^\s/$.?#][^\s]*\.[^\s]{2,}$/i.test(v),
+            { message: "Please enter a valid website, e.g. example.com" }
+        )
+        .optional()
+        .or(z.literal("")),
+    description: z.string().optional(),
 
     // Classification
     industry_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Industry is required"),
@@ -400,6 +417,9 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
     const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [metaData, setMetaData] = useState<MetaData | null>(null);
+    const [selectedFile, setSelectedFile] = useState<File | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const uploadFile = useUploadFile();
     const { items: salutations } = usePicklist("salutation");
 
     const form = useForm<AccountFormValues>({
@@ -411,7 +431,9 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             last_name: initialData?.last_name || "",
             email: initialData?.email || "",
             phone: initialData?.phone || "",
+            mobile: initialData?.mobile || "",
             website: initialData?.website || "",
+            description: initialData?.description || "",
             industry_id: initialData?.industry_id || initialData?.industry || "",
             acc_type_id: initialData?.acc_type_id || "",
             billing_street: initialData?.billing_street || "",
@@ -481,13 +503,29 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
 
             await ErrorHandler.withErrorHandling(async () => {
                 try {
+                    let accountId = id;
                     if (id) {
                         await accountService.updateAccount(id, payload);
-                        toast.success("Account updated successfully");
                     } else {
-                        await accountService.createAccount(payload as any);
-                        toast.success("Account created successfully");
+                        const created = await accountService.createAccount(payload as any);
+                        accountId = created?.id;
                     }
+
+                    // Upload the attached file (if any) and link it to the account.
+                    if (selectedFile && accountId) {
+                        try {
+                            await uploadFile.mutateAsync({
+                                file: selectedFile,
+                                fileable_type: "Account",
+                                fileable_id: accountId,
+                            });
+                        } catch (uploadErr) {
+                            console.error("Attachment upload failed", uploadErr);
+                            toast.error("Account saved, but the attachment failed to upload.");
+                        }
+                    }
+
+                    toast.success(id ? "Account updated successfully" : "Account created successfully");
                     isSuccess = true;
                     
                     const elapsedTime = Date.now() - startTime;
@@ -525,9 +563,9 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-8"
             >
-                {/* General Information */}
+                {/* Additional Information */}
                 <div>
-                    <h3 className="text-lg font-medium mb-4">General Information</h3>
+                    <h3 className="text-lg font-medium mb-4">Additional Information</h3>
                     <div className="grid gap-6 md:grid-cols-2">
                         {!isPersonAccount ? (
                             <FormField
@@ -544,120 +582,31 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                 )}
                             />
                         ) : (
-                            <>
-                                <FormField
-                                    control={form.control}
-                                    name="salutation"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Salutation</FormLabel>
-                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Select" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {salutations.map((s) => (
-                                                        <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                                <div className="grid grid-cols-2 gap-4">
-                                    <FormField
-                                        control={form.control}
-                                        name="first_name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>First Name</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="John" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="last_name"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Last Name *</FormLabel>
-                                                <FormControl>
-                                                    <Input placeholder="Doe" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </div>
-                            </>
+                            <FormField
+                                control={form.control}
+                                name="salutation"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Salutation</FormLabel>
+                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {salutations.map((s) => (
+                                                    <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                         )}
 
-                        <FormField
-                            control={form.control}
-                            name="email"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Email *</FormLabel>
-                                    <FormControl>
-                                        <Input type="email" placeholder="contact@example.com" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        {!isPersonAccount && (
-                        <FormField
-                            control={form.control}
-                            name="website"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Website</FormLabel>
-                                    <FormControl>
-                                        <Input placeholder="https://example.com" {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        )}
-                    </div>
-                </div>
-
-                <Separator />
-
-                {/* Contact Information */}
-                <div>
-                    <h3 className="text-lg font-medium mb-4">Contact Information</h3>
-                    <div className="grid gap-6 md:grid-cols-2">
-                        <FormField
-                            control={form.control}
-                            name="phone"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Phone *</FormLabel>
-                                    <FormControl>
-                                        <PhoneInput {...field} placeholder="Phone number" />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    </div>
-                </div>
-
-                <Separator />
-                
-                {/* System Information */}
-                <div>
-                    <h3 className="text-lg font-medium mb-4">System Information</h3>
-                    <div className="grid gap-6 md:grid-cols-2">
+                        {/* Account Owner */}
                         {initialData || id ? (
                             <FormField
                                 control={form.control}
@@ -671,6 +620,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                                 value={field.value}
                                                 onValueChange={field.onChange}
                                                 placeholder="Select Owner"
+                                                disabled
                                             />
                                         </FormControl>
                                         <FormMessage />
@@ -678,42 +628,47 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                 )}
                             />
                         ) : (
-                            <div className="flex flex-col space-y-2 mt-2">
-                                <FormLabel>Owner</FormLabel>
+                            <div className="flex flex-col space-y-2">
+                                <FormLabel>Account Owner</FormLabel>
                                 <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
                                     {session?.user?.name || "Automatically assigned to you"}
                                 </p>
                             </div>
                         )}
-                    </div>
-                </div>
 
-                {!isPersonAccount && (
-                    <>
-                        <Separator />
-                        {/* Classification */}
-                        <div>
-                            <h3 className="text-lg font-medium mb-4">Classification</h3>
-                            <div className="grid gap-6 md:grid-cols-2">
+                        {isPersonAccount && (
+                            <>
                                 <FormField
                                     control={form.control}
-                                    name="industry_id"
+                                    name="first_name"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Industry *</FormLabel>
+                                            <FormLabel>First Name</FormLabel>
                                             <FormControl>
-                                                <SearchableSelect
-                                                    options={metaData?.industries.map(i => ({ label: i.name, value: i.id })) || []}
-                                                    value={field.value}
-                                                    onValueChange={field.onChange}
-                                                    placeholder="Select Industry"
-                                                />
+                                                <Input placeholder="John" {...field} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
                                 />
+                                <FormField
+                                    control={form.control}
+                                    name="last_name"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Last Name *</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="Doe" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
+                        )}
 
+                        {!isPersonAccount && (
+                            <>
                                 <FormField
                                     control={form.control}
                                     name="acc_type_id"
@@ -732,10 +687,145 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                         </FormItem>
                                     )}
                                 />
-                            </div>
-                        </div>
-                    </>
-                )}
+                                <FormField
+                                    control={form.control}
+                                    name="website"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Website</FormLabel>
+                                            <FormControl>
+                                                <Input placeholder="https://example.com" {...field} />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
+                        )}
+
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Phone *</FormLabel>
+                                    <FormControl>
+                                        <PhoneInput {...field} placeholder="Phone number" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {isPersonAccount && (
+                            <FormField
+                                control={form.control}
+                                name="mobile"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Mobile</FormLabel>
+                                        <FormControl>
+                                            <PhoneInput {...field} placeholder="Mobile number" />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {!isPersonAccount && (
+                            <FormField
+                                control={form.control}
+                                name="industry_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Industry *</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={metaData?.industries.map(i => ({ label: i.name, value: i.id })) || []}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select Industry"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email *</FormLabel>
+                                    <FormControl>
+                                        <Input type="email" placeholder="contact@example.com" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="description"
+                            render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel>Description</FormLabel>
+                                    <FormControl>
+                                        <Textarea
+                                            placeholder="Add a description..."
+                                            className="min-h-24"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormItem className="md:col-span-2">
+                            <Label>Attachment</Label>
+                            {selectedFile ? (
+                                <div className="flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+                                    <span className="flex min-w-0 items-center gap-2">
+                                        <Paperclip className="h-4 w-4 shrink-0 text-muted-foreground" />
+                                        <span className="truncate">{selectedFile.name}</span>
+                                    </span>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setSelectedFile(null);
+                                            if (fileInputRef.current) fileInputRef.current.value = "";
+                                        }}
+                                    >
+                                        <X className="h-4 w-4" />
+                                    </Button>
+                                </div>
+                            ) : (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    className="w-fit"
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    <Paperclip className="mr-2 h-4 w-4" />
+                                    Attach File
+                                </Button>
+                            )}
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                className="hidden"
+                                onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)}
+                            />
+                        </FormItem>
+                    </div>
+                </div>
 
                 <Separator />
 

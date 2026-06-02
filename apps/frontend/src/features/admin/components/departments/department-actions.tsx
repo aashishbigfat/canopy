@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Edit, Eye, MoreHorizontal, Trash, Copy } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -83,8 +84,7 @@ export function DepartmentActions({ department, onEdit }: DepartmentActionsProps
                     <DropdownMenuItem
                         onClick={() => {
                             if (departmentId) {
-                                navigator.clipboard.writeText(departmentId);
-                                toast.success("ID copied to clipboard");
+                                copyToClipboard(departmentId, "Department ID");
                             }
                         }}
                     >

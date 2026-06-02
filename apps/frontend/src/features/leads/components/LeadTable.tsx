@@ -196,6 +196,8 @@ export const getColumns = (
                 return (
                     <Link
                         href={`/leads/${lead.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-sm font-medium text-foreground hover:text-primary hover:underline"
                     >
                         {lead.first_name}
@@ -211,6 +213,8 @@ export const getColumns = (
                 return (
                     <Link
                         href={`/leads/${lead.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
                         className="text-sm font-medium text-foreground hover:text-primary hover:underline"
                     >
                         {lead.last_name || "-"}

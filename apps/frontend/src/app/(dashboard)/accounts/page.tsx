@@ -11,12 +11,17 @@ export const dynamic = "force-dynamic";
 export default async function AccountsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ page?: string; per_page?: string }>;
+    searchParams: Promise<{ page?: string; per_page?: string; search?: string; owner_id?: string; view_id?: string; acc_type_id?: string; billing_city?: string }>;
 }) {
     const session = await getServerSession(authOptions);
     const resolvedParams = await searchParams;
     const page = parseInt(resolvedParams.page || "1");
     const per_page = parseInt(resolvedParams.per_page || "10");
+    const search = resolvedParams.search?.trim() || undefined;
+    const owner_id = resolvedParams.owner_id?.trim() || undefined;
+    const view_id = resolvedParams.view_id?.trim() || undefined;
+    const acc_type_id = resolvedParams.acc_type_id?.trim() || undefined;
+    const billing_city = resolvedParams.billing_city?.trim() || undefined;
 
     // Redirect to login if no session
     if (!session?.accessToken) {
@@ -36,13 +41,15 @@ export default async function AccountsPage({
     }
 
     const accountsData = await accountService.getAccounts(
-        { is_person_account: false, page, per_page },
+        { is_person_account: false, page, per_page, search, owner_id, view_id, acc_type_id, billing_city },
         {
             headers: {
                 Authorization: `Bearer ${session.accessToken}`,
             },
         }
     );
+
+    const accountViews = (accountsData as any).account_views ?? [];
 
     return (
         <div className="crm-page">
@@ -57,8 +64,10 @@ export default async function AccountsPage({
 
             <div className="crm-surface overflow-hidden">
                 <AccountTable
-                    data={accountsData.accounts} 
-                    pagination={accountsData.pagination} 
+                    data={accountsData.accounts}
+                    pagination={accountsData.pagination}
+                    views={accountViews}
+                    activeViewId={view_id}
                 />
             </div>
         </div>

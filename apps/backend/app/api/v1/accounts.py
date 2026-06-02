@@ -2,15 +2,16 @@
 Account API endpoints matching Laravel RestAccountController
 """
 from fastapi import APIRouter, Depends, HTTPException, Query
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from beanie import PydanticObjectId
 from bson import ObjectId
+from pydantic import BaseModel
 
 from app.models.user import User
 from app.models.account import Account
 from app.schemas.account import (
     AccountCreate, AccountUpdate, AccountResponse,
-    AccountListResponse, AccountOwnerChange, AccountSearch
+    AccountListResponse, AccountOwnerChange, AccountSearch, AccountMerge
 )
 from app.services.account_service import AccountService
 from app.api.deps import get_current_user, check_permission
@@ -33,6 +34,7 @@ def account_to_response(account: Account) -> AccountResponse:
         name=account.name,
         email=account.email,
         phone=account.phone,
+        mobile=getattr(account, "mobile", None),
         website=account.website,
         description=account.description,
         is_person_account=account.is_person_account,
@@ -67,6 +69,87 @@ def account_to_response(account: Account) -> AccountResponse:
         deleted_at=account.deleted_at,
         industry_data=getattr(account, 'industry_data', {})
     )
+
+# Fields on the Account model that hold ObjectId references.
+_VIEW_OBJECTID_FIELDS = {
+    "owner_id", "acc_type_id", "acc_parent_id", "industry_id",
+    "territory_state_id", "territory_country_id", "territory_id",
+    "region_id", "bd_owner_id", "reporting_manager_id",
+    "created_by", "last_modified_by_id",
+}
+_VIEW_BOOL_FIELDS = {"is_person_account", "is_favorite"}
+# Free-text fields matched case-insensitively as "contains".
+_VIEW_STRING_FIELDS = {
+    "name", "email", "phone", "website", "segment", "first_name", "last_name",
+    "billing_street", "billing_city", "billing_state", "billing_zip", "billing_country",
+    "shipping_street", "shipping_city", "shipping_state", "shipping_zip", "shipping_country",
+}
+
+
+def _coerce_bool(value) -> Optional[bool]:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        if value.lower() in ("true", "1", "yes"):
+            return True
+        if value.lower() in ("false", "0", "no"):
+            return False
+    return None
+
+
+def _view_condition_for_field(field: str, value) -> Optional[dict]:
+    """Translate a single saved-view filter entry into a Mongo condition.
+
+    Returns None when the value is empty/unrecognized so the filter is skipped
+    rather than producing an impossible-match query.
+    """
+    # Unwrap operator-style values like {"value": "Agra"} or {"values": [...]}.
+    if isinstance(value, dict):
+        value = value.get("value", value.get("values"))
+
+    if value is None or value == "" or value == []:
+        return None
+
+    try:
+        if field in _VIEW_OBJECTID_FIELDS:
+            if isinstance(value, (list, tuple)):
+                oids = [ObjectId(v) for v in value if ObjectId.is_valid(str(v))]
+                return {field: {"$in": oids}} if oids else None
+            return {field: ObjectId(value)} if ObjectId.is_valid(str(value)) else None
+
+        if field in _VIEW_BOOL_FIELDS:
+            b = _coerce_bool(value)
+            return {field: b} if b is not None else None
+
+        if field in _VIEW_STRING_FIELDS:
+            import re as _re
+            if isinstance(value, (list, tuple)):
+                patterns = [
+                    {field: {"$regex": _re.compile(f".*{_re.escape(str(v))}.*", _re.IGNORECASE)}}
+                    for v in value if str(v).strip()
+                ]
+                return {"$or": patterns} if patterns else None
+            return {field: {"$regex": _re.compile(f".*{_re.escape(str(value))}.*", _re.IGNORECASE)}}
+    except Exception:
+        return None
+
+    # Unknown field -> ignore (don't apply raw user data to the query).
+    return None
+
+
+def translate_account_view_filters(filters: dict) -> List[dict]:
+    """Turn a saved AccountView.filters dict into a list of Mongo conditions.
+
+    The returned clauses are meant to be ANDed into the base query, so existing
+    tenant + data-visibility scoping is always preserved.
+    """
+    clauses: List[dict] = []
+    for raw_key, raw_val in (filters or {}).items():
+        cond = _view_condition_for_field(str(raw_key), raw_val)
+        if cond:
+            clauses.append(cond)
+    return clauses
+
 
 @router.get("/form-data")
 async def get_account_form_data(current_user: User = Depends(get_current_user)):
@@ -151,7 +234,11 @@ async def get_accounts(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     owner_id: Optional[str] = None,
+    acc_type_id: Optional[str] = None,
+    billing_city: Optional[str] = None,
     is_person_account: Optional[bool] = None,
+    search: Optional[str] = Query(None, description="Free-text search across name, email, phone, city"),
+    view_id: Optional[str] = Query(None, description="Apply a saved AccountView's filters"),
     current_user: User = Depends(check_permission("view_account"))
 ):
     """Get all accounts with pagination, views, and columns"""
@@ -176,13 +263,24 @@ async def get_accounts(
         if is_person_account is not None:
             query["is_person_account"] = is_person_account
 
+        # --- Free-text search across the visible columns ---
+        if search and search.strip():
+            import re as _re
+            pattern = {"$regex": _re.compile(f".*{_re.escape(search.strip())}.*", _re.IGNORECASE)}
+            query["$or"] = [
+                {"name": pattern},
+                {"email": pattern},
+                {"phone": pattern},
+                {"billing_city": pattern},
+                {"billing_street": pattern},
+            ]
+
         # --- Data visibility scoping (owner + hierarchy) ---
         visible_owner_ids = await get_visible_owner_ids(current_user)
         
         # If caller explicitly filters by owner_id, validate it's within their visibility
         if owner_id:
             try:
-                from bson import ObjectId
                 requested_oid = ObjectId(owner_id)
                 if visible_owner_ids is not None and requested_oid not in visible_owner_ids:
                     # User is requested an owner they can't see -- force an impossible match
@@ -193,6 +291,45 @@ async def get_accounts(
                 query["_id"] = ObjectId() # Invalid format
         elif visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
+
+        # --- Structured filters from the Filter popover ---
+        if acc_type_id and ObjectId.is_valid(acc_type_id):
+            query["acc_type_id"] = ObjectId(acc_type_id)
+        if billing_city and billing_city.strip():
+            import re as _re
+            query["billing_city"] = {
+                "$regex": _re.compile(f".*{_re.escape(billing_city.strip())}.*", _re.IGNORECASE)
+            }
+
+        # --- Saved view filters (ANDed in; visibility scoping preserved) ---
+        if view_id and ObjectId.is_valid(view_id):
+            view = await AccountView.find_one({
+                "_id": ObjectId(view_id),
+                "tenant_id": current_user.tenant_id,
+                "$or": [
+                    {"created_by": current_user.id},
+                    {"public_view": True},
+                ],
+            })
+            if view and view.filters:
+                vf = dict(view.filters)
+                # A saved free-text search spans several columns (same fields as
+                # the live search box). ANDed in so it narrows the view, not widen.
+                vsearch = vf.pop("search", None)
+                if vsearch and str(vsearch).strip():
+                    import re as _re
+                    spat = {"$regex": _re.compile(f".*{_re.escape(str(vsearch).strip())}.*", _re.IGNORECASE)}
+                    query.setdefault("$and", []).append({"$or": [
+                        {"name": spat},
+                        {"email": spat},
+                        {"phone": spat},
+                        {"billing_city": spat},
+                        {"billing_street": spat},
+                    ]})
+                # Structured field filters (owner_id, acc_type_id, city, …).
+                view_clauses = translate_account_view_filters(vf)
+                if view_clauses:
+                    query.setdefault("$and", []).extend(view_clauses)
 
         # --- Server-side pagination (no full-collection load) ---
         skip = (page - 1) * per_page
@@ -322,6 +459,68 @@ async def get_accounts(
         logger.error(f"Error in get_accounts: {str(e)}\n{traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Error fetching accounts: {str(e)}")
 
+
+class AccountViewCreate(BaseModel):
+    """Payload to save the current account-list filters as a named view."""
+    name: str
+    filters: Dict[str, Any] = {}
+    public_view: bool = False
+
+
+@router.post("/views", status_code=201)
+async def create_account_view(
+    payload: AccountViewCreate,
+    current_user: User = Depends(check_permission("view_account")),
+):
+    """Save the current account-list filters as a named list view.
+
+    `filters` is a flat dict of the applied criteria (e.g. {"owner_id": "..",
+    "search": "delhi", "billing_city": "Agra"}) — the same shape get_accounts
+    applies when the view is later selected.
+    """
+    from app.models.account_views import AccountView
+    name = (payload.name or "").strip()
+    if not name:
+        raise HTTPException(400, "View name is required")
+    # Drop empty values so a "view" never stores blank filters.
+    clean_filters = {
+        k: v for k, v in (payload.filters or {}).items()
+        if v not in (None, "", [], {})
+    }
+    view = AccountView(
+        name=name,
+        filters=clean_filters,
+        public_view=bool(payload.public_view),
+        created_by=current_user.id,
+        tenant_id=current_user.tenant_id,
+    )
+    await view.insert()
+    return {
+        "id": str(view.id),
+        "name": view.name,
+        "public_view": view.public_view,
+        "created_at": view.created_at.strftime("%Y-%m-%d"),
+    }
+
+
+@router.delete("/views/{view_id}", status_code=204)
+async def delete_account_view(
+    view_id: str,
+    current_user: User = Depends(check_permission("view_account")),
+):
+    """Delete a saved view. Only the user who created it may delete it."""
+    from app.models.account_views import AccountView
+    if not ObjectId.is_valid(view_id):
+        raise HTTPException(404, "View not found")
+    view = await AccountView.find_one({
+        "_id": ObjectId(view_id),
+        "tenant_id": current_user.tenant_id,
+        "created_by": current_user.id,
+    })
+    if not view:
+        raise HTTPException(404, "View not found")
+    await view.delete()
+    return None
 
 
 @router.get("/search", response_model=List[AccountResponse])
@@ -604,7 +803,7 @@ async def delete_account(
     if not is_record_visible(existing.owner_id, visible_owner_ids):
         raise HTTPException(status_code=404, detail="Account not found")
         
-    success = await service.delete_account(account_id, current_user.tenant_id)
+    success = await service.delete_account(account_id, current_user.tenant_id, current_user.id)
     
     if not success:
         raise HTTPException(status_code=404, detail="Account not found")
@@ -641,6 +840,89 @@ async def change_account_owner(
         "error": False,
         "message": "Account ownership updated successfully",
         "account": account_to_response(account)
+    }
+
+
+@router.post("/merge")
+async def merge_accounts(
+    payload: AccountMerge,
+    current_user: User = Depends(check_permission("edit_account"))
+):
+    """Merge a duplicate account into a primary account.
+
+    Re-points related records (contacts, opportunities, tasks) from the
+    duplicate onto the primary, backfills any blank scalar fields on the
+    primary from the duplicate, then soft-deletes the duplicate.
+    """
+    from datetime import datetime
+    from app.models.contact import Contact
+    from app.models.account_contact import AccountContact
+    from app.models.opportunity import Opportunity
+    from app.models.task import Task
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+
+    if payload.primary_id == payload.duplicate_id:
+        raise HTTPException(status_code=400, detail="Cannot merge an account into itself")
+
+    try:
+        primary_oid = PydanticObjectId(payload.primary_id)
+        duplicate_oid = PydanticObjectId(payload.duplicate_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid account id")
+
+    tenant_id = current_user.tenant_id
+    primary = await Account.find_one({"_id": primary_oid, "tenant_id": tenant_id, "deleted_at": None})
+    duplicate = await Account.find_one({"_id": duplicate_oid, "tenant_id": tenant_id, "deleted_at": None})
+    if not primary or not duplicate:
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    # Visibility: caller must be able to see both accounts
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(primary.owner_id, visible_owner_ids) or not is_record_visible(duplicate.owner_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Account not found")
+
+    scope = {"tenant_id": tenant_id, "account_id": duplicate_oid}
+
+    # Re-point related records onto the primary account
+    await Contact.find(scope).update({"$set": {"account_id": primary_oid}})
+    await Opportunity.find(scope).update({"$set": {"account_id": primary_oid}})
+    await AccountContact.find({"tenant_id": tenant_id, "account_id": duplicate_oid}).update(
+        {"$set": {"account_id": primary_oid}}
+    )
+    await Task.find(scope).update({"$set": {"account_id": primary_oid}})
+    await Task.find(
+        {"tenant_id": tenant_id, "taskable_type": "Account", "taskable_id": duplicate_oid}
+    ).update({"$set": {"taskable_id": primary_oid}})
+
+    # Backfill blank scalar fields on the primary from the duplicate
+    backfill_fields = [
+        "email", "phone", "website", "description",
+        "billing_street", "billing_city", "billing_state", "billing_zip", "billing_country",
+        "shipping_street", "shipping_city", "shipping_state", "shipping_zip", "shipping_country",
+        "acc_type_id", "industry_id",
+    ]
+    changed = False
+    for f in backfill_fields:
+        if not getattr(primary, f, None) and getattr(duplicate, f, None):
+            setattr(primary, f, getattr(duplicate, f))
+            changed = True
+    if changed:
+        primary.last_modified_by_id = current_user.id
+        await primary.save()
+
+    # Soft-delete the duplicate
+    duplicate.deleted_at = datetime.utcnow()
+    duplicate.last_modified_by_id = current_user.id
+    await duplicate.save()
+
+    from app.core.cache import invalidate_tenant_cache
+    await invalidate_tenant_cache(str(tenant_id))
+
+    return {
+        "error": False,
+        "message": "Accounts merged successfully",
+        "primary_id": str(primary_oid),
+        "merged_id": str(duplicate_oid),
     }
 
 

@@ -120,7 +120,7 @@ export function LeaderBoardKPIs({ kpis }: { kpis: LeaderBoardKPIsType }) {
         <div className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-2xl font-semibold tracking-tight text-foreground">
-                    Dashboard Leader Board Incentive
+                    Dashboard
                 </h2>
                 <div className="flex items-center gap-2">
                     <Link

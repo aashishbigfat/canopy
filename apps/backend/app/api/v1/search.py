@@ -48,6 +48,39 @@ def _make_pattern(q: str) -> re.Pattern:
     return re.compile(f".*{re.escape(q)}.*", re.IGNORECASE)
 
 
+def _relevance_sort(docs: list, q: str, name_fields: List[str]) -> list:
+    """Rank matched documents by how well they match the query.
+
+    Exact name match > name starts-with query > query appears in name >
+    everything else (matched only via secondary fields like email/phone).
+    Ties keep their original order (stable sort). This keeps the most
+    relevant rows at the top instead of surfacing incidental substring hits
+    on hidden fields.
+    """
+    ql = q.strip().lower()
+
+    def best_name(d) -> str:
+        for f in name_fields:
+            val = getattr(d, f, None)
+            if val:
+                return str(val).lower()
+        return ""
+
+    def rank(d) -> int:
+        name = best_name(d)
+        if not name:
+            return 3
+        if name == ql:
+            return 0
+        if name.startswith(ql):
+            return 1
+        if ql in name:
+            return 2
+        return 3
+
+    return sorted(docs, key=rank)
+
+
 @router.get("/by-module")
 @limiter.limit("60/minute")
 async def search_by_module(
@@ -88,7 +121,8 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await Account.find(query).skip(skip).limit(limit).to_list()
+        docs = await Account.find(query).sort("name").skip(skip).limit(limit).to_list()
+        docs = _relevance_sort(docs, q, ["name"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -125,7 +159,8 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await Account.find(query).skip(skip).limit(limit).to_list()
+        docs = await Account.find(query).sort("name").skip(skip).limit(limit).to_list()
+        docs = _relevance_sort(docs, q, ["first_name", "last_name", "name"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -163,6 +198,7 @@ async def search_by_module(
             query["owner_id"] = {"$in": visible_owner_ids}
             
         docs = await Contact.find(query).skip(skip).limit(limit).to_list()
+        docs = _relevance_sort(docs, q, ["first_name", "last_name", "email"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -201,6 +237,7 @@ async def search_by_module(
             query["owner_id"] = {"$in": visible_owner_ids}
             
         docs = await Lead.find(query).skip(skip).limit(limit).to_list()
+        docs = _relevance_sort(docs, q, ["first_name", "last_name", "company", "email"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -243,7 +280,8 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await Opportunity.find(query).skip(skip).limit(limit).to_list()
+        docs = await Opportunity.find(query).sort("name").skip(skip).limit(limit).to_list()
+        docs = _relevance_sort(docs, q, ["name"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 
@@ -307,7 +345,8 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await Supplier.find(query).skip(skip).limit(limit).to_list()
+        docs = await Supplier.find(query).sort("name").skip(skip).limit(limit).to_list()
+        docs = _relevance_sort(docs, q, ["name", "company_name", "email"])
 
         items = [
             {

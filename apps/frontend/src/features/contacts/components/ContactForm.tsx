@@ -82,9 +82,15 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
     // Track original account_id to detect changes
     const originalAccountId = useRef(initialData?.account_id ?? "");
 
+    // Coerce null/undefined from the loaded contact to "" so inputs stay
+    // controlled (React warns when an input's `value` is null).
+    const sanitizedInitial = Object.fromEntries(
+        Object.entries(initialData || {}).map(([k, v]) => [k, v ?? ""])
+    );
+
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
-        defaultValues: { ...defaultValues, ...(initialData || {}) },
+        defaultValues: { ...defaultValues, ...sanitizedInitial },
     });
 
     // Watch account_id to show info banner
@@ -179,7 +185,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                         render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Salutation</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Select onValueChange={field.onChange} value={field.value ?? ""}>
                                     <FormControl>
                                         <SelectTrigger>
                                             <SelectValue placeholder="Select" />
@@ -202,7 +208,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                             <FormItem>
                                 <FormLabel>First Name</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="John" {...field} />
+                                    <Input placeholder="John" {...field} value={field.value ?? ""} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
@@ -270,7 +276,7 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                             <FormItem>
                                 <FormLabel>Job Title</FormLabel>
                                 <FormControl>
-                                    <Input placeholder="Manager" {...field} />
+                                    <Input placeholder="Manager" {...field} value={field.value ?? ""} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>

@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Supplier } from "@/features/suppliers/types";
 import { useDeleteSupplier } from "@/features/suppliers/api/use-suppliers";
+import { copyToClipboard } from "@/lib/clipboard";
 import { SupplierFormDrawer } from "./SupplierFormDrawer";
 
 interface SupplierActionsProps {
@@ -40,7 +41,7 @@ export function SupplierActions({ supplier }: SupplierActionsProps) {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => navigator.clipboard.writeText(supplier.id)}>
+                    <DropdownMenuItem onClick={() => copyToClipboard(supplier.id, "Supplier ID")}>
                         Copy ID
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />

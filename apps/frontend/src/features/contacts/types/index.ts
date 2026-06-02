@@ -37,6 +37,7 @@ export interface Contact {
     account_id?: string;
     account_name?: string;
     owner_id: string;
+    owner_name?: string;
     tenant_id: string;
     created_by: string;
     created_by_name?: string;
@@ -53,6 +54,8 @@ export interface ContactCreateData {
     last_name: string;
     email?: string;
     phone?: string;
+    mobile?: string;
+    title?: string;
     account_id?: string;
     // ... other optional fields
 }

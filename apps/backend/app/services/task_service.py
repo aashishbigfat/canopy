@@ -62,10 +62,12 @@ class TaskService(ActivityMixin):
             }
         )
         
-        # Also log against the parent entity so it shows in the entity's timeline
+        # Also log against the parent entity so it shows in the entity's timeline.
+        # Use the task name as the display name (entity_name) so the timeline reads
+        # "<user> task created <task name>" instead of the raw parent record id.
         if task.taskable_type and task.taskable_id:
             from types import SimpleNamespace
-            parent_entity = SimpleNamespace(id=task.taskable_id)
+            parent_entity = SimpleNamespace(id=task.taskable_id, name=task.name)
             await self.log_custom_activity(
                 action="task_created",
                 entity_type=task.taskable_type.lower(),

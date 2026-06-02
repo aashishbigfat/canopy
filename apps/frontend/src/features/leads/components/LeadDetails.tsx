@@ -260,6 +260,7 @@ export function LeadDetails({
                 phone={lead.phone || lead.mobile}
                 email={lead.email}
                 ownerName={owner?.name}
+                ownerId={lead.owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
             />

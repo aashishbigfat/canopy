@@ -1,6 +1,7 @@
 "use client";
 
 import { MoreHorizontal, Edit, Trash } from "lucide-react";
+import { copyToClipboard } from "@/lib/clipboard";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -52,7 +53,7 @@ export function PermissionActions({ permission }: PermissionActionsProps) {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => navigator.clipboard.writeText(permission.id)}>
+                <DropdownMenuItem onClick={() => copyToClipboard(permission.id, "Permission ID")}>
                     Copy ID
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

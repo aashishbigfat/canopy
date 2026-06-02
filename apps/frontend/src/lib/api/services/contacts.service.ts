@@ -29,6 +29,10 @@ export const contactsService = {
         await apiClient.delete(`${BASE_URL}/${id}`);
     },
 
+    changeOwner: async (id: string, newOwnerId: string): Promise<void> => {
+        await apiClient.post(`${BASE_URL}/${id}/change-owner`, { new_owner_id: newOwnerId });
+    },
+
     getAccountContacts: async (accountId: string): Promise<Contact[]> => {
         const response = await apiClient.get<Contact[]>(`${BASE_URL}/account/${accountId}`);
         return response.data;

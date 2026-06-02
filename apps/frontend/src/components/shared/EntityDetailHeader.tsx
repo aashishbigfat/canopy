@@ -6,12 +6,12 @@ import {
     User,
     Edit,
     Trash2,
-    Copy,
     ChevronDown,
     Building2,
     Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CopyButton } from "@/components/ui/copy-button";
 import { Badge } from "@/components/ui/badge";
 import {
     DropdownMenu,
@@ -20,6 +20,7 @@ import {
     DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
+import { OwnerPopover } from "./OwnerPopover";
 import { useState } from "react";
 import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 
@@ -32,6 +33,7 @@ interface EntityDetailHeaderProps {
     phone?: string;
     email?: string;
     ownerName?: string;
+    ownerId?: string;
     onEdit?: () => void;
     onDelete?: () => void;
     onChangeOwner?: (newOwnerId: string) => void;
@@ -47,16 +49,13 @@ export function EntityDetailHeader({
     phone,
     email,
     ownerName,
+    ownerId,
     onEdit,
     onDelete,
     onChangeOwner,
     isChangingOwner
 }: EntityDetailHeaderProps) {
     const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
-
-    const handleCopy = (text: string) => {
-        navigator.clipboard.writeText(text);
-    };
 
     return (
         <div className="crm-surface mb-6 overflow-hidden">
@@ -77,9 +76,7 @@ export function EntityDetailHeader({
                                         {getSegmentLabel(badge)}
                                     </Badge>
                                 )}
-                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleCopy(name)}>
-                                    <Copy className="h-3 w-3" />
-                                </Button>
+                                <CopyButton value={name} label="Name" className="h-6 w-6" />
                             </div>
                         </div>
                     </div>
@@ -99,21 +96,20 @@ export function EntityDetailHeader({
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                         </Button>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="icon">
-                                    <ChevronDown className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem>Clone</DropdownMenuItem>
-                                {onChangeOwner && (
+                        {onChangeOwner && (
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="icon">
+                                        <ChevronDown className="h-4 w-4" />
+                                    </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
                                     <DropdownMenuItem onClick={() => setIsOwnerModalOpen(true)}>
                                         Change Owner
                                     </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                                </DropdownMenuContent>
+                            </DropdownMenu>
+                        )}
                     </div>
                 </div>
 
@@ -129,9 +125,7 @@ export function EntityDetailHeader({
                                 <span className="text-sm text-slate-400 font-medium">No Phone</span>
                             )}
                             {phone && (
-                                <Button variant="ghost" size="icon" className="h-4 w-4" onClick={() => handleCopy(phone)}>
-                                    <Copy className="h-3 w-3" />
-                                </Button>
+                                <CopyButton value={phone} label="Phone" className="h-4 w-4" />
                             )}
                         </div>
                     </div>
@@ -146,17 +140,26 @@ export function EntityDetailHeader({
                                 <span className="text-sm text-slate-400 font-medium">No Email</span>
                             )}
                             {email && (
-                                <Button variant="ghost" size="icon" className="h-4 w-4 flex-shrink-0" onClick={() => handleCopy(email)}>
-                                    <Copy className="h-3 w-3" />
-                                </Button>
+                                <CopyButton value={email} label="Email" className="h-4 w-4 flex-shrink-0" />
                             )}
                         </div>
                     </div>
                     <div className="space-y-1">
                         <p className="text-xs font-semibold text-slate-400 uppercase">{type} Owner</p>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-primary font-medium">{ownerName || "Unassigned"}</span>
-                            <User className="h-3 w-3 text-primary" />
+                            <OwnerPopover ownerId={ownerId} ownerName={ownerName} className="text-sm font-medium" />
+                            {onChangeOwner ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setIsOwnerModalOpen(true)}
+                                    title="Change owner"
+                                    className="text-primary transition-opacity hover:opacity-70"
+                                >
+                                    <User className="h-3.5 w-3.5" />
+                                </button>
+                            ) : (
+                                <User className="h-3 w-3 text-primary" />
+                            )}
                         </div>
                     </div>
                     <div className="space-y-1">

@@ -336,10 +336,9 @@ async def get_opportunities(
             if not segment:
                 segment = Segment.default_for_account(is_person_account)
             
-            creation_type = "Manual"
-            if opp.lead_id:
-                creation_type = "Auto"
-            
+            # Lead-converted opps are always "Auto"; otherwise use the stored value.
+            creation_type = "Auto" if opp.lead_id else (getattr(opp, 'creation_type', None) or "Manual")
+
             # Build response
             opp_response = OpportunityResponse.from_orm(opp)
             
@@ -459,8 +458,8 @@ async def get_opportunity(
         if not segment:
             segment = Segment.default_for_account(is_person_account)
         
-        creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
-            
+        creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
+
         opp_response = OpportunityResponse.from_orm(opportunity)
         
         # Resolve destinations if in travel industry
@@ -647,7 +646,7 @@ async def update_opportunity(
         if not opp_response.segment:
             opp_response.segment = Segment.default_for_account(opp_response.is_person_account)
             
-        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response
@@ -784,7 +783,7 @@ async def change_opportunity_stage(
         if not opp_response.segment:
             opp_response.segment = Segment.default_for_account(opp_response.is_person_account)
             
-        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response

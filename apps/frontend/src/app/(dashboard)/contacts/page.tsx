@@ -66,6 +66,7 @@ export default async function ContactsPage({
                 <ContactTable
                     data={contactsData.contacts}
                     pagination={contactsData.pagination}
+                    users={contactsData.users}
                 />
             </div>
         </div>

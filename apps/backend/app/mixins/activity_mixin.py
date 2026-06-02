@@ -9,6 +9,7 @@ from datetime import datetime
 import json
 
 from app.services.activity_log_service import ActivityLogService
+from app.core.request_context import get_activity_context
 
 
 _logger = logging.getLogger(__name__)
@@ -16,10 +17,10 @@ _logger = logging.getLogger(__name__)
 
 class ActivityMixin:
     """Mixin class for adding comprehensive activity logging to services"""
-    
+
     def __init__(self):
         self.request_context = None
-    
+
     def set_request_context(self, request: Request, user):
         """Set request context for activity logging"""
         self.request_context = {
@@ -32,6 +33,13 @@ class ActivityMixin:
             'request_id': getattr(request.state, 'request_id', None),
             'timestamp': datetime.utcnow()
         }
+
+    def _resolve_context(self):
+        """Return the explicit per-service context if set, otherwise fall back
+        to the per-request context populated by get_current_user(). This lets
+        every service log activity automatically without each endpoint wiring
+        set_request_context()."""
+        return self.request_context or get_activity_context()
     
     def _get_client_ip(self, request: Request) -> str:
         """Extract client IP from request"""
@@ -49,14 +57,28 @@ class ActivityMixin:
         return request.client.host if request.client else 'unknown'
     
     def _get_entity_name(self, entity) -> str:
-        """Extract entity name for logging"""
-        # Try common name fields
-        for field in ['name', 'title', 'subject', 'display_name']:
-            if hasattr(entity, field):
-                value = getattr(entity, field)
-                if value:
-                    return str(value)
-        
+        """Extract a human-readable name for logging.
+
+        Tries common single-field names first, then composes a person name from
+        first/last (contacts, leads, person accounts) so activity logs never fall
+        back to showing a raw ObjectId.
+        """
+        # Try common single-field names
+        for field in ['name', 'full_name', 'title', 'subject', 'display_name']:
+            try:
+                value = getattr(entity, field, None)
+            except Exception:
+                value = None
+            if value:
+                return str(value)
+
+        # Compose a person name from first/last (contacts, leads, person accounts)
+        first = getattr(entity, 'first_name', None) or ''
+        last = getattr(entity, 'last_name', None) or ''
+        composed = f"{first} {last}".strip()
+        if composed:
+            return composed
+
         # Fall back to ID
         return str(entity.id) if hasattr(entity, 'id') else 'unknown'
     
@@ -94,7 +116,7 @@ class ActivityMixin:
         additional_data: Optional[Dict] = None
     ):
         """Log entity creation"""
-        if not self.request_context:
+        if not self._resolve_context():
             return
         
         entity_data = self._sanitize_for_logging(entity.model_dump()) if hasattr(entity, 'model_dump') else {}
@@ -123,7 +145,7 @@ class ActivityMixin:
         additional_data: Optional[Dict] = None
     ):
         """Log entity update"""
-        if not self.request_context:
+        if not self._resolve_context():
             return
         
         new_values = self._sanitize_for_logging(entity.model_dump()) if hasattr(entity, 'model_dump') else {}
@@ -152,7 +174,7 @@ class ActivityMixin:
         additional_data: Optional[Dict] = None
     ):
         """Log entity deletion"""
-        if not self.request_context:
+        if not self._resolve_context():
             return
         
         entity_data = self._sanitize_for_logging(entity.model_dump()) if hasattr(entity, 'model_dump') else {}
@@ -181,7 +203,7 @@ class ActivityMixin:
         additional_data: Optional[Dict] = None
     ):
         """Log status change"""
-        if not self.request_context:
+        if not self._resolve_context():
             return
         
         changes = {
@@ -210,7 +232,7 @@ class ActivityMixin:
         additional_data: Optional[Dict] = None
     ):
         """Log assignment change"""
-        if not self.request_context:
+        if not self._resolve_context():
             return
         
         changes = {
@@ -243,7 +265,7 @@ class ActivityMixin:
         changes: Optional[Dict] = None
     ):
         """Log custom activity"""
-        if not self.request_context:
+        if not self._resolve_context():
             return
         
         await self._log_activity(
@@ -264,20 +286,23 @@ class ActivityMixin:
     ):
         """Internal method to log activity"""
         try:
+            ctx = self._resolve_context()
+            if not ctx:
+                return
             activity_service = ActivityLogService()
-            
+
             await activity_service.log_activity(
-                user_id=self.request_context['user_id'],
-                user_name=self.request_context['user_name'],
-                tenant_id=self.request_context['tenant_id'],
+                user_id=ctx['user_id'],
+                user_name=ctx['user_name'],
+                tenant_id=ctx['tenant_id'],
                 action=action,
                 entity_type=entity_type,
                 entity_id=ObjectId(entity.id) if hasattr(entity, 'id') and entity.id else None,
                 entity_name=self._get_entity_name(entity),
                 description=description or f"{action.title()} {entity_type}: {self._get_entity_name(entity)}",
                 changes=changes,
-                ip_address=self.request_context['ip_address'],
-                user_agent=self.request_context['user_agent']
+                ip_address=ctx.get('ip_address'),
+                user_agent=ctx.get('user_agent')
             )
         except Exception as e:
             # Don't let logging errors break the main flow
@@ -285,7 +310,7 @@ class ActivityMixin:
     
     def get_request_summary(self) -> Dict:
         """Get summary of current request context"""
-        if not self.request_context:
+        if not self._resolve_context():
             return {}
         
         return {
