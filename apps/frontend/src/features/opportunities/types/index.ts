@@ -108,6 +108,8 @@ export interface OpportunityFilters {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
     view?: string;
+    // Saved EntityView id (opportunity) whose stored filters the server should apply.
+    view_id?: string;
 }
 
 export interface OpportunityResponse {
