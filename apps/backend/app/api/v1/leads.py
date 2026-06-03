@@ -125,14 +125,17 @@ async def get_leads(
         None,
         description="Predefined view filter: today, yesterday, last_week, recent, whatsapp, all, etc.",
     ),
+    search: Optional[str] = None,
+    lead_status_id: Optional[str] = None,
+    view_id: Optional[str] = Query(None, description="Saved EntityView id (lead) whose filters to apply"),
     current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
-    """Get all leads with pagination and optional predefined views."""
+    """Get all leads with pagination and optional predefined / saved views."""
     from app.services.visibility_scope import get_visible_owner_ids
-    
+
     visible_owner_ids = await get_visible_owner_ids(current_user)
-    
+
     result = await service.get_leads_with_metadata(
         tenant_id=current_user.tenant_id,
         page=page,
@@ -141,7 +144,10 @@ async def get_leads(
         is_converted=is_converted,
         view=view,
         current_user_id=current_user.id,
-        visible_owner_ids=visible_owner_ids
+        visible_owner_ids=visible_owner_ids,
+        search=search,
+        lead_status_id=lead_status_id,
+        view_id=view_id,
     )
     
     # Resolve destinations for each lead (scoped to tenant)

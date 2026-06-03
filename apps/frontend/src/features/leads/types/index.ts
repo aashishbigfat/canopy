@@ -215,6 +215,8 @@ export interface LeadFilters {
     sort_order?: 'asc' | 'desc';
     // Predefined backend view: today, yesterday, last_week, recent, whatsapp, all, etc.
     view?: string;
+    // Saved EntityView id (lead) whose stored filters the server should apply.
+    view_id?: string;
 }
 
 export interface LeadResponse {
@@ -227,6 +229,7 @@ export interface LeadResponse {
     };
     lead_statuses: LeadStatus[];
     sources: Source[];
+    source_mediums?: { id: string; name: string }[];
     users: User[];
     industries: Industry[];
     experiences: { id: string; name: string }[];

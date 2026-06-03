@@ -1,5 +1,4 @@
 import { TaskList } from "@/features/tasks/components/task-list";
-import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +11,6 @@ export default function TasksPage() {
                     <p className="text-sm text-muted-foreground">Track activities, follow-ups, and ownership priorities.</p>
                 </div>
             </div>
-            <EntityListToolbar entity="task" />
             {/* TaskList renders its own New button and filter toolbar */}
             <TaskList />
         </div>
