@@ -4,7 +4,6 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export const dynamic = "force-dynamic";
 
@@ -59,8 +58,6 @@ export default async function AccountsPage({
                     <p className="text-sm text-muted-foreground">Manage company records, ownership, and account activity.</p>
                 </div>
             </div>
-
-            <EntityListToolbar entity="account" />
 
             <div className="crm-surface overflow-hidden">
                 <AccountTable

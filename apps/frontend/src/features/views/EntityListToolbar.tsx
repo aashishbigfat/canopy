@@ -1,7 +1,6 @@
 "use client";
 
 import { ViewBar } from "./ViewBar";
-import { ColumnConfig } from "./ColumnConfig";
 import type { EntityType } from "@/lib/api/services/field-registry.service";
 
 /**
@@ -14,7 +13,7 @@ import type { EntityType } from "@/lib/api/services/field-registry.service";
  *     onViewChange={setFilters}
  *   />
  *
- * Renders: saved-views dropdown, save-current button, column config drawer.
+ * Renders: saved-views dropdown, save-current button.
  */
 export function EntityListToolbar({
   entity,
@@ -34,10 +33,7 @@ export function EntityListToolbar({
         currentFilters={currentFilters}
         onViewChange={onViewChange}
       />
-      <div className="flex items-center gap-2">
-        {rightExtra}
-        <ColumnConfig entity={entity} />
-      </div>
+      {rightExtra && <div className="flex items-center gap-2">{rightExtra}</div>}
     </div>
   );
 }

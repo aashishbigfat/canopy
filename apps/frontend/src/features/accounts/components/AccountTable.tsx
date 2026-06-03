@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Switch } from "@/components/ui/switch";
 import {
     Table,
     TableBody,
@@ -266,6 +267,7 @@ export function AccountTable({
     const [vfType, setVfType] = React.useState("");
     const [vfCity, setVfCity] = React.useState("");
     const [vfSearch, setVfSearch] = React.useState("");
+    const [vfPublic, setVfPublic] = React.useState(false);
 
     const openSaveView = () => {
         // Pre-fill with whatever is currently applied to the list.
@@ -273,6 +275,7 @@ export function AccountTable({
         setVfType(searchParams.get("acc_type_id") ?? "");
         setVfCity(searchParams.get("billing_city") ?? "");
         setVfSearch(searchParams.get("search") ?? "");
+        setVfPublic(false);
         setViewName("");
         setSaveViewOpen(true);
     };
@@ -294,7 +297,7 @@ export function AccountTable({
 
         setSavingView(true);
         try {
-            const created = await accountService.createView(name, filters);
+            const created = await accountService.createView(name, filters, false, vfPublic);
             toast.success("View saved");
             setSaveViewOpen(false);
             setViewName("");
@@ -969,6 +972,16 @@ export function AccountTable({
                                     placeholder="name / email / phone"
                                     className="h-9 text-sm"
                                 />
+                            </div>
+                        </div>
+
+                        <div className="space-y-2 rounded-md border border-border/60 p-3">
+                            <p className="text-xs font-medium text-muted-foreground">Who sees this view?</p>
+                            <div className="flex items-center gap-2">
+                                <Switch checked={vfPublic} onCheckedChange={(v: boolean) => setVfPublic(v)} />
+                                <span className="text-sm">
+                                    {vfPublic ? "All users in your team" : "Only me"}
+                                </span>
                             </div>
                         </div>
 

@@ -499,6 +499,8 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                 ...cleanedData,
                 name: finalName,
                 is_person_account: isPersonAccount,
+                // Mobile is a person-account-only field; never persist it for B2B/company accounts.
+                mobile: isPersonAccount ? cleanedData.mobile : null,
             };
 
             await ErrorHandler.withErrorHandling(async () => {

@@ -64,12 +64,14 @@ export const accountService = {
         return data;
     },
 
-    // Save the current account-list filters as a named list view
-    createView: async (name: string, filters: Record<string, any>, publicView = false) => {
+    // Save the current account-list filters as a named list view.
+    // `isPersonAccount` scopes the view to the B2C person list vs the B2B company list.
+    createView: async (name: string, filters: Record<string, any>, isPersonAccount = false, publicView = false) => {
         const { data } = await apiClient.post(`${BASE_URL}/views`, {
             name,
             filters,
             public_view: publicView,
+            is_person_account: isPersonAccount,
         });
         return data as { id: string; name: string; public_view: boolean; created_at: string };
     },

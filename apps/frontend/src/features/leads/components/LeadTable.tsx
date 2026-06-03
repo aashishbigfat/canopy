@@ -524,24 +524,6 @@ export function LeadTable({
                             >
                                 <Filter className="h-4 w-4" />
                             </Button>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="gap-1 border-border text-foreground hover:bg-accent"
-                                    >
-                                        Settings
-                                        <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuLabel>Settings</DropdownMenuLabel>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem>Manage columns</DropdownMenuItem>
-                                    <DropdownMenuItem>Save view</DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
                         </div>
                     </div>
                     <div className="px-4 py-3">

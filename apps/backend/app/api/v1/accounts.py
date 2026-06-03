@@ -334,6 +334,21 @@ async def get_accounts(
         # --- Server-side pagination (no full-collection load) ---
         skip = (page - 1) * per_page
 
+        # Saved views are scoped to the list type (B2C person vs B2B company) so a
+        # view saved on one list never leaks into the other. Legacy views without
+        # the flag are treated as company views ($ne True matches missing + False).
+        account_view_query: dict = {
+            "tenant_id": current_user.tenant_id,
+            "$or": [
+                {"created_by": current_user.id},
+                {"public_view": True},
+            ],
+        }
+        if is_person_account is True:
+            account_view_query["is_person_account"] = True
+        elif is_person_account is False:
+            account_view_query["is_person_account"] = {"$ne": True}
+
         # Run total count, paginated accounts fetch, and all metadata queries in parallel
         # picklist_type prevents cross-contamination in shared 'picklists' collection
         (
@@ -348,14 +363,8 @@ async def get_accounts(
             Account.find(query).count(),
             # 2. Paginated accounts (sorted by most-recently-updated)
             Account.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list(),
-            # 3. Account views
-            AccountView.find({
-                "tenant_id": current_user.tenant_id,
-                "$or": [
-                    {"created_by": current_user.id},
-                    {"public_view": True}
-                ]
-            }).to_list(),
+            # 3. Account views (scoped to this list type)
+            AccountView.find(account_view_query).to_list(),
             # 4. Users for owner selection
             User.find({
                 "tenant_id": current_user.tenant_id,
@@ -387,6 +396,7 @@ async def get_accounts(
                     "name": acc.name,
                     "email": acc.email,
                     "phone": acc.phone,
+                    "mobile": acc.mobile,
                     "salutation": acc.salutation,
                     "first_name": acc.first_name,
                     "last_name": acc.last_name,
@@ -465,6 +475,7 @@ class AccountViewCreate(BaseModel):
     name: str
     filters: Dict[str, Any] = {}
     public_view: bool = False
+    is_person_account: bool = False
 
 
 @router.post("/views", status_code=201)
@@ -491,6 +502,7 @@ async def create_account_view(
         name=name,
         filters=clean_filters,
         public_view=bool(payload.public_view),
+        is_person_account=bool(payload.is_person_account),
         created_by=current_user.id,
         tenant_id=current_user.tenant_id,
     )
