@@ -9,7 +9,6 @@ import {
     Calendar,
     Briefcase,
     Plus,
-    Paperclip,
     User as UserIcon,
     ArrowUpRight
 } from "lucide-react";
@@ -30,10 +29,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Account } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
-import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
+import { EntityActivitySidebar, OpportunitySummary } from "@/components/shared/EntityActivitySidebar";
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
 import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
 import { AccountFormDrawer } from "./AccountFormDrawer";
+import { FileUploader } from "@/features/files/components/file-uploader";
+import { FileList } from "@/features/files/components/file-list";
 import { OpportunitiesViewAllDialog } from "@/features/opportunities/components/OpportunitiesViewAllDialog";
 import { ContactsViewAllDialog } from "@/features/contacts/components/ContactsViewAllDialog";
 import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
@@ -55,6 +56,7 @@ interface AccountDetailViewProps {
         account_type_name?: string;
         industry_name?: string;
         parent_account_name?: string;
+        opportunity_summary?: OpportunitySummary | null;
     };
 }
 
@@ -131,6 +133,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                 phone={account.phone}
                 email={account.email}
                 ownerName={account.owner_name}
+                ownerId={account.owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
                 onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
@@ -289,6 +292,13 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <p className="text-sm font-medium text-slate-200">{account.phone || "-"}</p>
                                             </div>
 
+                                            {isB2C && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
+                                                    <p className="text-sm font-medium text-slate-200">{account.mobile || "-"}</p>
+                                                </div>
+                                            )}
+
                                             {!isB2C && (
                                                 <>
                                                     <div className="space-y-1">
@@ -305,6 +315,11 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                     </div>
                                                 </>
                                             )}
+
+                                            <div className="space-y-1 md:col-span-2">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</p>
+                                                <p className="text-sm font-medium text-slate-200 whitespace-pre-wrap break-words">{account.description || "-"}</p>
+                                            </div>
                                         </CardContent>
                                     </Card>
 
@@ -365,10 +380,15 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="crm-empty-state">
-                                    <Paperclip className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
-                                    <p className="text-muted-foreground">No attachments found.</p>
-                                    <Button variant="outline" size="sm" className="mt-4 border-border">Upload File</Button>
+                                <div className="space-y-6">
+                                    <FileUploader
+                                        entityType="Account"
+                                        entityId={account.id}
+                                    />
+                                    <FileList
+                                        entityType="Account"
+                                        entityId={account.id}
+                                    />
                                 </div>
                             </TabsContent>
                         </div>
@@ -382,6 +402,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                         entityId={account.id}
                         entityName={account.name}
                         relatedTo={account.parent_account_name}
+                        opportunitySummary={account.opportunity_summary}
                     />
                 </div>
             </div>

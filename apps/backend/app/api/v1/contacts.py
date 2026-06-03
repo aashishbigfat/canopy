@@ -146,16 +146,33 @@ async def get_contacts(
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=100),
     owner_id: Optional[str] = None,
+    search: Optional[str] = None,
+    view_id: Optional[str] = Query(None, description="Saved EntityView id (contact) whose filters to apply"),
     current_user: User = Depends(check_permission("view_contact"))
 ):
-    """Get all contacts with pagination"""
+    """Get all contacts with pagination, optional search and saved view."""
     import asyncio
     import logging
     logger = logging.getLogger(__name__)
     try:
         from app.services.visibility_scope import get_visible_owner_ids
         service = ContactService()
-        
+
+        # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
+        # filters seed the effective criteria; a direct query param wins.
+        if view_id and ObjectId.is_valid(view_id):
+            from app.models.entity_views import EntityView
+            _ev = await EntityView.find_one({
+                "_id": ObjectId(view_id),
+                "entity_type": "contact",
+                "tenant_id": current_user.tenant_id,
+                "$or": [{"created_by": current_user.id}, {"is_public": True}],
+            })
+            if _ev and _ev.filters:
+                _f = _ev.filters
+                owner_id = owner_id or _f.get("owner_id")
+                search = search or _f.get("search")
+
         # Build query
         query = {
             "tenant_id": current_user.tenant_id,
@@ -176,6 +193,18 @@ async def get_contacts(
                 query["_id"] = ObjectId() # Invalid format
         elif visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
+
+        # Free-text search across the contact's identity fields
+        if search and str(search).strip():
+            import re as _re
+            _pat = {"$regex": _re.compile(f".*{_re.escape(str(search).strip())}.*", _re.IGNORECASE)}
+            query["$or"] = [
+                {"first_name": _pat},
+                {"last_name": _pat},
+                {"email": _pat},
+                {"phone": _pat},
+                {"mobile": _pat},
+            ]
 
         # Run count and paginated fetch in parallel
         skip = (page - 1) * per_page
@@ -199,13 +228,16 @@ async def get_contacts(
         
         # Map account ID to name
         account_map = {a.id: a.name for a in accounts}
-        
+        # Map owner (user) ID to name so each row can show its owner
+        user_name_map = {str(u.id): u.name for u in users}
+
         # Prepare response
         contact_responses = []
         for c in contacts:
             resp = contact_to_response(c)
             if c.account_id and c.account_id in account_map:
                 resp.account_name = account_map[c.account_id]
+            resp.owner_name = user_name_map.get(str(c.owner_id))
             contact_responses.append(resp)
         
         return {

@@ -1,6 +1,7 @@
 """
 Activity Log service layer
 """
+import re
 from typing import List, Optional, Dict, Any
 from bson import ObjectId
 from datetime import datetime, timedelta
@@ -60,7 +61,9 @@ class ActivityLogService:
         if user_id:
             query["user_id"] = ObjectId(user_id)
         if entity_type:
-            query["entity_type"] = entity_type
+            # Case-insensitive exact match so "Account"/"account" etc. all match,
+            # regardless of how a given service stored the entity_type.
+            query["entity_type"] = {"$regex": f"^{re.escape(entity_type)}$", "$options": "i"}
         if entity_id:
             query["entity_id"] = ObjectId(entity_id)
         if action:
@@ -71,7 +74,11 @@ class ActivityLogService:
     async def get_entity_history(self, entity_type: str, entity_id: str, tenant_id: ObjectId) -> List[ActivityLog]:
         """Get all activity for a specific entity"""
         return await ActivityLog.find(
-            {"entity_type": entity_type, "entity_id": ObjectId(entity_id), "tenant_id": tenant_id}
+            {
+                "entity_type": {"$regex": f"^{re.escape(entity_type)}$", "$options": "i"},
+                "entity_id": ObjectId(entity_id),
+                "tenant_id": tenant_id,
+            }
         ).sort("-created_at").to_list()
     
     async def get_user_activity(self, user_id: str, tenant_id: ObjectId, limit: int = 50) -> List[ActivityLog]:

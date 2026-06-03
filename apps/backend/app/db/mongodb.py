@@ -20,7 +20,6 @@ from app.models.note import Note
 from app.models.email import Email
 from app.models.file import File
 from app.models.supplier import Supplier
-from app.models.supplier_contact import SupplierContact
 from app.models.itinerary import Itinerary, ItineraryDay
 from app.models.package import Package, PackagePricing
 from app.models.role import Role
@@ -205,7 +204,6 @@ async def init_db():
             File,
             # Travel CRM
             Supplier,
-            SupplierContact,
             Itinerary,
             ItineraryDay,
             Package,

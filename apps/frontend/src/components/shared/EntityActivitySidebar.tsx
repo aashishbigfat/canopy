@@ -31,18 +31,34 @@ import { toast } from "sonner";
 import { tasksService } from "@/lib/api/services/activities.service";
 import { useGetUsers } from "@/features/admin/api/use-users";
 
+interface OpportunitySummaryMetric {
+    count: number;
+    pax: number;
+    value: number;
+}
+
+export interface OpportunitySummary {
+    total: OpportunitySummaryMetric;
+    won: OpportunitySummaryMetric;
+    open: OpportunitySummaryMetric;
+    lost: OpportunitySummaryMetric;
+    won_percent: OpportunitySummaryMetric;
+}
+
 interface EntityActivitySidebarProps {
     entityType: "Contact" | "Account" | "Lead" | "Supplier";
     entityId: string;
     entityName?: string;
     relatedTo?: string;
+    opportunitySummary?: OpportunitySummary | null;
 }
 
 export function EntityActivitySidebar({
     entityType,
     entityId,
     entityName,
-    relatedTo
+    relatedTo,
+    opportunitySummary
 }: EntityActivitySidebarProps) {
     const { data: session } = useSession();
     const { data: usersData } = useGetUsers();
@@ -91,7 +107,7 @@ export function EntityActivitySidebar({
     return (
         <div className="space-y-6">
             <Card className="glass border-border/70">
-                <Tabs defaultValue="activity" className="w-full">
+                <Tabs defaultValue={opportunitySummary ? "summary" : "activity"} className="w-full">
                     <CardHeader className="border-b pb-0 bg-muted/30">
                         <div className="flex items-center justify-between mb-4">
                             <CardTitle className="text-sm font-semibold flex items-center gap-2">
@@ -100,6 +116,14 @@ export function EntityActivitySidebar({
                             </CardTitle>
                         </div>
                         <TabsList className="w-full justify-start gap-2 rounded-md bg-muted/40 p-1">
+                            {opportunitySummary && (
+                                <TabsTrigger
+                                    value="summary"
+                                    className="relative h-8 rounded-md bg-transparent px-4 font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm hover:text-foreground"
+                                >
+                                    Summary
+                                </TabsTrigger>
+                            )}
                             <TabsTrigger
                                 value="activity"
                                 className="relative h-8 rounded-md bg-transparent px-4 font-semibold text-muted-foreground shadow-none transition-all data-[state=active]:bg-card data-[state=active]:text-primary data-[state=active]:shadow-sm hover:text-foreground"
@@ -115,6 +139,11 @@ export function EntityActivitySidebar({
                         </TabsList>
                     </CardHeader>
                     <CardContent className="p-0">
+                        {opportunitySummary && (
+                            <TabsContent value="summary" className="m-0">
+                                <OpportunitySummaryTable summary={opportunitySummary} />
+                            </TabsContent>
+                        )}
                         <TabsContent value="activity" className="m-0">
                             <Tabs defaultValue="task" className="w-full">
                                 <div className="border-b px-4">
@@ -231,6 +260,53 @@ export function EntityActivitySidebar({
                     </CardContent>
                 </Tabs>
             </Card>
+        </div>
+    );
+}
+
+function OpportunitySummaryTable({ summary }: { summary: OpportunitySummary }) {
+    const fmtNum = (n: number) => Math.round(n).toLocaleString();
+    const fmtPct = (n: number) => `${Number(n).toFixed(2)}%`;
+
+    const rows: { label: string; metric: OpportunitySummaryMetric; isPercent?: boolean }[] = [
+        { label: "Total", metric: summary.total },
+        { label: "Won", metric: summary.won },
+        { label: "Open", metric: summary.open },
+        { label: "Lost", metric: summary.lost },
+        { label: "Won %", metric: summary.won_percent, isPercent: true },
+    ];
+
+    return (
+        <div className="p-4">
+            <table className="w-full text-sm">
+                <thead>
+                    <tr className="border-b text-xs font-semibold text-muted-foreground">
+                        <th className="py-2 text-left"></th>
+                        <th className="py-2 text-right">#</th>
+                        <th className="py-2 text-right">PAX</th>
+                        <th className="py-2 text-right">Value</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows.map(({ label, metric, isPercent }) => (
+                        <tr
+                            key={label}
+                            className={`border-b last:border-0 ${isPercent ? "font-semibold text-primary" : "text-foreground"}`}
+                        >
+                            <td className="py-3 text-left text-muted-foreground">{label}</td>
+                            <td className="py-3 text-right tabular-nums">
+                                {isPercent ? fmtPct(metric.count) : fmtNum(metric.count)}
+                            </td>
+                            <td className="py-3 text-right tabular-nums">
+                                {isPercent ? fmtPct(metric.pax) : fmtNum(metric.pax)}
+                            </td>
+                            <td className="py-3 text-right tabular-nums">
+                                {isPercent ? fmtPct(metric.value) : fmtNum(metric.value)}
+                            </td>
+                        </tr>
+                    ))}
+                </tbody>
+            </table>
         </div>
     );
 }

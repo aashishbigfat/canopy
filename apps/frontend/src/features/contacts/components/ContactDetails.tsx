@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Contact } from "../types";
 import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
@@ -50,10 +51,23 @@ interface ContactDetailsProps {
 
 export function ContactDetails({ contact }: ContactDetailsProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
     const [isNewOppDrawerOpen, setIsNewOppDrawerOpen] = useState(false);
+
+    const changeOwnerMutation = useMutation({
+        mutationFn: (newOwnerId: string) => contactsService.changeOwner(contact.id, newOwnerId),
+        onSuccess: () => {
+            toast.success("Owner changed successfully");
+            queryClient.invalidateQueries({ queryKey: ["contacts"] });
+            router.refresh();
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || "Failed to change owner");
+        },
+    });
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -100,8 +114,11 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                 phone={contact.phone}
                 email={contact.email}
                 ownerName={contact.owner_name}
+                ownerId={(contact as any).owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                isChangingOwner={changeOwnerMutation.isPending}
             />
 
             <div className="flex flex-col lg:flex-row gap-6">

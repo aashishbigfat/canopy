@@ -16,7 +16,11 @@ class AccountView(Document):
     
     # Visibility
     public_view: bool = False
-    
+
+    # Which account list this view belongs to (B2C person vs B2B company).
+    # Legacy views predate this flag and default to company (False).
+    is_person_account: bool = False
+
     # Owner
     created_by: Indexed(PydanticObjectId)
     tenant_id: Indexed(PydanticObjectId)

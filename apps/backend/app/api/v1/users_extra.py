@@ -124,6 +124,84 @@ async def upload_banner(
     return {"banner_url": payload.banner_url}
 
 
+@router.get("/{user_id}/card")
+async def get_user_card(
+    user_id: PydanticObjectId,
+    current_user: User = Depends(get_current_user),
+):
+    """Lightweight owner/user details for hover-cards and popovers.
+
+    Available to any authenticated tenant user (not gated behind `view_user`)
+    because owner names are already surfaced across list and detail pages.
+    Scoped to the caller's tenant.
+    """
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
+        raise HTTPException(404, "User not found")
+    return {
+        "id": str(u.id),
+        "name": u.name,
+        "email": u.email,
+        "phone": getattr(u, "phone", None) or getattr(u, "mobile", None),
+        "title": getattr(u, "title", None) or getattr(u, "designation", None),
+        "avatar_url": getattr(u, "avatar_url", None),
+        "role_hierarchy_name": getattr(u, "role_hierarchy_name", None),
+        "is_active": u.is_active,
+        "is_available_for_assignment": getattr(u, "is_available_for_assignment", None),
+    }
+
+
+@router.get("/{user_id}/profile")
+async def get_user_public_profile(
+    user_id: PydanticObjectId,
+    current_user: User = Depends(get_current_user),
+):
+    """Read-only profile of any tenant user, for the owner/profile page.
+
+    Like `/card` but richer (department, timezone, last login). Available to any
+    authenticated tenant user since owner names are surfaced app-wide. Scoped to
+    the caller's tenant; never exposes credentials/SMTP secrets.
+    """
+    u = await User.find_one(
+        {"_id": user_id, "tenant_id": current_user.tenant_id, "deleted_at": None}
+    )
+    if not u:
+        raise HTTPException(404, "User not found")
+
+    department_name = None
+    dept_id = getattr(u, "department_id", None)
+    if dept_id:
+        try:
+            from app.models.department import Department
+            dept = await Department.find_one(
+                {"_id": dept_id, "tenant_id": current_user.tenant_id}
+            )
+            department_name = dept.name if dept else None
+        except Exception:
+            department_name = None
+
+    return {
+        "id": str(u.id),
+        "name": u.name,
+        "email": u.email,
+        "phone": getattr(u, "phone", None),
+        "title": getattr(u, "title", None) or getattr(u, "designation", None),
+        "avatar_url": getattr(u, "avatar_url", None),
+        "role_hierarchy_name": getattr(u, "role_hierarchy_name", None),
+        "department_id": str(dept_id) if dept_id else None,
+        "department_name": department_name,
+        "timezone": getattr(u, "timezone", None),
+        "language": getattr(u, "language", None),
+        "is_active": u.is_active,
+        "is_verified": getattr(u, "is_verified", None),
+        "is_available_for_assignment": getattr(u, "is_available_for_assignment", None),
+        "last_login_at": getattr(u, "last_login_at", None),
+        "created_at": getattr(u, "created_at", None),
+    }
+
+
 # ============== SALES TARGETS ==============
 
 class TargetIn(BaseModel):

@@ -48,6 +48,7 @@ class OpportunityCreate(OpportunityBase):
     owner_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     team_member_ids: Optional[List[str]] = Field(default_factory=list)
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
+    creation_type: Optional[str] = "Manual"  # "Manual" or "Auto"
 
 
 def parse_date(v):
@@ -83,7 +84,8 @@ class OpportunityUpdate(BaseModel):
     key_deal: Optional[bool] = None
     custom_fields: Optional[Dict[str, Any]] = None
     close_lost_reason: Optional[str] = Field(None, max_length=2000)
-    
+    creation_type: Optional[str] = None  # "Manual" or "Auto"
+
     # Industry-specific data
     industry_data: Optional[Dict[str, Any]] = None
 

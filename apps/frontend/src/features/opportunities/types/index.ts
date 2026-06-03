@@ -93,6 +93,7 @@ export interface OpportunityCreateData {
 
     key_deal?: boolean;
     close_lost_reason?: string;
+    creation_type?: string; // "Manual" or "Auto"
 
     // All industry-specific fields go here
     industry_data?: Record<string, any>;
@@ -107,6 +108,8 @@ export interface OpportunityFilters {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
     view?: string;
+    // Saved EntityView id (opportunity) whose stored filters the server should apply.
+    view_id?: string;
 }
 
 export interface OpportunityResponse {

@@ -29,6 +29,7 @@ import {
     Check
 } from "lucide-react";
 import Link from "next/link";
+import { copyToClipboard } from "@/lib/clipboard";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -398,7 +399,7 @@ export function OpportunityDetails({
                                             type="button"
                                             title="Copy opportunity ID"
                                             onClick={() => {
-                                                navigator.clipboard.writeText(String(record.opportunity_number).padStart(10, '0'));
+                                                copyToClipboard(String(record.opportunity_number).padStart(10, '0'), "Opportunity ID");
                                                 setIsCopied(true);
                                                 setTimeout(() => setIsCopied(false), 1500);
                                             }}

@@ -4,12 +4,13 @@ import * as React from "react";
 import { usePicklist } from "@/hooks/use-picklist";
 import Link from "next/link";
 import { formatDateTimeBar, formatDate } from "@/lib/format";
-import { MoreHorizontal, Edit, Trash2, CheckCircle, Plus } from "lucide-react";
+import { MoreHorizontal, Edit, Trash2, CheckCircle, Plus, Pencil, Check, Loader2 } from "lucide-react";
 import {
     Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -25,7 +26,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { useGetTasks, useDeleteTask, useCompleteTask } from "@/features/tasks/api/use-tasks";
+import { useGetTasks, useDeleteTask, useCompleteTask, useUpdateTask } from "@/features/tasks/api/use-tasks";
 import { Task } from "@/features/tasks/types";
 import { TaskModal } from "./task-modal";
 import { toast } from "sonner";
@@ -55,6 +56,120 @@ function priorityBadge(priority: string) {
 }
 
 import { useSession } from "next-auth/react";
+
+function toDateTimeLocal(iso?: string) {
+    if (!iso) return "";
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return "";
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Inline-editable task cell — text (subject), datetime (due date) or select (status).
+function EditableTaskCell({
+    task,
+    field,
+    kind,
+    options,
+    linkHref,
+    renderDisplay,
+}: {
+    task: Task;
+    field: "name" | "due_date" | "status";
+    kind: "text" | "datetime" | "select";
+    options?: { id: string; name: string }[];
+    linkHref?: string;
+    renderDisplay?: (val: string) => React.ReactNode;
+}) {
+    const updateTask = useUpdateTask();
+    const initial = ((task as any)[field] as string) || "";
+    const [editing, setEditing] = React.useState(false);
+    const [value, setValue] = React.useState(kind === "datetime" ? toDateTimeLocal(initial) : initial);
+
+    React.useEffect(() => {
+        setValue(kind === "datetime" ? toDateTimeLocal(initial) : initial);
+    }, [initial, kind]);
+
+    const commit = async (raw: string) => {
+        let payloadVal: string | undefined = raw;
+        if (kind === "datetime") {
+            payloadVal = raw ? new Date(raw).toISOString() : undefined;
+            if ((payloadVal || "") === (initial || "")) { setEditing(false); return; }
+        } else if (raw === initial) {
+            setEditing(false);
+            return;
+        }
+        try {
+            await updateTask.mutateAsync({ id: task.id, data: { [field]: payloadVal } as any });
+            toast.success("Updated");
+            setEditing(false);
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || "Failed to update");
+        }
+    };
+
+    if (editing && kind === "select") {
+        return (
+            <Select
+                defaultOpen
+                defaultValue={initial || undefined}
+                onValueChange={(v) => commit(v)}
+                onOpenChange={(o) => { if (!o) setEditing(false); }}
+            >
+                <SelectTrigger className="h-7 w-36 text-xs">
+                    <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                    {options?.map((o) => (
+                        <SelectItem key={o.id} value={o.name}>{o.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+        );
+    }
+
+    if (editing) {
+        return (
+            <div className="flex items-center gap-1">
+                <Input
+                    autoFocus
+                    type={kind === "datetime" ? "datetime-local" : "text"}
+                    value={value}
+                    disabled={updateTask.isPending}
+                    onChange={(e) => setValue(e.target.value)}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") commit(value);
+                        if (e.key === "Escape") setEditing(false);
+                    }}
+                    className="h-7 w-44 text-xs"
+                />
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => commit(value)} disabled={updateTask.isPending}>
+                    {updateTask.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-500" />}
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="group/edit flex items-center gap-1.5">
+            {linkHref ? (
+                <Link href={linkHref} className="block truncate text-primary hover:underline">
+                    {renderDisplay ? renderDisplay(initial) : (initial || "—")}
+                </Link>
+            ) : (
+                <span className="min-w-0 truncate">{renderDisplay ? renderDisplay(initial) : (initial || "—")}</span>
+            )}
+            <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="shrink-0 opacity-0 transition-opacity group-hover/edit:opacity-100"
+                title="Edit"
+            >
+                <Pencil className="h-3 w-3 text-primary" />
+            </button>
+        </div>
+    );
+}
 
 export function TaskList() {
     const { data: session } = useSession();
@@ -192,21 +307,24 @@ export function TaskList() {
                         )}
                         {tasks.map((task) => (
                             <TableRow key={task.id} className="hover:bg-muted/30 text-sm">
-                                {/* Subject — clickable link */}
-                                <TableCell className="py-2 font-medium max-w-[180px]">
-                                    <Link
-                                        href={`/tasks/${task.id}`}
-                                        className="block truncate text-primary hover:underline"
-                                    >
-                                        {task.name}
-                                    </Link>
+                                {/* Subject — clickable link + inline edit */}
+                                <TableCell className="py-2 font-medium max-w-[200px]">
+                                    <EditableTaskCell
+                                        task={task}
+                                        field="name"
+                                        kind="text"
+                                        linkHref={`/tasks/${task.id}`}
+                                    />
                                 </TableCell>
 
-                                {/* Due Date */}
+                                {/* Due Date — inline edit */}
                                 <TableCell className="py-2 text-xs text-muted-foreground whitespace-nowrap">
-                                    {task.due_date
-                                        ? formatDateTimeBar(task.due_date)
-                                        : "—"}
+                                    <EditableTaskCell
+                                        task={task}
+                                        field="due_date"
+                                        kind="datetime"
+                                        renderDisplay={(v) => (v ? formatDateTimeBar(v) : "—")}
+                                    />
                                 </TableCell>
 
                                 {/* Task Type (taskable_type) */}
@@ -224,9 +342,15 @@ export function TaskList() {
                                     {priorityBadge(task.priority)}
                                 </TableCell>
 
-                                {/* Status */}
+                                {/* Status — inline edit */}
                                 <TableCell className="py-2">
-                                    {statusBadge(task.status)}
+                                    <EditableTaskCell
+                                        task={task}
+                                        field="status"
+                                        kind="select"
+                                        options={taskStatuses}
+                                        renderDisplay={(v) => statusBadge(v)}
+                                    />
                                 </TableCell>
 
                                 {/* Concerned Contact (contact_id resolved — stored as name in future) */}

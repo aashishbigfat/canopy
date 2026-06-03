@@ -1,19 +1,11 @@
 "use client";
 
-import {
-    BarChart,
-    Bar,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer,
-    Cell,
-} from "recharts";
+import { useState } from "react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { GitBranch } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
 
-interface PipelineStage {
+export interface PipelineStage {
     stage: string;
     count: number;
     value: number;
@@ -30,17 +22,22 @@ const STAGE_COLORS = [
     "#ef4444", // red
 ];
 
-// formatCurrency imported from @/lib/format
+interface PieDatum extends PipelineStage {
+    color: string;
+    share: number; // percentage (0-100) among the currently selected stages
+}
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 const CustomTooltip = ({ active, payload }: any) => {
     if (!active || !payload || payload.length === 0) return null;
-    const data = payload[0]?.payload as PipelineStage;
+    const data = payload[0]?.payload as PieDatum;
     return (
         <div className="rounded-xl border bg-popover px-4 py-3 shadow-xl">
             <p className="mb-1 text-sm font-semibold text-foreground">{data.stage}</p>
             <p className="text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">{data.count}</span> opportunities
+                {" "}
+                <span className="font-semibold text-foreground">({data.share.toFixed(2)}%)</span>
             </p>
             <p className="text-xs text-muted-foreground">
                 Value: <span className="font-semibold text-emerald-600">{formatCurrency(data.value)}</span>
@@ -50,6 +47,9 @@ const CustomTooltip = ({ active, payload }: any) => {
 };
 
 export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
+    // Stages the user has deselected via the legend.
+    const [hidden, setHidden] = useState<Set<string>>(new Set());
+
     if (!stages || stages.length === 0) {
         return (
             <div className="rounded-lg border bg-card p-5 shadow-sm">
@@ -67,45 +67,108 @@ export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
         );
     }
 
+    const toggle = (name: string) => {
+        setHidden((prev) => {
+            const next = new Set(prev);
+            if (next.has(name)) next.delete(name);
+            else next.add(name);
+            return next;
+        });
+    };
+
+    // Stable colour per stage (index in the full list) so colours don't shift on toggle.
+    const colorOf = (name: string) =>
+        STAGE_COLORS[stages.findIndex((s) => s.stage === name) % STAGE_COLORS.length];
+
+    // Only selected stages contribute to the pie + percentage base.
+    const activeTotal = stages
+        .filter((s) => !hidden.has(s.stage))
+        .reduce((sum, s) => sum + s.count, 0);
+
+    const pieData: PieDatum[] = stages
+        .filter((s) => !hidden.has(s.stage))
+        .map((s) => ({
+            ...s,
+            color: colorOf(s.stage),
+            share: activeTotal ? (s.count / activeTotal) * 100 : 0,
+        }));
+
+    const totalCount = stages.reduce((sum, s) => sum + s.count, 0);
+
     return (
         <div className="rounded-lg border bg-card p-5 shadow-sm">
             <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-foreground">Pipeline by Stage</h3>
                 <span className="text-xs font-semibold text-muted-foreground">
-                    {stages.reduce((s, st) => s + st.count, 0)} total opportunities
+                    {totalCount} total opportunities
                 </span>
             </div>
+
+            {/* Interactive legend — click to toggle a stage in/out of the chart. */}
+            <div className="mb-2 flex flex-wrap gap-x-5 gap-y-2">
+                {stages.map((s) => {
+                    const isHidden = hidden.has(s.stage);
+                    const pct = activeTotal && !isHidden ? (s.count / activeTotal) * 100 : 0;
+                    return (
+                        <button
+                            key={s.stage}
+                            type="button"
+                            onClick={() => toggle(s.stage)}
+                            className="flex items-center gap-2 text-xs font-medium transition-opacity"
+                            style={{ opacity: isHidden ? 0.4 : 1 }}
+                        >
+                            <span
+                                className="inline-block h-3 w-3 rounded-sm"
+                                style={{ backgroundColor: colorOf(s.stage) }}
+                            />
+                            <span
+                                className={
+                                    isHidden
+                                        ? "text-muted-foreground line-through"
+                                        : "text-foreground"
+                                }
+                            >
+                                {s.stage} {pct.toFixed(2)}%
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+
             <div className="h-[280px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                        data={stages}
-                        margin={{ top: 8, right: 8, left: 0, bottom: 30 }}
-                        barSize={36}
-                    >
-                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                        <XAxis
-                            dataKey="stage"
-                            tick={{ fontSize: 11, fontWeight: 600, fill: "#94a3b8" }}
-                            axisLine={false}
-                            tickLine={false}
-                            angle={-25}
-                            textAnchor="end"
-                            dy={10}
-                        />
-                        <YAxis
-                            tick={{ fontSize: 12, fontWeight: 600, fill: "#94a3b8" }}
-                            axisLine={false}
-                            tickLine={false}
-                            allowDecimals={false}
-                        />
-                        <Tooltip content={<CustomTooltip />} cursor={{ fill: "rgba(0,0,0,0.03)" }} />
-                        <Bar dataKey="count" name="Opportunities" radius={[8, 8, 0, 0]}>
-                            {stages.map((_entry, index) => (
-                                <Cell key={`cell-${index}`} fill={STAGE_COLORS[index % STAGE_COLORS.length]} />
-                            ))}
-                        </Bar>
-                    </BarChart>
-                </ResponsiveContainer>
+                {pieData.length === 0 ? (
+                    <div className="flex h-full items-center justify-center">
+                        <p className="text-sm text-muted-foreground">
+                            Select a stage to see the distribution
+                        </p>
+                    </div>
+                ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                            <Tooltip content={<CustomTooltip />} />
+                            <Pie
+                                data={pieData}
+                                dataKey="count"
+                                nameKey="stage"
+                                cx="50%"
+                                cy="50%"
+                                outerRadius={100}
+                                innerRadius={0}
+                                stroke="var(--card)"
+                                strokeWidth={2}
+                                isAnimationActive={false}
+                                label={(entry: any) =>
+                                    `${Number(entry.share ?? 0).toFixed(1)}%`
+                                }
+                                labelLine={false}
+                            >
+                                {pieData.map((entry) => (
+                                    <Cell key={entry.stage} fill={entry.color} />
+                                ))}
+                            </Pie>
+                        </PieChart>
+                    </ResponsiveContainer>
+                )}
             </div>
         </div>
     );

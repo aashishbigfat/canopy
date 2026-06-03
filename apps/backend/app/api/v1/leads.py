@@ -125,14 +125,17 @@ async def get_leads(
         None,
         description="Predefined view filter: today, yesterday, last_week, recent, whatsapp, all, etc.",
     ),
+    search: Optional[str] = None,
+    lead_status_id: Optional[str] = None,
+    view_id: Optional[str] = Query(None, description="Saved EntityView id (lead) whose filters to apply"),
     current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
-    """Get all leads with pagination and optional predefined views."""
+    """Get all leads with pagination and optional predefined / saved views."""
     from app.services.visibility_scope import get_visible_owner_ids
-    
+
     visible_owner_ids = await get_visible_owner_ids(current_user)
-    
+
     result = await service.get_leads_with_metadata(
         tenant_id=current_user.tenant_id,
         page=page,
@@ -141,7 +144,10 @@ async def get_leads(
         is_converted=is_converted,
         view=view,
         current_user_id=current_user.id,
-        visible_owner_ids=visible_owner_ids
+        visible_owner_ids=visible_owner_ids,
+        search=search,
+        lead_status_id=lead_status_id,
+        view_id=view_id,
     )
     
     # Resolve destinations for each lead (scoped to tenant)
@@ -380,31 +386,40 @@ async def change_lead_owner(
     service: LeadService = Depends(get_lead_service)
 ):
     """Change lead owner"""
-    lead = await service.change_owner(
-        lead_id,
-        ObjectId(owner_change.new_owner_id),
-        current_user.id,
-        current_user.tenant_id
-    )
-    
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    
-    # Resolve creator, modifier and owner names for the response
-    creator = await User.get(lead.created_by)
-    modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
-    owner = await User.get(lead.owner_id)
-    
-    lead_response = LeadResponse.model_validate(lead)
-    lead_response.created_by_name = creator.name if creator else "Unknown"
-    lead_response.last_modified_by_name = modifier.name if modifier else None
-    lead_response.owner_name = owner.name if owner else "Unknown"
-    
-    return {
-        "error": False,
-        "message": "Lead ownership updated successfully",
-        "lead": lead_response
-    }
+    try:
+        lead = await service.change_owner(
+            lead_id,
+            ObjectId(owner_change.new_owner_id),
+            current_user.id,
+            current_user.tenant_id
+        )
+        
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
+        # Resolve creator, modifier and owner names for the response
+        creator = await User.get(lead.created_by)
+        modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
+        owner = await User.get(lead.owner_id)
+        
+        lead_response = LeadResponse.model_validate(lead)
+        lead_response.created_by_name = creator.name if creator else "Unknown"
+        lead_response.last_modified_by_name = modifier.name if modifier else None
+        lead_response.owner_name = owner.name if owner else "Unknown"
+        
+        return {
+            "error": False,
+            "message": "Lead ownership updated successfully",
+            "lead": lead_response
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/single-column")
@@ -457,12 +472,18 @@ async def import_leads(
     from app.services.import_export_service import ImportExportService
     
     service = ImportExportService()
-    # TODO: Implement import_leads_from_file method
+    result = await service.import_leads_from_file(
+        file=file,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id
+    )
     
     return {
         "error": False,
-        "message": "Import functionality coming soon"
+        "message": f"Successfully imported {result['imported']} leads, skipped {result['skipped']} duplicates/errors.",
+        "data": result
     }
+
 
 
 @router.get("/export/{format}")

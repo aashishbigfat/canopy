@@ -71,29 +71,3 @@ export type SupplierResponse = {
     pages: number;
 };
 
-export interface SupplierContact {
-    id: string;
-    supplier_id: string;
-    name: string;
-    designation?: string;
-    department?: string;
-    email?: string;
-    phone?: string;
-    mobile?: string;
-    is_primary: boolean;
-    is_active: boolean;
-    notes?: string;
-    created_at: string;
-    updated_at: string;
-}
-
-export interface SupplierContactCreateData {
-    name: string;
-    designation?: string;
-    department?: string;
-    email?: string;
-    phone?: string;
-    mobile?: string;
-    is_primary?: boolean;
-    notes?: string;
-}

@@ -84,6 +84,7 @@ const opportunityFormSchema = z.object({
     no_of_nights: z.string().optional(),
     destinations: z.string().optional(),
     source_id: z.string().optional(),
+    creation_type: z.enum(["Manual", "Auto"]).optional(),
     description: z.string().optional(),
     account_id: z.string().optional(),
     contact_id: z.string().optional(),
@@ -213,6 +214,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
             no_of_nights: opportunity.industry_data?.no_of_nights?.toString() || "",
             destinations: (opportunity.industry_data?.destination_ids as string[] | undefined)?.join(",") || "",
             source_id: opportunity.source_id || "",
+            creation_type: opportunity.creation_type === "Auto" ? "Auto" : "Manual",
             description: opportunity.description || "",
             account_id: opportunity.account_id || "",
             contact_id: opportunity.contact_id || "",
@@ -334,6 +336,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                     if (data.account_id !== undefined) payload.account_id = data.account_id || null;
                     if (data.contact_id !== undefined) payload.contact_id = data.contact_id || null;
                     payload.source_id = (data.source_id && data.source_id !== "none") ? data.source_id : null;
+                    payload.creation_type = data.creation_type || "Manual";
                     // Always send close_lost_reason (empty string clears it on backend)
                     payload.close_lost_reason = data.close_lost_reason || "";
 
@@ -592,6 +595,29 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                                     {s.name}
                                                 </SelectItem>
                                             ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Creation — Manual / Auto */}
+                        <FormField
+                            control={form.control}
+                            name="creation_type"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Creation</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value || "Manual"}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select creation type" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="Manual">Manual</SelectItem>
+                                            <SelectItem value="Auto">Auto</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <FormMessage />

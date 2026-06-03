@@ -9,10 +9,11 @@ from app.schemas.supplier import SupplierCreate, SupplierUpdate
 from app.models.opportunity import Opportunity
 from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
+from app.mixins.activity_mixin import ActivityMixin
 
-class SupplierService:
+class SupplierService(ActivityMixin):
     """Service for Supplier business logic"""
-    
+
     async def create_supplier(
         self,
         supplier_data: SupplierCreate,
@@ -44,8 +45,11 @@ class SupplierService:
                 "supplier", supplier.id, payloads, tenant_id,
             )
 
+        # Log creation
+        await self.log_entity_created(entity=supplier, entity_type="supplier")
+
         return supplier
-    
+
     async def get_supplier(
         self,
         supplier_id: str,
@@ -74,10 +78,14 @@ class SupplierService:
         if not supplier:
             return None
 
-        # Update fields
+        # Update fields (tracking old values for the activity log)
+        old_values = {}
+        updated_fields = {}
         update_data = supplier_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
+            old_values[field] = getattr(supplier, field, None)
             setattr(supplier, field, value)
+            updated_fields[field] = value
 
         supplier.last_modified_by_id = user_id
         await supplier.save()
@@ -95,8 +103,16 @@ class SupplierService:
                 "supplier", supplier.id, payloads, tenant_id,
             )
 
+        # Log update
+        await self.log_entity_updated(
+            entity=supplier,
+            entity_type="supplier",
+            old_values=old_values,
+            updated_fields=updated_fields,
+        )
+
         return supplier
-    
+
     async def delete_supplier(
         self,
         supplier_id: str,
@@ -104,11 +120,15 @@ class SupplierService:
     ) -> bool:
         """Soft delete a supplier"""
         supplier = await self.get_supplier(supplier_id, tenant_id)
-        
+
         if not supplier:
             return False
-        
+
         await supplier.soft_delete()
+
+        # Log deletion
+        await self.log_entity_deleted(entity=supplier, entity_type="supplier")
+
         return True
     
     async def get_suppliers_by_tenant(
@@ -293,3 +313,50 @@ class SupplierService:
                 })
 
         return result
+
+    async def change_owner(
+        self,
+        supplier_id: str,
+        new_owner_id: ObjectId,
+        current_user_id: ObjectId,
+        tenant_id: ObjectId,
+    ) -> Optional[Supplier]:
+        """Change supplier owner.
+
+        SECURITY: new_owner_id must belong to the same tenant.
+        """
+        from app.models.user import User
+
+        supplier = await self.get_supplier(supplier_id, tenant_id)
+        if not supplier:
+            return None
+
+        owner = await User.find_one(
+            {"_id": new_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+        )
+        if not owner:
+            raise ValueError("new_owner_id must reference an active user in this tenant")
+
+        supplier.owner_id = new_owner_id
+        supplier.last_modified_by_id = current_user_id
+        await supplier.save()
+
+        # Transient owner name for the response
+        object.__setattr__(supplier, "owner_name", owner.name)
+
+        try:
+            from app.tasks.account_tasks import send_owner_change_email
+            send_owner_change_email.delay(
+                "Supplier",
+                str(new_owner_id),
+                supplier.name,
+                "supplierDetails",
+                str(tenant_id),
+                str(supplier.id),
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery task: %s", e)
+
+        return supplier
+

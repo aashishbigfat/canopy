@@ -44,7 +44,35 @@ export interface UserTargetRow {
   annual_target: number;
 }
 
+export interface UserCard {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string | null;
+  title?: string | null;
+  avatar_url?: string | null;
+  role_hierarchy_name?: string | null;
+  is_active: boolean;
+  is_available_for_assignment?: boolean | null;
+}
+
+export interface UserProfile extends UserCard {
+  department_id?: string | null;
+  department_name?: string | null;
+  timezone?: string | null;
+  language?: string | null;
+  is_verified?: boolean | null;
+  last_login_at?: string | null;
+  created_at?: string | null;
+}
+
 export const usersExtraService = {
+  getUserCard: async (userId: string): Promise<UserCard> =>
+    (await apiClient.get(`${BASE}/${userId}/card`)).data,
+
+  getUserProfile: async (userId: string): Promise<UserProfile> =>
+    (await apiClient.get(`${BASE}/${userId}/profile`)).data,
+
   getProfile: async (): Promise<ProfileSummary> =>
     (await apiClient.get(`${BASE}/profile`)).data,
   updateProfile: async (payload: any): Promise<ProfileSummary> =>

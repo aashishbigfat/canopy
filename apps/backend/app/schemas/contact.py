@@ -77,8 +77,11 @@ class ContactUpdate(BaseModel):
     last_name: Optional[str] = Field(None, min_length=2, max_length=100)
     
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
-    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None), Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)] = None
+    # Use safe_phone_validator (empty/invalid -> None) with the pattern as the
+    # default Field — matches ContactBase so an optional, empty phone/mobile is
+    # accepted as None instead of failing with "Input should be a valid string".
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     title: Optional[str] = None
     department: Optional[str] = None
     
@@ -97,6 +100,7 @@ class ContactResponse(ContactBase):
     id: str
     tenant_id: str
     owner_id: str
+    owner_name: Optional[str] = None
     created_by: str
     created_by_name: Optional[str] = None
     last_modified_by_id: Optional[str] = None

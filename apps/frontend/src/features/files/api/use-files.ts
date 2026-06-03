@@ -23,6 +23,29 @@ export const useGetEntityFiles = (entityType: string, entityId: string) => {
     });
 };
 
+// Files the current user owns (GET /files). The backend FileResponse returns
+// `id` (not `_id`), so the Drive list uses `id`.
+export interface MyFile {
+    id: string;
+    filename: string;
+    original_filename: string;
+    file_size: number;
+    mime_type: string;
+    fileable_type?: string | null;
+    fileable_id?: string | null;
+    created_at: string;
+}
+
+export const useGetMyFiles = (params?: { page?: number; per_page?: number }) => {
+    return useQuery({
+        queryKey: ['files', 'mine', params],
+        queryFn: async () => {
+            const response = await apiClient.get<{ files: MyFile[]; total: number }>('/files', { params });
+            return response.data;
+        },
+    });
+};
+
 export const useUploadFile = () => {
     const queryClient = useQueryClient();
     return useMutation({

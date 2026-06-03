@@ -69,6 +69,9 @@ class Opportunity(BaseDocument):
     is_queue: bool = False
     key_deal: bool = False
     segment: Optional[str] = "B2C"  # B2B or B2C
+    # How the opportunity was created. User-settable ("Manual"/"Auto"); for
+    # lead-converted opportunities the response always reports "Auto" (lead_id set).
+    creation_type: Optional[str] = "Manual"
     
     # Financial year
     fyear: Optional[str] = None

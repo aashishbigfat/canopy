@@ -704,6 +704,8 @@ class ContactService(ActivityMixin):
         attacker could shift a record outside the visible scope of this tenant
         or attach it to a foreign user.
         """
+        from app.models.user import User
+
         contact = await self.get_contact(contact_id, tenant_id)
         if not contact:
             return None
@@ -718,7 +720,10 @@ class ContactService(ActivityMixin):
         contact.last_modified_by_id = current_user_id
         await contact.save()
 
-        setattr(contact, "owner_name", owner.name)
+        # Stash the owner name as a transient attribute so contact_to_response can
+        # surface it. Pydantic's __setattr__ rejects undeclared fields, so write
+        # straight to __dict__; model_dump()/save() ignore it (never hits the DB).
+        object.__setattr__(contact, "owner_name", owner.name)
 
         try:
             from app.tasks.account_tasks import send_owner_change_email

@@ -1170,7 +1170,6 @@ class LeadService(ActivityMixin):
         lead.owner_id = new_owner_id
         lead.last_modified_by_id = current_user_id
         await lead.save()
-        setattr(lead, 'owner_name', owner.name)
 
         # 🚨 COMPREHENSIVE ACTIVITY LOGGING using ActivityMixin
         await self.log_assignment_changed(
@@ -1277,12 +1276,32 @@ class LeadService(ActivityMixin):
         is_converted: Optional[bool] = None,
         view: Optional[str] = None,
         current_user_id: Optional[ObjectId] = None,
-        visible_owner_ids: Optional[list] = None
+        visible_owner_ids: Optional[list] = None,
+        search: Optional[str] = None,
+        lead_status_id: Optional[str] = None,
+        view_id: Optional[str] = None,
     ) -> Dict:
         """Get leads with metadata (statuses, sources, users, etc.)"""
-        
+
         # 1. Build base query / special view queries
         base_filter: dict = {"tenant_id": tenant_id, "deleted_at": None}
+
+        # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
+        # filters seed the effective criteria below; a direct query param wins.
+        if view_id and ObjectId.is_valid(view_id):
+            from app.models.entity_views import EntityView
+            _ev = await EntityView.find_one({
+                "_id": ObjectId(view_id),
+                "entity_type": "lead",
+                "tenant_id": tenant_id,
+                "$or": [{"created_by": current_user_id}, {"is_public": True}],
+            })
+            if _ev and _ev.filters:
+                _f = _ev.filters
+                owner_id = owner_id or _f.get("owner_id")
+                search = search or _f.get("search")
+                lead_status_id = lead_status_id or _f.get("lead_status_id")
+                view = view or _f.get("view")
 
         # Handle explicit owner filter + visibility scoping securely
         if owner_id:
@@ -1306,6 +1325,22 @@ class LeadService(ActivityMixin):
 
         if is_converted is not None:
             base_filter["is_converted"] = is_converted
+
+        # Free-text search (mirrors the lead /search fields)
+        if search and str(search).strip():
+            import re as _re
+            _pat = {"$regex": _re.compile(f".*{_re.escape(str(search).strip())}.*", _re.IGNORECASE)}
+            base_filter["$or"] = [
+                {"first_name": _pat},
+                {"last_name": _pat},
+                {"email": _pat},
+                {"company": _pat},
+                {"phone": _pat},
+            ]
+
+        # Structured status filter
+        if lead_status_id and ObjectId.is_valid(lead_status_id):
+            base_filter["lead_status_id"] = ObjectId(lead_status_id)
 
         all_leads: List[Lead] = []
 

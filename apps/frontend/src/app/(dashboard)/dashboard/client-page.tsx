@@ -12,7 +12,7 @@ import {
 import { LeaderBoardKPIs } from "@/features/dashboard/components/LeaderBoardKPIs";
 import { SalesChart } from "@/features/dashboard/components/SalesChart";
 import { UserActivities } from "@/features/dashboard/components/UserActivities";
-import { PipelineChart } from "@/features/dashboard/components/PipelineChart";
+import { PipelineChart, type PipelineStage } from "@/features/dashboard/components/PipelineChart";
 import { QuickLinksWidget } from "@/features/dashboard/QuickLinksWidget";
 import { useIndustry } from "@/lib/industry-labels";
 
@@ -120,7 +120,17 @@ export default function DashboardClientPage() {
 
     const safeActivities = activities || [];
     const safeKeyDeals = keyDeals || [];
-    const safePipelineStages = Array.isArray(pipelineStages) ? pipelineStages : [];
+    // Backend returns either a bare array or { stages: [...] }
+    const pipelineRaw = pipelineStages as
+        | PipelineStage[]
+        | { stages?: PipelineStage[] }
+        | undefined
+        | null;
+    const safePipelineStages: PipelineStage[] = Array.isArray(pipelineRaw)
+        ? pipelineRaw
+        : Array.isArray(pipelineRaw?.stages)
+            ? pipelineRaw.stages
+            : [];
 
     return (
         <div className="crm-page">

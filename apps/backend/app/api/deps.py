@@ -1,7 +1,7 @@
 """
 Authentication and authorization dependencies for FastAPI
 """
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from jwt import InvalidTokenError as JWTError  # alias keeps downstream code unchanged
@@ -10,9 +10,23 @@ from typing import Optional
 from bson import ObjectId
 
 from app.core.config import settings
+from app.core.request_context import set_activity_context
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
+
+
+def _client_ip(request: Optional[Request]) -> str:
+    """Best-effort client IP extraction (honours common proxy headers)."""
+    if request is None:
+        return "unknown"
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    real = request.headers.get("x-real-ip")
+    if real:
+        return real
+    return request.client.host if request.client else "unknown"
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     """Create JWT access token"""
@@ -29,7 +43,7 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 
-async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
+async def get_current_user(request: Request = None, token: str = Depends(oauth2_scheme)) -> User:
     """Get current authenticated user from JWT token"""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -60,6 +74,23 @@ async def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     )
     if user is None:
         raise credentials_exception
+
+    # Populate per-request activity context so ActivityMixin can log mutations
+    # without each endpoint having to call set_request_context() explicitly.
+    try:
+        set_activity_context({
+            "ip_address": _client_ip(request),
+            "user_agent": request.headers.get("user-agent", "") if request else "",
+            "user_id": user.id,
+            "user_name": user.name,
+            "user_email": user.email,
+            "tenant_id": user.tenant_id,
+            "request_id": getattr(request.state, "request_id", None) if request else None,
+            "timestamp": datetime.utcnow(),
+        })
+    except Exception:
+        # Never let context setup break authentication.
+        pass
 
     return user
 

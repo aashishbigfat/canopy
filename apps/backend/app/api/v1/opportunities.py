@@ -206,6 +206,8 @@ async def get_opportunities(
     owner_id: Optional[str] = Query(None, description="Filter by owner ID"),
     sales_stage_id: Optional[str] = Query(None, description="Filter by sales stage ID"),
     view: Optional[str] = Query(None, description="View filter (today, recent, etc.)"),
+    search: Optional[str] = Query(None, description="Free-text search on opportunity name"),
+    view_id: Optional[str] = Query(None, description="Saved EntityView id (opportunity) whose filters to apply"),
     current_user: User = Depends(check_permission("view_opportunity"))
 ):
     """
@@ -226,7 +228,24 @@ async def get_opportunities(
         from app.services.visibility_scope import get_visible_owner_ids, apply_visibility_filter
         
         service = OpportunityService()
-        
+
+        # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
+        # filters seed the effective criteria; a direct query param wins.
+        if view_id and ObjectId.is_valid(view_id):
+            from app.models.entity_views import EntityView
+            _ev = await EntityView.find_one({
+                "_id": ObjectId(view_id),
+                "entity_type": "opportunity",
+                "tenant_id": current_user.tenant_id,
+                "$or": [{"created_by": current_user.id}, {"is_public": True}],
+            })
+            if _ev and _ev.filters:
+                _f = _ev.filters
+                owner_id = owner_id or _f.get("owner_id")
+                sales_stage_id = sales_stage_id or _f.get("sales_stage_id")
+                search = search or _f.get("search")
+                view = view or _f.get("view")
+
         # Build filters
         filters = {}
         
@@ -276,6 +295,11 @@ async def get_opportunities(
              if closed_stages:
                  closed_stage_ids = [s.id for s in closed_stages]
                  stage_filter = {"$in": closed_stage_ids}
+
+        # Free-text search on the opportunity name
+        if search and str(search).strip():
+            import re as _re
+            filters["name"] = {"$regex": _re.escape(str(search).strip()), "$options": "i"}
 
         # Get opportunities
         opportunities, total = await service.get_opportunities_by_tenant(
@@ -336,10 +360,9 @@ async def get_opportunities(
             if not segment:
                 segment = Segment.default_for_account(is_person_account)
             
-            creation_type = "Manual"
-            if opp.lead_id:
-                creation_type = "Auto"
-            
+            # Lead-converted opps are always "Auto"; otherwise use the stored value.
+            creation_type = "Auto" if opp.lead_id else (getattr(opp, 'creation_type', None) or "Manual")
+
             # Build response
             opp_response = OpportunityResponse.from_orm(opp)
             
@@ -459,8 +482,8 @@ async def get_opportunity(
         if not segment:
             segment = Segment.default_for_account(is_person_account)
         
-        creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
-            
+        creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
+
         opp_response = OpportunityResponse.from_orm(opportunity)
         
         # Resolve destinations if in travel industry
@@ -647,7 +670,7 @@ async def update_opportunity(
         if not opp_response.segment:
             opp_response.segment = Segment.default_for_account(opp_response.is_person_account)
             
-        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response
@@ -784,7 +807,7 @@ async def change_opportunity_stage(
         if not opp_response.segment:
             opp_response.segment = Segment.default_for_account(opp_response.is_person_account)
             
-        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else "Manual"
+        opp_response.creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
         opp_response.type = "Person Account" if opp_response.is_person_account else "Account"
 
         return opp_response

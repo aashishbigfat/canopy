@@ -30,7 +30,6 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Label } from "@/components/ui/label";
 
 import { LeadTable } from "@/features/leads/components/LeadTable";
-import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 import { useLeads } from "@/features/leads/api/useLeads";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFormDrawer } from "@/features/leads/components/LeadFormDrawer";
@@ -50,12 +49,18 @@ export default function LeadsClientPage() {
     const per_page = parseInt(searchParams.get("per_page") || "100");
     const search = searchParams.get("search") || undefined;
     const view = searchParams.get("view") || undefined;
+    const view_id = searchParams.get("view_id") || undefined;
+    const owner_id = searchParams.get("owner_id") || undefined;
+    const lead_status_id = searchParams.get("lead_status_id") || undefined;
 
     const { data: response, isLoading, error } = useLeads({
         page,
         per_page,
         search,
         view,
+        view_id,
+        owner_id,
+        lead_status_id,
     });
 
     // Bulk Delete Mutation
@@ -250,8 +255,6 @@ export default function LeadsClientPage() {
                     </PermissionGate>
                 </div>
             </div>
-
-            <EntityListToolbar entity="lead" />
 
             <div className="crm-surface overflow-hidden">
                 <LeadTable

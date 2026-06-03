@@ -6,19 +6,21 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CreateContactButton } from "@/features/contacts/components/CreateContactButton";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
-import { EntityListToolbar } from "@/features/views/EntityListToolbar";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContactsPage({
     searchParams,
 }: {
-    searchParams: Promise<{ page?: string; per_page?: string }>;
+    searchParams: Promise<{ page?: string; per_page?: string; search?: string; owner_id?: string; view_id?: string }>;
 }) {
     const session = await getServerSession(authOptions);
     const resolvedParams = await searchParams;
     const page = parseInt(resolvedParams.page || "1");
     const per_page = parseInt(resolvedParams.per_page || "10");
+    const search = resolvedParams.search?.trim() || undefined;
+    const owner_id = resolvedParams.owner_id?.trim() || undefined;
+    const view_id = resolvedParams.view_id?.trim() || undefined;
 
     // Redirect to login if no session
     if (!session?.accessToken) {
@@ -38,7 +40,7 @@ export default async function ContactsPage({
     }
 
     const contactsData = await contactsService.getContacts(
-        { page, per_page },
+        { page, per_page, search, owner_id, view_id },
         {
             headers: {
                 Authorization: `Bearer ${session.accessToken}`,
@@ -60,12 +62,11 @@ export default async function ContactsPage({
                 </PermissionGate>
             </div>
 
-            <EntityListToolbar entity="contact" />
-
             <div className="crm-surface overflow-hidden">
                 <ContactTable
                     data={contactsData.contacts}
                     pagination={contactsData.pagination}
+                    users={contactsData.users}
                 />
             </div>
         </div>

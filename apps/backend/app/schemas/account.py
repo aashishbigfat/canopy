@@ -24,12 +24,35 @@ def safe_zip_validator(v: Any) -> Optional[str]:
         return None
     return str(v)
 
+
+# Accepts domains with or without a scheme (e.g. "www.google.com",
+# "google.com", "https://example.com"). Normalizes to include https:// so we
+# never trip Pydantic's strict HttpUrl rules (which surface a pydantic.dev
+# error link to end users). Returns None for empty values.
+_WEBSITE_REGEX = re.compile(
+    r"^https?://[^\s/$.?#][^\s]*\.[^\s]{2,}$", re.IGNORECASE
+)
+
+
+def normalize_website(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    s = str(v).strip()
+    if not s:
+        return None
+    if not re.match(r"^https?://", s, re.IGNORECASE):
+        s = f"https://{s}"
+    if not _WEBSITE_REGEX.match(s):
+        raise ValueError("Please enter a valid website, e.g. example.com")
+    return s
+
 class AccountBase(BaseModel):
     """Base schema for Account"""
     name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr = Field(...)
     phone: Annotated[str, BeforeValidator(safe_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
     is_person_account: bool = False
     segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
@@ -59,8 +82,13 @@ class AccountBase(BaseModel):
     industry_id: Optional[str] = None
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
+
+class AccountCreate(AccountBase):
+    """Schema for creating an account"""
+    custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
     @model_validator(mode='after')
-    def validate_classification(self) -> 'AccountBase':
+    def validate_classification(self) -> 'AccountCreate':
         if not self.is_person_account:
             if not self.acc_type_id:
                 raise ValueError("acc_type_id is required for company accounts")
@@ -69,17 +97,13 @@ class AccountBase(BaseModel):
         return self
 
 
-class AccountCreate(AccountBase):
-    """Schema for creating an account"""
-    custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
-
-
 class AccountUpdate(BaseModel):
     """Schema for updating an account"""
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
     phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    website: Annotated[Optional[HttpUrl], BeforeValidator(lambda v: v if v else None)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
     
     # Person Account specific fields
@@ -113,6 +137,14 @@ class AccountUpdate(BaseModel):
 
 class AccountResponse(AccountBase):
     """Schema for account response"""
+    # Relax input-only constraints for output: legacy/partial records must still
+    # serialize even if they predate current required-field / format rules.
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+    billing_state: Optional[str] = None
+    billing_country: Optional[str] = None
+
     id: str
     tenant_id: str
     owner_id: Optional[str] = None
@@ -171,6 +203,12 @@ class AccountOwnerChange(BaseModel):
     """Schema for changing account owner"""
     new_owner_id: str
     reason: Optional[str] = None
+
+
+class AccountMerge(BaseModel):
+    """Schema for merging a duplicate account into a primary account."""
+    primary_id: str   # account to keep
+    duplicate_id: str  # account to merge & soft-delete
 
 
 class AccountSearch(BaseModel):

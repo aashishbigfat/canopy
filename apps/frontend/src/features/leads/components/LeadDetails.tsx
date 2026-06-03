@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -195,6 +196,7 @@ export function LeadDetails({
     sales_stages = []
 }: LeadDetailsProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const industry = useIndustry();
     const labels = useIndustryLabels();
     const [isConvertOpen, setIsConvertOpen] = useState(false);
@@ -203,6 +205,18 @@ export function LeadDetails({
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
     // Track segment locally so the header badge updates immediately after editing
     const [currentSegment, setCurrentSegment] = useState<string>(lead.segment || "B2C");
+
+    const changeOwnerMutation = useMutation({
+        mutationFn: (newOwnerId: string) => leadsService.changeOwner(lead.id, newOwnerId),
+        onSuccess: () => {
+            toast.success("Owner changed successfully");
+            queryClient.invalidateQueries({ queryKey: ["leads"] });
+            router.refresh();
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || "Failed to change owner");
+        },
+    });
 
     // Sync whenever the server re-renders and passes a new lead prop (after router.refresh())
     useEffect(() => {
@@ -260,8 +274,11 @@ export function LeadDetails({
                 phone={lead.phone || lead.mobile}
                 email={lead.email}
                 ownerName={owner?.name}
+                ownerId={lead.owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                isChangingOwner={changeOwnerMutation.isPending}
             />
 
             <div className="flex flex-col lg:flex-row gap-6">
@@ -275,12 +292,7 @@ export function LeadDetails({
                             >
                                 Details
                             </TabsTrigger>
-                            <TabsTrigger
-                                value="activity"
-                                className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-400 data-[state=active]:text-blue-600"
-                            >
-                                Activity
-                            </TabsTrigger>
+
                             <TabsTrigger
                                 value="attachments"
                                 className="data-[state=active]:bg-transparent data-[state=active]:border-b-2 data-[state=active]:border-blue-600 rounded-none px-0 h-11 text-xs font-bold uppercase tracking-wider text-slate-400 data-[state=active]:text-blue-600"
@@ -401,59 +413,9 @@ export function LeadDetails({
                                     </div>
                                 </CollapsibleDetailSection>
 
-                                {/* BD Assignment (Phase 1) — auto-resolved from territory + role hierarchy */}
-                                <CollapsibleDetailSection
-                                    title="Territory & BD"
-                                    icon={<MapPin className="h-4 w-4" />}
-                                    defaultOpen={true}
-                                    className="border-slate-700"
-                                >
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Territory</p>
-                                            <p className="text-sm font-medium text-slate-200">
-                                                {lead.territory_name || (lead.territory_id ? "(unresolved)" : "Unassigned")}
-                                            </p>
-                                            {lead.territory_match_source && (
-                                                <p className="text-[10px] text-slate-500">
-                                                    matched by {lead.territory_match_source}
-                                                </p>
-                                            )}
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">BD Owner</p>
-                                            <p className="text-sm font-medium text-slate-200">
-                                                {lead.bd_owner_name || (lead.bd_owner_id ? "(unknown)" : "Unassigned")}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Reporting Manager</p>
-                                            <p className="text-sm font-medium text-slate-200">
-                                                {lead.reporting_manager_name || (lead.reporting_manager_id ? "(unknown)" : "Unassigned")}
-                                            </p>
-                                        </div>
-                                        <div className="space-y-1">
-                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Requires Field Meeting</p>
-                                            <Badge
-                                                variant="outline"
-                                                className={lead.requires_field_meeting
-                                                    ? "text-amber-300 border-amber-500/40 bg-amber-500/20"
-                                                    : "text-slate-300 border-slate-500/40 bg-slate-500/20"}
-                                            >
-                                                {lead.requires_field_meeting ? "Yes" : "No"}
-                                            </Badge>
-                                        </div>
-                                    </div>
-                                </CollapsibleDetailSection>
 
-                                {/* BD Visits linked to this lead */}
-                                <div className="rounded-lg border border-slate-700 p-3">
-                                    <VisitsByParentSection
-                                        parentType="Lead"
-                                        parentId={lead.id}
-                                        parentName={lead.full_name}
-                                    />
-                                </div>
+
+
 
                                 {/* System Information */}
                                 <CollapsibleDetailSection
@@ -485,12 +447,7 @@ export function LeadDetails({
                                 </CollapsibleDetailSection>
                             </TabsContent>
 
-                            <TabsContent value="activity" className="mt-0">
-                                {/* Standard Activity components could go here, or simple timeline */}
-                                <div className="p-4 border rounded-lg bg-slate-800/50">
-                                    <p className="text-sm text-slate-400 italic">Activity history is shown in the sidebar.</p>
-                                </div>
-                            </TabsContent>
+
 
                             <TabsContent value="attachments" className="mt-0">
                                 <div className="crm-empty-state">

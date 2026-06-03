@@ -1,5 +1,5 @@
 import { apiClient } from "@/lib/api/client";
-import { Supplier, SupplierCreateData, SupplierFilters, SupplierResponse, SupplierContact, SupplierContactCreateData } from "@/features/suppliers/types";
+import { Supplier, SupplierCreateData, SupplierFilters, SupplierResponse } from "@/features/suppliers/types";
 
 const BASE_URL = "/suppliers";
 
@@ -48,24 +48,11 @@ export const suppliersService = {
         return response.data;
     },
 
-    // ==================== Supplier Contacts ====================
-
-    getSupplierContacts: async (supplierId: string): Promise<{ contacts: SupplierContact[]; total: number }> => {
-        const response = await apiClient.get(`${BASE_URL}/${supplierId}/contacts`);
+    changeOwner: async (id: string, newOwnerId: string): Promise<any> => {
+        const response = await apiClient.post(`${BASE_URL}/${id}/change-owner`, {
+            new_owner_id: newOwnerId
+        });
         return response.data;
-    },
-
-    createSupplierContact: async (supplierId: string, data: SupplierContactCreateData): Promise<SupplierContact> => {
-        const response = await apiClient.post<SupplierContact>(`${BASE_URL}/${supplierId}/contacts`, data);
-        return response.data;
-    },
-
-    updateSupplierContact: async (supplierId: string, contactId: string, data: Partial<SupplierContactCreateData>): Promise<SupplierContact> => {
-        const response = await apiClient.put<SupplierContact>(`${BASE_URL}/${supplierId}/contacts/${contactId}`, data);
-        return response.data;
-    },
-
-    deleteSupplierContact: async (supplierId: string, contactId: string): Promise<void> => {
-        await apiClient.delete(`${BASE_URL}/${supplierId}/contacts/${contactId}`);
     },
 };
+

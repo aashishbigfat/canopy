@@ -82,8 +82,10 @@ const opportunityFormSchema = z.object({
     no_of_infants: z.string().optional(),
     no_of_nights: z.string().optional(),
     destinations: z.string().optional(),
+    source_id: z.string().optional(),
+    creation_type: z.enum(["Manual", "Auto"]).optional(),
     description: z.string().optional(),
-    account_id: z.string().optional(),
+    account_id: z.string().min(1, "Account is required."),
     contact_id: z.string().optional(),
     inclusions: z.array(z.string()).default([]),
     close_lost_reason: z.string().optional(),
@@ -110,6 +112,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     const { data: stages } = useSalesStages();
     const { data: experiences } = useExperiences();
     const { data: usersData, isLoading: isLoadingUsers } = useGetUsers();
+    const { items: sources } = usePicklist("source");
     const industry = useIndustry();
     const isTravel = industry === "travel";
 
@@ -138,20 +141,6 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
 
     // Original pre-filled data (to restore on toggle)
     const [originalAccount, setOriginalAccount] = useState<{ id: string; name: string; is_person_account?: boolean } | null>(null);
-
-    useEffect(() => {
-        if (initialAccountId) {
-            accountsService.getAccount(initialAccountId).then(acc => {
-                const opt = { id: acc.id, name: acc.name, is_person_account: acc.is_person_account };
-                setAccountOptions([opt]);
-                setOriginalAccount(opt);
-                setIsPersonAccount(acc.is_person_account || false);
-                if (initialContactId) {
-                    form.setValue("contact_id", initialContactId);
-                }
-            }).catch(() => { });
-        }
-    }, [initialAccountId, initialContactId]);
 
     // Search accounts handler
     const handleAccountSearch = useCallback(async (query: string, signal?: AbortSignal) => {
@@ -204,6 +193,8 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
             no_of_infants: "",
             no_of_nights: "",
             destinations: "",
+            source_id: "",
+            creation_type: "Manual",
             description: "",
             account_id: initialAccountId || "",
             contact_id: initialContactId || "",
@@ -212,19 +203,24 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
         } as OpportunityFormValues,
     });
 
-    // Pre-select account (and optionally contact) when initial IDs are provided
+    // Pre-select account (and optionally contact) when initial IDs are provided.
+    // Single source of truth — fetches the account once and seeds every piece of
+    // state the form needs (options, form value, selection, person-account flag,
+    // and the originalAccount used to restore on account-type toggle).
     useEffect(() => {
-        if (initialAccountId) {
-            accountsService.getAccount(initialAccountId).then(acc => {
-                // Put account into options so SearchableSelect can display it
-                setAccountOptions([{ id: acc.id, name: acc.name, is_person_account: acc.is_person_account } as any]);
-                // Set form value
-                form.setValue("account_id", acc.id);
-                setSelectedAccountId(acc.id);
-                setIsPersonAccount(acc.is_person_account);
-            }).catch(() => { });
-        }
-    }, [initialAccountId, form]);
+        if (!initialAccountId) return;
+        accountsService.getAccount(initialAccountId).then(acc => {
+            const opt = { id: acc.id, name: acc.name, is_person_account: acc.is_person_account };
+            setAccountOptions([opt as any]);
+            setOriginalAccount(opt);
+            form.setValue("account_id", acc.id);
+            setSelectedAccountId(acc.id);
+            setIsPersonAccount(acc.is_person_account || false);
+            if (initialContactId) {
+                form.setValue("contact_id", initialContactId);
+            }
+        }).catch(() => { });
+    }, [initialAccountId, initialContactId, form]);
 
     // Pre-select contact: directly fetch if initialContactId is provided
     useEffect(() => {
@@ -333,6 +329,12 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
     // industry & isTravel already declared at component top
 
     async function onSubmit(data: OpportunityFormValues) {
+        // Contact is mandatory for company accounts (it's hidden for person accounts).
+        if (!isPersonAccount && !data.contact_id) {
+            form.setError("contact_id", { type: "manual", message: "Contact is required." });
+            return;
+        }
+
         setIsLoading(true);
         const startTime = Date.now();
         let isSuccess = false;
@@ -347,6 +349,8 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                     };
 
                     if (data.owner_id) payload.owner_id = data.owner_id;
+                    if (data.source_id && data.source_id !== "none") payload.source_id = data.source_id;
+                    payload.creation_type = data.creation_type || "Manual";
                     if (data.description?.trim()) payload.description = data.description.trim();
                     if (data.close_lost_reason) payload.close_lost_reason = data.close_lost_reason;
 
@@ -631,11 +635,160 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                         )}
                     />
 
+                    {/* Opportunity Source */}
+                    <FormField
+                        control={form.control}
+                        name="source_id"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Opportunity Source</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || ""}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select source" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="none">None</SelectItem>
+                                        {sources.map((s) => (
+                                            <SelectItem key={s.id} value={s.id}>
+                                                {s.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    {/* Creation — Manual / Auto */}
+                    <FormField
+                        control={form.control}
+                        name="creation_type"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Creation</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value || "Manual"}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Select creation type" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="Manual">Manual</SelectItem>
+                                        <SelectItem value="Auto">Auto</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
 
                 </div>
 
                 {/* Industry-Specific Fields */}
                 <IndustryOpportunityFields industry={useIndustry()} form={form} />
+
+                {/* Inclusions Multi-Select — Travel only */}
+                {isTravel && (
+                    <FormField
+                        control={form.control as any}
+                        name="inclusions"
+                        render={({ field }) => {
+                            const selected: string[] = field.value || [];
+                            return (
+                                <FormItem>
+                                    <FormLabel>Inclusion(s)</FormLabel>
+                                    <Popover open={inclusionOpen} onOpenChange={setInclusionOpen}>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant="outline"
+                                                    role="combobox"
+                                                    className={cn(
+                                                        "min-h-[36px] h-auto w-full justify-between px-3 py-1",
+                                                        selected.length === 0 && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {selected.length > 0 ? (
+                                                            selected.map((item) => (
+                                                                <Badge
+                                                                    key={item}
+                                                                    variant="secondary"
+                                                                    className="rounded-sm px-1 font-normal text-[10px]"
+                                                                >
+                                                                    {item}
+                                                                    <span
+                                                                        className="ml-1 cursor-pointer"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            field.onChange(selected.filter((i) => i !== item));
+                                                                        }}
+                                                                    >
+                                                                        <X className="h-2 w-2 text-muted-foreground hover:text-foreground" />
+                                                                    </span>
+                                                                </Badge>
+                                                            ))
+                                                        ) : (
+                                                            "Select Inclusions"
+                                                        )}
+                                                    </div>
+                                                    <ChevronsUpDown className="ml-2 h-3 w-3 shrink-0 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-full p-0 md:w-[500px]" align="start" onPointerDownOutside={(e) => e.stopPropagation()}>
+                                            <Command>
+                                                <CommandInput
+                                                    placeholder="Search inclusions..."
+                                                    className="h-8"
+                                                    value={inclusionSearch}
+                                                    onValueChange={setInclusionSearch}
+                                                />
+                                                <CommandList>
+                                                    <CommandEmpty>No inclusions found.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {INCLUSION_OPTIONS
+                                                            .filter((opt) => opt.toLowerCase().includes(inclusionSearch.toLowerCase()))
+                                                            .map((opt) => {
+                                                                const isSelected = selected.includes(opt);
+                                                                return (
+                                                                    <CommandItem
+                                                                        key={opt}
+                                                                        value={opt}
+                                                                        onSelect={() => {
+                                                                            if (isSelected) {
+                                                                                field.onChange(selected.filter((i) => i !== opt));
+                                                                            } else {
+                                                                                field.onChange([...selected, opt]);
+                                                                            }
+                                                                            setInclusionSearch("");
+                                                                        }}
+                                                                    >
+                                                                        <Check
+                                                                            className={cn(
+                                                                                "mr-2 h-4 w-4",
+                                                                                isSelected ? "opacity-100" : "opacity-0"
+                                                                            )}
+                                                                        />
+                                                                        {opt}
+                                                                    </CommandItem>
+                                                                );
+                                                            })}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            );
+                        }}
+                    />
+                )}
 
 
                 <FormField
