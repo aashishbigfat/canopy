@@ -130,3 +130,9 @@ class SupplierListResponse(BaseModel):
     page: int = 1
     per_page: int = 10
     pages: int
+
+
+class SupplierOwnerChange(BaseModel):
+    """Schema for changing supplier owner"""
+    new_owner_id: str
+

@@ -15,7 +15,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Filter, MoreHorizontal, Settings, ChevronDown, CheckCircle2, RefreshCw, X, Search as SearchIcon, Download, Save, Trash2, Loader2, Check } from "lucide-react";
+import { ArrowUpDown, Filter, MoreHorizontal, Settings, ChevronDown, CheckCircle2, RefreshCw, X, Search as SearchIcon, Download, Save, Trash2, Loader2, Check, Upload } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -41,6 +41,7 @@ import { Badge } from "@/components/ui/badge";
 import { LoadingState, LoadingTable } from "@/components/ui/loading";
 import Link from "next/link";
 import { ConvertLeadDialog } from "./ConvertLeadDialog";
+import { ImportLeadsDialog } from "./ImportLeadsDialog";
 import { useIndustry, type IndustryType } from "@/lib/industry-labels";
 import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 import { destinationsService } from "@/lib/api/services/destinations.service";
@@ -414,6 +415,7 @@ export function LeadTable({
 
     const [selectedLead, setSelectedLead] = React.useState<Lead | null>(null);
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
+    const [isImportOpen, setIsImportOpen] = React.useState(false);
 
     const columns = React.useMemo(() => {
         const baseColumns = getColumns(lead_statuses, sources, users, experiences, industry, destinationMap);
@@ -742,6 +744,9 @@ export function LeadTable({
                                     <DropdownMenuItem onClick={exportCsv}>
                                         <Download className="mr-2 h-4 w-4" /> Export page (CSV)
                                     </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                                        <Upload className="mr-2 h-4 w-4" /> Import Leads (CSV)
+                                    </DropdownMenuItem>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem onClick={openSaveView}>
                                         <Save className="mr-2 h-4 w-4" /> Save view…
@@ -854,6 +859,11 @@ export function LeadTable({
                     sales_stages={sales_stages}
                 />
             )}
+
+            <ImportLeadsDialog
+                open={isImportOpen}
+                onOpenChange={setIsImportOpen}
+            />
 
             {/* Save a named view */}
             <Dialog open={saveOpen} onOpenChange={setSaveOpen}>

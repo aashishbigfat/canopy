@@ -17,6 +17,7 @@ import {
     Map
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +38,7 @@ import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { Supplier } from "../types";
 import { SupplierFormDrawer } from "./SupplierFormDrawer";
-import { SupplierContactsTab } from "./SupplierContactsTab";
+
 import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -53,9 +54,22 @@ export function SupplierDetails({
     users
 }: SupplierDetailsProps) {
     const router = useRouter();
+    const queryClient = useQueryClient();
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isEditDrawerOpen, setIsEditDrawerOpen] = useState(false);
+
+    const changeOwnerMutation = useMutation({
+        mutationFn: (newOwnerId: string) => suppliersService.changeOwner(supplier.id, newOwnerId),
+        onSuccess: () => {
+            toast.success("Owner changed successfully");
+            queryClient.invalidateQueries({ queryKey: ["suppliers"] });
+            router.refresh();
+        },
+        onError: (error: any) => {
+            toast.error(error?.response?.data?.detail || "Failed to change owner");
+        },
+    });
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -109,6 +123,8 @@ export function SupplierDetails({
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
                 badge={supplier.supplier_type}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                isChangingOwner={changeOwnerMutation.isPending}
             />
 
             <div className="flex flex-col lg:flex-row gap-6">
@@ -122,12 +138,7 @@ export function SupplierDetails({
                             >
                                 Details
                             </TabsTrigger>
-                            <TabsTrigger
-                                value="contacts"
-                                className="h-11 rounded-none px-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
-                            >
-                                Contacts
-                            </TabsTrigger>
+
                             <TabsTrigger
                                 value="rfq"
                                 className="h-11 rounded-none px-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
@@ -222,9 +233,7 @@ export function SupplierDetails({
                                 </div>
                             </TabsContent>
 
-                            <TabsContent value="contacts" className="mt-0">
-                                <SupplierContactsTab supplierId={supplier.id} />
-                            </TabsContent>
+
 
                             <TabsContent value="rfq" className="mt-0">
                                 <div className="crm-empty-state">

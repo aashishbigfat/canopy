@@ -7,7 +7,7 @@ from bson import ObjectId
 
 from app.models.user import User
 from app.schemas.supplier import (
-    SupplierCreate, SupplierUpdate, SupplierResponse, SupplierListResponse
+    SupplierCreate, SupplierUpdate, SupplierResponse, SupplierListResponse, SupplierOwnerChange
 )
 from app.services.supplier_service import SupplierService
 from app.api.deps import get_current_user, check_permission
@@ -330,143 +330,39 @@ async def get_opportunity_suppliers(
     }
 
 
-# ==================== Supplier Contacts (Standalone Collection) ====================
-
-from app.models.supplier_contact import SupplierContact
-from app.schemas.supplier_contact import (
-    SupplierContactCreate, SupplierContactUpdate, SupplierContactResponse
-)
-from datetime import datetime
-
-
-@router.get("/{supplier_id}/contacts")
-async def get_supplier_contacts(
+@router.post("/{supplier_id}/change-owner")
+async def change_supplier_owner(
     supplier_id: str,
-    current_user: User = Depends(check_permission("view_supplier"))
+    owner_change: SupplierOwnerChange,
+    current_user: User = Depends(check_permission("edit_supplier")),
+    service: SupplierService = Depends(SupplierService),
 ):
-    """Get all contacts for a supplier"""
-    service = SupplierService()
-    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
+    """Change supplier owner"""
+    try:
+        new_owner_oid = ObjectId(owner_change.new_owner_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid new_owner_id format")
+
+    try:
+        supplier = await service.change_owner(
+            supplier_id,
+            new_owner_oid,
+            current_user.id,
+            current_user.tenant_id
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
     if not supplier:
         raise HTTPException(status_code=404, detail="Supplier not found")
 
-    contacts = await SupplierContact.find(
-        SupplierContact.supplier_id == ObjectId(supplier_id),
-        SupplierContact.tenant_id == current_user.tenant_id,
-        SupplierContact.deleted_at == None,
-    ).sort([("is_primary", -1), ("name", 1)]).to_list()
-
     return {
-        "contacts": [SupplierContactResponse.from_doc(c) for c in contacts],
-        "total": len(contacts)
+        "error": False,
+        "message": "Supplier ownership updated successfully",
+        "supplier": SupplierResponse.from_orm(supplier)
     }
 
 
-@router.post("/{supplier_id}/contacts", status_code=201)
-async def create_supplier_contact(
-    supplier_id: str,
-    data: SupplierContactCreate,
-    current_user: User = Depends(check_permission("edit_supplier"))
-):
-    """Add a new contact to a supplier"""
-    service = SupplierService()
-    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
-    if not supplier:
-        raise HTTPException(status_code=404, detail="Supplier not found")
-
-    # If this is marked primary, unset existing primary contacts
-    if data.is_primary:
-        existing_primaries = await SupplierContact.find(
-            SupplierContact.supplier_id == ObjectId(supplier_id),
-            SupplierContact.tenant_id == current_user.tenant_id,
-            SupplierContact.is_primary == True,
-            SupplierContact.deleted_at == None,
-        ).to_list()
-        for c in existing_primaries:
-            c.is_primary = False
-            await c.save()
-
-    contact = SupplierContact(
-        **data.model_dump(),
-        supplier_id=ObjectId(supplier_id),
-        tenant_id=current_user.tenant_id,
-    )
-    await contact.insert()
-
-    return SupplierContactResponse.from_doc(contact)
-
-
-@router.put("/{supplier_id}/contacts/{contact_id}")
-async def update_supplier_contact(
-    supplier_id: str,
-    contact_id: str,
-    data: SupplierContactUpdate,
-    current_user: User = Depends(check_permission("edit_supplier"))
-):
-    """Update a supplier contact, scoped to tenant + supplier."""
-    try:
-        cid = ObjectId(contact_id)
-        sid = ObjectId(supplier_id)
-    except Exception:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    contact = await SupplierContact.find_one(
-        {
-            "_id": cid,
-            "supplier_id": sid,
-            "tenant_id": current_user.tenant_id,
-            "deleted_at": None,
-        }
-    )
-    if not contact:
-        raise HTTPException(status_code=404, detail="Contact not found")
-
-    update_data = data.model_dump(exclude_unset=True)
-
-    # If setting as primary, unset others
-    if update_data.get("is_primary"):
-        existing_primaries = await SupplierContact.find(
-            SupplierContact.supplier_id == ObjectId(supplier_id),
-            SupplierContact.tenant_id == current_user.tenant_id,
-            SupplierContact.is_primary == True,
-            SupplierContact.deleted_at == None,
-        ).to_list()
-        for c in existing_primaries:
-            if str(c.id) != contact_id:
-                c.is_primary = False
-                await c.save()
-
-    for key, value in update_data.items():
-        setattr(contact, key, value)
-
-    await contact.save()
-
-    return SupplierContactResponse.from_doc(contact)
-
-
-@router.delete("/{supplier_id}/contacts/{contact_id}")
-async def delete_supplier_contact(
-    supplier_id: str,
-    contact_id: str,
-    current_user: User = Depends(check_permission("edit_supplier"))
-):
-    """Delete a supplier contact, scoped to tenant + supplier."""
-    try:
-        cid = ObjectId(contact_id)
-        sid = ObjectId(supplier_id)
-    except Exception:
-        raise HTTPException(status_code=404, detail="Contact not found")
-    contact = await SupplierContact.find_one(
-        {
-            "_id": cid,
-            "supplier_id": sid,
-            "tenant_id": current_user.tenant_id,
-            "deleted_at": None,
-        }
-    )
-    if not contact:
-        raise HTTPException(status_code=404, detail="Contact not found")
-
-    await contact.delete()
-
-    return {"error": False, "message": "Supplier contact deleted successfully"}
 

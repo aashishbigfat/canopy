@@ -118,4 +118,15 @@ export const leadsService = {
         );
         return response.data;
     },
+
+    importLeadsCsv: async (file: File): Promise<any> => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await apiClient.post(`${BASE_URL}/import`, formData, {
+            headers: {
+                "Content-Type": "multipart/form-data",
+            },
+        });
+        return response.data;
+    },
 };

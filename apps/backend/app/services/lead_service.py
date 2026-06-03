@@ -1170,7 +1170,6 @@ class LeadService(ActivityMixin):
         lead.owner_id = new_owner_id
         lead.last_modified_by_id = current_user_id
         await lead.save()
-        setattr(lead, 'owner_name', owner.name)
 
         # 🚨 COMPREHENSIVE ACTIVITY LOGGING using ActivityMixin
         await self.log_assignment_changed(

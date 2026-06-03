@@ -313,3 +313,50 @@ class SupplierService(ActivityMixin):
                 })
 
         return result
+
+    async def change_owner(
+        self,
+        supplier_id: str,
+        new_owner_id: ObjectId,
+        current_user_id: ObjectId,
+        tenant_id: ObjectId,
+    ) -> Optional[Supplier]:
+        """Change supplier owner.
+
+        SECURITY: new_owner_id must belong to the same tenant.
+        """
+        from app.models.user import User
+
+        supplier = await self.get_supplier(supplier_id, tenant_id)
+        if not supplier:
+            return None
+
+        owner = await User.find_one(
+            {"_id": new_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+        )
+        if not owner:
+            raise ValueError("new_owner_id must reference an active user in this tenant")
+
+        supplier.owner_id = new_owner_id
+        supplier.last_modified_by_id = current_user_id
+        await supplier.save()
+
+        # Transient owner name for the response
+        object.__setattr__(supplier, "owner_name", owner.name)
+
+        try:
+            from app.tasks.account_tasks import send_owner_change_email
+            send_owner_change_email.delay(
+                "Supplier",
+                str(new_owner_id),
+                supplier.name,
+                "supplierDetails",
+                str(tenant_id),
+                str(supplier.id),
+            )
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning("Failed to dispatch Celery task: %s", e)
+
+        return supplier
+

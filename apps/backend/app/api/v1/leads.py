@@ -386,31 +386,40 @@ async def change_lead_owner(
     service: LeadService = Depends(get_lead_service)
 ):
     """Change lead owner"""
-    lead = await service.change_owner(
-        lead_id,
-        ObjectId(owner_change.new_owner_id),
-        current_user.id,
-        current_user.tenant_id
-    )
-    
-    if not lead:
-        raise HTTPException(status_code=404, detail="Lead not found")
-    
-    # Resolve creator, modifier and owner names for the response
-    creator = await User.get(lead.created_by)
-    modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
-    owner = await User.get(lead.owner_id)
-    
-    lead_response = LeadResponse.model_validate(lead)
-    lead_response.created_by_name = creator.name if creator else "Unknown"
-    lead_response.last_modified_by_name = modifier.name if modifier else None
-    lead_response.owner_name = owner.name if owner else "Unknown"
-    
-    return {
-        "error": False,
-        "message": "Lead ownership updated successfully",
-        "lead": lead_response
-    }
+    try:
+        lead = await service.change_owner(
+            lead_id,
+            ObjectId(owner_change.new_owner_id),
+            current_user.id,
+            current_user.tenant_id
+        )
+        
+        if not lead:
+            raise HTTPException(status_code=404, detail="Lead not found")
+        
+        # Resolve creator, modifier and owner names for the response
+        creator = await User.get(lead.created_by)
+        modifier = await User.get(lead.last_modified_by_id) if lead.last_modified_by_id else None
+        owner = await User.get(lead.owner_id)
+        
+        lead_response = LeadResponse.model_validate(lead)
+        lead_response.created_by_name = creator.name if creator else "Unknown"
+        lead_response.last_modified_by_name = modifier.name if modifier else None
+        lead_response.owner_name = owner.name if owner else "Unknown"
+        
+        return {
+            "error": False,
+            "message": "Lead ownership updated successfully",
+            "lead": lead_response
+        }
+    except HTTPException:
+        raise
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/single-column")
@@ -463,12 +472,18 @@ async def import_leads(
     from app.services.import_export_service import ImportExportService
     
     service = ImportExportService()
-    # TODO: Implement import_leads_from_file method
+    result = await service.import_leads_from_file(
+        file=file,
+        tenant_id=current_user.tenant_id,
+        user_id=current_user.id
+    )
     
     return {
         "error": False,
-        "message": "Import functionality coming soon"
+        "message": f"Successfully imported {result['imported']} leads, skipped {result['skipped']} duplicates/errors.",
+        "data": result
     }
+
 
 
 @router.get("/export/{format}")
