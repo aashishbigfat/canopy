@@ -65,6 +65,9 @@ export interface ContactFilters {
     per_page?: number;
     search?: string;
     account_id?: string;
+    owner_id?: string;
+    // Saved EntityView id (contact) whose stored filters the server should apply.
+    view_id?: string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
 }
