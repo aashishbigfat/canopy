@@ -80,6 +80,7 @@ class AccountBase(BaseModel):
     acc_type_id: Optional[str] = None
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
+    category_id: Optional[str] = None
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
 
@@ -129,7 +130,8 @@ class AccountUpdate(BaseModel):
     acc_type_id: Optional[str] = None
     acc_parent_id: Optional[str] = None
     industry_id: Optional[str] = None
-    
+    category_id: Optional[str] = None
+
     custom_fields: Optional[Dict[str, Any]] = None
     segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
     industry_data: Optional[Dict[str, Any]] = None
@@ -154,6 +156,7 @@ class AccountResponse(AccountBase):
     last_modified_by_id: Optional[str] = None
     last_modified_by_name: Optional[str] = None
     account_type_name: Optional[str] = None
+    category_name: Optional[str] = None
 
     view_count: int = 0
     is_favorite: bool = False
@@ -235,3 +238,4 @@ class AccountDetailResponse(AccountResponse):
     parent_account_name: Optional[str] = None
     account_type_name: Optional[str] = None
     industry_name: Optional[str] = None
+    category_name: Optional[str] = None

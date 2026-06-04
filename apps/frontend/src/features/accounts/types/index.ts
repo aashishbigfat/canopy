@@ -31,12 +31,14 @@ export interface Account {
     acc_type_id?: string;
     acc_parent_id?: string;
     industry_id?: string;
+    category_id?: string;
     account_source_id?: string;
     owner_id: string;
 
     // Virtual/Joined Fields
     account_type_name?: string;
     industry_name?: string;
+    category_name?: string;
     parent_account_name?: string;
     owner_name?: string;
     created_by_name?: string;
@@ -77,6 +79,7 @@ export interface AccountCreateData {
     // Classification
     acc_type_id?: string;
     industry_id?: string;
+    category_id?: string;
     account_source_id?: string;
     is_person_account?: boolean;
     owner_id?: string;

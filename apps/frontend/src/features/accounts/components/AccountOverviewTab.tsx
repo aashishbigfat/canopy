@@ -36,6 +36,10 @@ export function AccountOverviewTab({ account }: AccountOverviewTabProps) {
                                 <p className="text-sm font-medium text-muted-foreground">Industry</p>
                                 <p className="text-sm">{account.industry_name || "-"}</p>
                             </div>
+                            <div>
+                                <p className="text-sm font-medium text-muted-foreground">Category</p>
+                                <p className="text-sm">{account.category_name || "-"}</p>
+                            </div>
                         </>
                     )}
                 </CardContent>

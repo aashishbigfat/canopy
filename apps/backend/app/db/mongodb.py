@@ -49,7 +49,7 @@ from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
 from app.models.consolidated_picklists import (
     BasePicklist, SalesStage, OpportunityType, Experience, OpportunityTag,
     LeadStatus, Source, SourceMedium,
-    AccountType, Industry, AccountSource, SupplierServicePicklist,
+    AccountType, Industry, AccountSource, AccountCategory, SupplierServicePicklist,
     Salutation, TaskStatus, TaskPriority,
     Inclusion, ItineraryInclusion, SupplierType, DestinationPicklist,
     BDActivityType, ExpenseCategory,
@@ -328,6 +328,7 @@ async def init_db():
             Industry,
             AccountType,
             AccountSource,
+            AccountCategory,
             SupplierServicePicklist,
             Salutation,
             TaskStatus,
