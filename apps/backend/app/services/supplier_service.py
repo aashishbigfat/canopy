@@ -4,8 +4,11 @@ Supplier service layer - Business logic for supplier management
 from typing import List, Optional, Tuple
 from bson import ObjectId
 import json
-from app.models.supplier import Supplier, OpportunitySupplier
-from app.schemas.supplier import SupplierCreate, SupplierUpdate
+from datetime import datetime
+from app.models.supplier import Supplier, SupplierContact, OpportunitySupplier
+from app.schemas.supplier import (
+    SupplierCreate, SupplierUpdate, SupplierContactCreate, SupplierContactUpdate
+)
 from app.models.opportunity import Opportunity
 from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
@@ -29,6 +32,20 @@ class SupplierService(ActivityMixin):
             owner_id=user_id,
             created_by=user_id
         )
+
+        # Seed the primary contact from the contact person captured on creation.
+        # The form supplies contact_person_name plus the supplier's own phone/email,
+        # so fall back to those for the contact's number/email.
+        if not supplier.contacts and supplier.contact_person_name:
+            supplier.contacts = [
+                SupplierContact(
+                    name=supplier.contact_person_name,
+                    email=supplier.contact_person_email or supplier.email,
+                    phone=supplier.contact_person_phone or supplier.phone,
+                    mobile=supplier.mobile,
+                    is_primary=True,
+                )
+            ]
 
         await supplier.insert()
 
@@ -359,4 +376,94 @@ class SupplierService(ActivityMixin):
             logging.getLogger(__name__).warning("Failed to dispatch Celery task: %s", e)
 
         return supplier
+
+    # ==================== Embedded Contacts ====================
+
+    async def add_contact(
+        self,
+        supplier_id: str,
+        data: SupplierContactCreate,
+        user_id: ObjectId,
+        tenant_id: ObjectId,
+    ) -> Optional[SupplierContact]:
+        """Add a contact to a supplier's embedded contacts list."""
+        supplier = await self.get_supplier(supplier_id, tenant_id)
+        if not supplier:
+            return None
+
+        contact = SupplierContact(**data.model_dump())
+
+        # The first contact is always primary; an explicit primary unsets others.
+        if contact.is_primary or not supplier.contacts:
+            for c in supplier.contacts:
+                c.is_primary = False
+            contact.is_primary = True
+
+        supplier.contacts.append(contact)
+        supplier.last_modified_by_id = user_id
+        await supplier.save()
+
+        return contact
+
+    async def update_contact(
+        self,
+        supplier_id: str,
+        contact_id: str,
+        data: SupplierContactUpdate,
+        user_id: ObjectId,
+        tenant_id: ObjectId,
+    ) -> Optional[SupplierContact]:
+        """Update a single embedded contact, scoped to tenant + supplier."""
+        supplier = await self.get_supplier(supplier_id, tenant_id)
+        if not supplier:
+            return None
+
+        contact = next((c for c in supplier.contacts if c.id == contact_id), None)
+        if not contact:
+            return None
+
+        update_data = data.model_dump(exclude_unset=True)
+
+        # Promoting to primary demotes the others.
+        if update_data.get("is_primary"):
+            for c in supplier.contacts:
+                if c.id != contact_id:
+                    c.is_primary = False
+
+        for key, value in update_data.items():
+            setattr(contact, key, value)
+        contact.updated_at = datetime.utcnow()
+
+        supplier.last_modified_by_id = user_id
+        await supplier.save()
+
+        return contact
+
+    async def delete_contact(
+        self,
+        supplier_id: str,
+        contact_id: str,
+        user_id: ObjectId,
+        tenant_id: ObjectId,
+    ) -> bool:
+        """Remove an embedded contact; promote a new primary if needed."""
+        supplier = await self.get_supplier(supplier_id, tenant_id)
+        if not supplier:
+            return False
+
+        contact = next((c for c in supplier.contacts if c.id == contact_id), None)
+        if not contact:
+            return False
+
+        was_primary = contact.is_primary
+        supplier.contacts = [c for c in supplier.contacts if c.id != contact_id]
+
+        # Keep a primary contact if any remain.
+        if was_primary and supplier.contacts and not any(c.is_primary for c in supplier.contacts):
+            supplier.contacts[0].is_primary = True
+
+        supplier.last_modified_by_id = user_id
+        await supplier.save()
+
+        return True
 

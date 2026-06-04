@@ -6,6 +6,42 @@ from typing import Optional, Annotated, List, Dict, Any
 from datetime import datetime
 from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
 
+class SupplierContactBase(BaseModel):
+    """Base schema for an embedded supplier contact"""
+    name: str
+    designation: Optional[str] = None
+    department: Optional[str] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    is_primary: bool = False
+    notes: Optional[str] = None
+
+
+class SupplierContactCreate(SupplierContactBase):
+    """Schema for adding a contact to a supplier"""
+    pass
+
+
+class SupplierContactUpdate(BaseModel):
+    """Schema for updating a supplier contact"""
+    name: Optional[str] = None
+    designation: Optional[str] = None
+    department: Optional[str] = None
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    is_primary: Optional[bool] = None
+    notes: Optional[str] = None
+
+
+class SupplierContactResponse(SupplierContactBase):
+    """Schema for a supplier contact response"""
+    id: str
+    created_at: datetime
+    updated_at: datetime
+
+
 class SupplierBase(BaseModel):
     """Base schema for Supplier"""
     name: str
@@ -100,10 +136,12 @@ class SupplierResponse(SupplierBase):
     tenant_id: str
     owner_id: str
     is_active: bool
-    
+
+    contacts: List[SupplierContactResponse] = Field(default_factory=list)
+
     created_at: datetime
     updated_at: datetime
-    
+
     class Config:
         from_attributes = True
     

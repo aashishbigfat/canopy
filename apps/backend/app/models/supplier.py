@@ -2,10 +2,33 @@
 Supplier model for multi-industry CRM — service providers, vendors, etc.
 """
 from beanie import Indexed
-from pydantic import EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
+from datetime import datetime
+from uuid import uuid4
 from beanie import PydanticObjectId
 from app.models.base import BaseDocument
+
+
+class SupplierContact(BaseModel):
+    """Contact person embedded on a Supplier document.
+
+    Embedded (rather than a standalone collection) so contacts load with the
+    supplier in a single read — no extra query or join. The contact person
+    captured at supplier creation becomes the primary contact.
+    """
+    id: str = Field(default_factory=lambda: str(uuid4()))
+    name: str
+    designation: Optional[str] = None
+    department: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+    is_primary: bool = False
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
 
 class Supplier(BaseDocument):
     """Supplier model for multi-industry service providers"""
@@ -39,11 +62,14 @@ class Supplier(BaseDocument):
     tax_id: Optional[str] = None
     registration_number: Optional[str] = None
     
-    # Contact Person
+    # Contact Person (legacy single-contact fields; seeds the primary contact)
     contact_person_name: Optional[str] = None
     contact_person_email: Optional[EmailStr] = None
     contact_person_phone: Optional[str] = None
-    
+
+    # Contact persons (embedded; first/primary seeded from contact_person_* on create)
+    contacts: List[SupplierContact] = Field(default_factory=list)
+
     # Payment Terms
     payment_terms: Optional[str] = None
     credit_limit: Optional[float] = None

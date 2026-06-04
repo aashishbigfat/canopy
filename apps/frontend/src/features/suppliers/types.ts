@@ -24,10 +24,13 @@ export interface Supplier {
     zip?: string;
     country?: string;
 
-    // Contact Person
+    // Contact Person (legacy single contact; seeds the primary contact)
     contact_person_name?: string;
     contact_person_email?: string;
     contact_person_phone?: string;
+
+    // Embedded contacts (loaded with the supplier — no extra request)
+    contacts?: SupplierContact[];
 
     // Finance
     payment_terms?: string;
@@ -70,4 +73,29 @@ export type SupplierResponse = {
     per_page: number;
     pages: number;
 };
+
+export interface SupplierContact {
+    id: string;
+    name: string;
+    designation?: string;
+    department?: string;
+    email?: string;
+    phone?: string;
+    mobile?: string;
+    is_primary: boolean;
+    notes?: string;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SupplierContactCreateData {
+    name: string;
+    designation?: string;
+    department?: string;
+    email?: string;
+    phone?: string;
+    mobile?: string;
+    is_primary?: boolean;
+    notes?: string;
+}
 

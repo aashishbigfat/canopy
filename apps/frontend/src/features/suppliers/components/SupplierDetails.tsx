@@ -38,6 +38,7 @@ import { EntityDetailHeader } from "@/components/shared/EntityDetailHeader";
 import { EntityActivitySidebar } from "@/components/shared/EntityActivitySidebar";
 import { Supplier } from "../types";
 import { SupplierFormDrawer } from "./SupplierFormDrawer";
+import { SupplierContactsTab } from "./SupplierContactsTab";
 
 import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { toast } from "sonner";
@@ -138,7 +139,12 @@ export function SupplierDetails({
                             >
                                 Details
                             </TabsTrigger>
-
+                            <TabsTrigger
+                                value="contacts"
+                                className="h-11 rounded-none px-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
+                            >
+                                Contacts
+                            </TabsTrigger>
                             <TabsTrigger
                                 value="rfq"
                                 className="h-11 rounded-none px-0 text-xs font-semibold uppercase tracking-wider text-muted-foreground data-[state=active]:border-b-2 data-[state=active]:border-primary data-[state=active]:bg-transparent data-[state=active]:text-primary"
@@ -233,7 +239,9 @@ export function SupplierDetails({
                                 </div>
                             </TabsContent>
 
-
+                            <TabsContent value="contacts" className="mt-0">
+                                <SupplierContactsTab supplier={supplier} />
+                            </TabsContent>
 
                             <TabsContent value="rfq" className="mt-0">
                                 <div className="crm-empty-state">
