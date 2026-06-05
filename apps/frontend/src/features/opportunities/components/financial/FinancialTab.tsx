@@ -8,6 +8,7 @@ import { TransactionTab } from "./TransactionTab";
 import { Opportunity } from "../../types";
 import { cn } from "@/lib/utils";
 import { financialService } from "@/lib/api/services/financial.service";
+import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { useCosting } from "../../api/useOpportunityFinancial";
 
 const SUB_TABS = [
@@ -27,25 +28,51 @@ export function FinancialTab({ opportunity }: Props) {
     const isLocked = opportunity.is_locked ?? false;
     const [activeTab, setActiveTab] = useState<SubTabId>("costing");
     const [destOptions, setDestOptions] = useState<{ label: string; value: string }[]>([]);
+    // Lookup of every tenant supplier (id → services), used to enrich the costing suppliers
+    const [supplierServiceMap, setSupplierServiceMap] = useState<Record<string, string[]>>({});
 
-    // Fetch saved costing to derive suppliers & destinations for the Transaction modal
+    // Saved costing — the Pay modal supplier list is scoped to the suppliers
+    // actually chosen on this opportunity's costing sheet (not all tenant suppliers).
     const { data: costing } = useCosting(opportunity.id);
 
-    // Unique suppliers from costing line items (excluding Tax/Misc fixed rows with no supplier_id)
-    const costingSuppliers = useMemo<string[]>(() => {
-        if (!costing?.items) return [];
-        const names = costing.items
-            .filter((item) => item.supplier_name && item.item_type !== "Tax" && item.item_type !== "Miscellaneous")
-            .map((item) => item.supplier_name as string);
-        return Array.from(new Set(names));
-    }, [costing]);
+    // Destination names selected on this opportunity — used by the Pay modal's Location field
+    const opportunityDestinations = useMemo<string[]>(
+        () => destOptions.map((d) => d.label),
+        [destOptions]
+    );
 
-    // Unique destinations from costing line items
-    const costingDestinations = useMemo<string[]>(() => {
+    // Suppliers for the Pay modal: only those selected on the costing sheet,
+    // de-duplicated by supplier id, enriched with each supplier's services.
+    const suppliers = useMemo<{ id: string; name: string; services: string[] }[]>(() => {
         if (!costing?.items) return [];
-        const names = costing.items.flatMap((item) => item.destination_names || []);
-        return Array.from(new Set(names));
-    }, [costing]);
+        const result: { id: string; name: string; services: string[] }[] = [];
+        const seen = new Set<string>();
+        for (const item of costing.items) {
+            if (item.item_type === "Tax" || item.item_type === "Miscellaneous") continue;
+            if (!item.supplier_id || seen.has(item.supplier_id)) continue;
+            seen.add(item.supplier_id);
+            result.push({
+                id: item.supplier_id,
+                name: item.supplier_name || "",
+                services: supplierServiceMap[item.supplier_id] || [],
+            });
+        }
+        return result;
+    }, [costing, supplierServiceMap]);
+
+    // Load all tenant suppliers once to build the id → services lookup.
+    useEffect(() => {
+        suppliersService
+            .getSuppliers({})
+            .then((res) => {
+                const map: Record<string, string[]> = {};
+                res.suppliers.forEach((s) => {
+                    map[s.id] = s.services || [];
+                });
+                setSupplierServiceMap(map);
+            })
+            .catch(() => {});
+    }, []);
 
     // Fetch SCOPED destinations from the opportunity (not global!)
     useEffect(() => {
@@ -117,8 +144,8 @@ export function FinancialTab({ opportunity }: Props) {
                     <TransactionTab
                         opportunityId={opportunity.id}
                         opportunityAmount={opportunity.amount ?? 0}
-                        costingSuppliers={costingSuppliers}
-                        costingDestinations={costingDestinations}
+                        suppliers={suppliers}
+                        destinationOptions={opportunityDestinations}
                         isLocked={isLocked}
                     />
                 )}

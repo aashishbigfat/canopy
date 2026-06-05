@@ -12,12 +12,14 @@ import { TransactionModal } from "./TransactionModal";
 interface Props {
     opportunityId: string;
     opportunityAmount: number;
-    costingSuppliers: string[];
-    costingDestinations: string[];
+    /** Costing suppliers with their services — populates the Pay modal Supplier/Services fields */
+    suppliers: { id: string; name: string; services: string[] }[];
+    /** Destination names selected on this opportunity — populates the Pay modal Location field */
+    destinationOptions: string[];
     isLocked?: boolean;
 }
 
-export function TransactionTab({ opportunityId, opportunityAmount, costingSuppliers, costingDestinations, isLocked = false }: Props) {
+export function TransactionTab({ opportunityId, opportunityAmount, suppliers, destinationOptions, isLocked = false }: Props) {
     const { data: transactions = [], isLoading } = useTransactions(opportunityId);
     const createMutation = useCreateTransaction(opportunityId);
 
@@ -291,8 +293,8 @@ export function TransactionTab({ opportunityId, opportunityAmount, costingSuppli
                 transactionType={modalType}
                 opportunityTotal={totalReceivables}
                 currentBalance={totalBalance}
-                costingSuppliers={costingSuppliers}
-                costingDestinations={costingDestinations}
+                suppliers={suppliers}
+                destinationOptions={destinationOptions}
             />
         </div>
     );
