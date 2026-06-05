@@ -28,7 +28,8 @@ def account_to_response(account: Account) -> AccountResponse:
     created_by_name = getattr(account, 'created_by_name', None)
     last_modified_by_name = getattr(account, 'last_modified_by_name', None)
     account_type_name = getattr(account, 'account_type_name', None)
-    
+    category_name = getattr(account, 'category_name', None)
+
     return AccountResponse(
         id=str(account.id),
         name=account.name,
@@ -55,6 +56,8 @@ def account_to_response(account: Account) -> AccountResponse:
         account_type_name=account_type_name,
         acc_parent_id=str(account.acc_parent_id) if account.acc_parent_id else None,
         industry_id=str(account.industry_id) if account.industry_id else None,
+        category_id=str(account.category_id) if getattr(account, 'category_id', None) else None,
+        category_name=category_name,
         tenant_id=str(account.tenant_id),
         owner_id=str(account.owner_id),
         owner_name=owner_name,
@@ -72,7 +75,7 @@ def account_to_response(account: Account) -> AccountResponse:
 
 # Fields on the Account model that hold ObjectId references.
 _VIEW_OBJECTID_FIELDS = {
-    "owner_id", "acc_type_id", "acc_parent_id", "industry_id",
+    "owner_id", "acc_type_id", "acc_parent_id", "industry_id", "category_id",
     "territory_state_id", "territory_country_id", "territory_id",
     "region_id", "bd_owner_id", "reporting_manager_id",
     "created_by", "last_modified_by_id",
@@ -159,7 +162,7 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
     Only types matching the tenant's industry (or global types with
     industry=None) are returned.
     """
-    from app.models.picklists import Industry, AccountType, AccountSource
+    from app.models.picklists import Industry, AccountType, AccountSource, AccountCategory
     from app.models.tenant import Tenant
     from app.core.picklist_query import build_picklist_query, dedup_picklist_items
 
@@ -172,7 +175,8 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
     industries = dedup_picklist_items(await Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list())
     acc_types = dedup_picklist_items(await AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list())
     sources = dedup_picklist_items(await AccountSource.find(build_picklist_query(current_user.tenant_id, picklist_type="account_source")).sort("+sorting").to_list())
-    
+    categories = dedup_picklist_items(await AccountCategory.find(build_picklist_query(current_user.tenant_id, picklist_type="account_category")).sort("+sorting").to_list())
+
     users = await User.find({
         "tenant_id": current_user.tenant_id,
         "is_active": True
@@ -188,6 +192,7 @@ async def get_account_form_data(current_user: User = Depends(get_current_user)):
         "industries": [{"id": str(i.id), "name": i.name} for i in industries],
         "account_types": [{"id": str(t.id), "name": t.name} for t in acc_types],
         "sources": [{"id": str(s.id), "name": s.name} for s in sources],
+        "categories": [{"id": str(c.id), "name": c.name} for c in categories],
         "users": [{"id": str(u.id), "name": u.name} for u in users],
         "parent_accounts": [{"id": str(a.id), "name": a.name} for a in parent_accounts],
         "current_user_name": current_user.name
@@ -246,7 +251,7 @@ async def get_accounts(
         import asyncio
         from app.models.user_account_view import UserAccountView
         from app.models.account_views import AccountView, AccountColumn, AccountPinView
-        from app.models.picklists import Industry, AccountType
+        from app.models.picklists import Industry, AccountType, AccountCategory
         from app.services.visibility_scope import get_visible_owner_ids
         from app.core.picklist_query import build_picklist_query, dedup_picklist_items
         from app.models.tenant import Tenant
@@ -358,6 +363,7 @@ async def get_accounts(
             users,
             industries_raw,
             acc_types_raw,
+            categories_raw,
         ) = await asyncio.gather(
             # 1. Total count
             Account.find(query).count(),
@@ -374,17 +380,21 @@ async def get_accounts(
             Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list(),
             # 6. Account types (platform defaults + tenant overrides)
             AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list(),
+            # 7. Account categories (platform defaults + tenant overrides)
+            AccountCategory.find(build_picklist_query(current_user.tenant_id, picklist_type="account_category")).sort("+sorting").to_list(),
         )
-        
+
         # Tenant items shadow platform defaults with same name
         industries = dedup_picklist_items(industries_raw)
         acc_types = dedup_picklist_items(acc_types_raw)
+        categories = dedup_picklist_items(categories_raw)
 
         pages = (total + per_page - 1) // per_page
         
         # Build lookup maps
         user_map = {str(u.id): u.name for u in users}
         acc_type_map = {str(t.id): t.name for t in acc_types}
+        category_map = {str(c.id): c.name for c in categories}
         
         # Get default columns - temporarily return empty list to avoid ObjectId/int mismatch
         display_columns = []
@@ -417,6 +427,8 @@ async def get_accounts(
                     "account_type_name": acc_type_map.get(str(acc.acc_type_id)) if acc.acc_type_id else None,
                     "acc_parent_id": str(acc.acc_parent_id) if acc.acc_parent_id else None,
                     "industry_id": str(acc.industry_id) if acc.industry_id else None,
+                    "category_id": str(acc.category_id) if getattr(acc, 'category_id', None) else None,
+                    "category_name": category_map.get(str(acc.category_id)) if getattr(acc, 'category_id', None) else None,
                     "tenant_id": str(acc.tenant_id),
                     "owner_id": str(acc.owner_id),
                     "owner_name": user_map.get(str(acc.owner_id)),

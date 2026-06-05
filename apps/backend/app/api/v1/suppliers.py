@@ -7,7 +7,8 @@ from bson import ObjectId
 
 from app.models.user import User
 from app.schemas.supplier import (
-    SupplierCreate, SupplierUpdate, SupplierResponse, SupplierListResponse, SupplierOwnerChange
+    SupplierCreate, SupplierUpdate, SupplierResponse, SupplierListResponse, SupplierOwnerChange,
+    SupplierContactCreate, SupplierContactUpdate, SupplierContactResponse
 )
 from app.services.supplier_service import SupplierService
 from app.api.deps import get_current_user, check_permission
@@ -364,5 +365,71 @@ async def change_supplier_owner(
         "supplier": SupplierResponse.from_orm(supplier)
     }
 
+
+# ==================== Supplier Contacts (embedded) ====================
+
+@router.get("/{supplier_id}/contacts")
+async def get_supplier_contacts(
+    supplier_id: str,
+    current_user: User = Depends(check_permission("view_supplier"))
+):
+    """Get all contacts embedded on a supplier."""
+    service = SupplierService()
+    supplier = await service.get_supplier(supplier_id, current_user.tenant_id)
+    if not supplier:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+
+    contacts = sorted(supplier.contacts, key=lambda c: (not c.is_primary, c.name.lower()))
+    return {
+        "contacts": [SupplierContactResponse.model_validate(c.model_dump()) for c in contacts],
+        "total": len(contacts),
+    }
+
+
+@router.post("/{supplier_id}/contacts", response_model=SupplierContactResponse, status_code=201)
+async def create_supplier_contact(
+    supplier_id: str,
+    data: SupplierContactCreate,
+    current_user: User = Depends(check_permission("edit_supplier"))
+):
+    """Add a new contact to a supplier."""
+    service = SupplierService()
+    contact = await service.add_contact(supplier_id, data, current_user.id, current_user.tenant_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail="Supplier not found")
+    return SupplierContactResponse.model_validate(contact.model_dump())
+
+
+@router.put("/{supplier_id}/contacts/{contact_id}", response_model=SupplierContactResponse)
+async def update_supplier_contact(
+    supplier_id: str,
+    contact_id: str,
+    data: SupplierContactUpdate,
+    current_user: User = Depends(check_permission("edit_supplier"))
+):
+    """Update a supplier contact, scoped to tenant + supplier."""
+    service = SupplierService()
+    contact = await service.update_contact(
+        supplier_id, contact_id, data, current_user.id, current_user.tenant_id
+    )
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return SupplierContactResponse.model_validate(contact.model_dump())
+
+
+@router.delete("/{supplier_id}/contacts/{contact_id}")
+async def delete_supplier_contact(
+    supplier_id: str,
+    contact_id: str,
+    current_user: User = Depends(check_permission("edit_supplier"))
+):
+    """Delete a supplier contact, scoped to tenant + supplier."""
+    service = SupplierService()
+    success = await service.delete_contact(
+        supplier_id, contact_id, current_user.id, current_user.tenant_id
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return {"error": False, "message": "Supplier contact deleted successfully"}
 
 

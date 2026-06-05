@@ -65,6 +65,7 @@ const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
     // Classification
     industry_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Industry is required"),
     acc_type_id: isPersonAccount ? z.string().optional() : z.string().min(1, "Account Type is required"),
+    category_id: z.string().optional(),
 
     // Addresses
     billing_street: z.string().optional(),
@@ -96,6 +97,7 @@ interface MetaData {
     industries: { id: string; name: string }[];
     account_types: { id: string; name: string }[];
     sources: { id: string; name: string }[];
+    categories: { id: string; name: string }[];
     users: { id: string; name: string }[];
     current_user_name?: string;
 }
@@ -436,6 +438,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             description: initialData?.description || "",
             industry_id: initialData?.industry_id || initialData?.industry || "",
             acc_type_id: initialData?.acc_type_id || "",
+            category_id: initialData?.category_id || "",
             billing_street: initialData?.billing_street || "",
             billing_city: initialData?.billing_city || "",
             billing_state: initialData?.billing_state || "",
@@ -748,6 +751,27 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                                 value={field.value}
                                                 onValueChange={field.onChange}
                                                 placeholder="Select Industry"
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {!isPersonAccount && (
+                            <FormField
+                                control={form.control}
+                                name="category_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Category</FormLabel>
+                                        <FormControl>
+                                            <SearchableSelect
+                                                options={metaData?.categories?.map(c => ({ label: c.name, value: c.id })) || []}
+                                                value={field.value}
+                                                onValueChange={field.onChange}
+                                                placeholder="Select Category"
                                             />
                                         </FormControl>
                                         <FormMessage />

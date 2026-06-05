@@ -17,7 +17,6 @@ from app.models.opportunity_financial import (
     COSTING_ITEM_TYPES, FIXED_ITEM_TYPES
 )
 from app.models.supplier import Supplier
-from app.models.destination import Destination
 from app.schemas.opportunity_financial import (
     CostingCreateUpdate, CostingResponse,
     PaymentScheduleItemCreate, PaymentScheduleItemUpdate, PaymentScheduleItemResponse,
@@ -105,13 +104,21 @@ async def get_costing_destinations(
     opportunity_id: str,
     current_user: User = Depends(get_current_user),
 ):
-    """Return ONLY the destinations selected on this opportunity (scoped)"""
+    """Return ONLY the destinations selected on this opportunity (scoped).
+
+    Opportunity destination_ids reference the DestinationPicklist documents in
+    the 'picklists' collection (picklist_type='destination') — NOT the legacy
+    Destination entity collection. Querying the wrong collection here returned
+    zero results, so the costing/transaction destination dropdowns appeared
+    empty even when the opportunity had destinations selected.
+    """
+    from app.models.consolidated_picklists import DestinationPicklist
+
     opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     result = []
     opp_dest_ids = (opp.industry_data or {}).get('destination_ids', [])
     if opp_dest_ids:
-        # Single tenant-scoped bulk lookup; no cross-tenant destination exposure.
         oids = []
         for did in opp_dest_ids:
             try:
@@ -119,10 +126,16 @@ async def get_costing_destinations(
             except Exception:
                 continue
         if oids:
-            dests = await Destination.find(
-                {"_id": {"$in": oids}, "tenant_id": current_user.tenant_id, "deleted_at": None}
+            dests = await DestinationPicklist.find(
+                {"_id": {"$in": oids}, "picklist_type": "destination"}
             ).to_list()
-            result = [{"id": str(d.id), "name": d.name} for d in dests]
+            name_map = {str(d.id): d.name for d in dests}
+            # Preserve the opportunity's destination order
+            result = [
+                {"id": str(did), "name": name_map[str(did)]}
+                for did in opp_dest_ids
+                if str(did) in name_map
+            ]
     return {"destinations": result}
 
 
@@ -134,18 +147,26 @@ async def get_costing(
     current_user: User = Depends(get_current_user),
 ):
     """Get the costing sheet for an opportunity"""
-    await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
+    opp = await get_opportunity_or_404(opportunity_id, current_user.tenant_id)
 
     costing = await OpportunityCosting.find_one(
         {"opportunity_id": ObjectId(opportunity_id), "tenant_id": current_user.tenant_id}
     )
 
     if not costing:
-        # Return empty costing structure
+        # No costing saved yet — seed the selected item types from the
+        # opportunity's inclusions so they pre-populate as costing rows.
+        # (Mirrors the bi-directional sync in upsert_costing where
+        # selected_item_types is written back to industry_data.inclusions.)
+        opp_inclusions = (opp.industry_data or {}).get('inclusions', []) or []
+        seeded_types = [
+            inc for inc in opp_inclusions
+            if inc and inc not in FIXED_ITEM_TYPES
+        ]
         return CostingResponse(
             opportunity_id=opportunity_id,
             tenant_id=str(current_user.tenant_id),
-            selected_item_types=[],
+            selected_item_types=seeded_types,
             items=[],
             total_amount=0.0,
             total_cost=0.0,
@@ -197,20 +218,20 @@ async def upsert_costing(
                 pass
 
         if item.destination_ids and not item.destination_names:
+            from app.models.consolidated_picklists import DestinationPicklist
             try:
                 dest_oids = [ObjectId(d) for d in item.destination_ids]
             except Exception:
                 dest_oids = []
             names: list[str] = []
             if dest_oids:
-                dests = await Destination.find(
-                    {
-                        "_id": {"$in": dest_oids},
-                        "tenant_id": current_user.tenant_id,
-                        "deleted_at": None,
-                    }
+                # destination_ids reference DestinationPicklist (picklists collection),
+                # not the legacy Destination entity collection.
+                dests = await DestinationPicklist.find(
+                    {"_id": {"$in": dest_oids}, "picklist_type": "destination"}
                 ).to_list()
-                names = [d.name for d in dests]
+                name_map = {str(d.id): d.name for d in dests}
+                names = [name_map[str(d)] for d in item.destination_ids if str(d) in name_map]
             item.destination_names = names
 
     # Calculate totals

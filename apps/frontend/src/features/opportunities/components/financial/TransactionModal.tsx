@@ -24,27 +24,13 @@ interface Props {
     transactionType: "Receive" | "Pay" | "Refund";
     opportunityTotal?: number;
     currentBalance?: number;
-    /** Unique supplier names from saved costing items */
-    costingSuppliers?: string[];
-    /** Unique destination names from saved costing items */
-    costingDestinations?: string[];
+    /** Costing suppliers with their services — drives the Supplier & Services fields */
+    suppliers?: { id: string; name: string; services: string[] }[];
+    /** Destination names selected on this opportunity — drives the Location field */
+    destinationOptions?: string[];
 }
 
 const PAYMENT_MODES = ["Select Payment Mode", "Cash", "Cheque", "Online", "Other"];
-
-const TRAVEL_SERVICES = [
-    "Select Service",
-    "Flight",
-    "Hotel",
-    "Tour Package",
-    "Car Rental",
-    "Cruise",
-    "Travel Insurance",
-    "Visa",
-    "Activities & Excursions",
-    "Airport Transfer",
-    "Other",
-];
 
 export function TransactionModal({
     isOpen,
@@ -53,8 +39,8 @@ export function TransactionModal({
     transactionType,
     opportunityTotal,
     currentBalance,
-    costingSuppliers = [],
-    costingDestinations = [],
+    suppliers = [],
+    destinationOptions = [],
 }: Props) {
     const [amount, setAmount] = useState("");
     const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
@@ -106,6 +92,10 @@ export function TransactionModal({
 
     const isPay = transactionType === "Pay";
     const showBalance = opportunityTotal !== undefined && currentBalance !== undefined;
+
+    // Services available for the chosen supplier (Bug 2: services follow the supplier)
+    const selectedSupplierServices =
+        suppliers.find((s) => s.name === supplier)?.services ?? [];
 
     const handleSubmit = async () => {
         const parsedAmount = parseFloat(amount);
@@ -246,7 +236,11 @@ export function TransactionModal({
                                     </label>
                                     <select
                                         value={supplier}
-                                        onChange={(e) => setSupplier(e.target.value)}
+                                        onChange={(e) => {
+                                            setSupplier(e.target.value);
+                                            // Reset service — it depends on the chosen supplier
+                                            setService("");
+                                        }}
                                         className={`w-full h-10 rounded-md border bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
                                             !supplier
                                                 ? "border-slate-700 text-slate-400"
@@ -254,10 +248,10 @@ export function TransactionModal({
                                         }`}
                                     >
                                         <option value="">Select Supplier</option>
-                                        {costingSuppliers.length > 0 ? (
-                                            costingSuppliers.map((s) => (
-                                                <option key={s} value={s}>
-                                                    {s}
+                                        {suppliers.length > 0 ? (
+                                            suppliers.map((s) => (
+                                                <option key={s.id} value={s.name}>
+                                                    {s.name}
                                                 </option>
                                             ))
                                         ) : (
@@ -268,7 +262,7 @@ export function TransactionModal({
                                     </select>
                                 </div>
 
-                                {/* Services */}
+                                {/* Services — follow the selected supplier */}
                                 <div>
                                     <label className="block text-xs font-medium text-slate-300 mb-1.5">
                                         Services
@@ -276,16 +270,25 @@ export function TransactionModal({
                                     <select
                                         value={service}
                                         onChange={(e) => setService(e.target.value)}
-                                        className="w-full h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+                                        disabled={!supplier}
+                                        className={`w-full h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                                            !service ? "text-slate-400" : "text-slate-200"
+                                        }`}
                                     >
-                                        {TRAVEL_SERVICES.map((svc) => (
-                                            <option
-                                                key={svc}
-                                                value={svc === "Select Service" ? "" : svc}
-                                            >
-                                                {svc}
+                                        <option value="">
+                                            {!supplier ? "Select a supplier first" : "Select Service"}
+                                        </option>
+                                        {supplier && selectedSupplierServices.length > 0 ? (
+                                            selectedSupplierServices.map((svc) => (
+                                                <option key={svc} value={svc}>
+                                                    {svc}
+                                                </option>
+                                            ))
+                                        ) : supplier ? (
+                                            <option disabled value="">
+                                                No services for this supplier
                                             </option>
-                                        ))}
+                                        ) : null}
                                     </select>
                                 </div>
                             </div>
@@ -305,15 +308,15 @@ export function TransactionModal({
                                     }`}
                                 >
                                     <option value="">Select Location</option>
-                                    {costingDestinations.length > 0 ? (
-                                        costingDestinations.map((d) => (
+                                    {destinationOptions.length > 0 ? (
+                                        destinationOptions.map((d) => (
                                             <option key={d} value={d}>
                                                 {d}
                                             </option>
                                         ))
                                     ) : (
                                         <option disabled value="">
-                                            No destinations in costing
+                                            No destinations on this opportunity
                                         </option>
                                     )}
                                 </select>

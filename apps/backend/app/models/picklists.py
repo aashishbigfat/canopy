@@ -10,6 +10,7 @@ from app.models.consolidated_picklists import (
     AccountType,
     Industry,
     AccountSource,
+    AccountCategory,
     SupplierServicePicklist as SupplierService,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "AccountType",
     "Industry",
     "AccountSource",
+    "AccountCategory",
     "SupplierService",
 ]

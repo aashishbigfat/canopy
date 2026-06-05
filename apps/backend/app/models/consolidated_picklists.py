@@ -75,7 +75,14 @@ class AccountSource(BasePicklist):
 class SupplierServicePicklist(BasePicklist):
     """Supplier Service Types picklist"""
     picklist_type: Literal["supplier_service"] = "supplier_service"
-    
+
+    class Settings:
+        name = "picklists"
+
+class AccountCategory(BasePicklist):
+    """Account category picklist (Category A, B, C, ...) for company accounts"""
+    picklist_type: Literal["account_category"] = "account_category"
+
     class Settings:
         name = "picklists"
 

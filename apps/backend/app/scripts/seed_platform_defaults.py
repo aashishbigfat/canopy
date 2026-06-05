@@ -167,6 +167,9 @@ GLOBAL_DEFAULTS: Dict[str, List[str]] = {
         "Web", "Phone Inquiry", "Partner Referral",
         "Purchased List", "Other",
     ],
+    "account_category": [
+        "Category A", "Category B", "Category C", "Category D",
+    ],
     "opportunity_type": [
         "New Business", "Existing Business", "Renewal",
     ],
@@ -200,6 +203,7 @@ _PICKLIST_CLASS_ID_MAP = {
     "account_type": "BasePicklist.AccountType",
     "industry": "BasePicklist.Industry",
     "account_source": "BasePicklist.AccountSource",
+    "account_category": "BasePicklist.AccountCategory",
     "lead_status": "BasePicklist.LeadStatus",
     "source": "BasePicklist.Source",
     "source_medium": "BasePicklist.SourceMedium",

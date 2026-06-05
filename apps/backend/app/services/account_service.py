@@ -368,7 +368,20 @@ class AccountService(ActivityMixin):
             )
             if industry:
                 industry_name = industry.name
-        
+
+        # Get category name (same picklist scoping rules)
+        category_name = None
+        if getattr(account, "category_id", None):
+            from app.models.picklists import AccountCategory
+            category = await AccountCategory.find_one(
+                {
+                    "_id": account.category_id,
+                    "$or": [{"tenant_id": tenant_id}, {"tenant_id": None}],
+                }
+            )
+            if category:
+                category_name = category.name
+
         # Build response
         return {
             **account.model_dump(),
@@ -380,6 +393,7 @@ class AccountService(ActivityMixin):
             "acc_type_id": str(account.acc_type_id) if account.acc_type_id else None,
             "acc_parent_id": str(account.acc_parent_id) if account.acc_parent_id else None,
             "industry_id": str(account.industry_id) if account.industry_id else None,
+            "category_id": str(account.category_id) if getattr(account, 'category_id', None) else None,
             "account_source_id": str(getattr(account, 'account_source_id', '')) if getattr(account, 'account_source_id', None) else None,
             "owner_name": owner.name if owner else None,
             "owner_email": owner.email if owner else None,
@@ -392,6 +406,7 @@ class AccountService(ActivityMixin):
             "parent_account_name": parent_account_name,
             "account_type_name": account_type_name,
             "industry_name": industry_name,
+            "category_name": category_name,
         }
     
     async def update_account(
