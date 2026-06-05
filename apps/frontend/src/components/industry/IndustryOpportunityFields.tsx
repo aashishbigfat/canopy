@@ -51,13 +51,16 @@ import { usePicklist } from "@/hooks/use-picklist";
 interface IndustryOppFieldsProps {
     industry: IndustryType;
     form: any;
+    /** Known destination id→name pairs (e.g. from a saved opportunity) so already
+     *  selected destinations render their name even if not in the picklist fetch. */
+    destinationSeedNames?: Record<string, string>;
 }
 
 // ---------------------------------------------------------------------------
 // Destination Multi-Select
 // Stores comma-separated IDs in the form field, displays names as badges.
 // ---------------------------------------------------------------------------
-function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: string }) {
+function DestinationMultiSelect({ form, fieldName, seedNames }: { form: any; fieldName: string; seedNames?: Record<string, string> }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [destinations, setDestinations] = useState<Destination[]>([]);
@@ -66,8 +69,8 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
 
     // On mount: pre-fetch so existing IDs immediately show as names (edit mode)
     useEffect(() => {
-        // Fetch a larger initial set to increase chance of resolving pre-selected IDs
-        destinationsService.getDestinations({ limit: 500 })
+        // Fetch the full set so pre-selected IDs resolve to names (avoids showing raw IDs)
+        destinationsService.getDestinations({ limit: 100000 })
             .then(res => {
                 setDestinations(prev => {
                     const map = new Map(prev.map(d => [d.id, d]));
@@ -123,8 +126,11 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
         form.setValue(fieldName, getValue().filter((i: string) => i !== id).join(","), { shouldValidate: true });
     };
 
+    // Resolve a destination name, preferring the live picklist, then any
+    // seeded id→name pairs from a saved record. Never fall back to the raw
+    // ObjectId — show a readable placeholder instead.
     const getNameById = (id: string) =>
-        destinations.find(d => d.id === id)?.name ?? id;
+        destinations.find(d => d.id === id)?.name ?? seedNames?.[id] ?? "Unknown destination";
 
     const filtered = search
         ? destinations.filter(d => d.name.toLowerCase().includes(search.toLowerCase()))
@@ -212,7 +218,7 @@ function DestinationMultiSelect({ form, fieldName }: { form: any; fieldName: str
 // Uses TOP-LEVEL form field names that match the OpportunityForm schema.
 // The submit handler wraps these into `industry_data` before sending to the API.
 // ---------------------------------------------------------------------------
-function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
+function TravelOpportunityFields({ form, destinationSeedNames }: IndustryOppFieldsProps) {
     const { items: experiences } = usePicklist("experience");
 
     return (
@@ -297,7 +303,7 @@ function TravelOpportunityFields({ form }: IndustryOppFieldsProps) {
                         <FormItem className="md:col-span-2">
                             <FormLabel>Destinations</FormLabel>
                             <FormControl>
-                                <DestinationMultiSelect form={form} fieldName="destinations" />
+                                <DestinationMultiSelect form={form} fieldName="destinations" seedNames={destinationSeedNames} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

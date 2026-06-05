@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select,
     SelectContent,
@@ -89,6 +90,7 @@ const opportunityFormSchema = z.object({
     contact_id: z.string().optional(),
     inclusions: z.array(z.string()).default([]),
     close_lost_reason: z.string().optional(),
+    key_deal: z.boolean().optional(),
     industry_data: z.record(z.string(), z.any()).optional(),
 });
 
@@ -200,6 +202,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
             contact_id: initialContactId || "",
             inclusions: [],
             close_lost_reason: "",
+            key_deal: false,
         } as OpportunityFormValues,
     });
 
@@ -351,6 +354,7 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                     if (data.owner_id) payload.owner_id = data.owner_id;
                     if (data.source_id && data.source_id !== "none") payload.source_id = data.source_id;
                     payload.creation_type = data.creation_type || "Manual";
+                    if (data.key_deal) payload.key_deal = data.key_deal;
                     if (data.description?.trim()) payload.description = data.description.trim();
                     if (data.close_lost_reason) payload.close_lost_reason = data.close_lost_reason;
 
@@ -805,6 +809,25 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                                 />
                             </FormControl>
                             <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                {/* Key Deal flag */}
+                <FormField
+                    control={form.control}
+                    name="key_deal"
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                            <FormControl>
+                                <Checkbox
+                                    checked={!!field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                            <FormLabel className="cursor-pointer font-medium">
+                                Mark as Key Deal
+                            </FormLabel>
                         </FormItem>
                     )}
                 />
