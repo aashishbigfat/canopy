@@ -12,6 +12,7 @@ import {
     ResponsiveContainer,
     Line,
     ReferenceLine,
+    Legend,
 } from "recharts";
 import { TrendingUp, BarChart3 } from "lucide-react";
 import type { SalesChartPoint } from "@/features/dashboard/services/dashboardService";
@@ -48,6 +49,14 @@ export function SalesChart({
     openAmount?: number;
 }) {
     const [activeTab, setActiveTab] = useState<"my" | "team">("my");
+
+    // Month labels derived from the current date so the chart always reflects
+    // the live "this month" vs "last month" comparison and rolls over on its
+    // own when the month changes — no hardcoded month names.
+    const now = new Date();
+    const thisMonthLabel = now.toLocaleString("en-US", { month: "long", year: "numeric" });
+    const lastMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonthLabel = lastMonthDate.toLocaleString("en-US", { month: "long", year: "numeric" });
 
     return (
         <div className="rounded-lg border bg-card p-5 shadow-sm">
@@ -142,6 +151,12 @@ export function SalesChart({
                                 tickLine={false}
                             />
                             <Tooltip content={<CustomTooltip />} />
+                            <Legend
+                                verticalAlign="top"
+                                height={32}
+                                iconType="plainline"
+                                wrapperStyle={{ fontSize: 12, fontWeight: 600 }}
+                            />
                             <ReferenceLine
                                 y={100000000}
                                 stroke="#cbd5e1"
@@ -157,7 +172,7 @@ export function SalesChart({
                             <Area
                                 type="monotone"
                                 dataKey="sale_last_month"
-                                name="Last Month"
+                                name={lastMonthLabel}
                                 stroke="#818cf8"
                                 fill="url(#gradientLastMonth)"
                                 strokeWidth={2.5}
@@ -167,7 +182,7 @@ export function SalesChart({
                             <Area
                                 type="monotone"
                                 dataKey="sale_this_month"
-                                name="This Month"
+                                name={thisMonthLabel}
                                 stroke="#06b6d4"
                                 fill="url(#gradientThisMonth)"
                                 strokeWidth={2.5}

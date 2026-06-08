@@ -26,6 +26,7 @@ export interface Opportunity {
     experience_name?: string;
 
     key_deal: boolean;
+    verified_by_account?: boolean;
 
     // Sequential display ID (per-tenant, shown as 10-digit zero-padded string)
     opportunity_number?: number;
@@ -92,6 +93,7 @@ export interface OpportunityCreateData {
     source_url?: string;
 
     key_deal?: boolean;
+    verified_by_account?: boolean;
     close_lost_reason?: string;
     creation_type?: string; // "Manual" or "Auto"
 

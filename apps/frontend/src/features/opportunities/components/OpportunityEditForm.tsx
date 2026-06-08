@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { CalendarIcon, ChevronLeft, Check, ChevronsUpDown, X } from "lucide-react";
 import { format } from "date-fns";
 import Link from "next/link";
@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
     Select,
     SelectContent,
@@ -90,6 +91,7 @@ const opportunityFormSchema = z.object({
     contact_id: z.string().optional(),
     inclusions: z.array(z.string()).default([]),
     close_lost_reason: z.string().optional(),
+    key_deal: z.boolean().optional(),
     industry_data: z.record(z.string(), z.any()).optional(),
 });
 
@@ -130,6 +132,22 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     const industry = useIndustry();
     const isTravel = industry === "travel";
 
+    // Known id→name pairs for destinations already saved on this opportunity, so
+    // the multi-select shows real names even if a destination isn't in the
+    // picklist fetch (e.g. tenant-scoping). Only zip when the backend returned
+    // parallel arrays — otherwise indexes would misalign.
+    const destinationSeedNames = useMemo(() => {
+        const ids = (opportunity.industry_data?.destination_ids as string[] | undefined) || [];
+        const names = (opportunity.industry_data?.destination_names as string[] | undefined) || [];
+        const map: Record<string, string> = {};
+        if (ids.length === names.length) {
+            ids.forEach((id, i) => {
+                if (id && names[i]) map[String(id)] = names[i];
+            });
+        }
+        return map;
+    }, [opportunity.industry_data]);
+
     // Ensure close_date is always current date
     const todayStr = new Date().toISOString().split('T')[0];
 
@@ -140,16 +158,12 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
         }).catch(err => console.error("Failed to fetch destinations", err));
     }, [isTravel]);
 
-    // Original pre-filled data (to restore on toggle)
-    const [originalAccount, setOriginalAccount] = useState<{ id: string; name: string; is_person_account?: boolean } | null>(null);
-
     // Load initial account into options
     useEffect(() => {
         if (opportunity.account_id) {
             accountsService.getAccount(opportunity.account_id).then(acc => {
                 const opt = { id: acc.id, name: acc.name, is_person_account: acc.is_person_account };
                 setAccountOptions([opt]);
-                setOriginalAccount(opt);
                 setIsPersonAccount(acc.is_person_account || false);
             }).catch(() => { });
         }
@@ -220,6 +234,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
             contact_id: opportunity.contact_id || "",
             inclusions: (opportunity.industry_data?.inclusions as string[]) || [],
             close_lost_reason: opportunity.close_lost_reason || "",
+            key_deal: opportunity.key_deal ?? false,
         } as OpportunityFormValues,
     });
 
@@ -337,6 +352,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                     if (data.contact_id !== undefined) payload.contact_id = data.contact_id || null;
                     payload.source_id = (data.source_id && data.source_id !== "none") ? data.source_id : null;
                     payload.creation_type = data.creation_type || "Manual";
+                    payload.key_deal = data.key_deal ?? false;
                     // Always send close_lost_reason (empty string clears it on backend)
                     payload.close_lost_reason = data.close_lost_reason || "";
 
@@ -389,32 +405,20 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             {isPersonAccount ? "PERSON ACCOUNT" : "ACCOUNT"}
                         </Badge>
                     </div>
-                    <div className="crm-surface mb-1 flex items-center gap-4 p-3">
+                    {/* Account type is fixed once the opportunity exists — locked here.
+                        The linked account/contact can still be changed below. */}
+                    <div className="crm-surface mb-1 flex items-center gap-4 p-3 opacity-70">
                         <div className="flex items-center gap-2">
                             <input
                                 type="radio"
                                 id="account-type-company"
                                 name="accountType"
                                 checked={!isPersonAccount}
-                                onChange={(e) => {
-                                    const newIsPerson = false;
-                                    setIsPersonAccount(newIsPerson);
-                                    if (originalAccount && !originalAccount.is_person_account) {
-                                        form.setValue("account_id", originalAccount.id);
-                                        form.setValue("contact_id", opportunity.contact_id || "");
-                                        setSelectedAccountId(originalAccount.id);
-                                        setAccountOptions([originalAccount]);
-                                    } else {
-                                        form.setValue("account_id", "");
-                                        form.setValue("contact_id", "");
-                                        setSelectedAccountId("");
-                                        setAccountOptions([]);
-                                        setAccountContacts([]);
-                                    }
-                                }}
-                                className="cursor-pointer"
+                                disabled
+                                readOnly
+                                className="cursor-not-allowed"
                             />
-                            <label htmlFor="account-type-company" className="text-sm font-medium text-slate-200 cursor-pointer">Account</label>
+                            <label htmlFor="account-type-company" className="text-sm font-medium text-slate-200 cursor-not-allowed">Account</label>
                         </div>
                         <div className="flex items-center gap-2">
                             <input
@@ -422,25 +426,11 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                 id="account-type-person"
                                 name="accountType"
                                 checked={isPersonAccount}
-                                onChange={(e) => {
-                                    const newIsPerson = true;
-                                    setIsPersonAccount(newIsPerson);
-                                    if (originalAccount && originalAccount.is_person_account) {
-                                        form.setValue("account_id", originalAccount.id);
-                                        form.setValue("contact_id", "");
-                                        setSelectedAccountId(originalAccount.id);
-                                        setAccountOptions([originalAccount]);
-                                    } else {
-                                        form.setValue("account_id", "");
-                                        form.setValue("contact_id", "");
-                                        setSelectedAccountId("");
-                                        setAccountOptions([]);
-                                        setAccountContacts([]);
-                                    }
-                                }}
-                                className="cursor-pointer"
+                                disabled
+                                readOnly
+                                className="cursor-not-allowed"
                             />
-                            <label htmlFor="account-type-person" className="text-sm font-medium text-slate-200 cursor-pointer">Personal Account</label>
+                            <label htmlFor="account-type-person" className="text-sm font-medium text-slate-200 cursor-not-allowed">Personal Account</label>
                         </div>
                     </div>
                     <div className="crm-surface grid gap-6 p-4 md:grid-cols-2">
@@ -575,6 +565,18 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             )}
                         />
 
+                        {/* Opportunity Owner — display only; change it from the opportunity view */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium">Opportunity Owner</label>
+                            <SearchableSelect
+                                options={opportunity.owner_id ? [{ label: opportunity.owner_name || "Owner", value: opportunity.owner_id }] : []}
+                                value={opportunity.owner_id || ""}
+                                onValueChange={() => {}}
+                                placeholder="Owner"
+                                disabled
+                            />
+                        </div>
+
                         {/* Opportunity Source */}
                         <FormField
                             control={form.control}
@@ -627,7 +629,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                     </div>
 
                     {/* Industry-Specific Fields */}
-                    <IndustryOpportunityFields industry={useIndustry()} form={form} />
+                    <IndustryOpportunityFields industry={industry} form={form} destinationSeedNames={destinationSeedNames} />
 
 
                     <div className="crm-surface p-4">
@@ -648,6 +650,27 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                             </FormItem>
                         )}
                     />
+                    </div>
+
+                    {/* Key Deal flag */}
+                    <div className="crm-surface flex p-4">
+                        <FormField
+                            control={form.control}
+                            name="key_deal"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-row items-center gap-2 space-y-0">
+                                    <FormControl>
+                                        <Checkbox
+                                            checked={!!field.value}
+                                            onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    <FormLabel className="cursor-pointer font-medium">
+                                        Mark as Key Deal
+                                    </FormLabel>
+                                </FormItem>
+                            )}
+                        />
                     </div>
 
                     {/* Inclusions Multi-Select — Travel only */}

@@ -68,6 +68,9 @@ class Opportunity(BaseDocument):
     # Additional flags
     is_queue: bool = False
     key_deal: bool = False
+    # Whether the deal has been verified by the linked account (parity with
+    # reference CRM's "Verified by Account" flag shown on the opportunity).
+    verified_by_account: bool = False
     segment: Optional[str] = "B2C"  # B2B or B2C
     # How the opportunity was created. User-settable ("Manual"/"Auto"); for
     # lead-converted opportunities the response always reports "Auto" (lead_id set).

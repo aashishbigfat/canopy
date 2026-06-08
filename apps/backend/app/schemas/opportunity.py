@@ -37,8 +37,9 @@ class OpportunityBase(BaseModel):
     # Universal CRM fields
     segment: Optional[str] = "B2C"
     key_deal: bool = False
+    verified_by_account: bool = False
     close_lost_reason: Optional[str] = Field(None, max_length=2000)
-    
+
     # Industry-specific data (validated per-industry)
     industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
@@ -82,6 +83,7 @@ class OpportunityUpdate(BaseModel):
     source_medium_id: Optional[str] = None
     source_url: Optional[str] = None
     key_deal: Optional[bool] = None
+    verified_by_account: Optional[bool] = None
     custom_fields: Optional[Dict[str, Any]] = None
     close_lost_reason: Optional[str] = Field(None, max_length=2000)
     creation_type: Optional[str] = None  # "Manual" or "Auto"
@@ -161,6 +163,7 @@ class OpportunityResponse(BaseModel):
     # Universal fields
     segment: Optional[str] = None
     key_deal: bool = False
+    verified_by_account: bool = False
     close_lost_reason: Optional[str] = None
     
     # Metadata

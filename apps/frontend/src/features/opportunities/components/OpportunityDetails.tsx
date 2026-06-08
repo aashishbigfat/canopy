@@ -35,6 +35,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
@@ -76,6 +77,7 @@ import {
     useChangeOpportunityOwner,
     useUnlockOpportunity,
     useLockOpportunity,
+    useUpdateOpportunity,
 } from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
 import { useGetUsers } from "@/features/admin/api/use-users";
@@ -141,6 +143,25 @@ export function OpportunityDetails({
     const { mutate: changeOwner } = useChangeOpportunityOwner();
     const { mutate: lockOpportunity, isPending: isLocking } = useLockOpportunity();
     const { mutate: unlockOpportunity, isPending: isUnlocking } = useUnlockOpportunity();
+    const { mutate: updateOpportunity } = useUpdateOpportunity();
+
+    // Toggle a boolean flag (key_deal / verified_by_account) inline from the view.
+    const handleToggleFlag = (field: "key_deal" | "verified_by_account", value: boolean) => {
+        if (record.is_locked) return;
+        updateOpportunity(
+            { id: record.id, data: { [field]: value } },
+            {
+                onSuccess: () => {
+                    toast.success(
+                        field === "key_deal"
+                            ? `Key Deal ${value ? "marked" : "unmarked"}`
+                            : `Verified by Account ${value ? "enabled" : "disabled"}`
+                    );
+                },
+                onError: () => toast.error("Failed to update opportunity"),
+            }
+        );
+    };
 
     // Supplier & Email Template state
     const [suppliers, setSuppliers] = useState<{ label: string; value: string }[]>([]);
@@ -474,7 +495,25 @@ export function OpportunityDetails({
                     </div>
 
                     <div className="flex flex-col items-end justify-between min-w-[250px]">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-4">
+                            <div className="flex flex-col gap-1.5">
+                                <label className={cn("flex items-center justify-end gap-2 text-xs font-medium text-slate-300", record.is_locked ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
+                                    Key Deal
+                                    <Checkbox
+                                        checked={!!record.key_deal}
+                                        disabled={record.is_locked}
+                                        onCheckedChange={(v) => handleToggleFlag("key_deal", v === true)}
+                                    />
+                                </label>
+                                <label className={cn("flex items-center justify-end gap-2 text-xs font-medium text-slate-300", record.is_locked ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
+                                    Verified by Account
+                                    <Checkbox
+                                        checked={!!record.verified_by_account}
+                                        disabled={record.is_locked}
+                                        onCheckedChange={(v) => handleToggleFlag("verified_by_account", v === true)}
+                                    />
+                                </label>
+                            </div>
                             <Button
                                 className="bg-blue-500 hover:bg-blue-600 h-8 disabled:opacity-50 disabled:cursor-not-allowed"
                                 size="sm"
@@ -854,10 +893,10 @@ export function OpportunityDetails({
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">No. of Pax</p>
                                                         <p className="text-sm font-semibold pt-1">{record.industry_data?.no_of_pax || "-"}</p>
                                                     </div>
-                                                    {record.industry_data?.no_of_nights > 0 && (
+                                                    {(record.industry_data?.no_of_nights ?? 0) > 0 && (
                                                         <div className="space-y-1">
                                                             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">No. of Nights</p>
-                                                            <p className="text-sm font-semibold pt-1">{record.industry_data.no_of_nights}</p>
+                                                            <p className="text-sm font-semibold pt-1">{record.industry_data?.no_of_nights}</p>
                                                         </div>
                                                     )}
                                                     <div className="space-y-2 col-span-full mt-4">

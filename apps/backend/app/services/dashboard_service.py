@@ -696,32 +696,48 @@ class DashboardService:
             query["owner_id"] = PydanticObjectId(user_id)
         
         opportunities = await Opportunity.find(query).to_list()
-        
+
         _, days_in_this_month = calendar.monthrange(now.year, now.month)
-        
+        _, days_in_last_month = calendar.monthrange(last_month_start.year, last_month_start.month)
+        # Size the day axis to the longer of the two months so a longer
+        # previous month (e.g. Jan 31 vs Feb 28) never squashes its tail days.
+        max_days = max(days_in_this_month, days_in_last_month)
+
         revenue_data = {}
-        for day in range(1, days_in_this_month + 1):
+        for day in range(1, max_days + 1):
             revenue_data[day] = {
                 "day": day,
                 "sale_this_month": 0,
                 "sale_last_month": 0,
                 "target": 0
             }
-            
+
         for opp in opportunities:
             if not opp.close_date:
                 continue
-                
+
             is_this_month = opp.close_date >= this_month_start
             day = opp.close_date.day
-            if day > days_in_this_month:
-                day = days_in_this_month
-                
+            if day > max_days:
+                day = max_days
+
             if is_this_month:
                 revenue_data[day]["sale_this_month"] += getattr(opp, "amount", 0) or 0
             else:
                 revenue_data[day]["sale_last_month"] += getattr(opp, "amount", 0) or 0
-                
+
+        # Convert the per-day amounts into running cumulative totals so each
+        # series climbs steadily across the month (month-to-date revenue),
+        # matching the sales-progress chart. Days with no new sales carry the
+        # previous running total forward (a flat segment).
+        running_this_month = 0
+        running_last_month = 0
+        for day in range(1, max_days + 1):
+            running_this_month += revenue_data[day]["sale_this_month"]
+            running_last_month += revenue_data[day]["sale_last_month"]
+            revenue_data[day]["sale_this_month"] = running_this_month
+            revenue_data[day]["sale_last_month"] = running_last_month
+
         return list(revenue_data.values())
     
     async def get_opportunities_by_stage(

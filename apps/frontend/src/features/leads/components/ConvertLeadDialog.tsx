@@ -62,6 +62,7 @@ import {
     PopoverTrigger,
 } from "@/components/ui/popover";
 import { leadsService } from "@/lib/api/services/leads.service";
+import { accountsService } from "@/lib/api/services/accounts.service";
 import { apiClient } from "@/lib/api/client";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
 import { useToast } from "@/hooks/use-toast";
@@ -135,6 +136,14 @@ export function ConvertLeadDialog({
     const [contactMode, setContactMode] = useState<"existing" | "new">("new");
     const [selectedAccountId, setSelectedAccountId] = useState<string>("");
     const [selectedContactId, setSelectedContactId] = useState<string>("");
+
+    // Searchable existing-account options. Seeded from domain/email suggestions but
+    // searchable across ALL tenant accounts — leads often arrive with new or personal
+    // emails (esp. B2B) that don't auto-match an existing account.
+    const [accountOptions, setAccountOptions] = useState<{ label: string; value: string }[]>([]);
+    const [accountSearchLoading, setAccountSearchLoading] = useState(false);
+    // The currently-chosen option, pinned so its label persists across searches.
+    const [selectedAccountOption, setSelectedAccountOption] = useState<{ label: string; value: string } | null>(null);
 
     // Self-sufficient picklist data — use props or fetch from API if empty
     const [localExperiences, setLocalExperiences] = useState<{ id: string; name: string }[]>(experiences);
@@ -229,16 +238,48 @@ export function ConvertLeadDialog({
         }
     }, [open, isPersonAccount, lead.id, industry, form]);
 
+    // Map a suggestion/account into a SearchableSelect option label.
+    const accountToOption = (acc: { id: string; name: string; email?: string; match_type?: string }) => ({
+        label: `${acc.name}${acc.email ? ` (${acc.email})` : ""}${acc.match_type ? ` - ${acc.match_type}` : ""}`,
+        value: acc.id || "",
+    });
+
+    // Search ALL tenant accounts (scoped by the selected account type), so a user can
+    // always pick an existing account even when nothing auto-matched the lead's email.
+    const handleAccountSearch = async (query: string, signal?: AbortSignal) => {
+        const isPerson = form.getValues("account_type") === "Person Account";
+        if (!query || query.trim().length < 1) {
+            // Empty query: fall back to the domain/email suggestions (if any).
+            const base = (suggestions?.accounts || []).map(accountToOption);
+            setAccountOptions(selectedAccountOption ? [selectedAccountOption, ...base] : base);
+            return;
+        }
+        try {
+            setAccountSearchLoading(true);
+            const results = await accountsService.searchAccountAutocomplete(query, isPerson, signal);
+            const opts = results.map((a) => ({ label: a.name, value: a.id }));
+            setAccountOptions(selectedAccountOption ? [selectedAccountOption, ...opts] : opts);
+        } catch {
+            /* ignore aborted/failed searches */
+        } finally {
+            setAccountSearchLoading(false);
+        }
+    };
+
     // Auto-detect existing accounts/contacts and set defaults
     useEffect(() => {
         if (suggestions && !suggestionsLoading) {
+            // Seed searchable options from suggestions
+            setAccountOptions((suggestions.accounts || []).map(accountToOption));
             // Auto-select account mode based on suggestions
             if (suggestions.accounts && suggestions.accounts.length > 0) {
                 setAccountMode("existing");
                 setSelectedAccountId(suggestions.accounts[0].id); // Select best match
+                setSelectedAccountOption(accountToOption(suggestions.accounts[0]));
             } else {
                 setAccountMode("new");
                 setSelectedAccountId("");
+                setSelectedAccountOption(null);
             }
 
             // Auto-select contact mode based on suggestions
@@ -580,8 +621,8 @@ export function ConvertLeadDialog({
                                                         </FormControl>
                                                         <SelectContent>
                                                             <SelectItem value="new">Create New</SelectItem>
-                                                            <SelectItem value="existing" disabled={!suggestions?.accounts || suggestions.accounts.length === 0}>
-                                                                Choose Existing {suggestions?.accounts && suggestions.accounts.length > 0 ? `(${suggestions.accounts.length})` : "(No matches)"}
+                                                            <SelectItem value="existing">
+                                                                Choose Existing {suggestions?.accounts && suggestions.accounts.length > 0 ? `(${suggestions.accounts.length} matched)` : "(search)"}
                                                             </SelectItem>
                                                         </SelectContent>
                                                     </Select>
@@ -657,16 +698,19 @@ export function ConvertLeadDialog({
                                                         <FormLabel>Select Existing Account</FormLabel>
                                                         <FormControl>
                                                             <SearchableSelect
-                                                                options={suggestions?.accounts?.map((acc) => ({
-                                                                    label: `${acc.name} ${acc.email ? `(${acc.email})` : ""} - ${acc.match_type}`,
-                                                                    value: acc.id || ""
-                                                                })) || []}
+                                                                options={accountOptions}
                                                                 value={field.value}
                                                                 onValueChange={(value) => {
                                                                     field.onChange(value);
                                                                     setSelectedAccountId(value);
+                                                                    const opt = accountOptions.find(o => o.value === value) || null;
+                                                                    setSelectedAccountOption(opt);
                                                                 }}
-                                                                placeholder="Select an account..."
+                                                                onSearch={handleAccountSearch}
+                                                                isLoading={accountSearchLoading}
+                                                                placeholder="Search & select an account..."
+                                                                searchPlaceholder="Type to search accounts..."
+                                                                emptyMessage="No accounts found. Try a different search."
                                                             />
                                                         </FormControl>
                                                         <FormMessage />
