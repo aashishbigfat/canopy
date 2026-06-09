@@ -173,7 +173,7 @@ export function ConvertLeadDialog({
             contact_salutation: lead.salutation || "",
             contact_first_name: lead.first_name || "",
             contact_last_name: lead.last_name || "",
-            create_opportunity: true,
+            create_opportunity: false,
             opportunity_name: "",
             opportunity_amount: 0,
             travel_date: industry === "travel" && lead.industry_data?.travel_date && !isNaN(new Date(lead.industry_data.travel_date).getTime()) ? new Date(lead.industry_data.travel_date) : undefined,

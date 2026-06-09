@@ -11,6 +11,22 @@ const TIMEZONE = "Asia/Kolkata";
 const LOCALE = "en-IN";
 const CURRENCY = "INR";
 
+/**
+ * Normalise a date string from the backend.
+ * FastAPI/MongoDB returns ISO strings without a timezone suffix, e.g.
+ * "2026-06-08T14:48:23". The browser treats those as *local time*, but
+ * they are actually stored in UTC.  Appending "Z" forces UTC interpretation
+ * so the subsequent toLocale* calls with timeZone:"Asia/Kolkata" work correctly.
+ */
+function toUTC(date: string | Date | null | undefined): Date | null {
+  if (!date) return null;
+  if (date instanceof Date) return date;
+  // Already has offset info (+HH:MM, -HH:MM, or Z)?
+  if (/[Z+\-]\d*$/.test(date.trim())) return new Date(date);
+  // Bare ISO string – treat as UTC
+  return new Date(date + "Z");
+}
+
 // ─── Currency ───────────────────────────────────────────────
 
 /**
@@ -43,7 +59,9 @@ export function formatNumber(value: number | null | undefined): string {
  */
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return "-";
-  return new Date(date).toLocaleDateString(LOCALE, {
+  const d = toUTC(date);
+  if (!d) return "-";
+  return d.toLocaleDateString(LOCALE, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -56,7 +74,9 @@ export function formatDate(date: string | Date | null | undefined): string {
  */
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return "-";
-  return new Date(date).toLocaleString(LOCALE, {
+  const d = toUTC(date);
+  if (!d) return "-";
+  return d.toLocaleString(LOCALE, {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -72,7 +92,9 @@ export function formatDateTime(date: string | Date | null | undefined): string {
  */
 export function formatTime(date: string | Date | null | undefined): string {
   if (!date) return "-";
-  return new Date(date).toLocaleTimeString(LOCALE, {
+  const d = toUTC(date);
+  if (!d) return "-";
+  return d.toLocaleTimeString(LOCALE, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: true,
@@ -85,7 +107,8 @@ export function formatTime(date: string | Date | null | undefined): string {
  */
 export function formatISODate(date: string | Date | null | undefined): string {
   if (!date) return "";
-  const d = new Date(date);
+  const d = toUTC(date);
+  if (!d) return "";
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: TIMEZONE }).formatToParts(d);
   const y = parts.find(p => p.type === "year")?.value;
   const m = parts.find(p => p.type === "month")?.value;
@@ -99,7 +122,9 @@ export function formatISODate(date: string | Date | null | undefined): string {
  */
 export function formatDateLong(date: string | Date | null | undefined): string {
   if (!date) return "-";
-  return new Date(date).toLocaleDateString("en-IN", {
+  const d = toUTC(date);
+  if (!d) return "-";
+  return d.toLocaleDateString("en-IN", {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -113,7 +138,9 @@ export function formatDateLong(date: string | Date | null | undefined): string {
  */
 export function formatDateTime24h(date: string | Date | null | undefined): string {
   if (!date) return "-";
-  return new Date(date).toLocaleString("en-IN", {
+  const d = toUTC(date);
+  if (!d) return "-";
+  return d.toLocaleString("en-IN", {
     day: "2-digit",
     month: "short",
     year: "numeric",
@@ -130,7 +157,8 @@ export function formatDateTime24h(date: string | Date | null | undefined): strin
  */
 export function formatDateTimeBar(date: string | Date | null | undefined): string {
   if (!date) return "-";
-  const d = new Date(date);
+  const d = toUTC(date);
+  if (!d) return "-";
   const datePart = d.toLocaleDateString("en-IN", {
     day: "2-digit",
     month: "short",

@@ -51,6 +51,8 @@ import { toast } from "sonner";
 import { formatDateTime } from "@/lib/format";
 import { useIndustry, useIndustryLabels } from "@/lib/industry-labels";
 import { VisitsByParentSection } from "@/features/bd/visits/components/VisitsByParentSection";
+import { FileUploader } from "@/features/files/components/file-uploader";
+import { FileList } from "@/features/files/components/file-list";
 
 interface LeadDetailsProps {
     lead: Lead;
@@ -450,10 +452,15 @@ export function LeadDetails({
 
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="crm-empty-state">
-                                    <Paperclip className="h-12 w-12 mx-auto mb-2 text-slate-300" />
-                                    <p className="text-slate-400">No attachments found.</p>
-                                    <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
+                                <div className="py-4 space-y-6">
+                                    <FileUploader
+                                        entityType="Lead"
+                                        entityId={lead.id}
+                                    />
+                                    <FileList
+                                        entityType="Lead"
+                                        entityId={lead.id}
+                                    />
                                 </div>
                             </TabsContent>
                         </div>

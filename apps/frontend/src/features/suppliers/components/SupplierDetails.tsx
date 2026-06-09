@@ -44,6 +44,8 @@ import { suppliersService } from "@/lib/api/services/suppliers.service";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatDateTime } from "@/lib/format";
+import { FileUploader } from "@/features/files/components/file-uploader";
+import { FileList } from "@/features/files/components/file-list";
 
 interface SupplierDetailsProps {
     supplier: Supplier;
@@ -250,10 +252,15 @@ export function SupplierDetails({
                             </TabsContent>
 
                             <TabsContent value="attachments" className="mt-0">
-                                <div className="crm-empty-state">
-                                    <Paperclip className="mx-auto mb-2 h-12 w-12 text-muted-foreground" />
-                                    <p className="text-muted-foreground">No attachments found.</p>
-                                    <Button variant="outline" size="sm" className="mt-4">Upload File</Button>
+                                <div className="py-4 space-y-6">
+                                    <FileUploader
+                                        entityType="Supplier"
+                                        entityId={supplier.id}
+                                    />
+                                    <FileList
+                                        entityType="Supplier"
+                                        entityId={supplier.id}
+                                    />
                                 </div>
                             </TabsContent>
                         </div>

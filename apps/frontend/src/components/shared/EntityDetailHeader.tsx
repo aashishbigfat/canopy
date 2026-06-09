@@ -6,19 +6,12 @@ import {
     User,
     Edit,
     Trash2,
-    ChevronDown,
     Building2,
     Calendar
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/ui/copy-button";
 import { Badge } from "@/components/ui/badge";
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
 import { OwnerPopover } from "./OwnerPopover";
 import { useState } from "react";
@@ -96,20 +89,6 @@ export function EntityDetailHeader({
                             <Trash2 className="mr-2 h-4 w-4" />
                             Delete
                         </Button>
-                        {onChangeOwner && (
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" size="icon">
-                                        <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setIsOwnerModalOpen(true)}>
-                                        Change Owner
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                        )}
                     </div>
                 </div>
 

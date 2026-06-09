@@ -738,12 +738,6 @@ function DestinationMultiSelect({
                             ))
                         )}
                     </div>
-                    <div
-                        className="border-t px-3 py-1.5 text-xs text-slate-400 hover:bg-slate-800/40 cursor-pointer"
-                        onClick={() => setOpen(false)}
-                    >
-                        Close
-                    </div>
                 </div>
             )}
         </div>
