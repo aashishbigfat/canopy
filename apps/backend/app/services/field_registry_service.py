@@ -657,7 +657,10 @@ async def read_custom_field_values(
 
     Doc = _resolve_additional_doc(entity_type)
     field_ids = [getattr(r, field_fk) for r in rows]
-    defs = await Doc.find({"_id": {"$in": field_ids}, "entity_type": entity_type}).to_list()
+    from app.core.tenant_scope import fetch_additional_fields_in_tenant
+    defs = await fetch_additional_fields_in_tenant(
+        Doc, tenant_id, field_ids, entity_type=entity_type
+    )
     defs_by_id = {str(d.id): d for d in defs}
 
     out: Dict[str, Any] = {}
@@ -697,7 +700,10 @@ async def bulk_read_custom_field_values(
 
     Doc = _resolve_additional_doc(entity_type)
     field_ids = list({getattr(r, field_fk) for r in rows})
-    defs = await Doc.find({"_id": {"$in": field_ids}, "entity_type": entity_type}).to_list()
+    from app.core.tenant_scope import fetch_additional_fields_in_tenant
+    defs = await fetch_additional_fields_in_tenant(
+        Doc, tenant_id, field_ids, entity_type=entity_type
+    )
     defs_by_id = {str(d.id): d for d in defs}
 
     out: Dict[str, Dict[str, Any]] = {str(eid): {} for eid in entity_ids}

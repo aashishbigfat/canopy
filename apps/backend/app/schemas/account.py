@@ -4,7 +4,7 @@ Pydantic schemas for Account API requests and responses
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, validator, BeforeValidator, model_validator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
-from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE, strict_phone_validator
 import re
 
 NUMERIC_ZIP_REGEX = r"^\d{3,10}$"
@@ -50,8 +50,8 @@ class AccountBase(BaseModel):
     """Base schema for Account"""
     name: str = Field(..., min_length=2, max_length=255)
     email: EmailStr = Field(...)
-    phone: Annotated[str, BeforeValidator(safe_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone: Annotated[str, BeforeValidator(strict_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
     is_person_account: bool = False
@@ -90,7 +90,10 @@ class AccountCreate(AccountBase):
 
     @model_validator(mode='after')
     def validate_classification(self) -> 'AccountCreate':
-        if not self.is_person_account:
+        if self.is_person_account:
+            if not self.last_name:
+                raise ValueError("Last name is required for person accounts")
+        else:
             if not self.acc_type_id:
                 raise ValueError("acc_type_id is required for company accounts")
             if not self.industry_id:
@@ -102,8 +105,8 @@ class AccountUpdate(BaseModel):
     """Schema for updating an account"""
     name: Optional[str] = Field(None, min_length=2, max_length=255)
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
     
@@ -135,6 +138,16 @@ class AccountUpdate(BaseModel):
     custom_fields: Optional[Dict[str, Any]] = None
     segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
     industry_data: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "AccountUpdate":
+        if "email" in self.model_fields_set and not self.email:
+            raise ValueError("Email is required.")
+        if "phone" in self.model_fields_set and not self.phone:
+            raise ValueError("Phone is required.")
+        if "name" in self.model_fields_set and not self.name:
+            raise ValueError("Account name is required.")
+        return self
 
 
 class AccountResponse(AccountBase):

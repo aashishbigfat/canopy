@@ -106,6 +106,9 @@ class ContactService(ActivityMixin):
         # Set primary account if provided
         if contact_data.account_id:
             contact.account_id = ObjectId(contact_data.account_id)
+
+        from app.core.entity_required_fields import validate_contact_record
+        validate_contact_record(contact)
         
         await contact.insert()
         
@@ -272,7 +275,8 @@ class ContactService(ActivityMixin):
             user_ids = list({task.assigned_user_id for task in tasks if task.assigned_user_id})
             users_map = {}
             if user_ids:
-                users = await User.find({"_id": {"$in": user_ids}}).to_list()
+                from app.core.tenant_scope import fetch_in_tenant
+                users = await fetch_in_tenant(User, tenant_id, user_ids)
                 users_map = {str(u.id): u.name for u in users}
             # ---------------------------------------------------
             
@@ -475,6 +479,10 @@ class ContactService(ActivityMixin):
                 updated_fields[field] = value
 
         contact.last_modified_by_id = user_id
+
+        from app.core.entity_required_fields import validate_contact_record
+        validate_contact_record(contact)
+
         await contact.save()
 
         # Custom fields write (Phase 1 §A)

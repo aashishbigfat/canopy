@@ -1,7 +1,7 @@
 """
 Pydantic schemas for Task API
 """
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, model_validator
 from typing import Optional, Union
 from datetime import datetime, date
 
@@ -33,7 +33,7 @@ class TaskBase(BaseModel):
 
 class TaskCreate(TaskBase):
     """Schema for creating a task"""
-    pass
+    assigned_user_id: str = Field(..., min_length=1)
 
 
 class TaskUpdate(BaseModel):
@@ -52,6 +52,14 @@ class TaskUpdate(BaseModel):
             from datetime import time
             return datetime.combine(v, time.min)
         return v
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "TaskUpdate":
+        if "name" in self.model_fields_set and not self.name:
+            raise ValueError("Task name is required.")
+        if "assigned_user_id" in self.model_fields_set and not self.assigned_user_id:
+            raise ValueError("Assigned user is required.")
+        return self
 
 
 class TaskResponse(TaskBase):

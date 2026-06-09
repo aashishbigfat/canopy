@@ -1,8 +1,42 @@
 import re
+from typing import Any, Optional
 
 # E.164 standard phone number regex (e.g. +919876543210 or +91 9876543210)
 PHONE_REGEX = r"^\+?\d{1,4}\s\d{10}$"
 PHONE_REGEX_MESSAGE = "Invalid phone format. Please select a country code and enter exactly a 10-digit number."
+
+
+def parse_phone_value(value: str) -> Optional[tuple[str, str]]:
+    """Return (country_code, local_digits) when value is +<code> <10 digits>."""
+    value = value.strip()
+    if not value.startswith("+") or " " not in value:
+        return None
+    code, _, local = value.partition(" ")
+    local_digits = re.sub(r"\D", "", local)
+    if not re.match(r"^\+\d{1,4}$", code) or len(local_digits) != 10:
+        return None
+    return code, local_digits
+
+
+def format_phone_value(value: str) -> Optional[str]:
+    parsed = parse_phone_value(value)
+    if not parsed:
+        return None
+    code, digits = parsed
+    return f"{code} {digits}"
+
+
+def strict_phone_validator(v: Any) -> Optional[str]:
+    """Reject invalid phone numbers instead of silently coercing to None."""
+    if v is None:
+        return None
+    s = str(v).strip()
+    if not s:
+        return None
+    formatted = format_phone_value(s)
+    if not formatted:
+        raise ValueError(PHONE_REGEX_MESSAGE)
+    return formatted
 
 # Standard alphunumeric zip codes (e.g. 10001 or W1A 0AX)
 ZIP_REGEX = r"^[A-Za-z0-9\s-]{3,10}$"

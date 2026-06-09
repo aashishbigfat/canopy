@@ -1,33 +1,17 @@
 "use client";
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
 import { useState } from "react";
 import {
     Plus,
     Trash2,
-    Users,
     Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { useIndustryLabels } from "@/lib/industry-labels";
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-    DialogTrigger,
-} from "@/components/ui/dialog";
-import {
-    SelectTrigger,
-    SelectValue,
-} from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
-import { Label } from "@/components/ui/label";
 
 import { LeadTable } from "@/features/leads/components/LeadTable";
 import { useLeads } from "@/features/leads/api/useLeads";
@@ -41,8 +25,6 @@ export default function LeadsClientPage() {
     const labels = useIndustryLabels();
     // Selection state
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-    const [isBulkChangeOwnerOpen, setIsBulkChangeOwnerOpen] = useState(false);
-    const [selectedNewOwner, setSelectedNewOwner] = useState<string>("");
     const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
     const page = parseInt(searchParams.get("page") || "1");
@@ -76,21 +58,7 @@ export default function LeadsClientPage() {
         },
     });
 
-    // Bulk Change Owner Mutation
-    const bulkChangeOwnerMutation = useMutation({
-        mutationFn: ({ ids, newOwnerId }: { ids: string[], newOwnerId: string }) =>
-            leadsService.bulkChangeOwner(ids, newOwnerId),
-        onSuccess: (data) => {
-            queryClient.invalidateQueries({ queryKey: ["leads"] });
-            toast.success(`Successfully updated owner for ${data.updated} leads`);
-            setSelectedLeads([]);
-            setIsBulkChangeOwnerOpen(false);
-            setSelectedNewOwner("");
-        },
-        onError: () => {
-            toast.error("Failed to update owner for selected leads");
-        },
-    });
+
 
     const handleSelectLead = (id: string, checked: boolean) => {
         if (checked) {
@@ -114,13 +82,7 @@ export default function LeadsClientPage() {
         }
     };
 
-    const handleBulkChangeOwner = () => {
-        if (!selectedNewOwner) return;
-        bulkChangeOwnerMutation.mutate({
-            ids: selectedLeads,
-            newOwnerId: selectedNewOwner
-        });
-    };
+
 
     if (error) {
         return (
@@ -183,54 +145,6 @@ export default function LeadsClientPage() {
                             <span className="text-sm text-muted-foreground mr-2">
                                 {selectedLeads.length} selected
                             </span>
-
-                            <Dialog open={isBulkChangeOwnerOpen} onOpenChange={setIsBulkChangeOwnerOpen}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
-                                        <Users className="mr-2 h-4 w-4" />
-                                        Change Owner
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent>
-                                    <DialogHeader>
-                                        <DialogTitle>Change Owner</DialogTitle>
-                                        <DialogDescription>
-                                            Assign {selectedLeads.length} selected leads to a new owner.
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="py-4">
-                                        <Label htmlFor="new-owner">New Owner</Label>
-                                        <SearchableSelect
-                                            options={response.users.map((user) => ({
-                                                label: user.name,
-                                                value: user.id
-                                            }))}
-                                            value={selectedNewOwner}
-                                            onValueChange={setSelectedNewOwner}
-                                            placeholder="Select user..."
-                                        />
-                                    </div>
-                                    <DialogFooter>
-                                        <Button
-                                            variant="outline"
-                                            onClick={() => setIsBulkChangeOwnerOpen(false)}
-                                        >
-                                            Cancel
-                                        </Button>
-                                        <Button
-                                            onClick={handleBulkChangeOwner}
-                                            disabled={!selectedNewOwner || bulkChangeOwnerMutation.isPending}
-                                        >
-                                            {bulkChangeOwnerMutation.isPending ? (
-                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            ) : (
-                                                "Update Owner"
-                                            )}
-                                        </Button>
-                                    </DialogFooter>
-                                </DialogContent>
-                            </Dialog>
-
                             <Button
                                 variant="destructive"
                                 size="sm"

@@ -16,7 +16,7 @@ from app.schemas.account import (
 from app.services.account_service import AccountService
 from app.api.deps import get_current_user, check_permission
 from app.models.tenant import Tenant
-from app.schemas.industry_data import validate_industry_data
+from app.core.industry_guard import resolve_industry_data
 
 router = APIRouter()
 
@@ -209,12 +209,10 @@ async def create_account(
 ):
     """Create a new account"""
     try:
-        from app.services.industry_service import get_tenant_industry
-        industry = await get_tenant_industry(current_user.tenant_id)
-        account_data.industry_data = validate_industry_data(
-            industry=industry,
-            data=account_data.industry_data or {},
-            mode="account"
+        account_data.industry_data = await resolve_industry_data(
+            current_user.tenant_id,
+            account_data.industry_data or {},
+            mode="account",
         )
         
         service = AccountService()
@@ -770,12 +768,10 @@ async def update_account(
         from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
         
         if account_data.industry_data is not None:
-            from app.services.industry_service import get_tenant_industry
-            industry = await get_tenant_industry(current_user.tenant_id)
-            account_data.industry_data = validate_industry_data(
-                industry=industry,
-                data=account_data.industry_data,
-                mode="account"
+            account_data.industry_data = await resolve_industry_data(
+                current_user.tenant_id,
+                account_data.industry_data,
+                mode="account",
             )
             
         service = AccountService()
@@ -974,16 +970,23 @@ async def update_single_column(
     if not is_record_visible(account.owner_id, visible_owner_ids):
         raise HTTPException(status_code=404, detail="Account not found")
     
-    # Update the field
-    if hasattr(account, field_name):
-        setattr(account, field_name, field_value)
-        account.last_modified_by_id = current_user.id
-        await account.save()
-        
-        return {
-            "error": False,
-            "message": f"{field_name} updated successfully",
-            "account": account_to_response(account)
-        }
-    else:
+    from app.core.inline_field_validation import validate_inline_field_update
+
+    if not hasattr(account, field_name):
         raise HTTPException(status_code=400, detail=f"Invalid field: {field_name}")
+
+    normalized = validate_inline_field_update(
+        "account",
+        field_name,
+        field_value,
+        is_person_account=account.is_person_account,
+    )
+    setattr(account, field_name, normalized)
+    account.last_modified_by_id = current_user.id
+    await account.save()
+        
+    return {
+        "error": False,
+        "message": f"{field_name} updated successfully",
+        "account": account_to_response(account)
+    }

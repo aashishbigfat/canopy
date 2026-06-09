@@ -104,6 +104,11 @@ class LeadService(ActivityMixin):
             owner_id=owner_id,
             created_by=user_id
         )
+
+        from app.services.industry_service import get_tenant_industry
+        from app.core.entity_required_fields import validate_lead_record
+        industry = await get_tenant_industry(tenant_id)
+        validate_lead_record(lead, industry=industry)
         
         await lead.insert()
 
@@ -263,6 +268,12 @@ class LeadService(ActivityMixin):
             updated_fields[field] = str(value) if value else None
 
         lead.last_modified_by_id = user_id
+
+        from app.services.industry_service import get_tenant_industry
+        from app.core.entity_required_fields import validate_lead_record
+        industry = await get_tenant_industry(tenant_id)
+        validate_lead_record(lead, industry=industry)
+
         await lead.save()
 
         # Re-resolve BD triple when address changes. Never blocks the save.

@@ -5,7 +5,7 @@ Travel-specific fields (travel_date, no_of_pax, destination_ids, inclusions,
 experience_id, etc.) are no longer on these schemas. They live inside
 `industry_data` and are validated per-industry by schemas/industry_data/.
 """
-from pydantic import BaseModel, Field, BeforeValidator
+from pydantic import BaseModel, Field, BeforeValidator, model_validator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
 
@@ -25,7 +25,7 @@ class OpportunityBase(BaseModel):
     probability: Optional[int] = Field(0, ge=0, le=100)
     
     # Relationships
-    account_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    account_id: Annotated[str, BeforeValidator(str)]
     contact_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     opportunity_type_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
     
@@ -90,6 +90,16 @@ class OpportunityUpdate(BaseModel):
 
     # Industry-specific data
     industry_data: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "OpportunityUpdate":
+        if "name" in self.model_fields_set and not self.name:
+            raise ValueError("Deal name is required.")
+        if "sales_stage_id" in self.model_fields_set and not self.sales_stage_id:
+            raise ValueError("Sales stage is required.")
+        if "account_id" in self.model_fields_set and not self.account_id:
+            raise ValueError("Account is required.")
+        return self
 
 
 class OpportunityHistoryResponse(BaseModel):

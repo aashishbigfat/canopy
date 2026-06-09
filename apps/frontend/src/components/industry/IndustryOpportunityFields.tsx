@@ -60,7 +60,7 @@ interface IndustryOppFieldsProps {
 // Destination Multi-Select
 // Stores comma-separated IDs in the form field, displays names as badges.
 // ---------------------------------------------------------------------------
-function DestinationMultiSelect({ form, fieldName, seedNames }: { form: any; fieldName: string; seedNames?: Record<string, string> }) {
+export function DestinationMultiSelect({ form, fieldName, seedNames }: { form: any; fieldName: string; seedNames?: Record<string, string> }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
     const [destinations, setDestinations] = useState<Destination[]>([]);

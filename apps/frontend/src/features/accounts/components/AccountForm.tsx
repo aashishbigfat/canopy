@@ -611,35 +611,16 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                             />
                         )}
 
-                        {/* Account Owner */}
-                        {initialData || id ? (
-                            <FormField
-                                control={form.control}
-                                name="owner_id"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Account Owner</FormLabel>
-                                        <FormControl>
-                                            <SearchableSelect
-                                                options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
-                                                value={field.value}
-                                                onValueChange={field.onChange}
-                                                placeholder="Select Owner"
-                                                disabled
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        ) : (
-                            <div className="flex flex-col space-y-2">
-                                <FormLabel>Account Owner</FormLabel>
-                                <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
-                                    {session?.user?.name || "Automatically assigned to you"}
-                                </p>
-                            </div>
-                        )}
+                        {/* Account Owner — read-only; reassignment uses Change Owner action */}
+                        <div className="flex flex-col space-y-2">
+                            <FormLabel>Account Owner</FormLabel>
+                            <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
+                                {initialData?.owner_name
+                                    || initialData?.owner?.name
+                                    || session?.user?.name
+                                    || "Automatically assigned to you"}
+                            </p>
+                        </div>
 
                         {isPersonAccount && (
                             <>

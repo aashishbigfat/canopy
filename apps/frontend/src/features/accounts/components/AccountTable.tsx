@@ -75,6 +75,8 @@ import { accountService } from "../services/accountService";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
 import { OwnerPopover } from "@/components/shared/OwnerPopover";
 import { useDebounce } from "@/hooks/use-debounce";
+import { validateInlineField, normalizePhoneValue, isPhoneField, type InlineField } from "@/lib/validation/inline-field-validation";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 // ─── Inline-editable text cell (phone) ────────────────────────────────────────
 
@@ -101,9 +103,21 @@ function EditableTextCell({
             setEditing(false);
             return;
         }
+        const validationError = validateInlineField(
+            "account",
+            field as InlineField,
+            value
+        );
+        if (validationError) {
+            toast.error(validationError);
+            return;
+        }
+        const payloadValue = isPhoneField(field as string)
+            ? normalizePhoneValue(value) ?? value.trim()
+            : value.trim();
         setSaving(true);
         try {
-            await accountService.updateSingleColumn(account.id, field as string, value);
+            await accountService.updateSingleColumn(account.id, field as string, payloadValue);
             toast.success("Updated");
             setEditing(false);
             onSaved();
@@ -117,20 +131,29 @@ function EditableTextCell({
     if (editing) {
         return (
             <div className="flex items-center gap-1">
-                <Input
-                    autoFocus
-                    value={value}
-                    disabled={saving}
-                    onChange={(e) => setValue(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") save();
-                        if (e.key === "Escape") {
-                            setValue(initial);
-                            setEditing(false);
-                        }
-                    }}
-                    className="h-7 w-36 text-sm"
-                />
+                {isPhoneField(field as string) ? (
+                    <PhoneInput
+                        value={value}
+                        onChange={setValue}
+                        disabled={saving}
+                        className="w-[200px]"
+                    />
+                ) : (
+                    <Input
+                        autoFocus
+                        value={value}
+                        disabled={saving}
+                        onChange={(e) => setValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") save();
+                            if (e.key === "Escape") {
+                                setValue(initial);
+                                setEditing(false);
+                            }
+                        }}
+                        className="h-7 w-36 text-sm"
+                    />
+                )}
                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={save} disabled={saving}>
                     {saving ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3 text-green-500" />}
                 </Button>

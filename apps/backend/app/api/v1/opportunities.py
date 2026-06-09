@@ -16,7 +16,6 @@ from app.schemas.opportunity import (
     OpportunityListResponse, OpportunityStageChange, ExperienceResponse,
     OpportunityHistoryResponse, OpportunityOwnerChange
 )
-from app.schemas.industry_data import validate_industry_data
 from app.services.opportunity_service import OpportunityService
 from app.api.deps import get_current_user, check_permission
 
@@ -177,11 +176,15 @@ async def create_opportunity(
 
     try:
         opp_data = OpportunityCreate(**body)
+
+        from app.core.industry_guard import resolve_industry_data
+        opp_data.industry_data = await resolve_industry_data(
+            current_user.tenant_id,
+            opp_data.industry_data,
+            mode="opportunity",
+            require_for_travel=True,
+        )
         if opp_data.industry_data:
-            opp_data.industry_data = validate_industry_data(
-                industry, opp_data.industry_data, mode="opportunity"
-            )
-            # Resolve destination IDs to names
             opp_data.industry_data = await _resolve_destinations(opp_data.industry_data)
         
         opportunity = await service.create_opportunity(
@@ -616,12 +619,15 @@ async def update_opportunity(
         service.set_request_context(request, current_user)
         
         opp_data = OpportunityUpdate(**body)
-        if opp_data.industry_data:
-            opp_data.industry_data = validate_industry_data(
-                industry, opp_data.industry_data, mode="opportunity"
+        from app.core.industry_guard import resolve_industry_data
+        if opp_data.industry_data is not None:
+            opp_data.industry_data = await resolve_industry_data(
+                current_user.tenant_id,
+                opp_data.industry_data,
+                mode="opportunity",
             )
-            # Resolve destination IDs to names
-            opp_data.industry_data = await _resolve_destinations(opp_data.industry_data)
+            if opp_data.industry_data:
+                opp_data.industry_data = await _resolve_destinations(opp_data.industry_data)
         
         opportunity = await service.update_opportunity(
             opportunity_id,
@@ -1086,7 +1092,8 @@ async def get_opportunity_history(
         # Fetch users for names ONLY if user_ids is not empty
         user_map = {}
         if user_ids:
-            users = await User.find(In(User.id, list(user_ids))).to_list()
+            from app.core.tenant_scope import fetch_in_tenant
+            users = await fetch_in_tenant(User, current_user.tenant_id, user_ids)
             user_map = {u.id: u.name for u in users}
         
         # Collect all unique stage IDs from history
@@ -1101,7 +1108,16 @@ async def get_opportunity_history(
         if history_stage_ids:
             from beanie.operators import In
             valid_oids = [ObjectId(sid) for sid in history_stage_ids if len(sid) == 24]
-            stages = await SalesStage.find(In(SalesStage.id, valid_oids)).to_list()
+            from app.core.tenant_scope import fetch_picklists_in_tenant
+            from app.services.industry_service import get_tenant_industry
+            industry = await get_tenant_industry(current_user.tenant_id)
+            stages = await fetch_picklists_in_tenant(
+                SalesStage,
+                current_user.tenant_id,
+                valid_oids,
+                picklist_type="sales_stage",
+                industry=industry,
+            )
             
         stage_map = {str(s.id): s.name for s in stages}
         
@@ -1151,7 +1167,8 @@ async def get_opportunity_tasks(
         # Ensure we don't query empty IN clause
         user_map = {}
         if user_ids:
-            users = await User.find(In(User.id, list(user_ids))).to_list()
+            from app.core.tenant_scope import fetch_in_tenant
+            users = await fetch_in_tenant(User, current_user.tenant_id, user_ids)
             user_map = {u.id: u.name for u in users}
             
         from app.schemas.task import TaskResponse

@@ -456,33 +456,16 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                             )}
                         />
                         
-                        {initialData ? (
-                            <FormField
-                                control={form.control}
-                                name="owner_id"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Supplier Owner</FormLabel>
-                                        <FormControl>
-                                            <SearchableSelect
-                                                options={metaData?.users.map(u => ({ label: u.name, value: u.id })) || []}
-                                                value={field.value}
-                                                onValueChange={field.onChange}
-                                                placeholder="Select Owner"
-                                            />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        ) : (
-                            <div className="flex flex-col space-y-2 mt-2">
-                                <FormLabel>Supplier Owner</FormLabel>
-                                <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
-                                    {session?.user?.name || "Automatically assigned to you"}
-                                </p>
-                            </div>
-                        )}
+                        {/* Supplier Owner — read-only; reassignment uses Change Owner action */}
+                        <div className="flex flex-col space-y-2 mt-2">
+                            <FormLabel>Supplier Owner</FormLabel>
+                            <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
+                                {(initialData as { owner_name?: string })?.owner_name
+                                    || metaData?.users?.find((u) => u.id === initialData?.owner_id)?.name
+                                    || session?.user?.name
+                                    || "Automatically assigned to you"}
+                            </p>
+                        </div>
 
                         <FormField
                             control={form.control}

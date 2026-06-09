@@ -15,7 +15,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Filter, MoreHorizontal, Settings, ChevronDown, CheckCircle2, RefreshCw, X, Search as SearchIcon, Download, Save, Trash2, Loader2, Check, Upload } from "lucide-react";
+import { ArrowUpDown, Filter, MoreHorizontal, Settings, ChevronDown, CheckCircle2, RefreshCw, X, Search as SearchIcon, Download, Save, Trash2, Loader2, Check, Upload, Pencil } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -70,6 +70,122 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { entityViewsService } from "@/lib/api/services/entity-views.service";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
+import { validateInlineField, normalizePhoneValue, isPhoneField } from "@/lib/validation/inline-field-validation";
+import { PhoneInput } from "@/components/ui/phone-input";
+
+import { leadsService } from "@/lib/api/services/leads.service";
+
+// ─── Inline-editable text cell for Lead table ─────────────────────────────────
+function EditableLeadCell({
+    lead,
+    field,
+    href,
+    type = "text",
+    placeholder,
+    onSaved,
+}: {
+    lead: Lead;
+    field: "first_name" | "last_name" | "email" | "phone";
+    href?: string;
+    type?: string;
+    placeholder?: string;
+    onSaved: () => void;
+}) {
+    const initial = (lead[field] as string) || "";
+    const [editing, setEditing] = React.useState(false);
+    const [value, setValue] = React.useState(initial);
+    const [saving, setSaving] = React.useState(false);
+
+    React.useEffect(() => setValue(initial), [initial]);
+
+    const save = async () => {
+        if (value === initial) {
+            setEditing(false);
+            return;
+        }
+        const validationError = validateInlineField("lead", field, value);
+        if (validationError) {
+            toast.error(validationError);
+            return;
+        }
+        const payloadValue = isPhoneField(field) ? normalizePhoneValue(value) ?? value.trim() : value.trim();
+        setSaving(true);
+        try {
+            await leadsService.updateLead(lead.id, { [field]: payloadValue });
+            toast.success("Updated");
+            setEditing(false);
+            onSaved();
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || "Failed to update");
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    if (editing) {
+        return (
+            <div className="flex items-center gap-1">
+                {isPhoneField(field) ? (
+                    <PhoneInput
+                        value={value}
+                        onChange={setValue}
+                        disabled={saving}
+                        className="w-[200px]"
+                    />
+                ) : (
+                    <Input
+                        autoFocus
+                        type={type}
+                        value={value}
+                        disabled={saving}
+                        onChange={(e) => setValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") save();
+                            if (e.key === "Escape") {
+                                setValue(initial);
+                                setEditing(false);
+                            }
+                        }}
+                        className="h-7 w-40 text-sm"
+                    />
+                )}
+                <Button size="icon" variant="ghost" className="h-6 w-6" onClick={save} disabled={saving}>
+                    {saving ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                        <Check className="h-3 w-3 text-green-500" />
+                    )}
+                </Button>
+            </div>
+        );
+    }
+
+    return (
+        <div className="group/edit flex items-center gap-1.5">
+            {href ? (
+                <Link
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm font-medium text-primary hover:underline"
+                >
+                    {initial || placeholder || "-"}
+                </Link>
+            ) : (
+                <span className="text-sm text-muted-foreground">{initial || placeholder || "-"}</span>
+            )}
+            <button
+                type="button"
+                onClick={() => setEditing(true)}
+                className="opacity-0 transition-opacity group-hover/edit:opacity-100"
+                title="Edit"
+            >
+                <Pencil className="h-3 w-3 text-primary" />
+            </button>
+        </div>
+    );
+}
+
 
 export const getColumns = (
     statuses: LeadStatus[],
@@ -127,15 +243,6 @@ export const getColumns = (
                 }
 
                 return <div className="text-sm text-muted-foreground">-</div>;
-            },
-        },
-        {
-            id: "experience",
-            header: "Experience",
-            cell: ({ row }) => {
-                const experienceId = row.original.industry_data?.experience_id;
-                const experience = experiences.find(e => e.id === experienceId || e.name === experienceId);
-                return <div className="text-sm text-muted-foreground">{experience?.name || experienceId || "-"}</div>;
             },
         },
     ] : industry === "healthcare" ? [
@@ -217,54 +324,76 @@ export const getColumns = (
         {
             accessorKey: "first_name",
             header: "First Name",
-            cell: ({ row }) => {
+            cell: ({ row, table }) => {
                 const lead = row.original;
+                const refresh = () => {
+                    const meta = table.options.meta as any;
+                    if (meta?.refresh) meta.refresh();
+                };
                 return (
-                    <Link
+                    <EditableLeadCell
+                        lead={lead}
+                        field="first_name"
                         href={`/leads/${lead.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-foreground hover:text-primary hover:underline"
-                    >
-                        {lead.first_name}
-                    </Link>
+                        onSaved={refresh}
+                    />
                 );
             },
         },
         {
             accessorKey: "last_name",
             header: "Last Name",
-            cell: ({ row }) => {
+            cell: ({ row, table }) => {
                 const lead = row.original;
+                const refresh = () => {
+                    const meta = table.options.meta as any;
+                    if (meta?.refresh) meta.refresh();
+                };
                 return (
-                    <Link
-                        href={`/leads/${lead.id}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-sm font-medium text-foreground hover:text-primary hover:underline"
-                    >
-                        {lead.last_name || "-"}
-                    </Link>
+                    <EditableLeadCell
+                        lead={lead}
+                        field="last_name"
+                        onSaved={refresh}
+                    />
                 );
             },
         },
         {
             accessorKey: "email",
             header: "Email",
-            cell: ({ row }) => (
-                <div className="text-sm text-muted-foreground">
-                    {row.original.email || "-"}
-                </div>
-            ),
+            cell: ({ row, table }) => {
+                const lead = row.original;
+                const refresh = () => {
+                    const meta = table.options.meta as any;
+                    if (meta?.refresh) meta.refresh();
+                };
+                return (
+                    <EditableLeadCell
+                        lead={lead}
+                        field="email"
+                        type="email"
+                        onSaved={refresh}
+                    />
+                );
+            },
         },
         {
             accessorKey: "phone",
             header: "Phone",
-            cell: ({ row }) => (
-                <div className="text-sm text-muted-foreground">
-                    {row.original.phone || row.original.mobile || "-"}
-                </div>
-            ),
+            cell: ({ row, table }) => {
+                const lead = row.original;
+                const refresh = () => {
+                    const meta = table.options.meta as any;
+                    if (meta?.refresh) meta.refresh();
+                };
+                return (
+                    <EditableLeadCell
+                        lead={lead}
+                        field="phone"
+                        onSaved={refresh}
+                    />
+                );
+            },
         },
         {
             accessorKey: "city",
@@ -473,7 +602,11 @@ export function LeadTable({
             onConvert: (lead: Lead) => {
                 setSelectedLead(lead);
                 setIsConvertOpen(true);
-            }
+            },
+            refresh: () => {
+                queryClient.invalidateQueries({ queryKey: ["leads"] });
+                router.refresh();
+            },
         }
     });
 

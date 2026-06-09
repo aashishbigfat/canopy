@@ -26,12 +26,15 @@ class SupplierService(ActivityMixin):
     ) -> Supplier:
         """Create a new supplier"""
 
+        from app.core.entity_required_fields import validate_supplier_record
+
         supplier = Supplier(
             **supplier_data.model_dump(exclude_unset=True),
             tenant_id=tenant_id,
             owner_id=user_id,
             created_by=user_id
         )
+        validate_supplier_record(supplier)
 
         # Seed the primary contact from the contact person captured on creation.
         # The form supplies contact_person_name plus the supplier's own phone/email,
@@ -99,10 +102,14 @@ class SupplierService(ActivityMixin):
         old_values = {}
         updated_fields = {}
         update_data = supplier_data.model_dump(exclude_unset=True)
+        update_data.pop("owner_id", None)
         for field, value in update_data.items():
             old_values[field] = getattr(supplier, field, None)
             setattr(supplier, field, value)
             updated_fields[field] = value
+
+        from app.core.entity_required_fields import validate_supplier_record
+        validate_supplier_record(supplier)
 
         supplier.last_modified_by_id = user_id
         await supplier.save()

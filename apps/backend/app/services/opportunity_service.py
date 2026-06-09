@@ -146,16 +146,21 @@ class OpportunityService(ActivityMixin):
             if 'source_medium_id' in opp_dict and opp_dict['source_medium_id']:
                 opp_dict['source_medium_id'] = ObjectId(opp_dict['source_medium_id'])
             
-            if 'owner_id' in opp_dict and opp_dict['owner_id']:
-                opp_dict['owner_id'] = ObjectId(opp_dict['owner_id'])
-            else:
-                opp_dict['owner_id'] = user_id
+            opp_dict.pop("owner_id", None)
+            opp_dict['owner_id'] = user_id
             
             opportunity = Opportunity(
                 **opp_dict,
                 tenant_id=tenant_id,
                 created_by=user_id
             )
+
+            from app.core.entity_required_fields import (
+                validate_opportunity_record,
+                opportunity_requires_contact,
+            )
+            require_contact = await opportunity_requires_contact(opportunity.account_id, tenant_id)
+            validate_opportunity_record(opportunity, require_contact=require_contact)
             
             # Set team_member_ids if present
             if hasattr(opp_data, 'team_member_ids') and opp_data.team_member_ids:
@@ -369,6 +374,13 @@ class OpportunityService(ActivityMixin):
             setattr(opp, field, value)
             updated_fields[field] = value
         
+        from app.core.entity_required_fields import (
+            validate_opportunity_record,
+            opportunity_requires_contact,
+        )
+        require_contact = await opportunity_requires_contact(opp.account_id, tenant_id)
+        validate_opportunity_record(opp, require_contact=require_contact)
+
         opp.last_modified_by_id = user_id
         await opp.save()
 

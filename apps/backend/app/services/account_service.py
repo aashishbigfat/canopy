@@ -45,6 +45,9 @@ class AccountService(ActivityMixin):
         data["created_by"] = user_id
             
         account = Account(**data)
+
+        from app.core.entity_required_fields import validate_account_record
+        validate_account_record(account, is_person_account=account.is_person_account)
         
         await account.insert()
         
@@ -218,7 +221,16 @@ class AccountService(ActivityMixin):
             stages_map = {}
             stage_flags = {}  # stage_id -> (is_won, is_lost)
             if stage_ids:
-                stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
+                from app.core.tenant_scope import fetch_picklists_in_tenant
+                from app.services.industry_service import get_tenant_industry
+                industry = await get_tenant_industry(tenant_id)
+                stages = await fetch_picklists_in_tenant(
+                    SalesStage,
+                    tenant_id,
+                    stage_ids,
+                    picklist_type="sales_stage",
+                    industry=industry,
+                )
                 stages_map = {str(stage.id): stage.name for stage in stages}
                 stage_flags = {
                     str(stage.id): (bool(stage.is_won), bool(stage.is_lost))
@@ -443,6 +455,10 @@ class AccountService(ActivityMixin):
             updated_fields[field] = value
         
         account.last_modified_by_id = user_id
+
+        from app.core.entity_required_fields import validate_account_record
+        validate_account_record(account, is_person_account=account.is_person_account)
+
         await account.save()
 
         # Custom fields write (Phase 1 §A)

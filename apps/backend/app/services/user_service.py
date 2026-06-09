@@ -79,6 +79,9 @@ class UserService(ActivityMixin):
             user.department_id = ObjectId(user_data.department_id)
         if user_data.role_hierarchy_id:
             user.role_hierarchy_id = ObjectId(user_data.role_hierarchy_id)
+
+        from app.core.entity_required_fields import validate_user_record
+        validate_user_record(user, is_create=True)
         
         await user.insert()
         
@@ -241,6 +244,9 @@ class UserService(ActivityMixin):
             user.assigned_destinations = [ObjectId(did) for did in user_data.assigned_destinations]
             updated_fields['assigned_destinations'] = user_data.assigned_destinations
         
+        from app.core.entity_required_fields import validate_user_record
+        validate_user_record(user)
+
         user.last_modified_by_id = updated_by
         await user.save()
         
