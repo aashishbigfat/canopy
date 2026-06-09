@@ -586,7 +586,10 @@ export function LeadTable({
                 setSelectedLead(lead);
                 setIsConvertOpen(true);
             },
-            refresh: () => router.refresh(),
+            refresh: () => {
+                queryClient.invalidateQueries({ queryKey: ["leads"] });
+                router.refresh();
+            },
         }
     });
 

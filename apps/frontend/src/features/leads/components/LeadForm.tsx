@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { usePicklist } from "@/hooks/use-picklist";
 import { ErrorType } from "@/lib/error-handler";
 import { toast } from "sonner";
@@ -518,6 +519,7 @@ export function LeadForm({
     isDrawer = false,
 }: LeadFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
     const { items: salutations } = usePicklist("salutation");
@@ -819,7 +821,7 @@ export function LeadForm({
                                 <div>
                                     <p className="text-[10px] font-bold uppercase text-foreground/80 mb-1.5">Lead Owner</p>
                                     <p className="h-8 flex items-center text-xs text-foreground px-2 bg-muted/40 rounded-md border border-border truncate">
-                                        {initialData?.owner_name || initialData?.owner?.name || "Assigned to you"}
+                                        {initialData?.owner_name || initialData?.owner?.name || session?.user?.name || "Automatically assigned to you"}
                                     </p>
                                 </div>
 
