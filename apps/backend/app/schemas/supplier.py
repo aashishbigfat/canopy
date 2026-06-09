@@ -1,10 +1,10 @@
 """
 Pydantic schemas for Supplier API
 """
-from pydantic import BaseModel, EmailStr, Field, BeforeValidator
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator, model_validator
 from typing import Optional, Annotated, List, Dict, Any
 from datetime import datetime
-from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE, strict_phone_validator
 
 class SupplierContactBase(BaseModel):
     """Base schema for an embedded supplier contact"""
@@ -44,13 +44,13 @@ class SupplierContactResponse(SupplierContactBase):
 
 class SupplierBase(BaseModel):
     """Base schema for Supplier"""
-    name: str
+    name: str = Field(..., min_length=2, max_length=255)
     company_name: Optional[str] = None
-    supplier_type: str
+    supplier_type: str = Field(..., min_length=1)
     
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
-    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[str, BeforeValidator(strict_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     website: Optional[str] = None
     
     # Multi-select fields
@@ -93,8 +93,8 @@ class SupplierUpdate(BaseModel):
     supplier_type: Optional[str] = None
     
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
-    mobile: Annotated[Optional[str], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     website: Optional[str] = None
     
     # Multi-select fields
@@ -124,10 +124,19 @@ class SupplierUpdate(BaseModel):
     is_preferred: Optional[bool] = None
     rating: Optional[int] = None
     notes: Optional[str] = None
-    owner_id: Optional[str] = None
 
     # Custom field values (Phase 1 §C)
     custom_fields: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "SupplierUpdate":
+        if "name" in self.model_fields_set and not self.name:
+            raise ValueError("Name is required.")
+        if "supplier_type" in self.model_fields_set and not self.supplier_type:
+            raise ValueError("Supplier type is required.")
+        if "phone" in self.model_fields_set and not self.phone:
+            raise ValueError("Phone is required.")
+        return self
 
 
 class SupplierResponse(SupplierBase):

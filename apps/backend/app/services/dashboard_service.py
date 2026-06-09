@@ -788,7 +788,8 @@ class DashboardService:
         owner_ids = list({opp.owner_id for opp in opportunities if opp.owner_id})
         owners_map = {}
         if owner_ids:
-            owners = await User.find({"_id": {"$in": owner_ids}}).to_list()
+            from app.core.tenant_scope import fetch_in_tenant
+            owners = await fetch_in_tenant(User, tenant_id, owner_ids)
             owners_map = {str(owner.id): owner.name for owner in owners}
             
         # Helper: recursively convert ObjectId / datetime inside dicts/lists to strings

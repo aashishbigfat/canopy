@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { usePicklist } from "@/hooks/use-picklist";
 import { toast } from "sonner";
 
@@ -48,6 +49,7 @@ const contactFormSchema = z.object({
     }),
     title: z.string().optional(),
     account_id: z.string().min(1, { message: "Account is required." }),
+    owner_id: z.string().optional(),
 });
 
 type ContactFormValues = z.infer<typeof contactFormSchema>;
@@ -61,10 +63,11 @@ const defaultValues: Partial<ContactFormValues> = {
     mobile: "",
     title: "",
     account_id: "",
+    owner_id: "",
 };
 
 interface ContactFormProps {
-    initialData?: ContactFormValues;
+    initialData?: ContactFormValues & { owner_name?: string; owner?: { name?: string } };
     id?: string;
     /** Name of the current account (for the info banner) */
     initialAccountName?: string;
@@ -75,6 +78,7 @@ interface ContactFormProps {
 
 export function ContactForm({ initialData, id, initialAccountName, onSuccess, onCancel, isDrawer = false }: ContactFormProps) {
     const router = useRouter();
+    const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
     const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
     const { items: salutations } = usePicklist("salutation");
@@ -178,144 +182,157 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-8"
             >
-                <div className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                        control={form.control}
-                        name="salutation"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Salutation</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                <div>
+                    <h3 className="text-lg font-medium mb-4">Contact Information</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                            control={form.control}
+                            name="salutation"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Salutation</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value ?? ""}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {salutations.map((s) => (
+                                                <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {/* Account Owner — read-only; reassignment uses Change Owner action */}
+                        <div className="flex flex-col space-y-2">
+                            <FormLabel>Account Owner</FormLabel>
+                            <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
+                                {initialData?.owner_name
+                                    || initialData?.owner?.name
+                                    || session?.user?.name
+                                    || "Automatically assigned to you"}
+                            </p>
+                        </div>
+
+                        <FormField
+                            control={form.control}
+                            name="first_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>First Name</FormLabel>
                                     <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select" />
-                                        </SelectTrigger>
+                                        <Input placeholder="John" {...field} value={field.value ?? ""} />
                                     </FormControl>
-                                    <SelectContent>
-                                        {salutations.map((s) => (
-                                            <SelectItem key={s.id} value={s.name}>{s.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="first_name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>First Name</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="John" {...field} value={field.value ?? ""} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="last_name"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Last Name *</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Doe" {...field} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Email *</FormLabel>
-                                <FormControl>
-                                    <Input
-                                        placeholder="john@example.com"
-                                        {...field}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Phone</FormLabel>
-                                <FormControl>
-                                    <PhoneInput {...field} placeholder="Phone number" />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="mobile"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Mobile *</FormLabel>
-                                <FormControl>
-                                    <PhoneInput {...field} placeholder="Mobile number" />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="title"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Job Title</FormLabel>
-                                <FormControl>
-                                    <Input placeholder="Manager" {...field} value={field.value ?? ""} />
-                                </FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
-                    <FormField
-                        control={form.control}
-                        name="account_id"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Account *</FormLabel>
-                                <FormControl>
-                                    <SearchableSelect
-                                        options={accounts.map(acc => ({ label: acc.name, value: acc.id }))}
-                                        value={field.value || ""}
-                                        onValueChange={field.onChange}
-                                        placeholder="Select an account"
-                                    />
-                                </FormControl>
-                                <FormDescription>
-                                    {/* Tier 2: Info banner when account changes in edit mode */}
-                                    {accountChanged && (
-                                        <span className="flex items-start gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400 text-xs leading-snug">
-                                            <span>ℹ️</span>
-                                            <span>
-                                                This contact will move to
-                                                {newAccountName ? ` "${newAccountName}"` : " the new account"}.
-                                                Associated opportunities will also be reassigned to
-                                                {newAccountName ? ` "${newAccountName}"` : " the new account"}.
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="last_name"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Last Name *</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Doe" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="account_id"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Account Name *</FormLabel>
+                                    <FormControl>
+                                        <SearchableSelect
+                                            options={accounts.map(acc => ({ label: acc.name, value: acc.id }))}
+                                            value={field.value || ""}
+                                            onValueChange={field.onChange}
+                                            placeholder="Search Account"
+                                        />
+                                    </FormControl>
+                                    <FormDescription>
+                                        {accountChanged && (
+                                            <span className="flex items-start gap-1.5 mt-1.5 text-amber-600 dark:text-amber-400 text-xs leading-snug">
+                                                <span>ℹ️</span>
+                                                <span>
+                                                    This contact will move to
+                                                    {newAccountName ? ` "${newAccountName}"` : " the new account"}.
+                                                    Associated opportunities will also be reassigned to
+                                                    {newAccountName ? ` "${newAccountName}"` : " the new account"}.
+                                                </span>
                                             </span>
-                                        </span>
-                                    )}
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-
+                                        )}
+                                    </FormDescription>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="title"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Title</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Manager" {...field} value={field.value ?? ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <div aria-hidden className="hidden md:block" />
+                        <FormField
+                            control={form.control}
+                            name="phone"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Phone</FormLabel>
+                                    <FormControl>
+                                        <PhoneInput {...field} placeholder="Phone number" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mobile"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Mobile *</FormLabel>
+                                    <FormControl>
+                                        <PhoneInput {...field} placeholder="Mobile number" />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="email"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Email *</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            placeholder="john@example.com"
+                                            {...field}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
                 </div>
                 <div className={cn("flex justify-end gap-4 pt-4 border-t", isDrawer && "sticky bottom-0 z-10 -mx-5 -mb-5 bg-card/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/85")}>
                     <Button type="button" variant="outline" onClick={() => onCancel ? onCancel() : router.back()}>

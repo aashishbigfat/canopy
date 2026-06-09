@@ -5,10 +5,10 @@ Travel-specific fields (travel_date, no_of_pax, destinations, etc.) are no
 longer on these schemas.  They live inside `industry_data` and are validated
 per-industry by schemas/industry_data/__init__.py.
 """
-from pydantic import BaseModel, EmailStr, Field, BeforeValidator
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator, model_validator
 from typing import Optional, Dict, List, Any, Union, Annotated
 from datetime import datetime, date
-from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, strict_phone_validator
 
 class LeadOwnerChange(BaseModel):
     """Schema for changing lead owner"""
@@ -79,8 +79,8 @@ class LeadUpdate(BaseModel):
     middle_name: Optional[str] = None
     last_name: Optional[str] = Field(None, min_length=1, max_length=100)
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     company: Optional[str] = Field(None, max_length=255)
     title: Optional[str] = Field(None, max_length=100)
     no_employees: Optional[int] = Field(None, ge=1)
@@ -109,6 +109,18 @@ class LeadUpdate(BaseModel):
     bd_owner_id: Optional[str] = None
     reporting_manager_id: Optional[str] = None
     requires_field_meeting: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "LeadUpdate":
+        if "last_name" in self.model_fields_set and not self.last_name:
+            raise ValueError("Last name is required.")
+        if "city" in self.model_fields_set and not self.city:
+            raise ValueError("City is required.")
+        if "state" in self.model_fields_set and not self.state:
+            raise ValueError("State is required.")
+        if "country" in self.model_fields_set and not self.country:
+            raise ValueError("Country is required.")
+        return self
 
 
 class LeadBDReassign(BaseModel):

@@ -1,7 +1,7 @@
 """
 Pydantic schemas for User API
 """
-from pydantic import BaseModel, EmailStr, Field, validator, BeforeValidator
+from pydantic import BaseModel, EmailStr, Field, validator, BeforeValidator, model_validator
 from typing import Optional, List, Annotated
 from datetime import datetime
 from app.core.validators import validate_password_complexity, PHONE_REGEX, PHONE_REGEX_MESSAGE
@@ -55,7 +55,8 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """Schema for creating user"""
     password: str = Field(..., min_length=8)
-    role_ids: List[str] = Field(default_factory=list)
+    role_ids: List[str] = Field(..., min_length=1)
+    role_hierarchy_id: str = Field(..., min_length=1)
     
     @validator('password')
     def validate_complexity(cls, v):
@@ -104,6 +105,18 @@ class UserUpdate(BaseModel):
     smtp_port: Optional[int] = None
     smtp_username: Optional[str] = None
     smtp_password: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "UserUpdate":
+        if "name" in self.model_fields_set and not self.name:
+            raise ValueError("Name is required.")
+        if "email" in self.model_fields_set and not self.email:
+            raise ValueError("Email is required.")
+        if "role_hierarchy_id" in self.model_fields_set and not self.role_hierarchy_id:
+            raise ValueError("Role hierarchy is required.")
+        if "role_ids" in self.model_fields_set and not self.role_ids:
+            raise ValueError("Profile is required.")
+        return self
 
 
 class UserPasswordUpdate(BaseModel):

@@ -19,7 +19,6 @@ from app.schemas.lead import (
     LeadCreate, LeadUpdate, LeadResponse, LeadListResponse, LeadConvert,
     LeadOwnerChange, LeadBDReassign,
 )
-from app.schemas.industry_data import validate_industry_data
 from app.services.lead_service import LeadService
 from app.api.deps import get_current_user, check_permission
 
@@ -92,13 +91,17 @@ async def create_lead(
         # Unified schema -- no more dual routing
         lead_data = LeadCreate(**body)
         
-        # Validate industry_data block if present
+        from app.core.industry_guard import resolve_industry_data
+        lead_data.industry_data = await resolve_industry_data(
+            current_user.tenant_id,
+            lead_data.industry_data,
+            mode="lead",
+            require_for_travel=True,
+        )
         if lead_data.industry_data:
-            lead_data.industry_data = validate_industry_data(
-                industry, lead_data.industry_data, mode="lead"
+            lead_data.industry_data = await _resolve_destinations(
+                lead_data.industry_data, current_user.tenant_id
             )
-            # Resolve destination IDs to names (scoped to tenant)
-            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data, current_user.tenant_id)
         
         lead = await service.create_lead(
             lead_data=lead_data,
@@ -262,12 +265,17 @@ async def update_lead(
     
     try:
         lead_data = LeadUpdate(**body)
-        if lead_data.industry_data:
-            lead_data.industry_data = validate_industry_data(
-                industry, lead_data.industry_data, mode="lead"
+        from app.core.industry_guard import resolve_industry_data
+        if lead_data.industry_data is not None:
+            lead_data.industry_data = await resolve_industry_data(
+                current_user.tenant_id,
+                lead_data.industry_data,
+                mode="lead",
             )
-            # Resolve destination IDs to names (scoped to tenant)
-            lead_data.industry_data = await _resolve_destinations(lead_data.industry_data, current_user.tenant_id)
+            if lead_data.industry_data:
+                lead_data.industry_data = await _resolve_destinations(
+                    lead_data.industry_data, current_user.tenant_id
+                )
         
         lead = await service.update_lead(
             lead_id=lead_id,
@@ -331,16 +339,15 @@ async def convert_lead(
 ):
     """Convert lead to opportunity -- unified schema for all industries"""
     body = await request.json()
-    
-    # Determine tenant industry — resolver raises if tenant missing
-    from app.services.industry_service import get_tenant_industry as _get_industry
-    industry = await _get_industry(current_user.tenant_id)
-    
+
     try:
         conversion_data = LeadConvert(**body)
         if conversion_data.industry_data:
-            conversion_data.industry_data = validate_industry_data(
-                industry, conversion_data.industry_data, mode="opportunity"
+            from app.core.industry_guard import resolve_industry_data
+            conversion_data.industry_data = await resolve_industry_data(
+                current_user.tenant_id,
+                conversion_data.industry_data,
+                mode="opportunity",
             )
         
         result = await service.convert_lead(
@@ -440,27 +447,33 @@ async def update_single_column(
     if not lead:
         raise HTTPException(status_code=404, detail="Lead not found")
     
-    # Update the field
-    if hasattr(lead, field_name):
-        setattr(lead, field_name, field_value)
-        lead.last_modified_by_id = current_user.id
-        await lead.save()
-        
-        # Convert ObjectId to string for response
-        lead_dict = lead.model_dump()
-        lead_dict['id'] = str(lead.id)
-        lead_dict['tenant_id'] = str(lead.tenant_id)
-        lead_dict['owner_id'] = str(lead.owner_id)
-        lead_dict['created_by'] = str(lead.created_by)
-        lead_dict['full_name'] = f"{lead.first_name} {lead.last_name}".strip()
-        
-        return {
-            "error": False,
-            "message": f"{field_name} updated successfully",
-            "lead": LeadResponse(**lead_dict)
-        }
-    else:
+    from app.core.inline_field_validation import validate_inline_field_update
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(lead.owner_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Lead not found")
+
+    if not hasattr(lead, field_name):
         raise HTTPException(status_code=400, detail=f"Invalid field: {field_name}")
+
+    normalized = validate_inline_field_update("lead", field_name, field_value)
+    setattr(lead, field_name, normalized)
+    lead.last_modified_by_id = current_user.id
+    await lead.save()
+
+    lead_dict = lead.model_dump()
+    lead_dict['id'] = str(lead.id)
+    lead_dict['tenant_id'] = str(lead.tenant_id)
+    lead_dict['owner_id'] = str(lead.owner_id)
+    lead_dict['created_by'] = str(lead.created_by)
+    lead_dict['full_name'] = f"{lead.first_name} {lead.last_name}".strip()
+
+    return {
+        "error": False,
+        "message": f"{field_name} updated successfully",
+        "lead": LeadResponse(**lead_dict)
+    }
 
 
 @router.post("/import")

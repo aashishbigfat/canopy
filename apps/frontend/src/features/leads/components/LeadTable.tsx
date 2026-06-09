@@ -70,6 +70,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { entityViewsService } from "@/lib/api/services/entity-views.service";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
+import { validateInlineField, normalizePhoneValue, isPhoneField } from "@/lib/validation/inline-field-validation";
+import { PhoneInput } from "@/components/ui/phone-input";
 
 import { leadsService } from "@/lib/api/services/leads.service";
 
@@ -101,9 +103,15 @@ function EditableLeadCell({
             setEditing(false);
             return;
         }
+        const validationError = validateInlineField("lead", field, value);
+        if (validationError) {
+            toast.error(validationError);
+            return;
+        }
+        const payloadValue = isPhoneField(field) ? normalizePhoneValue(value) ?? value.trim() : value.trim();
         setSaving(true);
         try {
-            await leadsService.updateLead(lead.id, { [field]: value });
+            await leadsService.updateLead(lead.id, { [field]: payloadValue });
             toast.success("Updated");
             setEditing(false);
             onSaved();
@@ -117,21 +125,30 @@ function EditableLeadCell({
     if (editing) {
         return (
             <div className="flex items-center gap-1">
-                <Input
-                    autoFocus
-                    type={type}
-                    value={value}
-                    disabled={saving}
-                    onChange={(e) => setValue(e.target.value)}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") save();
-                        if (e.key === "Escape") {
-                            setValue(initial);
-                            setEditing(false);
-                        }
-                    }}
-                    className="h-7 w-40 text-sm"
-                />
+                {isPhoneField(field) ? (
+                    <PhoneInput
+                        value={value}
+                        onChange={setValue}
+                        disabled={saving}
+                        className="w-[200px]"
+                    />
+                ) : (
+                    <Input
+                        autoFocus
+                        type={type}
+                        value={value}
+                        disabled={saving}
+                        onChange={(e) => setValue(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === "Enter") save();
+                            if (e.key === "Escape") {
+                                setValue(initial);
+                                setEditing(false);
+                            }
+                        }}
+                        className="h-7 w-40 text-sm"
+                    />
+                )}
                 <Button size="icon" variant="ghost" className="h-6 w-6" onClick={save} disabled={saving}>
                     {saving ? (
                         <Loader2 className="h-3 w-3 animate-spin" />

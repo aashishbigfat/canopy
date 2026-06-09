@@ -14,7 +14,7 @@ from app.schemas.contact import (
 from app.services.contact_service import ContactService
 from app.api.deps import get_current_user, check_permission
 from app.models.tenant import Tenant
-from app.schemas.industry_data import validate_industry_data
+from app.core.industry_guard import resolve_industry_data
 
 router = APIRouter()
 
@@ -114,12 +114,10 @@ async def create_contact(
             raise HTTPException(status_code=422, detail="account_id does not resolve to a valid account")
 
         # Resolve tenant industry — resolver raises if tenant missing
-        from app.services.industry_service import get_tenant_industry
-        industry = await get_tenant_industry(current_user.tenant_id)
-        contact_data.industry_data = validate_industry_data(
-            industry=industry,
-            data=contact_data.industry_data or {},
-            mode="contact"
+        contact_data.industry_data = await resolve_industry_data(
+            current_user.tenant_id,
+            contact_data.industry_data or {},
+            mode="contact",
         )
 
         service = ContactService()
@@ -224,7 +222,8 @@ async def get_contacts(
         account_ids = [c.account_id for c in contacts if c.account_id]
         accounts = []
         if account_ids:
-            accounts = await Account.find({"_id": {"$in": account_ids}}).to_list()
+            from app.core.tenant_scope import fetch_in_tenant
+            accounts = await fetch_in_tenant(Account, current_user.tenant_id, account_ids)
         
         # Map account ID to name
         account_map = {a.id: a.name for a in accounts}
@@ -367,12 +366,10 @@ async def update_contact(
         raise HTTPException(status_code=404, detail="Contact not found")
         
     if contact_data.industry_data is not None:
-        from app.services.industry_service import get_tenant_industry
-        industry = await get_tenant_industry(current_user.tenant_id)
-        contact_data.industry_data = validate_industry_data(
-            industry=industry,
-            data=contact_data.industry_data,
-            mode="contact"
+        contact_data.industry_data = await resolve_industry_data(
+            current_user.tenant_id,
+            contact_data.industry_data,
+            mode="contact",
         )
 
     contact = await service.update_contact(

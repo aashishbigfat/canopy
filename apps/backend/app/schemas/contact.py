@@ -1,14 +1,14 @@
 """
 Pydantic schemas for Contact API
 """
-from pydantic import BaseModel, EmailStr, Field, BeforeValidator
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator, model_validator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
 
 class ContactOwnerChange(BaseModel):
     """Schema for changing contact owner"""
     new_owner_id: str = Field(..., description="ID of the new owner user")
-from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE, strict_phone_validator
 import re
 
 def safe_phone_validator(v: Any) -> Optional[str]:
@@ -63,8 +63,10 @@ class ContactBase(BaseModel):
 
 class ContactCreate(ContactBase):
     """Schema for creating a contact"""
+    first_name: Optional[str] = Field(None, max_length=100)
     email: EmailStr = Field(...)
-    mobile: Annotated[str, BeforeValidator(safe_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[str, BeforeValidator(strict_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     account_id: str = Field(...)
     custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
 
@@ -72,16 +74,13 @@ class ContactCreate(ContactBase):
 class ContactUpdate(BaseModel):
     """Schema for updating a contact"""
     salutation: Optional[str] = None
-    first_name: Optional[str] = Field(None, min_length=2, max_length=100)
+    first_name: Optional[str] = Field(None, max_length=100)
     middle_name: Optional[str] = None
     last_name: Optional[str] = Field(None, min_length=2, max_length=100)
     
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
-    # Use safe_phone_validator (empty/invalid -> None) with the pattern as the
-    # default Field — matches ContactBase so an optional, empty phone/mobile is
-    # accepted as None instead of failing with "Input should be a valid string".
-    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
-    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     title: Optional[str] = None
     department: Optional[str] = None
     
@@ -93,6 +92,18 @@ class ContactUpdate(BaseModel):
     # service layer and does not exist on the Contact document.
     custom_fields: Optional[Dict[str, Any]] = None
     industry_data: Optional[Dict[str, Any]] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "ContactUpdate":
+        if "email" in self.model_fields_set and not self.email:
+            raise ValueError("Email is required.")
+        if "mobile" in self.model_fields_set and not self.mobile:
+            raise ValueError("Mobile is required.")
+        if "last_name" in self.model_fields_set and not self.last_name:
+            raise ValueError("Last name is required.")
+        if "account_id" in self.model_fields_set and not self.account_id:
+            raise ValueError("Account is required.")
+        return self
 
 
 class ContactResponse(ContactBase):

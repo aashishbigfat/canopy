@@ -283,7 +283,7 @@ export function SupplierDetails({
                     setIsEditDrawerOpen(open);
                     if (!open) router.refresh();
                 }}
-                initialData={supplier}
+                initialData={{ ...supplier, owner_name: owner?.name }}
                 onSuccess={() => {
                     setIsEditDrawerOpen(false);
                     router.refresh();

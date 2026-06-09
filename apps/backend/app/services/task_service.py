@@ -48,6 +48,9 @@ class TaskService(ActivityMixin):
             owner_id=user_id,
             created_by=user_id
         )
+
+        from app.core.entity_required_fields import validate_task_record
+        validate_task_record(task)
         
         await task.insert()
         
@@ -108,6 +111,9 @@ class TaskService(ActivityMixin):
         update_data = task_data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             setattr(task, field, value)
+
+        from app.core.entity_required_fields import validate_task_record
+        validate_task_record(task)
         
         task.last_modified_by_id = user_id
         await task.save()

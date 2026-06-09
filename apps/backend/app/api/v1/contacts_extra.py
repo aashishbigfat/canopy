@@ -127,19 +127,26 @@ async def update_single_column(
     if not contact:
         raise HTTPException(status_code=404, detail="Contact not found")
     
-    # Update the field
-    if hasattr(contact, field_name):
-        setattr(contact, field_name, field_value)
-        contact.last_modified_by_id = current_user.id
-        await contact.save()
-        
-        return {
-            "error": False,
-            "message": f"{field_name} updated successfully",
-            "contact": contact_to_response(contact)
-        }
-    else:
+    from app.core.inline_field_validation import validate_inline_field_update
+    from app.services.visibility_scope import get_visible_owner_ids, is_record_visible
+
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if not is_record_visible(contact.owner_id, visible_owner_ids):
+        raise HTTPException(status_code=404, detail="Contact not found")
+
+    if not hasattr(contact, field_name):
         raise HTTPException(status_code=400, detail=f"Invalid field: {field_name}")
+
+    normalized = validate_inline_field_update("contact", field_name, field_value)
+    setattr(contact, field_name, normalized)
+    contact.last_modified_by_id = current_user.id
+    await contact.save()
+
+    return {
+        "error": False,
+        "message": f"{field_name} updated successfully",
+        "contact": contact_to_response(contact)
+    }
 
 
 @router.post("/import")

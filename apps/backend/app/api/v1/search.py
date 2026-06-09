@@ -245,7 +245,12 @@ async def search_by_module(
         source_ids = list({str(d.source_id): d.source_id for d in docs if d.source_id}.values())
         source_map: Dict[str, str] = {}
         if source_ids:
-            sources = await Source.find({"_id": {"$in": source_ids}}).to_list()
+            from app.core.tenant_scope import fetch_picklists_in_tenant
+            from app.services.industry_service import get_tenant_industry
+            _industry = await get_tenant_industry(tenant_id)
+            sources = await fetch_picklists_in_tenant(
+                Source, tenant_id, source_ids, picklist_type="source", industry=_industry
+            )
             source_map = {str(s.id): s.name for s in sources}
 
         items = [
@@ -289,7 +294,12 @@ async def search_by_module(
         stage_ids = list({str(d.sales_stage_id): d.sales_stage_id for d in docs if d.sales_stage_id}.values())
         stage_map: Dict[str, str] = {}
         if stage_ids:
-            stages = await SalesStage.find({"_id": {"$in": stage_ids}}).to_list()
+            from app.core.tenant_scope import fetch_picklists_in_tenant
+            from app.services.industry_service import get_tenant_industry
+            _industry = await get_tenant_industry(tenant_id)
+            stages = await fetch_picklists_in_tenant(
+                SalesStage, tenant_id, stage_ids, picklist_type="sales_stage", industry=_industry
+            )
             stage_map = {str(s.id): s.name for s in stages}
 
         # Resolve account names
@@ -306,7 +316,12 @@ async def search_by_module(
         exp_map: Dict[str, str] = {}
         if exp_ids:
             try:
-                exps = await Experience.find({"_id": {"$in": exp_ids}}).to_list()
+                from app.core.tenant_scope import fetch_picklists_in_tenant
+                from app.services.industry_service import get_tenant_industry
+                _industry = await get_tenant_industry(tenant_id)
+                exps = await fetch_picklists_in_tenant(
+                    Experience, tenant_id, exp_ids, picklist_type="experience", industry=_industry
+                )
                 exp_map = {str(e.id): e.name for e in exps}
             except Exception:
                 pass
