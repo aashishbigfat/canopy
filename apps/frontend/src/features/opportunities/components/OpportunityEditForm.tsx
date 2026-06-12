@@ -406,7 +406,36 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
 
                         <div className="p-5 space-y-6">
                             <div className="grid gap-6 md:grid-cols-2">
-                                {/* Row 1: Name & Owner */}
+                                {/* Row 1: Account Type Toggles (read-only on edit) — first,
+                                    matching the create form's layout */}
+                                <div className="md:col-span-2 flex items-center gap-4 py-2 border-b border-border/50 opacity-70">
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            id="account-type-company"
+                                            name="accountType"
+                                            checked={!isPersonAccount}
+                                            disabled
+                                            readOnly
+                                            className="cursor-not-allowed"
+                                        />
+                                        <label htmlFor="account-type-company" className="text-sm font-medium text-foreground cursor-not-allowed">Account</label>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="radio"
+                                            id="account-type-person"
+                                            name="accountType"
+                                            checked={isPersonAccount}
+                                            disabled
+                                            readOnly
+                                            className="cursor-not-allowed"
+                                        />
+                                        <label htmlFor="account-type-person" className="text-sm font-medium text-foreground cursor-not-allowed">Personal Account</label>
+                                    </div>
+                                </div>
+
+                                {/* Row 2: Name & Owner */}
                                 <FormField
                                     control={form.control}
                                     name="name"
@@ -476,34 +505,6 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                         </FormItem>
                                     )}
                                 />
-
-                                {/* Row 3: Account Type Toggles (Readonly for Edit) */}
-                                <div className="md:col-span-2 flex items-center gap-4 py-2 border-y border-border/50 opacity-70">
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            id="account-type-company"
-                                            name="accountType"
-                                            checked={!isPersonAccount}
-                                            disabled
-                                            readOnly
-                                            className="cursor-not-allowed"
-                                        />
-                                        <label htmlFor="account-type-company" className="text-sm font-medium text-foreground cursor-not-allowed">Account</label>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <input
-                                            type="radio"
-                                            id="account-type-person"
-                                            name="accountType"
-                                            checked={isPersonAccount}
-                                            disabled
-                                            readOnly
-                                            className="cursor-not-allowed"
-                                        />
-                                        <label htmlFor="account-type-person" className="text-sm font-medium text-foreground cursor-not-allowed">Personal Account</label>
-                                    </div>
-                                </div>
 
                                 {/* Row 4: Account & Contact */}
                                 <FormField

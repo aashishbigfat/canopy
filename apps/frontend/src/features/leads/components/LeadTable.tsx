@@ -742,6 +742,17 @@ export function LeadTable({
         URL.revokeObjectURL(url);
     };
 
+    // Full server-side export of all visible leads (not just the current page)
+    const exportAll = async (format: "csv" | "xlsx") => {
+        try {
+            toast.info("Preparing export…");
+            await leadsService.exportLeads(format);
+            toast.success("Export downloaded");
+        } catch {
+            toast.error("Failed to export leads");
+        }
+    };
+
     return (
         <LoadingState isLoading={isLoading} fallback={<LoadingTable rows={10} columns={12} />}>
             <div className="w-full">
@@ -876,6 +887,12 @@ export function LeadTable({
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={exportCsv}>
                                         <Download className="mr-2 h-4 w-4" /> Export page (CSV)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => exportAll("csv")}>
+                                        <Download className="mr-2 h-4 w-4" /> Export all (CSV)
+                                    </DropdownMenuItem>
+                                    <DropdownMenuItem onClick={() => exportAll("xlsx")}>
+                                        <Download className="mr-2 h-4 w-4" /> Export all (Excel)
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
                                         <Upload className="mr-2 h-4 w-4" /> Import Leads (CSV)

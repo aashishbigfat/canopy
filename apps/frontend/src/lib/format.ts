@@ -20,11 +20,21 @@ const CURRENCY = "INR";
  */
 function toUTC(date: string | Date | null | undefined): Date | null {
   if (!date) return null;
-  if (date instanceof Date) return date;
-  // Already has offset info (+HH:MM, -HH:MM, or Z)?
-  if (/[Z+\-]\d*$/.test(date.trim())) return new Date(date);
-  // Bare ISO string – treat as UTC
-  return new Date(date + "Z");
+  if (date instanceof Date) return isNaN(date.getTime()) ? null : date;
+  const s = date.trim();
+  let parsed: Date;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+    // Date-only string – treat as UTC midnight
+    parsed = new Date(s + "T00:00:00Z");
+  } else if (/(?:Z|[+-]\d{2}:?\d{2})$/i.test(s)) {
+    // Already has offset info ("Z", "+05:30", "-0800", "+00:00", ...)
+    parsed = new Date(s);
+  } else {
+    // Bare ISO datetime – treat as UTC
+    parsed = new Date(s + "Z");
+  }
+  // Never let "Invalid Date" leak into the UI — formatters show "-" instead
+  return isNaN(parsed.getTime()) ? null : parsed;
 }
 
 // ─── Currency ───────────────────────────────────────────────

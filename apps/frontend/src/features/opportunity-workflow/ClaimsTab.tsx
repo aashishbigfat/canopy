@@ -92,8 +92,9 @@ export function ClaimsTab({ opportunityId }: { opportunityId: string }) {
                 <Label>Amount</Label>
                 <Input
                   type="number"
+                  min={0}
                   value={draft.amount}
-                  onChange={(e) => setDraft({ ...draft, amount: Number(e.target.value) })}
+                  onChange={(e) => setDraft({ ...draft, amount: Math.max(0, Number(e.target.value) || 0) })}
                 />
               </div>
               <div>

@@ -95,10 +95,10 @@ const convertSchema = z.object({
     travel_date: z.date().optional(),
     destination_ids: z.array(z.string()).optional(),
     experience_id: z.string().optional(),
-    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
+    no_of_adults: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
-    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
+    no_of_pax: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     sales_stage_id: z.string().optional(),
     no_of_nights: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     description: z.string().optional(),
@@ -1104,7 +1104,7 @@ export function ConvertLeadDialog({
                                                     <FormField control={form.control} name="no_of_adults" render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Adults</FormLabel>
-                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs" /></FormControl>
+                                                            <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="no_of_childs" render={({ field }) => (
@@ -1122,7 +1122,7 @@ export function ConvertLeadDialog({
                                                     <FormField control={form.control} name="no_of_pax" render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Total Pax</FormLabel>
-                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50/50 border-blue-200 text-blue-900 font-bold dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200" /></FormControl>
+                                                            <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs bg-blue-50/50 border-blue-200 text-blue-900 font-bold dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                 </div>

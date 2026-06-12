@@ -485,12 +485,15 @@ async def import_leads(
     from app.services.import_export_service import ImportExportService
     
     service = ImportExportService()
-    result = await service.import_leads_from_file(
-        file=file,
-        tenant_id=current_user.tenant_id,
-        user_id=current_user.id
-    )
-    
+    try:
+        result = await service.import_leads_from_file(
+            file=file,
+            tenant_id=current_user.tenant_id,
+            user_id=current_user.id
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
     return {
         "error": False,
         "message": f"Successfully imported {result['imported']} leads, skipped {result['skipped']} duplicates/errors.",
@@ -499,26 +502,60 @@ async def import_leads(
 
 
 
+@router.get("/import/sample")
+async def download_lead_import_sample(
+    current_user: User = Depends(check_permission("create_lead"))
+):
+    """Download the sample CSV whose columns match the lead importer."""
+    from app.services.import_export_service import generate_sample_csv
+    from app.services.industry_service import get_tenant_industry
+
+    tenant_industry = await get_tenant_industry(current_user.tenant_id)
+    content = generate_sample_csv("lead", tenant_industry)
+    return StreamingResponse(
+        BytesIO(content),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=leads_import_sample.csv"},
+    )
+
+
 @router.get("/export/{format}")
 async def export_leads(
     format: str,
     current_user: User = Depends(check_permission("view_lead"))
 ):
-    """Export leads to CSV or Excel"""
+    """Export all visible leads to CSV or Excel."""
     from app.services.import_export_service import ImportExportService
-    
-    
-    # Get all leads for export
-    leads = await Lead.find(
-        {"tenant_id": current_user.tenant_id, "deleted_at": None}
-    ).to_list()
-    
-    # TODO: Implement export_leads_to_excel method
-    
-    return {
-        "error": False,
-        "message": "Export functionality coming soon"
-    }
+    from app.services.industry_service import get_tenant_industry
+    from app.services.visibility_scope import get_visible_owner_ids
+
+    if format not in ("csv", "xlsx"):
+        raise HTTPException(status_code=400, detail="Unsupported format. Use csv or xlsx.")
+
+    # Tenant + ownership/hierarchy scope, same as the list endpoint
+    query: Dict[str, Any] = {"tenant_id": current_user.tenant_id, "deleted_at": None}
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if visible_owner_ids is not None:
+        query["owner_id"] = {"$in": visible_owner_ids}
+
+    leads = await Lead.find(query).sort("-created_at").to_list()
+    tenant_industry = await get_tenant_industry(current_user.tenant_id)
+
+    service = ImportExportService()
+    file_content = await service.export_leads_to_file(
+        leads, format, tenant_id=current_user.tenant_id, tenant_industry=tenant_industry
+    )
+
+    filename = f"leads_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.{format}"
+    media_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if format == "xlsx" else "text/csv"
+    )
+    return StreamingResponse(
+        BytesIO(file_content),
+        media_type=media_type,
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 @router.post("/{lead_id}/reassign-bd", response_model=Dict[str, Any])

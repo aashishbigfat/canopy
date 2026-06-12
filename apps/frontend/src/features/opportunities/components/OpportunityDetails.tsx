@@ -84,7 +84,6 @@ import { useGetUsers } from "@/features/admin/api/use-users";
 import { FileUploader } from "@/features/files/components/file-uploader";
 import { FileList } from "@/features/files/components/file-list";
 import { OpportunityFormDrawer } from "./OpportunityFormDrawer";
-import { VisitsByParentSection } from "@/features/bd/visits/components/VisitsByParentSection";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -990,15 +989,6 @@ export function OpportunityDetails({
                                             </div>
                                         </div>
                                     </CollapsibleDetailSection>
-
-                                    {/* BD Visits linked to this opportunity */}
-                                    <div className="rounded-lg border border-slate-700 p-3">
-                                        <VisitsByParentSection
-                                            parentType="Opportunity"
-                                            parentId={record.id}
-                                            parentName={record.name}
-                                        />
-                                    </div>
 
                                     <CollapsibleDetailSection
                                         title="System Information"

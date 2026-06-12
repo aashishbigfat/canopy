@@ -75,7 +75,10 @@ export function SearchableSelect({
     [options, value])
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        // modal — without it, opening this inside a Radix Dialog leaves the
+        // dialog's scroll-lock active over the portaled dropdown, so the
+        // option list cannot be scrolled with the mouse wheel.
+        <Popover open={open} onOpenChange={setOpen} modal={true}>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"

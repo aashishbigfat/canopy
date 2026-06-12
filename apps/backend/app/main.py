@@ -165,6 +165,7 @@ from app.api.v1 import accounts, contacts, auth, leads, opportunities, tasks, ev
 from app.api.v1 import bd_visits, expenses as bd_expenses, tracking as bd_tracking, automation_rules
 from app.api.v1 import settings as settings_routes
 from app.api.v1 import contacts_extra
+from app.api.v1 import accounts_extra
 # Phase 1 — Field registry + picklists
 from app.api.v1 import custom_fields, standard_fields, picklists
 # Phase 2 — Admin settings hub
@@ -206,6 +207,7 @@ from app.api.v1 import boms, production_orders, inventory
 
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["Authentication"])
 app.include_router(auth.router, prefix="/auth", tags=["Authentication (Alias)"]) # Fallback for misconfigured clients
+app.include_router(accounts_extra.router, prefix="/api/v1/accounts", tags=["Accounts"])
 app.include_router(accounts.router, prefix="/api/v1/accounts", tags=["Accounts"])
 app.include_router(contacts_extra.router, prefix="/api/v1/contacts", tags=["Contacts"])
 app.include_router(contacts.router, prefix="/api/v1/contacts", tags=["Contacts"])

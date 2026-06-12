@@ -15,9 +15,9 @@ class TravelLeadData(BaseModel):
     """Validates industry_data for a Lead owned by a travel tenant."""
 
     travel_date: str = Field(..., description="Travel date is required")
-    no_of_nights: Optional[int] = Field(None, ge=1, description="Number of nights (≥ 1)")
-    no_of_adults: Optional[int] = Field(None, ge=1, description="Number of adults (≥ 1)")
-    no_of_pax: Optional[int] = Field(None, ge=1, description="Total passengers (≥ 1)")
+    no_of_nights: Optional[int] = Field(None, ge=0, description="Number of nights (≥ 0)")
+    no_of_adults: Optional[int] = Field(None, ge=0, description="Number of adults (≥ 0)")
+    no_of_pax: Optional[int] = Field(None, ge=0, description="Total passengers (≥ 0)")
     no_of_childs: Optional[int] = Field(None, ge=0, description="Number of children (≥ 0)")
     no_of_infants: Optional[int] = Field(None, ge=0, description="Number of infants (≥ 0)")
     destinations: List[str] = Field(default_factory=list, description="Destination names")
@@ -30,9 +30,9 @@ class TravelOpportunityData(BaseModel):
     """Validates industry_data for an Opportunity owned by a travel tenant."""
 
     travel_date: datetime = Field(..., description="Travel date is required")
-    no_of_pax: Optional[int] = Field(None, ge=1, description="Total passengers (≥ 1)")
+    no_of_pax: Optional[int] = Field(None, ge=0, description="Total passengers (≥ 0)")
     no_of_nights: Optional[int] = Field(None, ge=0, description="Number of nights (≥ 0)")
-    no_of_adults: Optional[int] = Field(None, ge=1, description="Number of adults (≥ 1)")
+    no_of_adults: Optional[int] = Field(None, ge=0, description="Number of adults (≥ 0)")
     no_of_childs: Optional[int] = Field(None, ge=0, description="Number of children (≥ 0)")
     no_of_infants: Optional[int] = Field(None, ge=0, description="Number of infants (≥ 0)")
     destination_ids: List[str] = Field(default_factory=list, description="Destination ObjectId refs")

@@ -53,5 +53,29 @@ export const contactsService = {
             ...c,
             full_name: c.full_name || `${c.first_name || ''} ${c.last_name || ''}`.trim(),
         }));
-    }
+    },
+
+    // Bulk import from CSV/Excel
+    importContacts: async (file: File) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const response = await apiClient.post(`${BASE_URL}/import`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+        });
+        return response.data;
+    },
+
+    // Server-generated sample CSV whose columns match the importer exactly
+    downloadImportSample: async (): Promise<void> => {
+        const { saveBlob } = await import("@/lib/download");
+        const response = await apiClient.get(`${BASE_URL}/import/sample`, { responseType: "blob" });
+        saveBlob(response.data, "contacts_import_sample.csv");
+    },
+
+    // Full export of all visible contacts (server-side, not just the current page)
+    exportContacts: async (format: "csv" | "xlsx"): Promise<void> => {
+        const { saveBlob } = await import("@/lib/download");
+        const response = await apiClient.get(`${BASE_URL}/export/${format}`, { responseType: "blob" });
+        saveBlob(response.data, `contacts_export.${format}`);
+    },
 };

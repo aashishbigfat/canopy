@@ -23,6 +23,7 @@ import {
     GitMerge,
     Save,
     Trash2,
+    Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
@@ -74,6 +75,7 @@ import { CreateAccountButton } from "./CreateAccountButton";
 import { accountService } from "../services/accountService";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
 import { OwnerPopover } from "@/components/shared/OwnerPopover";
+import { ImportDataDialog, normalizeImportResult } from "@/components/shared/ImportDataDialog";
 import { useDebounce } from "@/hooks/use-debounce";
 import { validateInlineField, normalizePhoneValue, isPhoneField, type InlineField } from "@/lib/validation/inline-field-validation";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -468,6 +470,18 @@ export function AccountTable({
         URL.revokeObjectURL(url);
     };
 
+    // ── Bulk import + full server-side export ─────────────────────────────────
+    const [importOpen, setImportOpen] = React.useState(false);
+    const exportAll = async (format: "csv" | "xlsx") => {
+        try {
+            toast.info("Preparing export…");
+            await accountService.exportAccounts(format, false);
+            toast.success("Export downloaded");
+        } catch {
+            toast.error("Failed to export accounts");
+        }
+    };
+
     const columns = React.useMemo<ColumnDef<Account>[]>(() => {
         const base: ColumnDef<Account>[] = [];
         if (mergeMode) {
@@ -789,6 +803,15 @@ export function AccountTable({
                             <DropdownMenuItem onClick={exportCsv}>
                                 <Download className="mr-2 h-4 w-4" /> Export page (CSV)
                             </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportAll("csv")}>
+                                <Download className="mr-2 h-4 w-4" /> Export all (CSV)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportAll("xlsx")}>
+                                <Download className="mr-2 h-4 w-4" /> Export all (Excel)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setImportOpen(true)}>
+                                <Upload className="mr-2 h-4 w-4" /> Import Accounts (CSV)
+                            </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={openSaveView}>
                                 <Save className="mr-2 h-4 w-4" /> Save view…
@@ -1029,6 +1052,22 @@ export function AccountTable({
                 accountId={detailId}
                 open={detailOpen}
                 onOpenChange={setDetailOpen}
+            />
+
+            {/* Bulk import (CSV/Excel) with sample download */}
+            <ImportDataDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                entityLabel="Accounts"
+                importFn={async (file) => normalizeImportResult(await accountService.importAccounts(file, false))}
+                downloadSampleFn={() => accountService.downloadImportSample(false)}
+                onImported={refresh}
+                checklist={[
+                    "Columns must match the downloaded sample — Name is required.",
+                    "Account Type and Industry must exist as active picklists in Tutterfly.",
+                    "Phone format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                    "Duplicate accounts (same name or email) are skipped and reported below.",
+                ]}
             />
         </div>
     );
