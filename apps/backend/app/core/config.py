@@ -66,7 +66,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 100 * 1024 * 1024  # 100MB
     ALLOWED_EXTENSIONS: Set[str] = {
         "pdf", "doc", "docx", "xls", "xlsx",
-        "jpg", "jpeg", "png", "gif", "zip", "csv"
+        "jpg", "jpeg", "png", "gif", "webp", "bmp", "zip", "csv", "txt"
     }
     
     # CORS

@@ -30,6 +30,8 @@ export function FinancialTab({ opportunity }: Props) {
     const [destOptions, setDestOptions] = useState<{ label: string; value: string }[]>([]);
     // Lookup of every tenant supplier (id → services), used to enrich the costing suppliers
     const [supplierServiceMap, setSupplierServiceMap] = useState<Record<string, string[]>>({});
+    // Every tenant supplier — fallback for the Pay modal when costing has none chosen.
+    const [allSuppliers, setAllSuppliers] = useState<{ id: string; name: string; services: string[] }[]>([]);
 
     // Saved costing — the Pay modal supplier list is scoped to the suppliers
     // actually chosen on this opportunity's costing sheet (not all tenant suppliers).
@@ -57,8 +59,12 @@ export function FinancialTab({ opportunity }: Props) {
                 services: supplierServiceMap[item.supplier_id] || [],
             });
         }
+        // When no real supplier is chosen on the costing sheet, the Pay modal
+        // should let the user pick from ALL tenant suppliers. Only scope it down
+        // to the costing suppliers once at least one has been selected.
+        if (result.length === 0) return allSuppliers;
         return result;
-    }, [costing, supplierServiceMap]);
+    }, [costing, supplierServiceMap, allSuppliers]);
 
     // Load all tenant suppliers once to build the id → services lookup.
     useEffect(() => {
@@ -70,6 +76,9 @@ export function FinancialTab({ opportunity }: Props) {
                     map[s.id] = s.services || [];
                 });
                 setSupplierServiceMap(map);
+                setAllSuppliers(
+                    res.suppliers.map((s) => ({ id: s.id, name: s.name, services: s.services || [] }))
+                );
             })
             .catch(() => {});
     }, []);

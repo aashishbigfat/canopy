@@ -256,7 +256,7 @@ export function TransactionModal({
                                             ))
                                         ) : (
                                             <option disabled value="">
-                                                No suppliers in costing
+                                                No suppliers available
                                             </option>
                                         )}
                                     </select>

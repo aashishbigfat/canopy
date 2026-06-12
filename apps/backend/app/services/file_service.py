@@ -29,6 +29,10 @@ _MAGIC_SIGNATURES: dict[str, list[tuple[int, bytes]]] = {
     "jpg":  [(0, b"\xff\xd8\xff")],
     "jpeg": [(0, b"\xff\xd8\xff")],
     "gif":  [(0, b"GIF87a"), (0, b"GIF89a")],
+    # WEBP: "RIFF" at offset 0, then "WEBP" at offset 8. Matching the offset-8
+    # marker is the most specific single check (RIFF alone also matches WAV/AVI).
+    "webp": [(8, b"WEBP")],
+    "bmp":  [(0, b"BM")],
     # ZIP / DOCX / XLSX / PPTX all share the ZIP container signature
     "zip":  [(0, b"PK\x03\x04"), (0, b"PK\x05\x06"), (0, b"PK\x07\x08")],
     "docx": [(0, b"PK\x03\x04")],
@@ -299,14 +303,18 @@ class FileService:
             tenant_id=tenant_id,
         )
 
+        # Record the storage backend that was ACTUALLY used. Hardcoding "s3"
+        # mislabels files written by the local fallback (when AWS creds are
+        # absent), which then 404 on download because the key isn't in S3.
+        used_s3 = self.s3_service.use_aws
         file_record = File(
             filename=safe_name,
             original_filename=filename,
             file_path=s3_key,
             file_size=file_size,
             mime_type=content_type,
-            storage_type="s3",
-            s3_bucket=settings.S3_BUCKET_NAME,
+            storage_type="s3" if used_s3 else "local",
+            s3_bucket=settings.S3_BUCKET_NAME if used_s3 else None,
             s3_key=s3_key,
             fileable_type=fileable_type,
             fileable_id=ObjectId(fileable_id) if fileable_id else None,

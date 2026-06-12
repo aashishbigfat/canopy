@@ -14,7 +14,7 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { Badge } from "@/components/ui/badge";
 import { ChangeOwnerDialog } from "./ChangeOwnerDialog";
 import { OwnerPopover } from "./OwnerPopover";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { getSegmentBadgeClass, getSegmentLabel } from "@/lib/segments";
 
 interface EntityDetailHeaderProps {
@@ -29,7 +29,7 @@ interface EntityDetailHeaderProps {
     ownerId?: string;
     onEdit?: () => void;
     onDelete?: () => void;
-    onChangeOwner?: (newOwnerId: string) => void;
+    onChangeOwner?: (newOwnerId: string) => void | Promise<unknown>;
     isChangingOwner?: boolean;
 }
 
@@ -49,6 +49,17 @@ export function EntityDetailHeader({
     isChangingOwner
 }: EntityDetailHeaderProps) {
     const [isOwnerModalOpen, setIsOwnerModalOpen] = useState(false);
+
+    // Optimistic owner: reflect a just-changed owner instantly, without waiting
+    // for the server round-trip / router.refresh() to land. Once the parent
+    // re-renders with the reconciled owner prop, this override is cleared.
+    const [optimisticOwner, setOptimisticOwner] = useState<{ id?: string; name: string } | null>(null);
+    useEffect(() => {
+        setOptimisticOwner(null);
+    }, [ownerId, ownerName]);
+
+    const displayOwnerId = optimisticOwner?.id ?? ownerId;
+    const displayOwnerName = optimisticOwner?.name ?? ownerName;
 
     return (
         <div className="crm-surface mb-6 overflow-hidden">
@@ -126,7 +137,7 @@ export function EntityDetailHeader({
                     <div className="space-y-1">
                         <p className="text-xs font-semibold text-slate-400 uppercase">{type} Owner</p>
                         <div className="flex items-center gap-2">
-                            <OwnerPopover ownerId={ownerId} ownerName={ownerName} className="text-sm font-medium" />
+                            <OwnerPopover ownerId={displayOwnerId} ownerName={displayOwnerName} className="text-sm font-medium" />
                             {onChangeOwner ? (
                                 <button
                                     type="button"
@@ -154,12 +165,19 @@ export function EntityDetailHeader({
                 <ChangeOwnerDialog
                     isOpen={isOwnerModalOpen}
                     onClose={() => setIsOwnerModalOpen(false)}
-                    onConfirm={(newOwnerId) => {
-                        onChangeOwner(newOwnerId);
+                    onConfirm={async (newOwnerId, newOwnerName) => {
+                        // Show the new owner instantly; revert if the server rejects.
+                        if (newOwnerName) setOptimisticOwner({ id: newOwnerId, name: newOwnerName });
                         setIsOwnerModalOpen(false);
+                        try {
+                            await onChangeOwner(newOwnerId);
+                        } catch {
+                            setOptimisticOwner(null);
+                        }
                     }}
                     type={type}
                     isLoading={isChangingOwner}
+                    currentOwnerId={displayOwnerId}
                 />
             )}
         </div>

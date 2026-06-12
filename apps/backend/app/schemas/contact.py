@@ -108,6 +108,11 @@ class ContactUpdate(BaseModel):
 
 class ContactResponse(ContactBase):
     """Schema for contact response"""
+    # Relax input-only constraints for output: a legacy/imported contact with a
+    # malformed email must still serialize rather than 500 the read endpoint.
+    # (phone/mobile/zip are already sanitized to None via the safe_* validators.)
+    email: Optional[str] = None
+
     id: str
     tenant_id: str
     owner_id: str

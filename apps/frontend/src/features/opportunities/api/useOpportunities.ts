@@ -227,11 +227,21 @@ export const useUnlockOpportunity = () => {
 export const useChangeOpportunityOwner = () => {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, newOwnerId }: { id: string; newOwnerId: string }) =>
+        mutationFn: ({ id, newOwnerId }: { id: string; newOwnerId: string; newOwnerName?: string }) =>
             opportunitiesService.changeOwner(id, newOwnerId),
         onMutate: async (newOwner) => {
             await queryClient.cancelQueries({ queryKey: ["opportunities"] });
             const previousQueries = queryClient.getQueriesData({ queryKey: ["opportunities"] });
+
+            // Patch BOTH owner_id and owner_name so the detail panel (which
+            // renders owner_name) reflects the change instantly — not just the
+            // list. Without the name patch the panel showed the old owner until
+            // the refetch landed.
+            const patch = (opp: any) => ({
+                ...opp,
+                owner_id: newOwner.newOwnerId,
+                ...(newOwner.newOwnerName ? { owner_name: newOwner.newOwnerName } : {}),
+            });
 
             queryClient.setQueriesData({ queryKey: ["opportunities"] }, (old: any) => {
                 if (!old) return old;
@@ -241,14 +251,14 @@ export const useChangeOpportunityOwner = () => {
                     return {
                         ...old,
                         opportunities: old.opportunities.map((opp: any) =>
-                            opp.id === newOwner.id ? { ...opp, owner_id: newOwner.newOwnerId } : opp
+                            opp.id === newOwner.id ? patch(opp) : opp
                         ),
                     };
                 }
 
                 // Handle Single Record Response
                 if (old.id === newOwner.id) {
-                    return { ...old, owner_id: newOwner.newOwnerId };
+                    return patch(old);
                 }
 
                 return old;
@@ -261,6 +271,16 @@ export const useChangeOpportunityOwner = () => {
                 queryClient.setQueryData(queryKey, previousData);
             });
             toast.error("Failed to change owner");
+        },
+        onSuccess: (data) => {
+            // The change-owner response is authoritative (enriched owner_name,
+            // last_modified, etc.). Write it straight into the detail cache so
+            // the panel shows the final value without a refetch round-trip.
+            if (data?.id) {
+                queryClient.setQueryData(["opportunities", data.id], (old: any) =>
+                    old ? { ...old, ...data } : data
+                );
+            }
         },
         onSettled: (data) => {
             queryClient.invalidateQueries({ queryKey: ["opportunities"] });

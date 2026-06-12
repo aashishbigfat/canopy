@@ -348,20 +348,10 @@ async def recent_files(
     ]
 
 
-@router.get("/{file_id}/download")
-async def download_file_url(
-    file_id: PydanticObjectId,
-    current_user: User = Depends(get_current_user),
-):
-    """Mirror old `/rest_files_download/{id}`. Returns presigned S3 URL."""
-    file = await File.get(file_id)
-    if not file or getattr(file, "tenant_id", None) != current_user.tenant_id:
-        raise HTTPException(404, "File not found")
-    return {
-        "id": str(file.id),
-        "download_url": getattr(file, "s3_url", None),
-        "expires_in": 600,
-    }
+# NOTE: GET /{file_id}/download is intentionally NOT defined here. The real,
+# working streaming download lives in files.py. A duplicate route here (this
+# router is registered first) shadowed it and returned a null download_url
+# (the File model has no `s3_url`), which broke every file download.
 
 
 @router.get("/{file_id}/preview")

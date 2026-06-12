@@ -187,7 +187,7 @@ export function ConvertLeadDialog({
             opportunity_close_date: new Date(),
             sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'received')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
             experience_id: industry === "travel" ? (lead.industry_data?.experience_id || undefined) : undefined,
-            opportunity_owner_id: lead.owner_id || "",
+            opportunity_owner_id: "",
         },
     });
     // Update form values dynamically when dialog opens or lead changes
@@ -1157,21 +1157,23 @@ export function ConvertLeadDialog({
                                                     control={form.control}
                                                     name="opportunity_owner_id"
                                                     render={({ field }) => (
-                                                        <FormItem className="hidden">
+                                                        <FormItem>
+                                                            <FormLabel>Opportunity Owner</FormLabel>
                                                             <FormControl>
-                                                                <input type="hidden" {...field} />
+                                                                <SearchableSelect
+                                                                    options={users?.map((u) => ({ label: u.name, value: u.id || "" })) || []}
+                                                                    value={field.value}
+                                                                    onValueChange={field.onChange}
+                                                                    placeholder="Select owner"
+                                                                />
                                                             </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Select who will own this opportunity.
+                                                            </FormDescription>
+                                                            <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
-                                                <div>
-                                                    <FormLabel>Opportunity Owner</FormLabel>
-                                                    <div className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
-                                                        {lead.owner_name
-                                                            || users?.find((u) => u.id === lead.owner_id)?.name
-                                                            || "Assigned to lead owner"}
-                                                    </div>
-                                                </div>
 
                                                 <FormField
                                                     control={form.control}
