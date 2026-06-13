@@ -63,9 +63,9 @@ import {
 } from "@/components/ui/popover";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { accountsService } from "@/lib/api/services/accounts.service";
+import { contactsService } from "@/lib/api/services/contacts.service";
 import { apiClient } from "@/lib/api/client";
 import { destinationsService, Destination } from "@/lib/api/services/destinations.service";
-import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { useIndustry } from "@/lib/industry-labels";
 import { User } from "../types";
@@ -127,7 +127,6 @@ export function ConvertLeadDialog({
     sales_stages = []
 }: ConvertLeadDialogProps) {
     const convertLead = useConvertLead();
-    const { toast } = useToast();
     const industry = useIndustry();
     const { data: suggestions, isLoading: suggestionsLoading } = useConversionSuggestions(lead.id);
 
@@ -144,6 +143,14 @@ export function ConvertLeadDialog({
     const [accountSearchLoading, setAccountSearchLoading] = useState(false);
     // The currently-chosen option, pinned so its label persists across searches.
     const [selectedAccountOption, setSelectedAccountOption] = useState<{ label: string; value: string } | null>(null);
+
+    // Searchable existing-contact options — same idea as accounts. Seeded from
+    // suggestions but searchable across ALL tenant contacts, so a B2B lead that
+    // came in through a B2C/personal email can still be matched to the right
+    // existing contact instead of forcing a duplicate.
+    const [contactOptions, setContactOptions] = useState<{ label: string; value: string }[]>([]);
+    const [contactSearchLoading, setContactSearchLoading] = useState(false);
+    const [selectedContactOption, setSelectedContactOption] = useState<{ label: string; value: string } | null>(null);
 
     // Self-sufficient picklist data — use props or fetch from API if empty
     const [localExperiences, setLocalExperiences] = useState<{ id: string; name: string }[]>(experiences);
@@ -267,6 +274,33 @@ export function ConvertLeadDialog({
         }
     };
 
+    // Map a suggestion/contact into a SearchableSelect option label.
+    const contactToOption = (con: { id: string; name: string; email?: string; account_name?: string; match_type?: string }) => ({
+        label: `${con.name}${con.email ? ` (${con.email})` : ""}${con.match_type ? ` - ${con.match_type}` : con.account_name ? ` — ${con.account_name}` : ""}`,
+        value: con.id || "",
+    });
+
+    // Search ALL tenant contacts so a user can always pick an existing contact,
+    // even when nothing auto-matched the lead's email.
+    const handleContactSearch = async (query: string, signal?: AbortSignal) => {
+        if (!query || query.trim().length < 1) {
+            // Empty query: fall back to the suggested matches (if any).
+            const base = (suggestions?.contacts || []).map(contactToOption);
+            setContactOptions(selectedContactOption ? [selectedContactOption, ...base] : base);
+            return;
+        }
+        try {
+            setContactSearchLoading(true);
+            const results = await contactsService.searchContactAutocomplete(query, signal);
+            const opts = results.map(contactToOption);
+            setContactOptions(selectedContactOption ? [selectedContactOption, ...opts] : opts);
+        } catch {
+            /* ignore aborted/failed searches */
+        } finally {
+            setContactSearchLoading(false);
+        }
+    };
+
     // Auto-detect existing accounts/contacts and set defaults
     useEffect(() => {
         if (suggestions && !suggestionsLoading) {
@@ -283,13 +317,17 @@ export function ConvertLeadDialog({
                 setSelectedAccountOption(null);
             }
 
+            // Seed searchable contact options from suggestions
+            setContactOptions((suggestions.contacts || []).map(contactToOption));
             // Auto-select contact mode based on suggestions
             if (suggestions.contacts && suggestions.contacts.length > 0) {
                 setContactMode("existing");
                 setSelectedContactId(suggestions.contacts[0].id); // Select best match
+                setSelectedContactOption(contactToOption(suggestions.contacts[0]));
             } else {
                 setContactMode("new");
                 setSelectedContactId("");
+                setSelectedContactOption(null);
             }
         }
     }, [suggestions, suggestionsLoading]);
@@ -493,9 +531,9 @@ export function ConvertLeadDialog({
                         });
                     }
                 });
-            } else if (typeof details === "string") {
-                toast({ variant: "destructive", title: "Validation Error", description: details });
             }
+            // A string detail isn't field-specific — let the mutation's onError
+            // handler surface the (sanitised) toast so we don't show it twice.
             return true;
         }
         return false;
@@ -782,16 +820,19 @@ export function ConvertLeadDialog({
                                                             <FormLabel>Select Existing Contact</FormLabel>
                                                             <FormControl>
                                                                 <SearchableSelect
-                                                                    options={suggestions?.contacts?.map((con) => ({
-                                                                        label: `${con.name} ${con.email ? `(${con.email})` : ""} - ${con.match_type}`,
-                                                                        value: con.id || ""
-                                                                    })) || []}
+                                                                    options={contactOptions}
                                                                     value={field.value}
                                                                     onValueChange={(value) => {
                                                                         field.onChange(value);
                                                                         setSelectedContactId(value);
+                                                                        const opt = contactOptions.find(o => o.value === value) || null;
+                                                                        setSelectedContactOption(opt);
                                                                     }}
-                                                                    placeholder="Select a contact..."
+                                                                    onSearch={handleContactSearch}
+                                                                    isLoading={contactSearchLoading}
+                                                                    placeholder="Search & select a contact..."
+                                                                    searchPlaceholder="Type to search contacts..."
+                                                                    emptyMessage="No contacts found. Try a different search."
                                                                 />
                                                             </FormControl>
                                                             <FormMessage />
@@ -822,15 +863,20 @@ export function ConvertLeadDialog({
                                                     onClick={() => {
                                                         setContactMode("existing");
                                                         form.setValue("contact_create", false);
+                                                        // Seed the dropdown with any matches so it isn't empty before searching.
+                                                        const base = (suggestions?.contacts || []).map(contactToOption);
+                                                        setContactOptions(selectedContactOption ? [selectedContactOption, ...base] : base);
                                                         if (suggestions?.contacts && suggestions.contacts.length > 0) {
                                                             form.setValue("contact_id", suggestions.contacts[0].id);
                                                             setSelectedContactId(suggestions.contacts[0].id);
+                                                            setSelectedContactOption(contactToOption(suggestions.contacts[0]));
                                                         }
                                                     }}
-                                                    disabled={!suggestions?.contacts || suggestions.contacts.length === 0}
                                                     className="flex-1"
                                                 >
-                                                    Use Existing {suggestions?.contacts && suggestions.contacts.length > 0 ? `(${suggestions.contacts.length})` : "(No matches)"}
+                                                    {suggestions?.contacts && suggestions.contacts.length > 0
+                                                        ? `Use Existing (${suggestions.contacts.length})`
+                                                        : "Choose Existing"}
                                                 </Button>
                                             </div>
                                         </CardContent>

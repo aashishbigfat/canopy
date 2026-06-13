@@ -43,6 +43,26 @@ export const contactsService = {
         return response.data;
     },
 
+    // Free-text autocomplete across ALL tenant contacts (visibility-scoped by the
+    // backend). Used by the lead-convert dialog so a user can always pick an
+    // existing contact even when the lead's email didn't auto-match one — e.g. a
+    // B2B lead that arrived with a personal (B2C) email/domain.
+    searchContactAutocomplete: async (
+        query: string,
+        signal?: AbortSignal,
+    ): Promise<{ id: string; name: string; email?: string; account_name?: string }[]> => {
+        const response = await apiClient.get<ContactResponse>(BASE_URL, {
+            params: { search: query, per_page: 20 },
+            signal,
+        });
+        return response.data.contacts.map((c) => ({
+            id: c.id,
+            name: c.full_name || `${c.first_name || ""} ${c.last_name || ""}`.trim(),
+            email: c.email,
+            account_name: c.account_name,
+        }));
+    },
+
     getContactsByAccount: async (accountId: string, signal?: AbortSignal): Promise<Contact[]> => {
         const response = await apiClient.get<{ contacts: any[]; total: number }>(`${BASE_URL}/search`, {
             params: { account_id: accountId, per_page: 100 },

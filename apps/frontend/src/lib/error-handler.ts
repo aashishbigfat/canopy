@@ -32,6 +32,65 @@ export class AppError extends Error {
   }
 }
 
+// Turn a noisy backend error into one short, human-readable line.
+// Strips Pydantic boilerplate ("N validation errors for X", "[type=…]",
+// "For further information visit …"), flattens FastAPI 422 detail arrays to the
+// first message, collapses whitespace, and caps the length so toasts stay clean.
+function stripNoise(raw: string): string {
+  let s = String(raw).trim();
+  s = s.replace(/^\d+\s+validation errors?\s+for\s+\S+/i, "");
+  s = s.replace(/\[type=[^\]]*\]/gi, "");
+  s = s.replace(/For further information visit https?:\/\/\S+/gi, "");
+  s = s.replace(/\s+/g, " ").trim();
+  s = s.replace(/^[:\-\s]+/, "").trim();
+  if (s.length > 160) s = `${s.slice(0, 157).trimEnd()}…`;
+  // Capitalize first letter for a tidier toast.
+  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+function fieldLabel(field: unknown): string | null {
+  if (typeof field !== "string" || !field || field === "body" || field === "__root__") {
+    return null;
+  }
+  return field
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+export function cleanErrorMessage(input: unknown, fallback = "Something went wrong. Please try again."): string {
+  if (input == null) return fallback;
+
+  // FastAPI 422: detail is an array of { loc, msg, type }
+  if (Array.isArray(input)) {
+    const first = input.find((e) => e && (e.msg || e.message)) as any;
+    if (!first) return fallback;
+    const msg = stripNoise(first.msg || first.message);
+    const label = fieldLabel(first.loc?.[first.loc.length - 1]);
+    return label ? `${label}: ${msg}` : msg || fallback;
+  }
+
+  if (typeof input === "object") {
+    const obj = input as any;
+    if (obj.detail || obj.msg || obj.message) {
+      return cleanErrorMessage(obj.detail ?? obj.msg ?? obj.message, fallback);
+    }
+    return fallback;
+  }
+
+  return stripNoise(input as string) || fallback;
+}
+
+// Stable-ish id so the same error fired twice (e.g. a React Query mutation
+// onError plus a component catch handler) collapses into a single toast
+// instead of stacking duplicates.
+function toastIdFor(message: string): string {
+  let hash = 0;
+  for (let i = 0; i < message.length; i++) {
+    hash = (hash * 31 + message.charCodeAt(i)) | 0;
+  }
+  return `err-${hash}`;
+}
+
 // Error handler utility
 export class ErrorHandler {
   static handle(error: unknown, fallbackMessage = "An unexpected error occurred"): void {
@@ -69,7 +128,7 @@ export class ErrorHandler {
         switch (status) {
           case 400:
             return new AppError(
-              data?.detail || data?.message || "Invalid request data",
+              cleanErrorMessage(data?.detail ?? data?.message, "Invalid request data"),
               ErrorType.VALIDATION,
               status,
               data
@@ -94,20 +153,20 @@ export class ErrorHandler {
             );
           case 422:
             return new AppError(
-              data?.detail || data?.message || "Invalid data provided",
+              cleanErrorMessage(data?.detail ?? data?.message, "Invalid data provided"),
               ErrorType.VALIDATION,
               status,
               data
             );
           case 500:
             return new AppError(
-              data?.detail || data?.message || "Server error occurred. Please try again later.",
+              cleanErrorMessage(data?.detail ?? data?.message, "Server error occurred. Please try again later."),
               ErrorType.SERVER,
               status
             );
           default:
             return new AppError(
-              data?.detail || data?.message || fallbackMessage,
+              cleanErrorMessage(data?.detail ?? data?.message, fallbackMessage),
               ErrorType.UNKNOWN,
               status,
               data
@@ -127,6 +186,8 @@ export class ErrorHandler {
     const toastConfig = {
       duration: error.type === ErrorType.NETWORK ? 8000 : 4000,
       position: "top-right" as const,
+      // Dedupe: identical errors raised from multiple handlers share one toast.
+      id: toastIdFor(error.message),
     };
 
     switch (error.type) {
