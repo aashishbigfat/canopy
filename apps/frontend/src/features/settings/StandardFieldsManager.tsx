@@ -101,7 +101,7 @@ export function StandardFieldsManager({ entity }: { entity: EntityType }) {
           No standard fields registered for {entity}. Default fields will populate on first use.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="crm-table-header">
               <tr>

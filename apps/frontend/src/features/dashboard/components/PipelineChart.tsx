@@ -145,7 +145,7 @@ export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
                         </p>
                     </div>
                 ) : !mounted ? null : (
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height={280} minWidth={0}>
                         <PieChart>
                             <Tooltip content={<CustomTooltip />} />
                             <Pie

@@ -160,7 +160,7 @@ function UsersTab() {
   }
 
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="border-b bg-muted/30 text-left">
           <tr>
@@ -259,7 +259,7 @@ function CountriesTab() {
           <Loader2 className="h-6 w-6 animate-spin" />
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>

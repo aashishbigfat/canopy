@@ -260,7 +260,7 @@ export function CustomFieldsManager({ entity }: { entity: EntityType }) {
           No custom fields yet. Click <strong>New Field</strong> to add one.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="crm-table-header">
               <tr>

@@ -85,7 +85,7 @@ export default function AutomationPage() {
           No rules yet. Try: when a lead has <code>industry_data.requires_field_meeting=true</code>, create a Site Survey visit.
         </div>
       ) : (
-        <div className="rounded-md border bg-card">
+        <div className="rounded-md border bg-card overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>

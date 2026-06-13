@@ -161,7 +161,7 @@ export function VouchersTab({ opportunityId }: { opportunityId: string }) {
           No vouchers yet.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="crm-table-header">
               <tr>

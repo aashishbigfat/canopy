@@ -108,7 +108,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense, defaults, onSav
             <Label>Title *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Cab to client meeting" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Category</Label>
               <Select value={categoryId || "__none__"} onValueChange={(v) => setCategoryId(v === "__none__" ? "" : v)}>
@@ -133,7 +133,7 @@ export function ExpenseFormDialog({ open, onOpenChange, expense, defaults, onSav
               <Input type="date" value={incurredAt} onChange={(e) => setIncurredAt(e.target.value)} />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="grid gap-1.5 col-span-2">
               <Label>Amount *</Label>
               <Input

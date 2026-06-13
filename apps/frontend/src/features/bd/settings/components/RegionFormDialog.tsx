@@ -92,7 +92,7 @@ export function RegionFormDialog({ open, onOpenChange, region, regions, onSaved 
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="rcode">Code</Label>
               <Input
@@ -123,7 +123,7 @@ export function RegionFormDialog({ open, onOpenChange, region, regions, onSaved 
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="rcurr">Currency</Label>
               <Input

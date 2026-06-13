@@ -104,7 +104,7 @@ function RegionsTab() {
           No regions defined yet. Click &ldquo;New Region&rdquo; to start.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>
@@ -236,7 +236,7 @@ function TerritoriesTab() {
           No territories defined yet. Click &ldquo;New Territory&rdquo; to start.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>
@@ -341,7 +341,7 @@ function BdTab() {
     );
   }
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       <table className="w-full text-sm">
         <thead className="border-b bg-muted/30 text-left">
           <tr>
