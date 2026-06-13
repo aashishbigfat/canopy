@@ -10,7 +10,7 @@ import {
     getPaginationRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { Pencil, Check, Loader2, ChevronDown, RefreshCw, Filter, X, Search as SearchIcon, Download, Save, Trash2, Settings } from "lucide-react";
+import { Pencil, Check, Loader2, ChevronDown, RefreshCw, Filter, X, Search as SearchIcon, Download, Save, Trash2, Settings, Upload } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -57,6 +57,7 @@ import {
 import { Contact } from "../types";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { OwnerPopover } from "@/components/shared/OwnerPopover";
+import { ImportDataDialog, normalizeImportResult } from "@/components/shared/ImportDataDialog";
 import { entityViewsService } from "@/lib/api/services/entity-views.service";
 import { useDebounce } from "@/hooks/use-debounce";
 import { validateInlineField, normalizePhoneValue, isPhoneField } from "@/lib/validation/inline-field-validation";
@@ -294,21 +295,16 @@ export function ContactTable({
         }
     };
 
-    const exportCsv = () => {
-        const headers = ["First Name", "Last Name", "Email", "Phone", "Mobile", "Owner"];
-        const rows = data.map((c) => [
-            c.first_name, c.last_name, c.email, c.phone, (c as any).mobile,
-            c.owner_name || (c.owner_id ? ownerNameById.get(c.owner_id) : ""),
-        ]);
-        const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `contacts-page-${pagination.current_page}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+    // ── Bulk import + full server-side export ─────────────────────────────────
+    const [importOpen, setImportOpen] = React.useState(false);
+    const exportAll = async (format: "csv" | "xlsx") => {
+        try {
+            toast.info("Preparing export…");
+            await contactsService.exportContacts(format);
+            toast.success("Export downloaded");
+        } catch {
+            toast.error("Failed to export contacts");
+        }
     };
 
     const columns = React.useMemo<ColumnDef<Contact>[]>(
@@ -465,7 +461,8 @@ export function ContactTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={refresh}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportCsv}><Download className="mr-2 h-4 w-4" /> Export page (CSV)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => exportAll("csv")}><Download className="mr-2 h-4 w-4" /> Export all (CSV)</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" /> Import Contacts (CSV)</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={openSaveView}><Save className="mr-2 h-4 w-4" /> Save view…</DropdownMenuItem>
                             {activeView && (
@@ -607,6 +604,23 @@ export function ContactTable({
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
+            {/* Bulk import (CSV/Excel) with sample download */}
+            <ImportDataDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                entityLabel="Contacts"
+                importFn={async (file) => normalizeImportResult(await contactsService.importContacts(file))}
+                downloadSampleFn={contactsService.downloadImportSample}
+                invalidateKeys={[["contacts"]]}
+                onImported={refresh}
+                checklist={[
+                    "Columns must match the downloaded sample — First Name and Last Name are required.",
+                    "Account Name must match an existing account — import your accounts first.",
+                    "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                    "Duplicate contacts (same email) are skipped and reported below.",
+                ]}
+            />
         </div>
     );
 }

@@ -179,9 +179,6 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
 
     // ── Row field updates ─────────────────────────────────────────────────────
 
-    // Bug 2: Clamp amount to >= 0
-    const clampAmount = (val: string): number => Math.max(0, parseFloat(val) || 0);
-
     const updateItem = (index: number, field: keyof CostingLineItem, value: any) => {
         setItems((prev) => {
             const next = [...prev];
@@ -495,14 +492,9 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                     />
                                 </td>
                                 <td className="px-3 py-2">
-                                    <Input
-                                        type="number"
-                                        min={0}
-                                        step="0.01"
-                                        value={item.amount != null ? item.amount : 0}
-                                        onChange={(e) => updateItem(idx, "amount", clampAmount(e.target.value))}
-                                        className="h-8 text-sm text-right"
-                                        placeholder="0"
+                                    <AmountInput
+                                        value={item.amount ?? 0}
+                                        onChange={(n) => updateItem(idx, "amount", n)}
                                         disabled={isLocked}
                                     />
                                 </td>
@@ -535,14 +527,9 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                 <div className="py-1.5 text-xs italic text-muted-foreground"></div>
                             </td>
                             <td className="px-3 py-2">
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={taxItem.amount != null ? taxItem.amount : 0}
-                                    onChange={(e) => setTaxItem((prev) => ({ ...prev, amount: clampAmount(e.target.value) }))}
-                                    className="h-8 text-sm text-right"
-                                    placeholder="0"
+                                <AmountInput
+                                    value={taxItem.amount ?? 0}
+                                    onChange={(n) => setTaxItem((prev) => ({ ...prev, amount: n }))}
                                     disabled={isLocked}
                                 />
                             </td>
@@ -570,14 +557,9 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                 />
                             </td>
                             <td className="px-3 py-2">
-                                <Input
-                                    type="number"
-                                    min={0}
-                                    step="0.01"
-                                    value={miscItem.amount != null ? miscItem.amount : 0}
-                                    onChange={(e) => setMiscItem((prev) => ({ ...prev, amount: clampAmount(e.target.value) }))}
-                                    className="h-8 text-sm text-right"
-                                    placeholder="0"
+                                <AmountInput
+                                    value={miscItem.amount ?? 0}
+                                    onChange={(n) => setMiscItem((prev) => ({ ...prev, amount: n }))}
                                     disabled={isLocked}
                                 />
                             </td>
@@ -617,6 +599,52 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                 </div>
             )}
         </div>
+    );
+}
+
+
+// ── Amount Input ─────────────────────────────────────────────────────────────
+// A numeric money input backed by a local string so a lone "0" can be cleared and
+// decimals like "0.5" can be typed. Binding an <input type="number"> directly to a
+// numeric value forces a sticky "0" that can't be deleted and makes typing
+// prepend/append to it (e.g. typing 8 yields "80").
+function AmountInput({
+    value,
+    onChange,
+    disabled,
+}: {
+    value: number;
+    onChange: (n: number) => void;
+    disabled?: boolean;
+}) {
+    const [text, setText] = useState<string>(value ? String(value) : "");
+
+    // Re-sync only when the external numeric value genuinely differs from what's
+    // typed (e.g. saved costing loads), so in-progress input isn't clobbered.
+    useEffect(() => {
+        const parsed = text.trim() === "" ? 0 : parseFloat(text);
+        if ((Number.isNaN(parsed) ? 0 : parsed) !== value) {
+            setText(value ? String(value) : "");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
+
+    return (
+        <Input
+            type="number"
+            min={0}
+            step="0.01"
+            value={text}
+            placeholder=""
+            onChange={(e) => {
+                const raw = e.target.value;
+                setText(raw);
+                const n = raw.trim() === "" ? 0 : Math.max(0, parseFloat(raw) || 0);
+                onChange(n);
+            }}
+            className="h-8 text-sm text-right"
+            disabled={disabled}
+        />
     );
 }
 

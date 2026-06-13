@@ -861,7 +861,9 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                     <FormItem>
                                         <FormLabel>Zip Code</FormLabel>
                                         <FormControl>
-                                            <Input type="number" placeholder="12345" {...field} />
+                                            {/* text + numeric keypad — type="number" allowed negatives
+                                                and stripped leading zeros; zod enforces the format */}
+                                            <Input type="text" inputMode="numeric" placeholder="12345" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>

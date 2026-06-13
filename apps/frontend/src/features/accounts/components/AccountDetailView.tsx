@@ -137,7 +137,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                 ownerId={account.owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
-                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutateAsync(newOwnerId)}
                 isChangingOwner={changeOwnerMutation.isPending}
             />
 

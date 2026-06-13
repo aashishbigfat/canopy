@@ -126,7 +126,7 @@ export function SupplierDetails({
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
                 badge={supplier.supplier_type}
-                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutateAsync(newOwnerId)}
                 isChangingOwner={changeOwnerMutation.isPending}
             />
 

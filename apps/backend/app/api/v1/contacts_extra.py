@@ -149,6 +149,23 @@ async def update_single_column(
     }
 
 
+@router.get("/import/sample")
+async def download_contact_import_sample(
+    current_user: User = Depends(check_permission("create_contact"))
+):
+    """Download the sample CSV whose columns match the contact importer."""
+    from app.services.import_export_service import generate_sample_csv
+    from app.services.industry_service import get_tenant_industry
+
+    tenant_industry = await get_tenant_industry(current_user.tenant_id)
+    content = generate_sample_csv("contact", tenant_industry)
+    return StreamingResponse(
+        BytesIO(content),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=contacts_import_sample.csv"},
+    )
+
+
 @router.post("/import")
 async def import_contacts(
     file: UploadFile = File(...),
@@ -156,17 +173,22 @@ async def import_contacts(
 ):
     """Import contacts from CSV or Excel file"""
     from app.services.import_export_service import ImportExportService
-    
+
     service = ImportExportService()
-    result = await service.import_contacts_from_file(
-        file,
-        current_user.tenant_id,
-        current_user.id
-    )
-    
+    try:
+        result = await service.import_contacts_from_file(
+            file,
+            current_user.tenant_id,
+            current_user.id
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
     return {
         "error": False,
-        **result
+        "message": f"Successfully imported {result['imported']} contacts, skipped {result['skipped']} duplicates/errors.",
+        "data": result,
+        **result,
     }
 
 
@@ -175,25 +197,35 @@ async def export_contacts(
     format: str,
     current_user: User = Depends(check_permission("view_contact"))
 ):
-    """Export contacts to CSV or Excel"""
+    """Export all visible contacts to CSV or Excel."""
     from app.services.import_export_service import ImportExportService
-    
-    # Get all contacts for export - using direct dict query to avoid field access issues
-    contacts = await Contact.find({
-        "tenant_id": current_user.tenant_id,
-        "deleted_at": None
-    }).to_list()
-    
+    from app.services.industry_service import get_tenant_industry
+    from app.services.visibility_scope import get_visible_owner_ids
+
+    if format not in ("csv", "xlsx"):
+        raise HTTPException(status_code=400, detail="Unsupported format. Use csv or xlsx.")
+
+    # Tenant + ownership/hierarchy scope, same as the list endpoint
+    query = {"tenant_id": current_user.tenant_id, "deleted_at": None}
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if visible_owner_ids is not None:
+        query["owner_id"] = {"$in": visible_owner_ids}
+
+    contacts = await Contact.find(query).sort("-created_at").to_list()
+    tenant_industry = await get_tenant_industry(current_user.tenant_id)
+
     service = ImportExportService()
-    file_content = await service.export_contacts_to_excel(contacts, format)
-    
-    # Set filename and media type
-    filename = f"contacts.{format}"
+    file_content = await service.export_contacts_to_file(
+        contacts, format, tenant_id=current_user.tenant_id, tenant_industry=tenant_industry
+    )
+
+    from datetime import datetime
+    filename = f"contacts_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.{format}"
     if format == "xlsx":
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
         media_type = "text/csv"
-    
+
     return StreamingResponse(
         BytesIO(file_content),
         media_type=media_type,

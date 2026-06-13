@@ -16,6 +16,7 @@ import {
 } from "recharts";
 import { TrendingUp, BarChart3 } from "lucide-react";
 import type { SalesChartPoint } from "@/features/dashboard/services/dashboardService";
+import { useMounted } from "@/hooks/use-mounted";
 
 const formatCurrency = (v: number) => {
     if (v >= 10_000_000) return `₹ ${(v / 10_000_000).toFixed(1)}Cr`;
@@ -49,6 +50,7 @@ export function SalesChart({
     openAmount?: number;
 }) {
     const [activeTab, setActiveTab] = useState<"my" | "team">("my");
+    const mounted = useMounted();
 
     // Month labels derived from the current date so the chart always reflects
     // the live "this month" vs "last month" comparison and rolls over on its
@@ -123,6 +125,7 @@ export function SalesChart({
                 </div>
             ) : (
                 <div className="h-[300px] w-full">
+                    {mounted && (
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                             <defs>
@@ -191,6 +194,7 @@ export function SalesChart({
                             />
                         </AreaChart>
                     </ResponsiveContainer>
+                    )}
                 </div>
             )}
         </div>

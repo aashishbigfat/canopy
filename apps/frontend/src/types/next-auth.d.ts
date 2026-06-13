@@ -3,7 +3,11 @@ import NextAuth from "next-auth";
 declare module "next-auth" {
     interface Session {
         accessToken?: string;
-        refreshToken?: string;
+        // refreshToken is intentionally NOT exposed on the client session — it
+        // lives only in the encrypted JWT and is used server-side in the jwt
+        // callback to mint new access tokens.
+        /** Set to "RefreshAccessTokenError" when a silent token refresh failed. */
+        error?: string;
         user: {
             id: string;
             name?: string | null;
@@ -35,6 +39,10 @@ declare module "next-auth/jwt" {
     interface JWT {
         accessToken?: string;
         refreshToken?: string;
+        /** Epoch ms when the current access token expires (decoded from its exp claim). */
+        accessTokenExpires?: number;
+        /** Set to "RefreshAccessTokenError" when a silent token refresh failed. */
+        error?: string;
         id?: string;
         role?: string;
         tenantId?: string;

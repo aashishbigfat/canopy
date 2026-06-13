@@ -60,16 +60,16 @@ export function FileList({ entityType, entityId }: FileListProps) {
                         </TableRow>
                     ) : (
                         files.map((file) => (
-                            <TableRow key={file._id}>
+                            <TableRow key={file.id}>
                                 <TableCell><FileIcon className="h-4 w-4 text-muted-foreground" /></TableCell>
                                 <TableCell className="font-medium">{file.original_filename}</TableCell>
                                 <TableCell>{(file.file_size / 1024).toFixed(1)} KB</TableCell>
                                 <TableCell>{file.created_at ? formatDate(file.created_at) : '-'}</TableCell>
                                 <TableCell className="text-right space-x-2">
-                                    <Button variant="ghost" size="sm" onClick={() => handleDownload(file._id, file.original_filename)}>
+                                    <Button variant="ghost" size="sm" onClick={() => handleDownload(file.id, file.original_filename)}>
                                         <Download className="h-4 w-4" />
                                     </Button>
-                                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(file._id)}>
+                                    <Button variant="ghost" size="sm" className="text-destructive" onClick={() => handleDelete(file.id)}>
                                         <Trash className="h-4 w-4" />
                                     </Button>
                                 </TableCell>

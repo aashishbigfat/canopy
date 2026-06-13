@@ -3,7 +3,7 @@ File API endpoints - File upload, download, and management
 """
 import logging
 import os
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile, Query, Request, Response
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File as FastAPIFile, Form, Query, Request, Response
 from fastapi.responses import StreamingResponse
 from typing import Optional
 from io import BytesIO
@@ -24,9 +24,13 @@ async def upload_file(
     request: Request,
     response: Response,
     file: UploadFile = FastAPIFile(...),
-    fileable_type: Optional[str] = None,
-    fileable_id: Optional[str] = None,
-    category: Optional[str] = None,
+    # These are sent as multipart FORM fields by the client, so they must be
+    # declared with Form(...). Without it FastAPI treats them as query params,
+    # silently drops the form values, and every upload is stored unattached
+    # (fileable_type=None) — so it never shows in the entity's attachment list.
+    fileable_type: Optional[str] = Form(None),
+    fileable_id: Optional[str] = Form(None),
+    category: Optional[str] = Form(None),
     current_user: User = Depends(check_permission("upload_file"))
 ):
     """Upload a file to S3.

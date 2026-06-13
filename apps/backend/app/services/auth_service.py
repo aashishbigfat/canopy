@@ -302,7 +302,12 @@ class AuthService:
         return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     
     def _create_refresh_token(self, user: User) -> str:
-        """Create JWT refresh token"""
+        """Create JWT refresh token.
+
+        30 days — the hard cap on a session. The frontend silently refreshes
+        the access token against this until it expires, after which the user
+        must log in again.
+        """
         expires = datetime.now(timezone.utc) + timedelta(days=30)
         
         payload = {

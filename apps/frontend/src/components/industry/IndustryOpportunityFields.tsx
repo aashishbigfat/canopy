@@ -262,14 +262,14 @@ function TravelOpportunityFields({ form, destinationSeedNames }: IndustryOppFiel
                 <FormField control={form.control} name="no_of_nights" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Number of Nights</FormLabel>
-                        <FormControl><Input type="number" min={1} placeholder="7" {...field} /></FormControl>
+                        <FormControl><Input type="number" min={0} placeholder="7" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control} name="no_of_adults" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Adults</FormLabel>
-                        <FormControl><Input type="number" min={1} placeholder="2" {...field} /></FormControl>
+                        <FormControl><Input type="number" min={0} placeholder="2" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />

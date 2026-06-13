@@ -279,7 +279,7 @@ export function LeadDetails({
                 ownerId={lead.owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
-                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutateAsync(newOwnerId)}
                 isChangingOwner={changeOwnerMutation.isPending}
             />
 

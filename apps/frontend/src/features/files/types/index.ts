@@ -1,7 +1,7 @@
 import { ApiResponse } from "@/lib/api/types";
 
 export interface FileRecord {
-    _id: string;
+    id: string;
     filename: string;
     original_filename: string;
     file_size: number;

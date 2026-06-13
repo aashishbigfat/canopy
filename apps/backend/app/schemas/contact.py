@@ -83,10 +83,24 @@ class ContactUpdate(BaseModel):
     mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     title: Optional[str] = None
     department: Optional[str] = None
-    
+
+    # Full address parity with ContactBase — update_contact uses
+    # model_dump(exclude_unset=True), so any field missing here would be
+    # silently dropped on edit.
+    mailing_street: Optional[str] = None
     mailing_city: Optional[str] = None
+    mailing_state: Optional[str] = None
+    mailing_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
     mailing_country: Optional[str] = None
-    
+
+    other_street: Optional[str] = None
+    other_city: Optional[str] = None
+    other_state: Optional[str] = None
+    other_zip: Annotated[Optional[str], BeforeValidator(safe_zip_validator)] = Field(None, pattern=ZIP_REGEX, description=ZIP_REGEX_MESSAGE)
+    other_country: Optional[str] = None
+
+    description: Optional[str] = None
+
     account_id: Optional[str] = None
     # account_name is NOT included — it is a read-only computed field from the
     # service layer and does not exist on the Contact document.
@@ -108,6 +122,11 @@ class ContactUpdate(BaseModel):
 
 class ContactResponse(ContactBase):
     """Schema for contact response"""
+    # Relax input-only constraints for output: a legacy/imported contact with a
+    # malformed email must still serialize rather than 500 the read endpoint.
+    # (phone/mobile/zip are already sanitized to None via the safe_* validators.)
+    email: Optional[str] = None
+
     id: str
     tenant_id: str
     owner_id: str

@@ -430,7 +430,62 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
 
                     <div className="p-5 space-y-6">
                         <div className="grid gap-6 md:grid-cols-2">
-                            {/* Row 1: Name & Owner */}
+                            {/* Row 1: Account Type Toggles — first, the rest of the form
+                                (account/contact pickers) depends on this choice */}
+                            <div className="md:col-span-2 flex items-center gap-4 py-2 border-b border-border/50">
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="radio"
+                                        id="account-type-company"
+                                        name="accountType"
+                                        checked={!isPersonAccount}
+                                        onChange={(e) => {
+                                            setIsPersonAccount(false);
+                                            if (originalAccount && !originalAccount.is_person_account) {
+                                                form.setValue("account_id", originalAccount.id);
+                                                form.setValue("contact_id", initialContactId || "");
+                                                setSelectedAccountId(originalAccount.id);
+                                                setAccountOptions([originalAccount]);
+                                            } else {
+                                                form.setValue("account_id", "");
+                                                form.setValue("contact_id", "");
+                                                setSelectedAccountId("");
+                                                setAccountOptions([]);
+                                                setAccountContacts([]);
+                                            }
+                                        }}
+                                        className="cursor-pointer"
+                                    />
+                                    <label htmlFor="account-type-company" className="cursor-pointer text-sm font-medium text-foreground">Account</label>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <input
+                                        type="radio"
+                                        id="account-type-person"
+                                        name="accountType"
+                                        checked={isPersonAccount}
+                                        onChange={(e) => {
+                                            setIsPersonAccount(true);
+                                            if (originalAccount && originalAccount.is_person_account) {
+                                                form.setValue("account_id", originalAccount.id);
+                                                form.setValue("contact_id", "");
+                                                setSelectedAccountId(originalAccount.id);
+                                                setAccountOptions([originalAccount]);
+                                            } else {
+                                                form.setValue("account_id", "");
+                                                form.setValue("contact_id", "");
+                                                setSelectedAccountId("");
+                                                setAccountOptions([]);
+                                                setAccountContacts([]);
+                                            }
+                                        }}
+                                        className="cursor-pointer"
+                                    />
+                                    <label htmlFor="account-type-person" className="cursor-pointer text-sm font-medium text-foreground">Personal Account</label>
+                                </div>
+                            </div>
+
+                            {/* Row 2: Name & Owner */}
                             <FormField
                                 control={form.control}
                                 name="name"
@@ -500,60 +555,6 @@ export function OpportunityForm({ initialAccountId, initialContactId, onSuccess,
                                     </FormItem>
                                 )}
                             />
-
-                            {/* Row 3: Account Type Toggles */}
-                            <div className="md:col-span-2 flex items-center gap-4 py-2 border-y border-border/50">
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        id="account-type-company"
-                                        name="accountType"
-                                        checked={!isPersonAccount}
-                                        onChange={(e) => {
-                                            setIsPersonAccount(false);
-                                            if (originalAccount && !originalAccount.is_person_account) {
-                                                form.setValue("account_id", originalAccount.id);
-                                                form.setValue("contact_id", initialContactId || "");
-                                                setSelectedAccountId(originalAccount.id);
-                                                setAccountOptions([originalAccount]);
-                                            } else {
-                                                form.setValue("account_id", "");
-                                                form.setValue("contact_id", "");
-                                                setSelectedAccountId("");
-                                                setAccountOptions([]);
-                                                setAccountContacts([]);
-                                            }
-                                        }}
-                                        className="cursor-pointer"
-                                    />
-                                    <label htmlFor="account-type-company" className="cursor-pointer text-sm font-medium text-foreground">Account</label>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <input
-                                        type="radio"
-                                        id="account-type-person"
-                                        name="accountType"
-                                        checked={isPersonAccount}
-                                        onChange={(e) => {
-                                            setIsPersonAccount(true);
-                                            if (originalAccount && originalAccount.is_person_account) {
-                                                form.setValue("account_id", originalAccount.id);
-                                                form.setValue("contact_id", "");
-                                                setSelectedAccountId(originalAccount.id);
-                                                setAccountOptions([originalAccount]);
-                                            } else {
-                                                form.setValue("account_id", "");
-                                                form.setValue("contact_id", "");
-                                                setSelectedAccountId("");
-                                                setAccountOptions([]);
-                                                setAccountContacts([]);
-                                            }
-                                        }}
-                                        className="cursor-pointer"
-                                    />
-                                    <label htmlFor="account-type-person" className="cursor-pointer text-sm font-medium text-foreground">Personal Account</label>
-                                </div>
-                            </div>
 
                             {/* Row 4: Account & Contact */}
                             <FormField

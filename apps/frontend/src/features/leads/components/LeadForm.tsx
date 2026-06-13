@@ -372,9 +372,9 @@ const leadFormSchema = z.object({
     country: z.string().min(1, { message: "Country is required." }),
     campaign_name: z.string().optional(),
     travel_date: z.string().min(1, { message: "Travel date is required." }),
-    no_of_nights: z.string().refine((val) => !val || Number(val) > 0, "Number of nights must be at least 1"),
-    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1"),
-    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1"),
+    no_of_nights: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative"),
+    no_of_adults: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative"),
+    no_of_pax: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative"),
     no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     is_fixed: z.boolean().default(false).optional(),
@@ -594,7 +594,13 @@ export function LeadForm({
             ...(isTravel ? {
                 travel_date: initialData?.industry_data?.travel_date || "",
                 no_of_nights: initialData?.industry_data?.no_of_nights?.toString() ?? ("" as any),
-                no_of_adults: initialData?.industry_data?.no_of_adults?.toString() ?? ("1" as any),
+                // No adults breakdown stored (imported/converted leads)? Default
+                // adults from the existing pax so the auto-pax effect doesn't
+                // silently rewrite pax to 1 on edit (same guard as ConvertLeadDialog).
+                no_of_adults: initialData?.industry_data?.no_of_adults?.toString()
+                    ?? (initialData?.industry_data?.no_of_pax && initialData.industry_data.no_of_pax > 0
+                        ? (initialData.industry_data.no_of_pax.toString() as any)
+                        : ("1" as any)),
                 no_of_pax: initialData?.industry_data?.no_of_pax?.toString() ?? ("1" as any),
                 no_of_childs: initialData?.industry_data?.no_of_childs?.toString() ?? ("0" as any),
                 no_of_infants: initialData?.industry_data?.no_of_infants?.toString() ?? ("0" as any),
@@ -733,7 +739,8 @@ export function LeadForm({
             if (isTravel) {
                 payload.industry_data = {
                     travel_date: data.travel_date,
-                    no_of_nights: Number(data.no_of_nights),
+                    // Omit nights when blank — backend requires ≥ 1 when present
+                    no_of_nights: data.no_of_nights ? Number(data.no_of_nights) : undefined,
                     no_of_adults: Number(data.no_of_adults),
                     no_of_pax: Number(data.no_of_pax),
                     no_of_childs: data.no_of_childs ? Number(data.no_of_childs) : 0,
@@ -918,7 +925,7 @@ export function LeadForm({
                                 <FormField control={form.control as any} name="no_employees" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">No of Employees</FormLabel>
-                                        <FormControl><Input type="number" placeholder="10" className="h-8 bg-background text-xs" {...field} /></FormControl>
+                                        <FormControl><Input type="number" min="0" placeholder="10" className="h-8 bg-background text-xs" {...field} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )} />
@@ -948,54 +955,16 @@ export function LeadForm({
                                     </FormItem>
                                 )} />
 
-                                {/* Travel-only fields */}
+                                {/* Travel-only: Experience type (rest of the travel fields render
+                                    in the shared Travel Requirements section below) */}
                                 {isTravel && (
-                                    <>
-                                        {/* Row 9: Date of Travel (full-width for now, matching screenshot) */}
-                                        <FormField control={form.control as any} name="travel_date" render={({ field }) => (
-                                            <FormItem className="col-span-2">
-                                                <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Date of Travel <span className="text-red-500">*</span></FormLabel>
-                                                <FormControl>
-                                                    <Input type="date" className="h-8 bg-background text-xs" {...field} />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-
-                                        {/* Row 10: Destination(s) */}
-                                        <FormField control={form.control as any} name="destinations" render={({ field }) => (
-                                            <FormItem className="col-span-2">
-                                                <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Destination(s) <span className="text-red-500">*</span></FormLabel>
-                                                <FormControl>
-                                                    <SearchableSelect
-                                                        options={availableDestinations.map(d => ({ label: d.name, value: d.id }))}
-                                                        value={field.value?.split(",").filter(Boolean)[0] || ""}
-                                                        onValueChange={(v) => field.onChange(v)}
-                                                        placeholder="Search Destinations"
-                                                        onSearch={handleDestinationSearch}
-                                                        isLoading={loadingDestinations}
-                                                    />
-                                                </FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-
-                                        {/* Row 11: No of Nights | No of Pax */}
-                                        <FormField control={form.control as any} name="no_of_nights" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">No of Nights <span className="text-red-500">*</span></FormLabel>
-                                                <FormControl><Input type="number" placeholder="5" className="h-8 bg-background text-xs" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                        <FormField control={form.control as any} name="no_of_pax" render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">No of Pax <span className="text-red-500">*</span></FormLabel>
-                                                <FormControl><Input type="number" placeholder="2" className="h-8 bg-background text-xs" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )} />
-                                    </>
+                                    <FormField control={form.control as any} name="experience_id" render={({ field }) => (
+                                        <FormItem className="col-span-2">
+                                            <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Experience</FormLabel>
+                                            <FormControl><SearchableSelect options={experiences.map(e => ({ label: e.name, value: e.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select Experience" /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )} />
                                 )}
 
                                 {/* Segment (hidden but kept) */}
@@ -1006,6 +975,20 @@ export function LeadForm({
                                 )} />
                             </div>
                         </div>
+
+                        {/* ── Travel Requirements (travel tenants) ─────────
+                            Before Address Information, matching the original
+                            drawer layout: date, destinations, nights,
+                            adults / children / infants, total pax, fixed departure. */}
+                        {isTravel && (
+                            <IndustryLeadFields
+                                industry={industry}
+                                form={form}
+                                availableDestinations={availableDestinations}
+                                handleDestinationSearch={handleDestinationSearch}
+                                loadingDestinations={loadingDestinations}
+                            />
+                        )}
 
                         {/* ── Section: Address Information ────────────────── */}
                         <div>
@@ -1025,8 +1008,17 @@ export function LeadForm({
                             </div>
                         </div>
 
-                        {/* ── Non-travel industry fields ──────────────────── */}
-                        {!isTravel && <IndustryLeadFields industry={industry} form={form} />}
+                        {/* ── Non-travel industry fields — after Address, their
+                            original position in the drawer ─────────────────── */}
+                        {!isTravel && (
+                            <IndustryLeadFields
+                                industry={industry}
+                                form={form}
+                                availableDestinations={availableDestinations}
+                                handleDestinationSearch={handleDestinationSearch}
+                                loadingDestinations={loadingDestinations}
+                            />
+                        )}
                     </div>
 
                     {/* Sticky footer */}
@@ -1430,7 +1422,7 @@ export function LeadForm({
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-400">No. Employees</FormLabel>
                                                 <FormControl>
-                                                    <Input type="number" placeholder="10" className="h-9" {...field} />
+                                                    <Input type="number" min="0" placeholder="10" className="h-9" {...field} />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -1476,7 +1468,13 @@ export function LeadForm({
                         {/* Industry-Specific Fields */}
                         <Card className="border-slate-700 shadow-sm">
                             <CardContent className="p-4">
-                                <IndustryLeadFields industry={industry} form={form} />
+                                <IndustryLeadFields
+                                    industry={industry}
+                                    form={form}
+                                    availableDestinations={availableDestinations}
+                                    handleDestinationSearch={handleDestinationSearch}
+                                    loadingDestinations={loadingDestinations}
+                                />
                             </CardContent>
                         </Card>
                     </div>

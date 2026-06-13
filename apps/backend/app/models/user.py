@@ -31,6 +31,10 @@ class User(BaseDocument):
     is_active: bool = True
     is_verified: bool = False
     email_verified_at: Optional[datetime] = None
+
+    # Service account that owns the unassigned "System" opportunity pool
+    # (pre-sales assigns those to real users). Cannot log in; created inactive.
+    is_system: bool = False
     
     # Roles & Permissions (array of role IDs)
     role_ids: List[PydanticObjectId] = Field(default_factory=list)

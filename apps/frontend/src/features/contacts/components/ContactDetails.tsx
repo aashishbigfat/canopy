@@ -119,7 +119,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                 ownerId={(contact as any).owner_id}
                 onEdit={() => setIsEditDrawerOpen(true)}
                 onDelete={() => setIsDeleteOpen(true)}
-                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutate(newOwnerId)}
+                onChangeOwner={(newOwnerId) => changeOwnerMutation.mutateAsync(newOwnerId)}
                 isChangingOwner={changeOwnerMutation.isPending}
             />
 

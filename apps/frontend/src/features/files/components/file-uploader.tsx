@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useUploadFile } from "@/features/files/api/use-files";
+import { toast } from "sonner";
 
 interface FileUploaderProps {
     entityType?: string;
@@ -53,10 +54,18 @@ export function FileUploader({ entityType, entityId, onUploadComplete }: FileUpl
                 fileable_id: entityId
             });
             setSelectedFile(null);
+            toast.success("File uploaded");
             if (onUploadComplete) onUploadComplete();
-        } catch (error) {
+        } catch (error: any) {
             console.error("Upload failed", error);
-            alert("Upload failed");
+            // Surface the backend's reason (e.g. unsupported type, too large)
+            // instead of a generic failure, so the user knows what to fix.
+            const detail = error?.response?.data?.detail;
+            toast.error(
+                typeof detail === "string"
+                    ? detail
+                    : "Upload failed. Please try a supported file type (PDF, image, Office doc, CSV, ZIP)."
+            );
         }
     };
 

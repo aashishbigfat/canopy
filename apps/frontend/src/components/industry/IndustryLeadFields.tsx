@@ -10,7 +10,7 @@
  *   <IndustryLeadFields industry={industry} form={form} />
  */
 
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -169,7 +169,9 @@ function DestinationMultiSelect({
         : localDestinations;
 
     return (
-        <Popover open={open} onOpenChange={setOpen}>
+        // modal — keeps the option list wheel-scrollable when rendered inside
+        // a Radix Dialog/Sheet (see SearchableSelect for details).
+        <Popover open={open} onOpenChange={setOpen} modal={true}>
             <PopoverTrigger asChild>
                 <Button
                     variant="outline"
@@ -274,7 +276,11 @@ function TravelLeadFields({ form, availableDestinations = [], handleDestinationS
                 <FormField control={form.control as any} name="travel_date" render={({ field }) => (
                     <FormItem className="col-span-2">
                         <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Travel Date <span className="text-red-500">*</span></FormLabel>
-                        <FormControl><Input type="date" min={new Date().toISOString().split("T")[0]} className="h-8 bg-slate-900 text-xs" {...field} /></FormControl>
+                        {/* No native min: the form has no noValidate, so min={today}
+                            blocked saving leads whose travel date is already in the
+                            past (e.g. migrated/imported data). The zod schema is the
+                            source of truth and allows past dates. */}
+                        <FormControl><Input type="date" className="h-8 bg-slate-900 text-xs" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -304,14 +310,14 @@ function TravelLeadFields({ form, availableDestinations = [], handleDestinationS
                 <FormField control={form.control as any} name="no_of_nights" render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Nights</FormLabel>
-                        <FormControl><Input type="number" placeholder="4" min={1} className="h-8 bg-slate-900 text-xs" {...field} /></FormControl>
+                        <FormControl><Input type="number" placeholder="4" min={0} className="h-8 bg-slate-900 text-xs" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
                 <FormField control={form.control as any} name="no_of_adults" render={({ field }) => (
                     <FormItem>
                         <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Adults</FormLabel>
-                        <FormControl><Input type="number" placeholder="2" min={1} className="h-8 bg-slate-900 text-xs" {...field} /></FormControl>
+                        <FormControl><Input type="number" placeholder="2" min={0} className="h-8 bg-slate-900 text-xs" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -599,7 +605,7 @@ function ManufacturingLeadFields({ form }: IndustryFieldsProps) {
  *   <IndustryLeadFields industry="healthcare" form={form} />
  */
 export function IndustryLeadFields(props: IndustryFieldsProps) {
-    let content: JSX.Element | null = null;
+    let content: React.ReactElement | null = null;
 
     switch (props.industry) {
         case "travel":

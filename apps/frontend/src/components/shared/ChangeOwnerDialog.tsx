@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useGetUsers } from "@/features/admin/api/use-users";
@@ -11,20 +11,34 @@ export function ChangeOwnerDialog({
     onClose,
     onConfirm,
     type = "Account",
-    isLoading = false
+    isLoading = false,
+    currentOwnerId
 }: {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (newOwnerId: string) => void;
+    onConfirm: (newOwnerId: string, newOwnerName?: string) => void;
     type?: string;
     isLoading?: boolean;
+    currentOwnerId?: string;
 }) {
     const [selectedUserId, setSelectedUserId] = useState<string>("");
     const { data: usersData, isLoading: isLoadingUsers } = useGetUsers();
+    const users = usersData?.users || usersData?.data || [];
+
+    // Reset the selection to the record's CURRENT owner every time the dialog
+    // opens. The component stays mounted (only the Dialog toggles), so without
+    // this the dropdown keeps a stale value from a previous open — e.g. showing
+    // the old owner after the owner has already been changed.
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedUserId(currentOwnerId || "");
+        }
+    }, [isOpen, currentOwnerId]);
 
     const handleConfirm = () => {
-        if (selectedUserId) {
-            onConfirm(selectedUserId);
+        if (selectedUserId && selectedUserId !== currentOwnerId) {
+            const selectedName = users.find((u: User) => u.id === selectedUserId)?.name;
+            onConfirm(selectedUserId, selectedName);
         }
     };
 
@@ -38,7 +52,7 @@ export function ChangeOwnerDialog({
                     <div className="space-y-2">
                         <label className="text-sm font-medium">New Owner</label>
                         <SearchableSelect
-                            options={(usersData?.users || usersData?.data || []).map((user: User) => ({
+                            options={users.map((user: User) => ({
                                 label: user.name,
                                 value: user.id
                             }))}
@@ -53,7 +67,7 @@ export function ChangeOwnerDialog({
                     <Button variant="outline" onClick={onClose} disabled={isLoading}>Close</Button>
                     <Button
                         onClick={handleConfirm}
-                        disabled={!selectedUserId || isLoading}
+                        disabled={!selectedUserId || selectedUserId === currentOwnerId || isLoading}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                     >
                         {isLoading ? "Saving..." : "Change Owner"}

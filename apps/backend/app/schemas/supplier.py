@@ -141,6 +141,14 @@ class SupplierUpdate(BaseModel):
 
 class SupplierResponse(SupplierBase):
     """Schema for supplier response"""
+    # Relax input-only constraints for output: legacy/partial records must still
+    # serialize even if they predate current required-field / format rules.
+    # (Mirrors AccountResponse — e.g. a supplier saved before phone was required,
+    # or with a legacy non-conforming phone/mobile, must not 500 the list endpoint.)
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+
     id: str
     tenant_id: str
     owner_id: str

@@ -724,22 +724,15 @@ export function LeadTable({
         }
     };
 
-    // ── CSV export (current page) ─────────────────────────────────────────────
-    const exportCsv = () => {
-        const statusName = (id?: string) => lead_statuses.find((s) => s.id === id)?.name || "";
-        const headers = ["First Name", "Last Name", "Email", "Phone", "City", "Status"];
-        const rows = data.map((l) => [
-            (l as any).first_name, (l as any).last_name, l.email, l.phone, (l as any).city, statusName((l as any).lead_status_id),
-        ]);
-        const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `leads-page-${pagination.current_page}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
+    // Full server-side export of all visible leads (not just the current page)
+    const exportAll = async (format: "csv" | "xlsx") => {
+        try {
+            toast.info("Preparing export…");
+            await leadsService.exportLeads(format);
+            toast.success("Export downloaded");
+        } catch {
+            toast.error("Failed to export leads");
+        }
     };
 
     return (
@@ -874,8 +867,8 @@ export function LeadTable({
                                     <DropdownMenuItem onClick={refresh}>
                                         <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                                     </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={exportCsv}>
-                                        <Download className="mr-2 h-4 w-4" /> Export page (CSV)
+                                    <DropdownMenuItem onClick={() => exportAll("csv")}>
+                                        <Download className="mr-2 h-4 w-4" /> Export all (CSV)
                                     </DropdownMenuItem>
                                     <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
                                         <Upload className="mr-2 h-4 w-4" /> Import Leads (CSV)

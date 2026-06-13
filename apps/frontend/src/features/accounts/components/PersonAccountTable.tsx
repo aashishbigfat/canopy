@@ -13,7 +13,7 @@ import {
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
-import { ArrowUpDown, Eye, Pencil, Check, Loader2, ChevronDown, RefreshCw, Filter, X, Search as SearchIcon, Download, Save, Trash2, User as UserIcon } from "lucide-react";
+import { ArrowUpDown, Eye, Pencil, Check, Loader2, ChevronDown, RefreshCw, Filter, X, Search as SearchIcon, Download, Save, Trash2, Upload, User as UserIcon } from "lucide-react";
 import Link from "next/link";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
@@ -60,6 +60,7 @@ import {
 import { Account } from "../types";
 import { AccountDetailDrawer } from "./AccountDetailDrawer";
 import { OwnerPopover } from "@/components/shared/OwnerPopover";
+import { ImportDataDialog, normalizeImportResult } from "@/components/shared/ImportDataDialog";
 import { accountService } from "../services/accountService";
 import { useDebounce } from "@/hooks/use-debounce";
 import { validateInlineField, normalizePhoneValue, isPhoneField, type InlineField } from "@/lib/validation/inline-field-validation";
@@ -319,21 +320,16 @@ export function PersonAccountTable({
         applyFilter("billing_city", debouncedCity.trim());
     }, [debouncedCity, applyFilter]);
 
-    // ── CSV export of the current page ────────────────────────────────────────
-    const exportCsv = () => {
-        const headers = ["First Name", "Last Name", "Email", "Phone", "Mobile", "Owner"];
-        const rows = data.map((a) => [
-            a.first_name, a.last_name, a.email, a.phone, a.mobile, a.owner_name,
-        ]);
-        const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const csv = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `person-accounts-page-${pagination.current_page}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+    // ── Bulk import + full server-side export ─────────────────────────────────
+    const [importOpen, setImportOpen] = React.useState(false);
+    const exportAll = async (format: "csv" | "xlsx") => {
+        try {
+            toast.info("Preparing export…");
+            await accountService.exportAccounts(format, true);
+            toast.success("Export downloaded");
+        } catch {
+            toast.error("Failed to export person accounts");
+        }
     };
 
     const [sorting, setSorting] = React.useState<SortingState>([]);
@@ -652,8 +648,11 @@ export function PersonAccountTable({
                             <DropdownMenuItem onClick={refresh}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportCsv}>
-                                <Download className="mr-2 h-4 w-4" /> Export page (CSV)
+                            <DropdownMenuItem onClick={() => exportAll("csv")}>
+                                <Download className="mr-2 h-4 w-4" /> Export all (CSV)
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => setImportOpen(true)}>
+                                <Upload className="mr-2 h-4 w-4" /> Import Person Accounts (CSV)
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={openSaveView}>
@@ -837,6 +836,21 @@ export function PersonAccountTable({
                 accountId={detailId}
                 open={detailOpen}
                 onOpenChange={setDetailOpen}
+            />
+
+            {/* Bulk import (CSV/Excel) with sample download */}
+            <ImportDataDialog
+                open={importOpen}
+                onOpenChange={setImportOpen}
+                entityLabel="Person Accounts"
+                importFn={async (file) => normalizeImportResult(await accountService.importAccounts(file, true))}
+                downloadSampleFn={() => accountService.downloadImportSample(true)}
+                onImported={refresh}
+                checklist={[
+                    "Columns must match the downloaded sample — First Name and Last Name are required.",
+                    "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                    "Duplicate person accounts (same email or mobile) are skipped and reported below.",
+                ]}
             />
         </div>
     );

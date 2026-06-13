@@ -79,4 +79,35 @@ export const accountService = {
     deleteView: async (viewId: string) => {
         await apiClient.delete(`${BASE_URL}/views/${viewId}`);
     },
+
+    // Bulk import from CSV/Excel. `isPersonAccount` targets the Person Accounts module.
+    importAccounts: async (file: File, isPersonAccount = false) => {
+        const formData = new FormData();
+        formData.append("file", file);
+        const { data } = await apiClient.post(`${BASE_URL}/import`, formData, {
+            headers: { "Content-Type": "multipart/form-data" },
+            params: { is_person_account: isPersonAccount },
+        });
+        return data;
+    },
+
+    // Server-generated sample CSV whose columns match the importer exactly
+    downloadImportSample: async (isPersonAccount = false): Promise<void> => {
+        const { saveBlob } = await import("@/lib/download");
+        const response = await apiClient.get(`${BASE_URL}/import/sample`, {
+            responseType: "blob",
+            params: { is_person_account: isPersonAccount },
+        });
+        saveBlob(response.data, `${isPersonAccount ? "person_accounts" : "accounts"}_import_sample.csv`);
+    },
+
+    // Full export of all visible accounts (server-side, not just the current page)
+    exportAccounts: async (format: "csv" | "xlsx", isPersonAccount = false): Promise<void> => {
+        const { saveBlob } = await import("@/lib/download");
+        const response = await apiClient.get(`${BASE_URL}/export/${format}`, {
+            responseType: "blob",
+            params: { is_person_account: isPersonAccount },
+        });
+        saveBlob(response.data, `${isPersonAccount ? "person_accounts" : "accounts"}_export.${format}`);
+    },
 };

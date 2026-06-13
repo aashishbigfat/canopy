@@ -120,50 +120,103 @@ async def get_edit_form_data(
     }
 
 
+@router.get("/import/sample")
+async def download_account_import_sample(
+    is_person_account: bool = False,
+    current_user: User = Depends(check_permission("create_account"))
+):
+    """Download the sample CSV whose columns match the account importer.
+
+    `is_person_account=true` returns the Person Account sample instead.
+    """
+    from app.services.import_export_service import generate_sample_csv
+    from app.services.industry_service import get_tenant_industry
+
+    tenant_industry = await get_tenant_industry(current_user.tenant_id)
+    entity = "personal_account" if is_person_account else "account"
+    content = generate_sample_csv(entity, tenant_industry)
+    filename = f"{'person_accounts' if is_person_account else 'accounts'}_import_sample.csv"
+    return StreamingResponse(
+        BytesIO(content),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
+
+
 @router.post("/import")
 async def import_accounts(
     file: UploadFile = File(...),
+    is_person_account: bool = False,
     current_user: User = Depends(check_permission("create_account"))
 ):
-    """Import accounts from CSV or Excel file"""
+    """Import company or person accounts from a CSV or Excel file."""
     from app.services.import_export_service import ImportExportService
-    
+
     service = ImportExportService()
-    result = await service.import_accounts_from_file(
-        file,
-        current_user.tenant_id,
-        current_user.id
-    )
-    
+    try:
+        result = await service.import_accounts_from_file(
+            file,
+            current_user.tenant_id,
+            current_user.id,
+            is_person_account=is_person_account,
+        )
+    except ValueError as ve:
+        raise HTTPException(status_code=400, detail=str(ve))
+
+    label = "person accounts" if is_person_account else "accounts"
     return {
         "error": False,
-        **result
+        "message": f"Successfully imported {result['imported']} {label}, skipped {result['skipped']} duplicates/errors.",
+        "data": result,
+        **result,
     }
 
 
 @router.get("/export/{format}")
 async def export_accounts(
     format: str,
+    is_person_account: bool = False,
     current_user: User = Depends(check_permission("view_account"))
 ):
-    """Export accounts to CSV or Excel"""
+    """Export all visible company or person accounts to CSV or Excel."""
     from app.services.import_export_service import ImportExportService
-    
-    # Get all accounts for export
-    accounts = await Account.find(
-        {"tenant_id": current_user.tenant_id, "deleted_at": None}
-    ).to_list()
-    
+    from app.services.industry_service import get_tenant_industry
+    from app.services.visibility_scope import get_visible_owner_ids
+
+    if format not in ("csv", "xlsx"):
+        raise HTTPException(status_code=400, detail="Unsupported format. Use csv or xlsx.")
+
+    # Tenant + ownership/hierarchy scope, same as the list endpoint.
+    # is_person_account keeps the company and person exports separate.
+    query = {
+        "tenant_id": current_user.tenant_id,
+        "deleted_at": None,
+        "is_person_account": is_person_account,
+    }
+    visible_owner_ids = await get_visible_owner_ids(current_user)
+    if visible_owner_ids is not None:
+        query["owner_id"] = {"$in": visible_owner_ids}
+
+    accounts = await Account.find(query).sort("-created_at").to_list()
+    tenant_industry = await get_tenant_industry(current_user.tenant_id)
+
     service = ImportExportService()
-    file_content = await service.export_accounts_to_excel(accounts, format)
-    
-    # Set filename and media type
-    filename = f"accounts.{format}"
+    file_content = await service.export_accounts_to_file(
+        accounts,
+        format,
+        tenant_id=current_user.tenant_id,
+        is_person_account=is_person_account,
+        tenant_industry=tenant_industry,
+    )
+
+    from datetime import datetime
+    prefix = "person_accounts" if is_person_account else "accounts"
+    filename = f"{prefix}_export_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.{format}"
     if format == "xlsx":
         media_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else:
         media_type = "text/csv"
-    
+
     return StreamingResponse(
         BytesIO(file_content),
         media_type=media_type,

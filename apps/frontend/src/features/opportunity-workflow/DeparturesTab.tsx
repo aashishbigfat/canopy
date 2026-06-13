@@ -110,8 +110,9 @@ export function DeparturesTab({ opportunityId }: { opportunityId: string }) {
                 <Label>Pax count</Label>
                 <Input
                   type="number"
+                  min={1}
                   value={draft.pax_count}
-                  onChange={(e) => setDraft({ ...draft, pax_count: Number(e.target.value) })}
+                  onChange={(e) => setDraft({ ...draft, pax_count: Math.max(1, Number(e.target.value) || 1) })}
                 />
               </div>
               <div>

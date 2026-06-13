@@ -81,8 +81,9 @@ import {
 } from "../api/useOpportunities";
 import { ChangeOwnerDialog } from "@/components/shared/ChangeOwnerDialog";
 import { useGetUsers } from "@/features/admin/api/use-users";
+import { FileUploader } from "@/features/files/components/file-uploader";
+import { FileList } from "@/features/files/components/file-list";
 import { OpportunityFormDrawer } from "./OpportunityFormDrawer";
-import { VisitsByParentSection } from "@/features/bd/visits/components/VisitsByParentSection";
 import { accountService } from "@/features/accounts/services/accountService";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -353,11 +354,12 @@ export function OpportunityDetails({
             <ChangeOwnerDialog
                 isOpen={isOwnerDialogOpen}
                 onClose={() => setIsOwnerDialogOpen(false)}
-                onConfirm={(newOwnerId) => {
-                    changeOwner({ id: record.id, newOwnerId });
+                onConfirm={(newOwnerId, newOwnerName) => {
+                    changeOwner({ id: record.id, newOwnerId, newOwnerName });
                     setIsOwnerDialogOpen(false);
                 }}
                 type="Opportunity"
+                currentOwnerId={record.owner_id}
             />
 
             {/* Header / Actions - Styled like reference UI */}
@@ -988,15 +990,6 @@ export function OpportunityDetails({
                                         </div>
                                     </CollapsibleDetailSection>
 
-                                    {/* BD Visits linked to this opportunity */}
-                                    <div className="rounded-lg border border-slate-700 p-3">
-                                        <VisitsByParentSection
-                                            parentType="Opportunity"
-                                            parentId={record.id}
-                                            parentName={record.name}
-                                        />
-                                    </div>
-
                                     <CollapsibleDetailSection
                                         title="System Information"
                                         icon={<UserIcon className="h-4 w-4" />}
@@ -1093,19 +1086,19 @@ export function OpportunityDetails({
 
                         {/* ── ATTACHMENTS TAB ── */}
                         <TabsContent value="attachments" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
-                                    <Paperclip className="h-4 w-4 text-blue-500" />
-                                    Attachments
-                                </h3>
-                                <Button size="sm" className="bg-blue-600 hover:bg-blue-700 h-8 text-xs">
-                                    + Upload File
-                                </Button>
+                            <div className="flex items-center gap-2 mb-6">
+                                <Paperclip className="h-4 w-4 text-blue-500" />
+                                <h3 className="text-sm font-semibold text-slate-200">Attachments</h3>
                             </div>
-                            <div className="crm-empty-state">
-                                <Paperclip className="mx-auto mb-3 h-12 w-12 text-muted-foreground" />
-                                <p className="font-medium text-foreground">No attachments found</p>
-                                <p className="mt-1 text-sm text-muted-foreground">Upload documents, images, or files related to this record.</p>
+                            <div className="space-y-6">
+                                <FileUploader
+                                    entityType="Opportunity"
+                                    entityId={record.id}
+                                />
+                                <FileList
+                                    entityType="Opportunity"
+                                    entityId={record.id}
+                                />
                             </div>
                         </TabsContent>
                     </Tabs>

@@ -845,5 +845,9 @@ class OpportunityService(ActivityMixin):
         opportunity.owner_id = new_owner_id
         opportunity.last_modified_by_id = current_user_id
         await opportunity.save()
-        setattr(opportunity, "owner_name", owner.name)
+        # Attach the enriched owner name without triggering Beanie/Pydantic's
+        # field validation (the model has no `owner_name` field). Plain setattr
+        # raises ValueError here; object.__setattr__ bypasses it — matching the
+        # account/contact/supplier change_owner services.
+        object.__setattr__(opportunity, "owner_name", owner.name)
         return opportunity

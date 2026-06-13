@@ -10,6 +10,16 @@ export const apiClient = axios.create({
     },
 });
 
+// In-memory access token, kept in sync with the NextAuth session by the
+// <ApiTokenSync> component. This lets the request interceptor attach the
+// bearer token synchronously instead of awaiting getSession() — which hits
+// /api/auth/session — on every single API call. Falls back to getSession()
+// only when the cache is cold (e.g. first request after a hard reload).
+let cachedAccessToken: string | null = null;
+export function setApiAccessToken(token: string | null) {
+    cachedAccessToken = token;
+}
+
 /**
  * Get auth headers for server-side requests
  */
@@ -25,9 +35,16 @@ apiClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) =>
     }
 
     if (typeof window !== 'undefined') {
-        const session = await getSession();
-        if (session?.accessToken) {
-            config.headers.Authorization = `Bearer ${session.accessToken}`;
+        // Fast path: use the cached token (synced from the session). Only fall
+        // back to the getSession() network round-trip when the cache is cold.
+        let token = cachedAccessToken;
+        if (!token) {
+            const session = await getSession();
+            token = session?.accessToken ?? null;
+            cachedAccessToken = token;
+        }
+        if (token) {
+            config.headers.Authorization = `Bearer ${token}`;
         }
     }
     return config;
@@ -62,6 +79,7 @@ apiClient.interceptors.response.use(
                 // Re-fetch the session — if it was updated externally the new token may work.
                 const session = await getSession();
                 if (session?.accessToken) {
+                    cachedAccessToken = session.accessToken; // keep fast-path cache fresh
                     const oldToken = originalRequest.headers?.Authorization;
                     const newBearer = `Bearer ${session.accessToken}`;
                     if (oldToken !== newBearer) {
@@ -73,6 +91,7 @@ apiClient.interceptors.response.use(
                 }
 
                 // Token is the same (or missing) → confirmed expired.
+                cachedAccessToken = null;
                 if (!isSessionExpiring) {
                     isSessionExpiring = true;
 

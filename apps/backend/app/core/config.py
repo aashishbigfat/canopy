@@ -38,6 +38,8 @@ class Settings(BaseSettings):
     # JWT Authentication
     SECRET_KEY: str
     ALGORITHM: str = "HS256"
+    # Access token; the frontend refreshes it silently against the 30-day
+    # refresh token (see auth_service._create_refresh_token) until that expires.
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
     
     # Redis
@@ -66,7 +68,7 @@ class Settings(BaseSettings):
     MAX_FILE_SIZE: int = 100 * 1024 * 1024  # 100MB
     ALLOWED_EXTENSIONS: Set[str] = {
         "pdf", "doc", "docx", "xls", "xlsx",
-        "jpg", "jpeg", "png", "gif", "zip", "csv"
+        "jpg", "jpeg", "png", "gif", "webp", "bmp", "zip", "csv", "txt"
     }
     
     # CORS

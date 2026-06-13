@@ -95,10 +95,10 @@ const convertSchema = z.object({
     travel_date: z.date().optional(),
     destination_ids: z.array(z.string()).optional(),
     experience_id: z.string().optional(),
-    no_of_adults: z.string().refine((val) => !val || Number(val) > 0, "Number of adults must be at least 1").optional(),
+    no_of_adults: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_childs: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     no_of_infants: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
-    no_of_pax: z.string().refine((val) => !val || Number(val) > 0, "Number of pax must be at least 1").optional(),
+    no_of_pax: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     sales_stage_id: z.string().optional(),
     no_of_nights: z.string().refine((val) => !val || Number(val) >= 0, "Cannot be negative").optional(),
     description: z.string().optional(),
@@ -187,7 +187,7 @@ export function ConvertLeadDialog({
             opportunity_close_date: new Date(),
             sales_stage_id: sales_stages?.find(s => s.name.toLowerCase() === 'received')?.id || sales_stages?.find(s => s.is_default)?.id || (sales_stages && sales_stages.length > 0 ? sales_stages[0].id : undefined),
             experience_id: industry === "travel" ? (lead.industry_data?.experience_id || undefined) : undefined,
-            opportunity_owner_id: lead.owner_id || "",
+            opportunity_owner_id: "",
         },
     });
     // Update form values dynamically when dialog opens or lead changes
@@ -1104,7 +1104,7 @@ export function ConvertLeadDialog({
                                                     <FormField control={form.control} name="no_of_adults" render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400">Adults</FormLabel>
-                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs" /></FormControl>
+                                                            <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                     <FormField control={form.control} name="no_of_childs" render={({ field }) => (
@@ -1122,7 +1122,7 @@ export function ConvertLeadDialog({
                                                     <FormField control={form.control} name="no_of_pax" render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel className="text-[10px] uppercase font-bold text-blue-600 dark:text-blue-400">Total Pax</FormLabel>
-                                                            <FormControl><Input type="number" min="1" {...field} className="h-8 text-xs bg-blue-50/50 border-blue-200 text-blue-900 font-bold dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200" /></FormControl>
+                                                            <FormControl><Input type="number" min="0" {...field} className="h-8 text-xs bg-blue-50/50 border-blue-200 text-blue-900 font-bold dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200" /></FormControl>
                                                         </FormItem>
                                                     )} />
                                                 </div>
@@ -1157,21 +1157,23 @@ export function ConvertLeadDialog({
                                                     control={form.control}
                                                     name="opportunity_owner_id"
                                                     render={({ field }) => (
-                                                        <FormItem className="hidden">
+                                                        <FormItem>
+                                                            <FormLabel>Opportunity Owner</FormLabel>
                                                             <FormControl>
-                                                                <input type="hidden" {...field} />
+                                                                <SearchableSelect
+                                                                    options={users?.map((u) => ({ label: u.name, value: u.id || "" })) || []}
+                                                                    value={field.value}
+                                                                    onValueChange={field.onChange}
+                                                                    placeholder="Select owner"
+                                                                />
                                                             </FormControl>
+                                                            <FormDescription className="text-xs">
+                                                                Select who will own this opportunity.
+                                                            </FormDescription>
+                                                            <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
-                                                <div>
-                                                    <FormLabel>Opportunity Owner</FormLabel>
-                                                    <div className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
-                                                        {lead.owner_name
-                                                            || users?.find((u) => u.id === lead.owner_id)?.name
-                                                            || "Assigned to lead owner"}
-                                                    </div>
-                                                </div>
 
                                                 <FormField
                                                     control={form.control}

@@ -50,6 +50,14 @@ const contactFormSchema = z.object({
     title: z.string().optional(),
     account_id: z.string().min(1, { message: "Account is required." }),
     owner_id: z.string().optional(),
+    // Mailing address
+    mailing_street: z.string().optional(),
+    mailing_city: z.string().optional(),
+    mailing_state: z.string().optional(),
+    mailing_zip: z.string().optional().or(z.literal("")).refine(val => !val || /^[A-Za-z0-9\s-]{3,10}$/.test(val), {
+        message: "Invalid Zip/Postal code format.",
+    }),
+    mailing_country: z.string().optional(),
 });
 
 type ContactFormValues = z.infer<typeof contactFormSchema>;
@@ -64,6 +72,11 @@ const defaultValues: Partial<ContactFormValues> = {
     title: "",
     account_id: "",
     owner_id: "",
+    mailing_street: "",
+    mailing_city: "",
+    mailing_state: "",
+    mailing_zip: "",
+    mailing_country: "",
 };
 
 interface ContactFormProps {
@@ -327,6 +340,77 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                                             placeholder="john@example.com"
                                             {...field}
                                         />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                </div>
+
+                <div>
+                    <h3 className="text-lg font-medium mb-4">Address Information</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <FormField
+                            control={form.control}
+                            name="mailing_street"
+                            render={({ field }) => (
+                                <FormItem className="md:col-span-2">
+                                    <FormLabel>Mailing Street</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="123 Main St" {...field} value={field.value ?? ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mailing_city"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>City</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Mumbai" {...field} value={field.value ?? ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mailing_state"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>State</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="Maharashtra" {...field} value={field.value ?? ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mailing_zip"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Zip / Postal Code</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="400001" {...field} value={field.value ?? ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="mailing_country"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Country</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="India" {...field} value={field.value ?? ""} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>

@@ -129,4 +129,18 @@ export const leadsService = {
         });
         return response.data;
     },
+
+    // Server-generated sample CSV whose columns match the importer exactly
+    downloadImportSample: async (): Promise<void> => {
+        const { saveBlob } = await import("@/lib/download");
+        const response = await apiClient.get(`${BASE_URL}/import/sample`, { responseType: "blob" });
+        saveBlob(response.data, "leads_import_sample.csv");
+    },
+
+    // Full export of all visible leads (server-side, not just the current page)
+    exportLeads: async (format: "csv" | "xlsx"): Promise<void> => {
+        const { saveBlob } = await import("@/lib/download");
+        const response = await apiClient.get(`${BASE_URL}/export/${format}`, { responseType: "blob" });
+        saveBlob(response.data, `leads_export.${format}`);
+    },
 };

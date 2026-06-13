@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { Session } from "next-auth";
 import { useState } from "react";
 import { ThemeProvider } from "next-themes";
+import { ApiTokenSync } from "@/lib/api/ApiTokenSync";
 
 export function Providers({ children, session }: { children: React.ReactNode, session: Session | null }) {
     const [queryClient] = useState(() => new QueryClient({
@@ -18,6 +19,7 @@ export function Providers({ children, session }: { children: React.ReactNode, se
 
     return (
         <SessionProvider session={session} refetchOnWindowFocus={false} refetchInterval={0}>
+            <ApiTokenSync />
             <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
                 <QueryClientProvider client={queryClient}>
                     {children}
