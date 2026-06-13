@@ -886,6 +886,29 @@ class LeadService(ActivityMixin):
             opp_industry_data = await strategy.build_opportunity_data(lead, conversion_data)
             opportunity_name = await strategy.build_opportunity_name(lead, conversion_data)
 
+            # Resolve the opportunity owner. Use the explicitly chosen owner
+            # only if it references an active user in THIS tenant — never trust
+            # an owner id from the request body (a forged/stale id must not
+            # assign to another tenant's user). When no valid owner is chosen,
+            # the opportunity goes to the tenant "System" pool for pre-sales to
+            # assign later (shows owner "System"), NOT to the converting user.
+            resolved_owner_id = None
+            if conversion_data.opportunity_owner_id:
+                try:
+                    requested_owner_id = ObjectId(conversion_data.opportunity_owner_id)
+                except Exception:
+                    requested_owner_id = None
+                if requested_owner_id:
+                    valid_owner = await User.find_one(
+                        {"_id": requested_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
+                    )
+                    if valid_owner:
+                        resolved_owner_id = requested_owner_id
+            if resolved_owner_id is None:
+                from app.services.system_user import get_or_create_system_user
+                system_user = await get_or_create_system_user(tenant_id)
+                resolved_owner_id = system_user.id
+
             opportunity = Opportunity(
                 name=opportunity_name,
                 amount=conversion_data.opportunity_amount,
@@ -903,10 +926,10 @@ class LeadService(ActivityMixin):
                 source_medium_id=lead.source_medium_id,
                 industry_data=opp_industry_data,
                 tenant_id=tenant_id,
-                owner_id=user_id,
+                owner_id=resolved_owner_id,
                 created_by=user_id
             )
-            
+
             # Safe conversion for other optional IDs from conversion_data
             if isinstance(opportunity.tenant_id, str):
                 opportunity.tenant_id = ObjectId(opportunity.tenant_id)
@@ -914,22 +937,6 @@ class LeadService(ActivityMixin):
                 opportunity.owner_id = ObjectId(opportunity.owner_id)
             if isinstance(opportunity.created_by, str):
                 opportunity.created_by = ObjectId(opportunity.created_by)
-            
-            # Use specified owner only if it references an active user in THIS
-            # tenant. Never trust an owner id coming from the request body — a
-            # forged/stale id must not assign the opportunity to another tenant's
-            # user. Falls back to the converting user (set above) when invalid.
-            if conversion_data.opportunity_owner_id:
-                try:
-                    requested_owner_id = ObjectId(conversion_data.opportunity_owner_id)
-                except Exception:
-                    requested_owner_id = None
-                if requested_owner_id:
-                    valid_owner = await User.find_one(
-                        {"_id": requested_owner_id, "tenant_id": tenant_id, "deleted_at": None, "is_active": True}
-                    )
-                    if valid_owner:
-                        opportunity.owner_id = requested_owner_id
             # Copy BD triple from the converting lead so the opportunity
             # inherits Territory / BD Owner / Reporting Manager.
             opportunity.territory_id = lead.territory_id

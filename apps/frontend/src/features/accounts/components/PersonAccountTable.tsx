@@ -320,23 +320,6 @@ export function PersonAccountTable({
         applyFilter("billing_city", debouncedCity.trim());
     }, [debouncedCity, applyFilter]);
 
-    // ── CSV export of the current page ────────────────────────────────────────
-    const exportCsv = () => {
-        const headers = ["First Name", "Last Name", "Email", "Phone", "Mobile", "Owner"];
-        const rows = data.map((a) => [
-            a.first_name, a.last_name, a.email, a.phone, a.mobile, a.owner_name,
-        ]);
-        const escape = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const csv = [headers, ...rows].map((r) => r.map(escape).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `person-accounts-page-${pagination.current_page}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
-    };
-
     // ── Bulk import + full server-side export ─────────────────────────────────
     const [importOpen, setImportOpen] = React.useState(false);
     const exportAll = async (format: "csv" | "xlsx") => {
@@ -665,14 +648,8 @@ export function PersonAccountTable({
                             <DropdownMenuItem onClick={refresh}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportCsv}>
-                                <Download className="mr-2 h-4 w-4" /> Export page (CSV)
-                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => exportAll("csv")}>
                                 <Download className="mr-2 h-4 w-4" /> Export all (CSV)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportAll("xlsx")}>
-                                <Download className="mr-2 h-4 w-4" /> Export all (Excel)
                             </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setImportOpen(true)}>
                                 <Upload className="mr-2 h-4 w-4" /> Import Person Accounts (CSV)

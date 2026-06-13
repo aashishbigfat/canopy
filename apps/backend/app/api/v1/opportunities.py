@@ -254,7 +254,11 @@ async def get_opportunities(
         
         # --- Data visibility scoping (owner + hierarchy) ---
         visible_owner_ids = await get_visible_owner_ids(current_user)
-        
+        # Pre-sales (edit_opportunity) also see the unassigned "System" pool.
+        if visible_owner_ids is not None:
+            from app.services.visibility_scope import opportunity_pool_owner_ids
+            visible_owner_ids = visible_owner_ids + await opportunity_pool_owner_ids(current_user)
+
         # If caller explicitly filters by owner_id, validate it's within their visibility
         effective_owner_id = None
         if owner_id:
@@ -426,8 +430,12 @@ async def get_opportunity(
         if not opportunity:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
-        # Visibility check: if user can't see this owner's records, return 404
+        # Visibility check: if user can't see this owner's records, return 404.
+        # Pre-sales (edit_opportunity) also see the unassigned "System" pool.
         visible_owner_ids = await get_visible_owner_ids(current_user)
+        if visible_owner_ids is not None:
+            from app.services.visibility_scope import opportunity_pool_owner_ids
+            visible_owner_ids = visible_owner_ids + await opportunity_pool_owner_ids(current_user)
         if visible_owner_ids is not None and opportunity.owner_id not in visible_owner_ids:
             raise HTTPException(status_code=404, detail="Opportunity not found")
         
@@ -930,15 +938,19 @@ async def change_opportunity_owner(
         
         service = OpportunityService()
         
-        # Visibility pre-check
+        # Visibility pre-check. Pre-sales (edit_opportunity) can also see + assign
+        # the unassigned "System" pool.
         existing = await service.get_opportunity(opportunity_id, current_user.tenant_id)
         if not existing:
             raise HTTPException(status_code=404, detail="Opportunity not found")
-            
+
+        from app.services.visibility_scope import opportunity_pool_owner_ids
         visible_owner_ids = await get_visible_owner_ids(current_user)
+        if visible_owner_ids is not None:
+            visible_owner_ids = visible_owner_ids + await opportunity_pool_owner_ids(current_user)
         if not is_record_visible(existing.owner_id, visible_owner_ids):
             raise HTTPException(status_code=404, detail="Opportunity not found")
-        
+
         opportunity = await service.change_owner(
             opportunity_id,
             ObjectId(owner_change.new_owner_id),

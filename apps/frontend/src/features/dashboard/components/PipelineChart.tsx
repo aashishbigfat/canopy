@@ -4,6 +4,7 @@ import { useState } from "react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { GitBranch } from "lucide-react";
 import { formatCurrency } from "@/lib/format";
+import { useMounted } from "@/hooks/use-mounted";
 
 export interface PipelineStage {
     stage: string;
@@ -49,6 +50,7 @@ const CustomTooltip = ({ active, payload }: any) => {
 export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
     // Stages the user has deselected via the legend.
     const [hidden, setHidden] = useState<Set<string>>(new Set());
+    const mounted = useMounted();
 
     if (!stages || stages.length === 0) {
         return (
@@ -142,7 +144,7 @@ export function PipelineChart({ stages }: { stages: PipelineStage[] }) {
                             Select a stage to see the distribution
                         </p>
                     </div>
-                ) : (
+                ) : !mounted ? null : (
                     <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                             <Tooltip content={<CustomTooltip />} />

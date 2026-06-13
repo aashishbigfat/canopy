@@ -295,23 +295,6 @@ export function ContactTable({
         }
     };
 
-    const exportCsv = () => {
-        const headers = ["First Name", "Last Name", "Email", "Phone", "Mobile", "Owner"];
-        const rows = data.map((c) => [
-            c.first_name, c.last_name, c.email, c.phone, (c as any).mobile,
-            c.owner_name || (c.owner_id ? ownerNameById.get(c.owner_id) : ""),
-        ]);
-        const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-        const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `contacts-page-${pagination.current_page}.csv`;
-        a.click();
-        URL.revokeObjectURL(url);
-    };
-
     // ── Bulk import + full server-side export ─────────────────────────────────
     const [importOpen, setImportOpen] = React.useState(false);
     const exportAll = async (format: "csv" | "xlsx") => {
@@ -478,9 +461,7 @@ export function ContactTable({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={refresh}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
-                            <DropdownMenuItem onClick={exportCsv}><Download className="mr-2 h-4 w-4" /> Export page (CSV)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => exportAll("csv")}><Download className="mr-2 h-4 w-4" /> Export all (CSV)</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportAll("xlsx")}><Download className="mr-2 h-4 w-4" /> Export all (Excel)</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" /> Import Contacts (CSV)</DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem onClick={openSaveView}><Save className="mr-2 h-4 w-4" /> Save view…</DropdownMenuItem>

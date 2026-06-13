@@ -13,12 +13,14 @@ import {
   useBDDashboardKpis,
 } from "@/features/bd/visits/api/useBDVisits";
 import { useExpenseSummary } from "@/features/bd/expenses/api/useExpenses";
+import { useMounted } from "@/hooks/use-mounted";
 
 export default function BDLandingPage() {
   const today = useMyTodayVisits();
   const approvals = useMyPendingApprovals();
   const kpis = useBDDashboardKpis();
   const expSummary = useExpenseSummary();
+  const mounted = useMounted();
 
   return (
     <div className="space-y-6">
@@ -63,6 +65,8 @@ export default function BDLandingPage() {
               <div className="flex items-center justify-center py-12"><Loader2 className="h-5 w-5 animate-spin" /></div>
             ) : !kpis.data || kpis.data.week_chart.length === 0 ? (
               <div className="text-sm text-muted-foreground py-10 text-center">No visits this week.</div>
+            ) : !mounted ? (
+              <div className="h-[220px]" />
             ) : (
               <ResponsiveContainer width="100%" height={220}>
                 <BarChart data={kpis.data.week_chart}>

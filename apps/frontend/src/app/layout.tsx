@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import "./error-feedback.css";
@@ -12,6 +12,13 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 export const metadata: Metadata = {
   title: "Travel CRM",
   description: "Next Gen Travel CRM",
+};
+
+// Explicit mobile viewport (App Router would default to this, but a
+// mobile-facing CRM should not rely on the framework default).
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
 };
 
 import { Toaster } from "@/components/ui/sonner";

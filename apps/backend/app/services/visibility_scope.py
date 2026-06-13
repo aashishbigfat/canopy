@@ -75,6 +75,23 @@ async def get_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:
     return list(allowed)
 
 
+async def opportunity_pool_owner_ids(user: User) -> List[ObjectId]:
+    """Extra owner ids a non-admin user may additionally see for opportunities:
+    the tenant's "System" pool of unassigned opportunities.
+
+    Only users who can assign opportunities (edit_opportunity permission) get
+    the pool, so a regular salesperson's list isn't cluttered with it. Admins
+    already see everything (get_visible_owner_ids returns None), so this is for
+    the non-admin pre-sales case. Returns [] when there is no System user yet
+    or the user can't assign.
+    """
+    if not await user.has_permission("edit_opportunity"):
+        return []
+    from app.services.system_user import get_system_user
+    system_user = await get_system_user(user.tenant_id)
+    return [system_user.id] if system_user else []
+
+
 def apply_visibility_filter(query: dict, visible_owner_ids: Optional[List[ObjectId]]) -> dict:
     """
     Apply visibility scoping to a MongoDB query dict.
