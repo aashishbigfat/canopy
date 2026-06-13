@@ -75,18 +75,22 @@ class LeadService(ActivityMixin):
         tenant_id: ObjectId,
         user_name: str = None,
         custom_fields: list = None,
-        auto_assign: bool = False
+        auto_assign: bool = False,
+        skip_duplicate_check: bool = False
     ) -> Lead:
         """Create a new lead with comprehensive activity logging and deduplication"""
-        
-        # 1. Deduplication check
-        duplicate = await self._check_duplicate_lead(
-            lead_data.email, 
-            lead_data.mobile, 
-            tenant_id
-        )
-        if duplicate:
-            raise ValueError(f"A lead with this contact information already exists: {duplicate.first_name} {duplicate.last_name}")
+
+        # 1. Deduplication check — bypassed for bulk imports, where the same
+        #    person may legitimately appear with a shared email/mobile and every
+        #    row must be imported as its own lead.
+        if not skip_duplicate_check:
+            duplicate = await self._check_duplicate_lead(
+                lead_data.email,
+                lead_data.mobile,
+                tenant_id
+            )
+            if duplicate:
+                raise ValueError(f"A lead with this contact information already exists: {duplicate.first_name} {duplicate.last_name}")
 
         # 2. Handle Auto-assignment
         owner_id = user_id

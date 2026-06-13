@@ -789,7 +789,10 @@ class DashboardService:
         owners_map = {}
         if owner_ids:
             from app.core.tenant_scope import fetch_in_tenant
-            owners = await fetch_in_tenant(User, tenant_id, owner_ids)
+            # Use the ObjectId tenant id — User.tenant_id is stored as ObjectId,
+            # so passing the raw string here matches nothing and every owner
+            # would fall back to "Unknown".
+            owners = await fetch_in_tenant(User, tenant_obj_id, owner_ids)
             owners_map = {str(owner.id): owner.name for owner in owners}
             
         # Helper: recursively convert ObjectId / datetime inside dicts/lists to strings

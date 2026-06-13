@@ -54,7 +54,7 @@ import { destinationsService, Destination } from "@/lib/api/services/destination
 import { Lead, LeadCreateData, LeadStatus, Source, Industry } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
-import { ErrorHandler, showSuccessToast } from "@/lib/error-handler";
+import { ErrorHandler, showSuccessToast, cleanErrorMessage } from "@/lib/error-handler";
 import { logger } from "@/lib/logger";
 import { LoadingButton } from "@/components/ui/loading";
 import { IndustryLeadFields } from "@/components/industry/IndustryLeadFields";
@@ -562,6 +562,14 @@ export function LeadForm({
 
     const activeSchema = getLeadSchemaForIndustry(industry);
 
+    // The Creation dropdown only offers "manual"/"auto". Imported leads are
+    // stored as creation_type="import" (and other sources may add their own
+    // values), which would make the controlled Select render blank and force
+    // the user to re-pick. Normalise anything that isn't a real option so the
+    // field always shows a valid value.
+    const normalizedCreationType: "manual" | "auto" =
+        initialData?.creation_type === "auto" ? "auto" : "manual";
+
     const form = useForm<any>({
         resolver: zodResolver(activeSchema) as any,
         defaultValues: {
@@ -580,7 +588,7 @@ export function LeadForm({
             source_medium: initialData?.source_medium || "",
             combined_source: isTravel
                 ? (initialData?.source_id || "")
-                : (initialData?.source_id || initialData?.creation_type || "manual"),
+                : (initialData?.source_id || normalizedCreationType),
             industry_id: initialData?.industry_id || "",
             street: initialData?.street || "",
             city: initialData?.city || "",
@@ -589,7 +597,7 @@ export function LeadForm({
             country: initialData?.country || "",
             campaign_name: initialData?.campaign_name || "",
             segment: initialData?.segment || "B2C",
-            creation_type: (initialData?.creation_type as "manual" | "auto") || "manual",
+            creation_type: normalizedCreationType,
             // Industry-specific defaults — prevents uncontrolled-to-controlled input errors
             ...(isTravel ? {
                 travel_date: initialData?.industry_data?.travel_date || "",
@@ -692,7 +700,7 @@ export function LeadForm({
                     }
                 });
             } else if (typeof details === "string") {
-                toast.error(details);
+                toast.error(cleanErrorMessage(details));
             }
             return true;
         }

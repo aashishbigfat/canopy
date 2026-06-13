@@ -18,7 +18,11 @@ SYSTEM_USER_NAME = "System"
 
 def _system_email(tenant_id: ObjectId) -> str:
     # User.email is globally unique — scope the sentinel by tenant id.
-    return f"system+{tenant_id}@system.tutterfly.local"
+    # NOTE: the domain must NOT be a reserved/special-use name (.local, .invalid,
+    # .test, .example, localhost). Pydantic's EmailStr validator rejects those,
+    # which would make this service account impossible to create and break lead
+    # conversion. `.app` is a normal public gTLD and validates cleanly.
+    return f"system+{tenant_id}@system.tutterfly.app"
 
 
 async def get_system_user(tenant_id: ObjectId) -> User | None:
