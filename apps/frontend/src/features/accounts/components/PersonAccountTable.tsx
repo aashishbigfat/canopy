@@ -849,7 +849,6 @@ export function PersonAccountTable({
                 checklist={[
                     "Columns must match the downloaded sample — First Name and Last Name are required.",
                     "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
-                    "Duplicate person accounts (same email or mobile) are skipped and reported below.",
                 ]}
             />
         </div>

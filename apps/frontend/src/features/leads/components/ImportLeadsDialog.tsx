@@ -26,7 +26,6 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
                 "Lead Status, Source, Source Medium and Industry must exist as active picklists in Tutterfly.",
                 "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
                 "Travel Date accepts YYYY-MM-DD, DD-MM-YYYY or DD/MM/YYYY.",
-                "Duplicate leads (same email/mobile) are skipped and reported below.",
             ]}
         />
     );

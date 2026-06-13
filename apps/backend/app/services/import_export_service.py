@@ -476,27 +476,9 @@ class ImportExportService:
                         industry=tenant_industry, data=industry_data, mode="account"
                     )
 
-                # --- Duplicate check (tenant-scoped) ----------------------------
-                dup_query: Dict[str, Any] = {
-                    "tenant_id": tenant_id,
-                    "deleted_at": None,
-                    "is_person_account": is_person_account,
-                }
-                dup_conditions = []
-                if email:
-                    dup_conditions.append({"email": str(email)})
-                if is_person_account and mobile:
-                    dup_conditions.append({"mobile": mobile})
-                if not is_person_account:
-                    import re as _re
-                    dup_conditions.append({"name": {"$regex": f"^{_re.escape(name)}$", "$options": "i"}})
-                if dup_conditions:
-                    dup_query["$or"] = dup_conditions
-                    existing = await Account.find_one(dup_query)
-                    if existing:
-                        skipped += 1
-                        errors.append(f"Row {row_num}: Skipped duplicate — matches existing account '{existing.name}'")
-                        continue
+                # Duplicate-skipping is intentionally NOT performed on import:
+                # the same name/email/mobile can legitimately recur, and every
+                # row must be imported as its own account.
 
                 segment = _get_val(row, "Segment", default="B2C" if is_person_account else "B2B")
 
@@ -685,17 +667,9 @@ class ImportExportService:
                         industry=tenant_industry, data=industry_data, mode="contact"
                     )
 
-                # Duplicate check by email (tenant-scoped)
-                if email:
-                    existing = await Contact.find_one({
-                        "tenant_id": tenant_id,
-                        "deleted_at": None,
-                        "email": str(email),
-                    })
-                    if existing:
-                        skipped += 1
-                        errors.append(f"Row {row_num}: Skipped duplicate — a contact with email '{email}' already exists")
-                        continue
+                # Duplicate-skipping is intentionally NOT performed on import:
+                # the same email/mobile can legitimately recur, and every row
+                # must be imported as its own contact.
 
                 contact = Contact(
                     salutation=_get_val(row, "Salutation"),
@@ -958,17 +932,20 @@ class ImportExportService:
                 lead_create = LeadCreate(**lead_create_data)
 
                 # Create via LeadService to run the standard pipelines
-                # (dedup, BD assignment, notifications)
+                # (BD assignment, notifications). Duplicate-skipping is disabled
+                # for imports — the same email/mobile may recur across rows and
+                # each row must be imported as its own lead.
                 await lead_service.create_lead(
                     lead_data=lead_create,
                     user_id=user_id,
                     tenant_id=tenant_id,
                     auto_assign=False,  # the importing user owns the records
+                    skip_duplicate_check=True,
                 )
                 imported += 1
 
             except ValueError as ve:
-                # Deduplication / validation errors -> skipped
+                # Validation errors -> skipped
                 skipped += 1
                 errors.append(f"Row {row_num}: {str(ve)}")
             except Exception as e:

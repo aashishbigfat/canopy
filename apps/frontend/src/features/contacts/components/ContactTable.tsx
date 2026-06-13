@@ -618,7 +618,6 @@ export function ContactTable({
                     "Columns must match the downloaded sample — First Name and Last Name are required.",
                     "Account Name must match an existing account — import your accounts first.",
                     "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
-                    "Duplicate contacts (same email) are skipped and reported below.",
                 ]}
             />
         </div>

@@ -440,7 +440,7 @@ export function ImportDataDialog({
                                     </div>
                                     <div className="space-y-1">
                                         <h3 className="font-semibold text-lg">Importing {entityLabel}...</h3>
-                                        <p className="text-sm text-muted-foreground">Parsing records, validating fields and checking for duplicates.</p>
+                                        <p className="text-sm text-muted-foreground">Parsing records and validating fields.</p>
                                     </div>
                                 </div>
                             ) : (
@@ -464,7 +464,7 @@ export function ImportDataDialog({
                                             <p className="text-sm text-muted-foreground">
                                                 {importResult.errors.length === 0
                                                     ? `All ${entityLabel.toLowerCase()} imported successfully with zero errors.`
-                                                    : "Finished processing with some issues or duplicate skips."}
+                                                    : "Finished processing with some rows skipped due to errors."}
                                             </p>
                                         </div>
 
@@ -476,7 +476,7 @@ export function ImportDataDialog({
                                             </div>
                                             <div className="bg-amber-50/50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/20 p-3 rounded-xl">
                                                 <span className="block text-2xl font-bold text-amber-600 dark:text-amber-400">{importResult.skipped}</span>
-                                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Duplicates</span>
+                                                <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Skipped</span>
                                             </div>
                                             <div className="bg-muted p-3 border border-border rounded-xl">
                                                 <span className="block text-2xl font-bold text-foreground">{importResult.total}</span>
