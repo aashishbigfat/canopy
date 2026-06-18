@@ -817,7 +817,7 @@ export function LeadForm({
                                 <User className="h-4 w-4 text-primary" />
                                 <h3 className="text-sm font-semibold text-foreground">Leads Information</h3>
                             </div>
-                            <div className="grid gap-3 grid-cols-2">
+                            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
                                 {/* Row 1: Salutation | Lead Owner (read-only) */}
                                 <FormField control={form.control as any} name="salutation" render={({ field }) => (
                                     <FormItem>

@@ -144,7 +144,7 @@ export function VisitFormDialog({ open, onOpenChange, visit, defaults, onSaved }
         </DialogHeader>
         <div className="grid gap-3">
           {!visit && !defaults?.bd_visitable_id && (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <div className="grid gap-1.5 col-span-1">
                 <Label>Parent Type</Label>
                 <Select value={visitableType} onValueChange={(v) => setVisitableType(v as BDVisitableType)}>
@@ -171,7 +171,7 @@ export function VisitFormDialog({ open, onOpenChange, visit, defaults, onSaved }
             <Label>Title *</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Demo with Acme Travels" />
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Activity Type</Label>
               <Select value={activityTypeId || "__none__"} onValueChange={(v) => setActivityTypeId(v === "__none__" ? "" : v)}>
@@ -198,7 +198,7 @@ export function VisitFormDialog({ open, onOpenChange, visit, defaults, onSaved }
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Scheduled For *</Label>
               <Input

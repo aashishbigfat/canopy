@@ -109,7 +109,7 @@ export default function BillingPage() {
         {!summary?.invoices?.length ? (
           <div className="text-sm text-muted-foreground">No invoices.</div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="border-b text-left">
               <tr>
                 <th className="px-2 py-1">Date</th>
@@ -128,7 +128,7 @@ export default function BillingPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
     </div>

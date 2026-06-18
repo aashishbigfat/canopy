@@ -115,7 +115,7 @@ export function TerritoryFormDialog({ open, onOpenChange, territory, regions, on
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="tname">Name *</Label>
               <Input
@@ -134,7 +134,7 @@ export function TerritoryFormDialog({ open, onOpenChange, territory, regions, on
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Region *</Label>
               <Select
@@ -224,7 +224,7 @@ export function TerritoryFormDialog({ open, onOpenChange, territory, regions, on
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label>Territory Manager</Label>
               <Select

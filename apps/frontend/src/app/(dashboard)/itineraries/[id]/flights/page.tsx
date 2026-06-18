@@ -181,7 +181,7 @@ export default function ItineraryFlightsPage({
           No flights linked.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>

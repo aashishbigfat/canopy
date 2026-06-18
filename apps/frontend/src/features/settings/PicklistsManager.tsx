@@ -215,7 +215,7 @@ export function PicklistsManager({ type }: { type: PicklistType }) {
           No values yet. Click <strong>New</strong> to add one.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="crm-table-header">
               <tr>

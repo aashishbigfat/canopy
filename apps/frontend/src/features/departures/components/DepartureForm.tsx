@@ -86,7 +86,7 @@ export function DepartureForm({ departure, onClose }: Props) {
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-5 space-y-4">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="col-span-2 space-y-1">
                             <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
                                 Name *

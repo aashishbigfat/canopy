@@ -65,16 +65,16 @@ export function EntityDetailHeader({
         <div className="crm-surface mb-6 overflow-hidden">
             <div className="p-6">
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                    <div className="flex items-start gap-4">
+                    <div className="flex items-start gap-4 min-w-0">
                         <div className="mt-1 flex h-12 w-12 items-center justify-center rounded bg-primary text-primary-foreground">
                             {type === "Contact" ? <User size={24} /> : type === "Lead" ? <User size={24} /> : <Building2 size={24} />}
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">{customLabel || type}</span>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <h1 className="text-2xl font-semibold">{name}</h1>
+                            <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                <h1 className="text-xl md:text-2xl font-semibold break-words min-w-0">{name}</h1>
                                 {badge && (
                                     <Badge variant="outline" className={`ml-2 ${getSegmentBadgeClass(badge)}`}>
                                         {getSegmentLabel(badge)}
@@ -85,7 +85,7 @@ export function EntityDetailHeader({
                         </div>
                     </div>
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
                         <Button
                             variant="default"
                             onClick={onEdit}

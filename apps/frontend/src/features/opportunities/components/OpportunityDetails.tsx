@@ -365,12 +365,12 @@ export function OpportunityDetails({
             {/* Header / Actions - Styled like reference UI */}
             <div className="crm-surface rounded-lg border p-4 shadow-sm">
                 <div className="flex flex-col lg:flex-row justify-between gap-4">
-                    <div className="flex gap-4">
+                    <div className="flex gap-4 min-w-0">
                         <div className="h-12 w-12 bg-blue-500 rounded-full flex items-center justify-center flex-shrink-0 mt-1">
                             <Briefcase className="h-6 w-6 text-white" />
                         </div>
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
+                        <div className="space-y-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2">
                                 <h1 className="text-xl font-semibold text-blue-600">
                                     Opportunity <span className="text-muted-foreground font-normal">({record.is_person_account ? "Person Account" : "Account"})</span>
                                 </h1>
@@ -411,8 +411,8 @@ export function OpportunityDetails({
                                     </Button>
                                 )}
                             </div>
-                            <div className="flex items-center gap-2">
-                                <h2 className="text-lg font-medium">{record.name}</h2>
+                            <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                <h2 className="text-lg font-medium break-words min-w-0">{record.name}</h2>
                                 {record.opportunity_number != null && (
                                     <div className="flex items-center gap-1 text-slate-400">
                                         <span className="text-sm font-mono">
@@ -496,8 +496,8 @@ export function OpportunityDetails({
                         </div>
                     </div>
 
-                    <div className="flex flex-col items-end justify-between min-w-[250px]">
-                        <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-start lg:items-end justify-between w-full lg:w-auto lg:min-w-[250px]">
+                        <div className="flex flex-wrap items-center gap-4">
                             <div className="flex flex-col gap-1.5">
                                 <label className={cn("flex items-center justify-end gap-2 text-xs font-medium text-slate-300", record.is_locked ? "cursor-not-allowed opacity-60" : "cursor-pointer")}>
                                     Key Deal
@@ -587,8 +587,8 @@ export function OpportunityDetails({
                         </span>
                     )}
                 </div>
-                <div className="flex items-center justify-between">
-                    <div className={cn("flex flex-1 items-center relative z-10", record.is_locked && "opacity-60 pointer-events-none")}>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
+                    <div className={cn("flex flex-1 items-center relative z-10 min-w-0 overflow-x-auto scrollbar-hide", record.is_locked && "opacity-60 pointer-events-none")}>
                         {orderedStages.map((s, index) => {
                             const isCurrent = index === currentStageIndex;
                             const isPast = index < currentStageIndex;
@@ -598,7 +598,7 @@ export function OpportunityDetails({
                                     key={s.id}
                                     onClick={() => !record.is_locked && handleStageClick(s.id)}
                                     className={cn(
-                                        "relative flex-1 py-2 px-4 text-center text-xs font-medium transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
+                                        "relative flex-1 min-w-[110px] whitespace-nowrap py-2 px-4 text-center text-xs font-medium transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
                                         record.is_locked ? "cursor-not-allowed" : "cursor-pointer",
                                         s.id === selectedStageId ? "bg-blue-500/15 border-blue-400 text-blue-300" :
                                             index < currentStageIndex ? "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700" :
@@ -621,7 +621,7 @@ export function OpportunityDetails({
                     </div>
                     {!record.is_locked && selectedStageId !== record.sales_stage_id && (
                         <Button
-                            className="ml-4 bg-blue-500 hover:bg-blue-600 rounded-full text-xs h-8 px-6 whitespace-nowrap"
+                            className="self-end shrink-0 sm:self-auto sm:ml-4 bg-blue-500 hover:bg-blue-600 rounded-full text-xs h-8 px-6 whitespace-nowrap"
                             onClick={handleMarkAsCurrentStage}
                         >
                             Mark as Current Stage
@@ -664,7 +664,7 @@ export function OpportunityDetails({
                                 <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-x-8 gap-y-4 mb-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mb-6">
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Subject</label>
                                     <input 

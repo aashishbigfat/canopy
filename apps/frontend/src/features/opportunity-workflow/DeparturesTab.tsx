@@ -148,7 +148,7 @@ export function DeparturesTab({ opportunityId }: { opportunityId: string }) {
           No departures.
         </div>
       ) : (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="crm-table-header">
               <tr>

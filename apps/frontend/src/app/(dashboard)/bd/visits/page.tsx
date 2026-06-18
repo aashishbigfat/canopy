@@ -80,7 +80,7 @@ export default function VisitsListPage() {
             No visits match these filters.
           </div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>
                 <th className="px-3 py-2">Title</th>
@@ -122,7 +122,7 @@ export default function VisitsListPage() {
                 );
               })}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 

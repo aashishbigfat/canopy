@@ -67,7 +67,7 @@ export default function ExpensesListPage() {
         ) : (data?.expenses.length ?? 0) === 0 ? (
           <div className="py-12 text-center text-muted-foreground">No expenses match these filters.</div>
         ) : (
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto"><table className="w-full text-sm">
             <thead className="border-b bg-muted/30 text-left">
               <tr>
                 <th className="px-3 py-2">Title</th>
@@ -100,7 +100,7 @@ export default function ExpensesListPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         )}
       </div>
 
