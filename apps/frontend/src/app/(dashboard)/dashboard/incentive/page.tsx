@@ -67,7 +67,7 @@ function UserAccordion({ user }: { user: UserIncentiveEntry }) {
         className="flex w-full items-center justify-between px-5 py-3 text-left bg-card hover:bg-accent/40 transition-colors"
       >
         <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600/20 text-sm font-bold text-indigo-300">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600/20 text-sm font-bold text-indigo-700 dark:text-indigo-300">
             {user.name.charAt(0).toUpperCase()}
           </div>
           <span className="font-medium text-foreground">{user.name}</span>

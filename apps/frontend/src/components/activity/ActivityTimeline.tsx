@@ -46,7 +46,7 @@ const getActivityIcon = (action: string, entityType: string) => {
         case "call": return <Phone className="h-4 w-4 text-indigo-500" />;
         case "meeting": case "event": return <Calendar className="h-4 w-4 text-rose-500" />;
         case "task": return <CheckCircle2 className="h-4 w-4 text-cyan-500" />;
-        default: return <Activity className="h-4 w-4 text-slate-400" />;
+        default: return <Activity className="h-4 w-4 text-muted-foreground" />;
     }
 };
 

@@ -375,20 +375,20 @@ export function OpportunityDetails({
                                     Opportunity <span className="text-muted-foreground font-normal">({record.is_person_account ? "Person Account" : "Account"})</span>
                                 </h1>
                                 {record.creation_type && (
-                                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-300 font-normal">
+                                    <Badge variant="secondary" className="bg-orange-500/20 text-orange-700 dark:text-orange-300 font-normal">
                                         {record.creation_type}
                                     </Badge>
                                 )}
                                 {record.is_locked ? (
                                     <div className="flex items-center gap-2">
-                                        <Badge variant="secondary" className="bg-red-500/20 text-red-300 border border-red-500/40 flex items-center gap-1 font-normal">
+                                        <Badge variant="secondary" className="bg-red-500/20 text-red-700 dark:text-red-300 border border-red-500/40 flex items-center gap-1 font-normal">
                                             <Lock className="h-3 w-3" /> Locked
                                         </Badge>
                                         {canUnlock && (
                                             <Button
                                                 size="sm"
                                                 variant="outline"
-                                                className="h-6 px-2 text-xs border-red-500/40 text-red-300 hover:bg-red-500/20 hover:text-red-200"
+                                                className="h-6 px-2 text-xs border-red-500/40 text-red-700 dark:text-red-300 hover:bg-red-500/20 hover:text-red-800 dark:hover:text-red-200"
                                                 onClick={() => unlockOpportunity(record.id)}
                                                 disabled={isUnlocking}
                                                 title="Unlock this opportunity"
@@ -401,7 +401,7 @@ export function OpportunityDetails({
                                     <Button
                                         size="sm"
                                         variant="outline"
-                                        className="h-6 px-2 text-xs border-slate-500/40 text-slate-400 hover:bg-slate-500/20 hover:text-slate-200 flex items-center gap-1"
+                                        className="h-6 px-2 text-xs border-border text-slate-400 hover:bg-accent hover:text-foreground flex items-center gap-1"
                                         onClick={() => lockOpportunity(record.id)}
                                         disabled={isLocking}
                                         title="Lock this opportunity"
@@ -426,7 +426,7 @@ export function OpportunityDetails({
                                                 setIsCopied(true);
                                                 setTimeout(() => setIsCopied(false), 1500);
                                             }}
-                                            className="p-0.5 rounded hover:text-slate-200 transition-colors"
+                                            className="p-0.5 rounded hover:text-foreground transition-colors"
                                         >
                                             {isCopied
                                                 ? <Check className="h-3 w-3 text-green-400" />
@@ -462,7 +462,7 @@ export function OpportunityDetails({
                                                     {record.contact_name}
                                                 </Link>
                                             ) : (
-                                                <span className="font-medium text-slate-200">-</span>
+                                                <span className="font-medium text-foreground">-</span>
                                             )}
                                         </div>
                                     )}
@@ -476,7 +476,7 @@ export function OpportunityDetails({
                                 {industry === "travel" ? (
                                     <div className="space-y-1">
                                         <p className="text-xs text-slate-400">Travel Date | No of Pax</p>
-                                        <p className="font-medium text-slate-200">
+                                        <p className="font-medium text-foreground">
                                             {record.industry_data?.travel_date
                                                 ? formatDate(record.industry_data.travel_date)
                                                 : "-"} | {record.industry_data?.no_of_pax || "-"}
@@ -485,7 +485,7 @@ export function OpportunityDetails({
                                 ) : (
                                     <div className="space-y-1">
                                         <p className="text-xs text-slate-400">Close Date | Amount</p>
-                                        <p className="font-medium text-slate-200">
+                                        <p className="font-medium text-foreground">
                                             {record.close_date
                                                 ? formatDate(record.close_date)
                                                 : "-"} | {record.amount ? formatCurrency(record.amount) : "-"}
@@ -540,7 +540,7 @@ export function OpportunityDetails({
                                 <span className="text-slate-400">Opportunity Owner</span>
                                 <button
                                     onClick={() => setIsOwnerDialogOpen(true)}
-                                    className="font-medium text-blue-500 flex items-center gap-1 hover:text-blue-300 transition-colors"
+                                    className="font-medium text-blue-500 flex items-center gap-1 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
                                 >
                                     {record.owner_name} <UserIcon className="h-3 w-3" />
                                 </button>
@@ -600,9 +600,9 @@ export function OpportunityDetails({
                                     className={cn(
                                         "relative flex-1 min-w-[110px] whitespace-nowrap py-2 px-4 text-center text-xs font-medium transition-colors border-y border-r first:border-l first:rounded-l-full last:rounded-r-full group",
                                         record.is_locked ? "cursor-not-allowed" : "cursor-pointer",
-                                        s.id === selectedStageId ? "bg-blue-500/15 border-blue-400 text-blue-300" :
-                                            index < currentStageIndex ? "bg-slate-800 border-slate-700 text-slate-400 hover:bg-slate-700" :
-                                                "bg-slate-900 border-slate-700 text-slate-400 hover:bg-slate-800/40"
+                                        s.id === selectedStageId ? "bg-blue-500/15 border-blue-400 text-blue-700 dark:text-blue-300" :
+                                            index < currentStageIndex ? "bg-muted border-border text-slate-400 hover:bg-accent" :
+                                                "bg-card border-border text-slate-400 hover:bg-muted/40"
                                     )}
                                     style={{
                                         clipPath: index < orderedStages.length - 1 ?
@@ -659,9 +659,9 @@ export function OpportunityDetails({
                         <TabsContent value="activity" className="p-6 focus-visible:outline-none focus-visible:ring-0">
                             <div className="flex gap-4 border-b pb-4 mb-4">
                                 <Button className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-semibold rounded-sm">Task</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><PhoneCall className="h-3 w-3 mr-2" /> Log a Call</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><Mail className="h-3 w-3 mr-2" /> Email</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-slate-100"><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
+                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-foreground"><PhoneCall className="h-3 w-3 mr-2" /> Log a Call</Button>
+                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-foreground"><Mail className="h-3 w-3 mr-2" /> Email</Button>
+                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-foreground"><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mb-6">
@@ -680,7 +680,7 @@ export function OpportunityDetails({
                                     <select
                                         value={taskAssignedTo}
                                         onChange={(e) => setTaskAssignedTo(e.target.value)}
-                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-slate-900"
+                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-card"
                                     >
                                         {users.map((user: any) => (
                                             <option key={user.id || user._id} value={user.id || user._id}>
@@ -701,7 +701,7 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Name</label>
-                                    <div className="w-full border rounded text-sm px-3 py-1.5 bg-slate-800 text-blue-400 hover:underline cursor-pointer font-medium">
+                                    <div className="w-full border rounded text-sm px-3 py-1.5 bg-muted text-blue-400 hover:underline cursor-pointer font-medium">
                                         <Link href={record.is_person_account ? `/person-accounts/${record.account_id}` : `/accounts/${record.account_id}`}>
                                             {record.contact_name || record.account_name || ""}
                                         </Link>
@@ -709,7 +709,7 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Related to</label>
-                                    <p className="text-sm text-slate-200 pt-1.5">{record.name}</p>
+                                    <p className="text-sm text-foreground pt-1.5">{record.name}</p>
                                 </div>
                                 <div className="space-y-1.5 mt-2">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -717,7 +717,7 @@ export function OpportunityDetails({
                                             type="checkbox"
                                             checked={taskAddReminder}
                                             onChange={(e) => setTaskAddReminder(e.target.checked)}
-                                            className="rounded border-slate-700"
+                                            className="rounded border-border"
                                         />
                                         <span className="text-xs text-slate-300 font-medium">Add Reminder</span>
                                     </label>
@@ -736,9 +736,9 @@ export function OpportunityDetails({
 
                             {/* Task List */}
                             <div className="space-y-4">
-                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-200">
+                                <div className="flex items-center gap-4 text-sm font-semibold text-foreground">
                                     <span className="w-24">Next Task</span>
-                                    <div className="flex-1 border-b border-dashed border-slate-700"></div>
+                                    <div className="flex-1 border-b border-dashed border-border"></div>
                                 </div>
                                 <ul className="space-y-2">
                                     {tasks.filter(t => t.status !== "Completed").length === 0 ? (
@@ -746,25 +746,25 @@ export function OpportunityDetails({
                                     ) : (
                                         tasks.filter(t => t.status !== "Completed").map(task => (
                                             <li key={task.id} className="flex items-center gap-3 pl-28 py-1 group">
-                                                <div className="h-5 w-5 rounded border border-slate-700 flex items-center justify-center cursor-pointer hover:border-blue-500">
-                                                    <CheckCircle2 className="h-3 w-3 text-transparent group-hover:text-blue-200" />
+                                                <div className="h-5 w-5 rounded border border-border flex items-center justify-center cursor-pointer hover:border-blue-500">
+                                                    <CheckCircle2 className="h-3 w-3 text-transparent group-hover:text-blue-600 dark:group-hover:text-blue-200" />
                                                 </div>
                                                 <a href="#" className="text-sm text-blue-400 hover:underline">{task.name}</a>
                                                 {task.due_date && <span className="text-xs text-slate-400">({formatDateTime24h(task.due_date)})</span>}
-                                                {task.priority === "High" && <Badge variant="secondary" className="bg-red-500/20 text-red-300 px-1.5 py-0 text-[10px] h-4">high</Badge>}
+                                                {task.priority === "High" && <Badge variant="secondary" className="bg-red-500/20 text-red-700 dark:text-red-300 px-1.5 py-0 text-[10px] h-4">high</Badge>}
                                             </li>
                                         ))
                                     )}
                                 </ul>
 
-                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-200 mt-8">
+                                <div className="flex items-center gap-4 text-sm font-semibold text-foreground mt-8">
                                     <span className="w-24">Previous Task</span>
-                                    <div className="flex-1 border-b border-dashed border-slate-700"></div>
+                                    <div className="flex-1 border-b border-dashed border-border"></div>
                                 </div>
                                 <ul className="space-y-2">
                                     {tasks.filter(t => t.status === "Completed").map(task => (
                                         <li key={task.id} className="flex items-center gap-3 pl-28 py-1">
-                                            <div className="h-5 w-5 rounded bg-blue-500/20 text-blue-300 flex items-center justify-center">
+                                            <div className="h-5 w-5 rounded bg-blue-500/20 text-blue-700 dark:text-blue-300 flex items-center justify-center">
                                                 <CheckCircle2 className="h-3 w-3" />
                                             </div>
                                             <span className="text-sm text-slate-400 line-through">{task.name}</span>
@@ -773,11 +773,11 @@ export function OpportunityDetails({
                                     ))}
                                 </ul>
 
-                                <div className="flex items-center gap-4 text-sm font-semibold text-slate-200 mt-8">
-                                    <span className="w-24 border border-orange-500/40 bg-orange-500/20 text-orange-300 px-2 rounded-sm inline-flex justify-between items-center h-6">
+                                <div className="flex items-center gap-4 text-sm font-semibold text-foreground mt-8">
+                                    <span className="w-24 border border-orange-500/40 bg-orange-500/20 text-orange-700 dark:text-orange-300 px-2 rounded-sm inline-flex justify-between items-center h-6">
                                         Email <RefreshCw className="h-3 w-3" />
                                     </span>
-                                    <div className="flex-1 border-b border-dashed border-slate-700"></div>
+                                    <div className="flex-1 border-b border-dashed border-border"></div>
                                 </div>
                             </div>
                         </TabsContent>
@@ -785,7 +785,7 @@ export function OpportunityDetails({
                         {/* ── DEPARTURES TAB ── */}
                         <TabsContent value="departures" className="p-6 focus-visible:outline-none focus-visible:ring-0">
                             <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                                <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
                                     <Calendar className="h-4 w-4 text-blue-500" />
                                     Departures
                                 </h3>
@@ -807,38 +807,38 @@ export function OpportunityDetails({
                                         title="Opportunity Information"
                                         icon={<Briefcase className="h-4 w-4" />}
                                         defaultOpen={true}
-                                        className="border-slate-700"
+                                        className="border-border"
                                     >
                                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Opportunity Name</p>
-                                                <p className="text-sm font-bold text-slate-100 pt-1">{record.name}</p>
+                                                <p className="text-sm font-bold text-foreground pt-1">{record.name}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Account</p>
-                                                <p className="text-sm font-semibold text-slate-100 pt-1">{record.account_name || record.contact_name || "-"}</p>
+                                                <p className="text-sm font-semibold text-foreground pt-1">{record.account_name || record.contact_name || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Opportunity Owner</p>
-                                                <p className="text-sm font-semibold text-slate-100 pt-1">{record.owner_name || "-"}</p>
+                                                <p className="text-sm font-semibold text-foreground pt-1">{record.owner_name || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Stage</p>
-                                                <p className="text-sm font-semibold text-slate-100 pt-1">
+                                                <p className="text-sm font-semibold text-foreground pt-1">
                                                     {record.sales_stage_name || stages.find(s => s.id === record.sales_stage_id)?.name || "-"}
                                                 </p>
                                             </div>
                                             {record.close_lost_reason && (stage as any)?.is_lost && (
                                                 <div className="space-y-1 col-span-full bg-red-500/20 p-2 rounded border border-red-500/40">
                                                     <p className="text-xs font-semibold text-red-600 uppercase tracking-wider">Close Lost Reason</p>
-                                                    <p className="text-sm text-red-300 pt-1 italic">
+                                                    <p className="text-sm text-red-700 dark:text-red-300 pt-1 italic">
                                                         "{record.close_lost_reason}"
                                                     </p>
                                                 </div>
                                             )}
                                             <div className="space-y-1">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Amount</p>
-                                                <p className="text-lg font-bold text-slate-100">
+                                                <p className="text-lg font-bold text-foreground">
                                                     {record.amount ? formatCurrency(record.amount) : formatCurrency(0)}
                                                 </p>
                                             </div>
@@ -846,7 +846,7 @@ export function OpportunityDetails({
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Probability</p>
                                                 <div className="flex items-center gap-3 pt-1">
                                                     <span className="text-base font-semibold">{record.probability || 0}%</span>
-                                                    <div className="flex-1 max-w-[100px] h-2 bg-slate-800 rounded-full overflow-hidden">
+                                                    <div className="flex-1 max-w-[100px] h-2 bg-muted rounded-full overflow-hidden">
                                                         <div className="h-full bg-blue-500 rounded-full" style={{ width: `${record.probability || 0}%` }} />
                                                     </div>
                                                 </div>
@@ -881,7 +881,7 @@ export function OpportunityDetails({
                                                 <>
                                                     <div className="space-y-1">
                                                         <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Experience</p>
-                                                        <span className="text-sm font-medium pt-1 block text-slate-200">
+                                                        <span className="text-sm font-medium pt-1 block text-foreground">
                                                             {record.experience_name || "-"}
                                                         </span>
                                                     </div>
@@ -906,7 +906,7 @@ export function OpportunityDetails({
                                                         <div className="flex flex-wrap gap-2 pt-1">
                                                             {record.industry_data?.destination_names && record.industry_data.destination_names.length > 0 ? (
                                                                 record.industry_data.destination_names.map((dest: string, i: number) => (
-                                                                    <Badge key={i} variant="outline" className="bg-slate-800 px-3 py-1 font-medium border-slate-700">
+                                                                    <Badge key={i} variant="outline" className="bg-muted px-3 py-1 font-medium border-border">
                                                                         <MapPin className="h-3 w-3 mr-1.5 text-blue-500" />
                                                                         {dest}
                                                                     </Badge>
@@ -921,7 +921,7 @@ export function OpportunityDetails({
                                                         <div className="flex flex-wrap gap-2 pt-1">
                                                             {record.industry_data?.inclusions && record.industry_data.inclusions.length > 0 ? (
                                                                 record.industry_data.inclusions.map((inclusion: string, i: number) => (
-                                                                    <Badge key={i} variant="secondary" className="bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border-emerald-500/40 px-3 py-1 font-medium">
+                                                                    <Badge key={i} variant="secondary" className="bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/30 border-emerald-500/40 px-3 py-1 font-medium">
                                                                         <CheckCircle2 className="h-3 w-3 mr-1.5 text-emerald-600" />
                                                                         {inclusion}
                                                                     </Badge>
@@ -983,7 +983,7 @@ export function OpportunityDetails({
                                             )}
                                             <div className="space-y-1 col-span-full mt-2">
                                                 <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Description</p>
-                                                <p className="text-sm text-slate-200 pt-1 whitespace-pre-wrap">
+                                                <p className="text-sm text-foreground pt-1 whitespace-pre-wrap">
                                                     {record.description || "-"}
                                                 </p>
                                             </div>
@@ -994,7 +994,7 @@ export function OpportunityDetails({
                                         title="System Information"
                                         icon={<UserIcon className="h-4 w-4" />}
                                         defaultOpen={false}
-                                        className="border-slate-700"
+                                        className="border-border"
                                     >
                                         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-y-6 gap-x-4">
                                             <div className="space-y-1">
@@ -1031,7 +1031,7 @@ export function OpportunityDetails({
                             <div className="space-y-6">
                                 <div className="space-y-4">
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-200">Supplier</label>
+                                        <label className="text-sm font-semibold text-foreground">Supplier</label>
                                         <SearchableSelect
                                             options={suppliers}
                                             value={selectedSupplierId}
@@ -1043,7 +1043,7 @@ export function OpportunityDetails({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-200">Email Template</label>
+                                        <label className="text-sm font-semibold text-foreground">Email Template</label>
                                         <SearchableSelect
                                             options={templates.map(t => ({ label: t.name, value: t.id }))}
                                             value={selectedTemplateId}
@@ -1055,7 +1055,7 @@ export function OpportunityDetails({
                                     </div>
 
                                     <div className="space-y-1.5">
-                                        <label className="text-sm font-semibold text-slate-200">Subject</label>
+                                        <label className="text-sm font-semibold text-foreground">Subject</label>
                                         <Input
                                             value={emailSubject}
                                             onChange={(e) => setEmailSubject(e.target.value)}
@@ -1088,7 +1088,7 @@ export function OpportunityDetails({
                         <TabsContent value="attachments" className="p-6 focus-visible:outline-none focus-visible:ring-0">
                             <div className="flex items-center gap-2 mb-6">
                                 <Paperclip className="h-4 w-4 text-blue-500" />
-                                <h3 className="text-sm font-semibold text-slate-200">Attachments</h3>
+                                <h3 className="text-sm font-semibold text-foreground">Attachments</h3>
                             </div>
                             <div className="space-y-6">
                                 <FileUploader
@@ -1183,10 +1183,10 @@ export function OpportunityDetails({
                                             </TableHeader>
                                             <TableBody>
                                                 {tableRows.map((row: any, i) => (
-                                                    <TableRow key={row.id || i} className="hover:bg-slate-800/40">
+                                                    <TableRow key={row.id || i} className="hover:bg-muted/40">
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
-                                                                <p className={`text-xs font-semibold truncate max-w-[80px] ${row.isStageChange ? 'text-blue-400' : 'text-slate-200'}`} title={row.displayStage}>
+                                                                <p className={`text-xs font-semibold truncate max-w-[80px] ${row.isStageChange ? 'text-blue-400' : 'text-foreground'}`} title={row.displayStage}>
                                                                     {row.displayStage}
                                                                 </p>
                                                                 {row.isAmountChange && (
@@ -1206,7 +1206,7 @@ export function OpportunityDetails({
                                                         </TableCell>
                                                         <TableCell className="py-2">
                                                             <div className="flex flex-col">
-                                                                <span className="text-[10px] font-medium text-slate-100 truncate max-w-[70px]" title={row.user_name || "System"}>
+                                                                <span className="text-[10px] font-medium text-foreground truncate max-w-[70px]" title={row.user_name || "System"}>
                                                                     {row.user_name || "System"}
                                                                 </span>
                                                                 <span className="text-[9px] text-slate-400 capitalize">

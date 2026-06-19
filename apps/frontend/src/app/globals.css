@@ -157,7 +157,7 @@
   }
 
   .glass-dark {
-    @apply bg-slate-900/60 backdrop-blur-md border border-white/10 shadow-lg;
+    @apply bg-card/70 backdrop-blur-md border border-border/60 shadow-lg;
   }
 
   /* CRM utility classes */

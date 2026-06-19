@@ -322,7 +322,7 @@ function HealthcareOpportunityFields({ form }: IndustryOppFieldsProps) {
         <div className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-emerald-500/40">
                 <Stethoscope className="h-4 w-4 text-emerald-600" />
-                <h3 className="text-sm font-semibold text-slate-200">Clinical Details</h3>
+                <h3 className="text-sm font-semibold text-foreground">Clinical Details</h3>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField control={form.control} name="industry_data.appointment_date" render={({ field }) => (
@@ -373,7 +373,7 @@ function EducationOpportunityFields({ form }: IndustryOppFieldsProps) {
         <div className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-violet-500/40">
                 <GraduationCap className="h-4 w-4 text-violet-600" />
-                <h3 className="text-sm font-semibold text-slate-200">Academic Details</h3>
+                <h3 className="text-sm font-semibold text-foreground">Academic Details</h3>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField control={form.control} name="industry_data.application_number" render={({ field }) => (
@@ -446,7 +446,7 @@ function ManufacturingOpportunityFields({ form }: IndustryOppFieldsProps) {
         <div className="space-y-4">
             <div className="flex items-center gap-2 pb-2 border-b border-orange-500/40">
                 <Factory className="h-4 w-4 text-orange-600" />
-                <h3 className="text-sm font-semibold text-slate-200">Production Requirements</h3>
+                <h3 className="text-sm font-semibold text-foreground">Production Requirements</h3>
             </div>
             <div className="grid gap-4 md:grid-cols-2">
                 <FormField control={form.control} name="industry_data.quantity_ordered" render={({ field }) => (

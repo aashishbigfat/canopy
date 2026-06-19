@@ -62,7 +62,7 @@ const KPI_CARDS: {
     },
     {
         key: "b2b_open_opportunities",
-        label: "B2B (Corporate) Open",
+        label: "B2B Open Opportunities",
         gradient: "from-rose-400 to-red-500",
         iconBg: "bg-rose-100 text-rose-600",
         icon: <Building2 className="h-5 w-5" />,
@@ -70,7 +70,7 @@ const KPI_CARDS: {
     },
     {
         key: "b2b_direct_open_opportunities",
-        label: "B2B Open Opportunities",
+        label: "Corporate Open Opportunities",
         gradient: "from-orange-400 to-amber-500",
         iconBg: "bg-orange-100 text-orange-600",
         icon: <Briefcase className="h-5 w-5" />,

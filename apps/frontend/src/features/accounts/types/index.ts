@@ -9,7 +9,7 @@ export interface Account {
     website?: string;
     description?: string;
     is_person_account: boolean;
-    segment?: string;  // B2C, B2B, B2B_DIRECT
+    segment?: string;  // B2C, B2B, CORPORATE
     salutation?: string;
     first_name?: string;
     last_name?: string;

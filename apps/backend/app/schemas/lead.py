@@ -99,7 +99,7 @@ class LeadUpdate(BaseModel):
     source_medium: Optional[str] = None
     campaign_name: Optional[str] = None
     ip_address: Optional[str] = None
-    segment: Optional[str] = None  # B2C / B2B / B2B2C — persisted on update
+    segment: Optional[str] = None  # B2C / B2B / CORPORATE — persisted on update
 
     # Industry-specific data
     industry_data: Optional[Dict[str, Any]] = None

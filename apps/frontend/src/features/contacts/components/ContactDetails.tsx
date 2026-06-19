@@ -152,7 +152,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                             <TabsContent value="related" className="mt-0 space-y-6">
                                 <div className="flex items-center justify-between mb-4">
                                     <h2 className="text-sm font-bold flex items-center gap-2">
-                                        <div className="h-6 w-6 rounded bg-orange-500/20 flex items-center justify-center text-orange-300">
+                                        <div className="h-6 w-6 rounded bg-orange-500/20 flex items-center justify-center text-orange-700 dark:text-orange-300">
                                             <Briefcase className="h-3 w-3" />
                                         </div>
                                         Opportunities ({contact.related_opportunities?.length || 0})
@@ -186,11 +186,11 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salutation</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.salutation || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.salutation || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Name</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.full_name}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.full_name}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
@@ -199,7 +199,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                                         {contact.email}
                                                     </a>
                                                 ) : (
-                                                    <p className="text-sm font-medium text-slate-200">-</p>
+                                                    <p className="text-sm font-medium text-foreground">-</p>
                                                 )}
                                             </div>
                                             <div className="space-y-1">
@@ -209,12 +209,12 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                                         {contact.phone}
                                                     </a>
                                                 ) : (
-                                                    <p className="text-sm font-medium text-slate-200">-</p>
+                                                    <p className="text-sm font-medium text-foreground">-</p>
                                                 )}
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Title</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.title || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.title || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>
@@ -223,7 +223,7 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                                         {contact.account_name}
                                                     </Link>
                                                 ) : (
-                                                    <p className="text-sm font-medium text-slate-200">-</p>
+                                                    <p className="text-sm font-medium text-foreground">-</p>
                                                 )}
                                             </div>
                                         </CardContent>
@@ -238,23 +238,23 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mailing Street</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.mailing_street || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.mailing_street || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mailing City</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.mailing_city || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.mailing_city || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mailing State/Province</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.mailing_state || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.mailing_state || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mailing Zip/Postal Code</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.mailing_zip || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.mailing_zip || "-"}</p>
                                             </div>
                                             <div className="space-y-1 md:col-span-2">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mailing Country</p>
-                                                <p className="text-sm font-medium text-slate-200">{contact.mailing_country || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{contact.mailing_country || "-"}</p>
                                             </div>
                                         </div>
                                     </CollapsibleDetailSection>

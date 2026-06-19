@@ -19,7 +19,7 @@ const STATUS_OPTIONS: Array<ExpenseStatus | "all"> = [
 
 function statusClass(s: ExpenseStatus): string {
   switch (s) {
-    case "draft": return "text-muted-foreground border-slate-400/40";
+    case "draft": return "text-muted-foreground border-border";
     case "submitted": return "text-amber-500 border-amber-500/40";
     case "approved": return "text-emerald-500 border-emerald-500/40";
     case "rejected": return "text-red-500 border-red-500/40";

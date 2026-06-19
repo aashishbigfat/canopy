@@ -144,16 +144,16 @@ export function TransactionModal({
             />
 
             {/* Modal */}
-            <div className="relative bg-slate-900 rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative bg-card rounded-xl shadow-2xl w-full max-w-lg mx-4 animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
-                    <h3 className="text-base font-semibold text-slate-100">{title}</h3>
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+                    <h3 className="text-base font-semibold text-foreground">{title}</h3>
                     <button
                         onClick={safeClose}
                         disabled={isSaving}
-                        className="h-7 w-7 rounded-full hover:bg-slate-800 flex items-center justify-center transition-colors disabled:opacity-50"
+                        className="h-7 w-7 rounded-full hover:bg-muted flex items-center justify-center transition-colors disabled:opacity-50"
                     >
-                        <X className="h-4 w-4 text-slate-400" />
+                        <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                 </div>
 
@@ -162,7 +162,7 @@ export function TransactionModal({
                     {/* Amount & Date */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 {isPay ? "Amount Paid" : "Amount"}
                                 <span className="text-red-500 ml-0.5">*</span>
                             </label>
@@ -177,7 +177,7 @@ export function TransactionModal({
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Date<span className="text-red-500 ml-0.5">*</span>
                             </label>
                             <Input
@@ -192,13 +192,13 @@ export function TransactionModal({
                     {/* Payment Mode & Reference ID */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Payment Mode
                             </label>
                             <select
                                 value={paymentMode}
                                 onChange={(e) => setPaymentMode(e.target.value)}
-                                className="w-full h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+                                className="w-full h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
                             >
                                 {PAYMENT_MODES.map((mode) => (
                                     <option
@@ -211,7 +211,7 @@ export function TransactionModal({
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Reference ID
                             </label>
                             <Input
@@ -230,7 +230,7 @@ export function TransactionModal({
                             <div className="grid grid-cols-2 gap-4">
                                 {/* Supplier — required, dropdown from costing */}
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                         Supplier
                                         <span className="text-red-500 ml-0.5">*</span>
                                     </label>
@@ -241,10 +241,10 @@ export function TransactionModal({
                                             // Reset service — it depends on the chosen supplier
                                             setService("");
                                         }}
-                                        className={`w-full h-10 rounded-md border bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
+                                        className={`w-full h-10 rounded-md border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
                                             !supplier
-                                                ? "border-slate-700 text-slate-400"
-                                                : "border-slate-700 text-slate-200"
+                                                ? "border-border text-muted-foreground"
+                                                : "border-border text-foreground"
                                         }`}
                                     >
                                         <option value="">Select Supplier</option>
@@ -264,15 +264,15 @@ export function TransactionModal({
 
                                 {/* Services — follow the selected supplier */}
                                 <div>
-                                    <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                                    <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                         Services
                                     </label>
                                     <select
                                         value={service}
                                         onChange={(e) => setService(e.target.value)}
                                         disabled={!supplier}
-                                        className={`w-full h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
-                                            !service ? "text-slate-400" : "text-slate-200"
+                                        className={`w-full h-10 rounded-md border border-border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 disabled:cursor-not-allowed ${
+                                            !service ? "text-muted-foreground" : "text-foreground"
                                         }`}
                                     >
                                         <option value="">
@@ -295,16 +295,16 @@ export function TransactionModal({
 
                             {/* Locations — dropdown from costing destinations */}
                             <div>
-                                <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                                <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                     Locations
                                 </label>
                                 <select
                                     value={location}
                                     onChange={(e) => setLocation(e.target.value)}
-                                    className={`w-full h-10 rounded-md border bg-slate-900 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
+                                    className={`w-full h-10 rounded-md border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
                                         !location
-                                            ? "border-slate-700 text-slate-400"
-                                            : "border-slate-700 text-slate-200"
+                                            ? "border-border text-muted-foreground"
+                                            : "border-border text-foreground"
                                     }`}
                                 >
                                     <option value="">Select Location</option>
@@ -326,27 +326,27 @@ export function TransactionModal({
 
                     {/* Note */}
                     <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                             Note
                         </label>
                         <textarea
                             value={note}
                             onChange={(e) => setNote(e.target.value)}
                             placeholder="Note"
-                            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
+                            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
                         />
                     </div>
 
                     {/* Balance footer */}
                     {showBalance && (
-                        <div className="grid grid-cols-2 gap-4 pt-1 border-t border-slate-800">
-                            <p className="text-sm text-slate-200 font-semibold flex items-center gap-2">
+                        <div className="grid grid-cols-2 gap-4 pt-1 border-t border-border">
+                            <p className="text-sm text-foreground font-semibold flex items-center gap-2">
                                 Total:{" "}
-                                <span className="text-slate-400 font-normal">
+                                <span className="text-muted-foreground font-normal">
                                     {formatCurrency(opportunityTotal!)}
                                 </span>
                             </p>
-                            <p className="text-sm text-slate-200 font-semibold flex items-center gap-2">
+                            <p className="text-sm text-foreground font-semibold flex items-center gap-2">
                                 Balance:{" "}
                                 <span
                                     className={`font-normal ${
@@ -363,7 +363,7 @@ export function TransactionModal({
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-800/50 rounded-b-xl">
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-muted/50 rounded-b-xl">
                     <Button
                         variant="outline"
                         onClick={safeClose}

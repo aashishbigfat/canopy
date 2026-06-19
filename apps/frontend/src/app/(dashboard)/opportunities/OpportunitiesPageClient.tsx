@@ -231,7 +231,7 @@ export default function OpportunitiesPageClient() {
                                 <DropdownMenuTrigger asChild>
                                     <div className="flex cursor-pointer items-center gap-2 text-lg font-semibold text-foreground transition-colors hover:text-primary">
                                         {activeView ? activeView.name : currentViewLabel}
-                                        <ChevronDown className="h-4 w-4 text-slate-400" />
+                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
                                     </div>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">

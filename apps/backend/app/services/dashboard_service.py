@@ -504,11 +504,13 @@ class DashboardService:
         }
         open_opportunities = await Opportunity.find(open_opps_query).count()
         
-        # B2C vs B2B (Corporate) vs B2B_DIRECT Open — query by stored segment field
+        # B2C vs B2B vs Corporate Open — query by stored segment field.
+        # The corporate bucket also accepts the legacy "B2B_DIRECT" value so the
+        # KPI is correct both before and after the one-time segment migration.
         from app.core.segment_constants import Segment
         b2c_open_query = {**open_opps_query, "segment": Segment.B2C}
         b2b_open_query = {**open_opps_query, "segment": Segment.B2B}
-        b2b_direct_open_query = {**open_opps_query, "segment": Segment.B2B_DIRECT}
+        b2b_direct_open_query = {**open_opps_query, "segment": {"$in": [Segment.CORPORATE, Segment.B2B_DIRECT]}}
         # Catch-all: opportunities with no segment set yet count as B2C (person) or B2B (corp)
         no_segment_query = {**open_opps_query, "$or": [{"segment": None}, {"segment": {"$exists": False}}]}
         

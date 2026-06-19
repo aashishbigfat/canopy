@@ -20,7 +20,7 @@ export function Providers({ children, session }: { children: React.ReactNode, se
     return (
         <SessionProvider session={session} refetchOnWindowFocus={false} refetchInterval={0}>
             <ApiTokenSync />
-            <ThemeProvider attribute="class" defaultTheme="dark" forcedTheme="dark">
+            <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
                 <QueryClientProvider client={queryClient}>
                     {children}
                 </QueryClientProvider>

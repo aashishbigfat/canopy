@@ -594,35 +594,6 @@ class AccountService(ActivityMixin):
         
         return True
     
-    async def change_account_owner(
-        self,
-        account_id: str,
-        new_owner_id: ObjectId,
-        current_user_id: ObjectId,
-        tenant_id: ObjectId
-    ) -> Optional[Account]:
-        """Change account owner with activity logging"""
-        account = await self.get_account(account_id, tenant_id)
-        
-        if not account:
-            return None
-        
-        old_owner = account.owner_id
-        
-        account.owner_id = new_owner_id
-        account.last_modified_by_id = current_user_id
-        await account.save()
-        
-        # Log assignment change
-        await self.log_assignment_changed(
-            entity=account,
-            entity_type="account",
-            old_assigned_to=str(old_owner),
-            new_assigned_to=str(new_owner_id)
-        )
-        
-        return account
-    
     async def get_accounts_by_tenant(
         self,
         tenant_id: ObjectId,

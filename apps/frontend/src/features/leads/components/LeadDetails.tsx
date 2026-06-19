@@ -180,7 +180,7 @@ function IndustryDetailSection({ industry, lead, experiences = [] }: { industry:
                 {config.fields.map((f, i) => (
                     <div key={i} className="space-y-1">
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.label}</p>
-                        <p className="text-sm font-medium text-slate-200">{f.value || "-"}</p>
+                        <p className="text-sm font-medium text-foreground">{f.value || "-"}</p>
                     </div>
                 ))}
             </div>
@@ -310,16 +310,16 @@ export function LeadDetails({
                                     title="Lead Information"
                                     icon={<UserIcon className="h-4 w-4" />}
                                     defaultOpen={true}
-                                    className="border-slate-700"
+                                    className="border-border"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Salutation</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.salutation || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.salutation || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Full Name</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.full_name}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.full_name}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Email</p>
@@ -327,25 +327,25 @@ export function LeadDetails({
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.phone || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.phone || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.mobile || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.mobile || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Status</p>
-                                            <Badge variant="outline" className="text-emerald-300 border-emerald-500/40 bg-emerald-500/20">
+                                            <Badge variant="outline" className="text-emerald-700 dark:text-emerald-300 border-emerald-500/40 bg-emerald-500/20">
                                                 {status?.name || "New"}
                                             </Badge>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
-                                            <p className="text-sm font-medium text-slate-200">{leadIndustry?.name || industry || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{leadIndustry?.name || industry || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lead Owner</p>
-                                            <p className="text-sm font-medium text-slate-200">{owner?.name || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{owner?.name || "-"}</p>
                                         </div>
                                     </div>
                                 </CollapsibleDetailSection>
@@ -355,12 +355,12 @@ export function LeadDetails({
                                     title="Company & Source"
                                     icon={<Building2 className="h-4 w-4" />}
                                     defaultOpen={true}
-                                    className="border-slate-700"
+                                    className="border-border"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Company</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.company || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.company || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website</p>
@@ -368,19 +368,19 @@ export function LeadDetails({
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No of Employees</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.no_employees || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.no_employees || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source</p>
-                                            <p className="text-sm font-medium text-slate-200">{source?.name || "Direct"}</p>
+                                            <p className="text-sm font-medium text-foreground">{source?.name || "Direct"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Source Medium</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.source_medium || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.source_medium || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Campaign Name</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.campaign_name || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.campaign_name || "-"}</p>
                                         </div>
                                     </div>
                                 </CollapsibleDetailSection>
@@ -393,24 +393,24 @@ export function LeadDetails({
                                     title="Address Information"
                                     icon={<MapPin className="h-4 w-4" />}
                                     defaultOpen={false}
-                                    className="border-slate-700"
+                                    className="border-border"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Country</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.country || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.country || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">State/Province</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.state || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.state || "-"}</p>
                                         </div>
                                         <div className="space-y-1">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">City</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.city || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.city || "-"}</p>
                                         </div>
                                         <div className="space-y-1 md:col-span-2">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Street Address</p>
-                                            <p className="text-sm font-medium text-slate-200">{lead.street || "-"}</p>
+                                            <p className="text-sm font-medium text-foreground">{lead.street || "-"}</p>
                                         </div>
                                     </div>
                                 </CollapsibleDetailSection>
@@ -424,7 +424,7 @@ export function LeadDetails({
                                     title="System Information"
                                     icon={<UserIcon className="h-4 w-4" />}
                                     defaultOpen={false}
-                                    className="border-slate-700"
+                                    className="border-border"
                                 >
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                         <div className="space-y-1">

@@ -62,7 +62,7 @@ export default async function OpportunityPage(props: OpportunityPageProps) {
                 <h2 className="text-2xl font-semibold text-red-400">
                     {isConnectionError ? "Backend Unavailable" : "Error Loading Opportunity"}
                 </h2>
-                <p className="text-slate-300 text-sm max-w-md text-center">
+                <p className="text-muted-foreground text-sm max-w-md text-center">
                     {isConnectionError
                         ? "Could not connect to the backend server. Please ensure the backend is running and try again."
                         : "There was a problem loading the opportunity data. Please try again later."}
@@ -76,7 +76,7 @@ export default async function OpportunityPage(props: OpportunityPageProps) {
                     </Link>
                     <Link
                         href="/opportunities"
-                        className="inline-flex items-center gap-1 text-slate-300 hover:text-slate-100 text-sm px-4 py-2 rounded-md border border-slate-700 hover:bg-slate-800/40 transition-colors"
+                        className="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground text-sm px-4 py-2 rounded-md border border-border hover:bg-muted/40 transition-colors"
                     >
                         ← Back to Opportunities
                     </Link>

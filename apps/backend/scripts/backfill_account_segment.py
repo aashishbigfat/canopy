@@ -1,7 +1,10 @@
 """
 Fix: Re-backfill account segments using correct logic.
 - is_person_account=True  -> always B2C
-- is_person_account=False -> check opportunity for B2B_DIRECT, else B2B
+- is_person_account=False -> check opportunity for CORPORATE, else B2B
+
+Note: the legacy "B2B_DIRECT" segment value was renamed to "CORPORATE".
+Run scripts/migrate_segment_corporate.py first to rewrite stored values.
 """
 import asyncio
 import os
@@ -32,11 +35,12 @@ async def fix_segments():
             # Person accounts are ALWAYS B2C
             segment = "B2C"
         else:
-            # Company accounts: check if any linked opp has B2B_DIRECT
+            # Company accounts: inherit CORPORATE if any linked opp is Corporate
+            # (accepts the legacy "B2B_DIRECT" value too), else plain B2B.
             opp = await opportunities_col.find_one(
-                {"account_id": account_id, "segment": "B2B_DIRECT"}
+                {"account_id": account_id, "segment": {"$in": ["CORPORATE", "B2B_DIRECT"]}}
             )
-            segment = "B2B_DIRECT" if opp else "B2B"
+            segment = "CORPORATE" if opp else "B2B"
 
         old_segment = account.get("segment")
         if old_segment != segment:

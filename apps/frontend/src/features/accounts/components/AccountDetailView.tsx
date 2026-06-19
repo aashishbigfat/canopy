@@ -278,7 +278,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                         <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.name}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.name}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website</p>
@@ -290,13 +290,13 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.phone || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.phone || "-"}</p>
                                             </div>
 
                                             {isB2C && (
                                                 <div className="space-y-1">
                                                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
-                                                    <p className="text-sm font-medium text-slate-200">{account.mobile || "-"}</p>
+                                                    <p className="text-sm font-medium text-foreground">{account.mobile || "-"}</p>
                                                 </div>
                                             )}
 
@@ -304,15 +304,15 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <>
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Industry</p>
-                                                        <p className="text-sm font-medium text-slate-200">{account.industry_name || "-"}</p>
+                                                        <p className="text-sm font-medium text-foreground">{account.industry_name || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Type</p>
-                                                        <p className="text-sm font-medium text-slate-200">{account.account_type_name || "-"}</p>
+                                                        <p className="text-sm font-medium text-foreground">{account.account_type_name || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Category</p>
-                                                        <p className="text-sm font-medium text-slate-200">{account.category_name || "-"}</p>
+                                                        <p className="text-sm font-medium text-foreground">{account.category_name || "-"}</p>
                                                     </div>
                                                     <div className="space-y-1">
                                                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Parent Account</p>
@@ -323,7 +323,7 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
 
                                             <div className="space-y-1 md:col-span-2">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</p>
-                                                <p className="text-sm font-medium text-slate-200 whitespace-pre-wrap break-words">{account.description || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground whitespace-pre-wrap break-words">{account.description || "-"}</p>
                                             </div>
                                         </CardContent>
                                     </Card>
@@ -337,23 +337,23 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Street</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.billing_street || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.billing_street || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing City</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.billing_city || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.billing_city || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing State/Province</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.billing_state || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.billing_state || "-"}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Zip/Postal Code</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.billing_zip || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.billing_zip || "-"}</p>
                                             </div>
                                             <div className="space-y-1 md:col-span-2">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Billing Country</p>
-                                                <p className="text-sm font-medium text-slate-200">{account.billing_country || "-"}</p>
+                                                <p className="text-sm font-medium text-foreground">{account.billing_country || "-"}</p>
                                             </div>
                                         </div>
                                     </CollapsibleDetailSection>

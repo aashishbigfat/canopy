@@ -36,7 +36,7 @@ export default async function EditAccountPage(props: EditAccountPageProps) {
                 <h1 className="text-3xl font-bold">Edit Account</h1>
                 <p className="text-muted-foreground">Update the details for {account.name}</p>
             </div>
-            <div className="bg-slate-900 rounded-lg border p-6">
+            <div className="bg-card rounded-lg border p-6">
                 <AccountForm
                     id={params.id}
                     initialData={account}

@@ -41,7 +41,7 @@ function statusBadge(status: string) {
     if (lower === "in progress")
         return <span className="text-xs font-medium text-amber-600">{status}</span>;
     if (lower === "deferred")
-        return <span className="text-xs text-slate-400 font-medium">{status}</span>;
+        return <span className="text-xs text-muted-foreground font-medium">{status}</span>;
     return <span className="text-xs text-muted-foreground">{status || "—"}</span>;
 }
 
