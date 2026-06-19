@@ -199,6 +199,33 @@ def _get_val(row: pd.Series, *keys: str, default: Any = None) -> Any:
     return default
 
 
+def _normalize_segment(val: Any, default: str) -> str:
+    """Map a free-text segment cell to a canonical value (B2C / B2B / CORPORATE).
+
+    Accepts the canonical values and the human labels case-insensitively, plus
+    the legacy "B2B_DIRECT" value (-> CORPORATE) and old labels
+    ("B2C (Individual)" -> B2C, "B2B (Corporate)" -> B2B). Falls back to
+    ``default`` when the cell is blank or unrecognised.
+    Keep in sync with app/core/segment_constants.py.
+    """
+    if val is None:
+        return default
+    s = str(val).strip().upper()
+    if not s:
+        return default
+    if "DIRECT" in s:          # legacy "B2B_DIRECT"
+        return "CORPORATE"
+    if "INDIVIDUAL" in s:      # old "B2C (Individual)" label
+        return "B2C"
+    if s == "CORPORATE":
+        return "CORPORATE"
+    if s.startswith("B2B"):    # "B2B" or old "B2B (Corporate)" label
+        return "B2B"
+    if s.startswith("B2C"):
+        return "B2C"
+    return default
+
+
 def _import_keys(entity: str, header: str) -> List[str]:
     """Accepted header spellings (canonical + alternates) for a column."""
     for col in ENTITY_COLUMNS[entity]:
@@ -480,7 +507,7 @@ class ImportExportService:
                 # the same name/email/mobile can legitimately recur, and every
                 # row must be imported as its own account.
 
-                segment = _get_val(row, "Segment", default="B2C" if is_person_account else "B2B")
+                segment = _normalize_segment(_get_val(row, "Segment"), "B2C" if is_person_account else "B2B")
 
                 account = Account(
                     name=name,
@@ -889,7 +916,7 @@ class ImportExportService:
                     "source_id": str(source_id) if source_id else None,
                     "source_medium_id": str(sm_id) if sm_id else None,
                     "industry_id": str(ind_id) if ind_id else None,
-                    "segment": _get_val(row, "Segment", default="B2C"),
+                    "segment": _normalize_segment(_get_val(row, "Segment"), "B2C"),
                     "campaign_name": _get_val(row, "Campaign Name"),
                     "source_medium": _get_val(row, "Source Medium Text", "source_medium_text"),
                     "creation_type": "import",

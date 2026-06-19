@@ -16,7 +16,7 @@ class Account(BaseDocument):
     website: Optional[str] = None
     description: Optional[str] = None
     is_person_account: bool = False
-    segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
+    segment: Optional[str] = None  # B2C, B2B, CORPORATE
     
     # Person Account specific fields
     salutation: Optional[str] = None

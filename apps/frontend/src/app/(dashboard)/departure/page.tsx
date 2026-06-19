@@ -11,7 +11,7 @@ import type { Departure, DepartureFilters } from "@/features/departures/types";
 
 const STATUS_COLORS: Record<string, string> = {
     active: "text-emerald-400 bg-emerald-400/10",
-    inactive: "text-slate-400 bg-slate-400/10",
+    inactive: "text-muted-foreground bg-muted",
     completed: "text-blue-400 bg-blue-400/10",
     cancelled: "text-red-400 bg-red-400/10",
     scheduled: "text-amber-400 bg-amber-400/10",
@@ -122,7 +122,7 @@ export default function DeparturePage() {
                 {isLoading ? (
                     <div className="space-y-0">
                         {Array.from({ length: 8 }).map((_, i) => (
-                            <div key={i} className="h-14 animate-pulse border-b border-border bg-slate-800/40 last:border-0" />
+                            <div key={i} className="h-14 animate-pulse border-b border-border bg-muted last:border-0" />
                         ))}
                     </div>
                 ) : error ? (
@@ -165,7 +165,7 @@ export default function DeparturePage() {
                             <tbody>
                                 {departures.map((dep, idx) => {
                                     const shortId = dep.id.slice(-4).toUpperCase();
-                                    const statusCls = STATUS_COLORS[dep.status] ?? "text-slate-400 bg-slate-400/10";
+                                    const statusCls = STATUS_COLORS[dep.status] ?? "text-muted-foreground bg-muted";
                                     return (
                                         <tr
                                             key={dep.id}

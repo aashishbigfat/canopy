@@ -71,7 +71,7 @@ export function EntityDetailHeader({
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-slate-400 uppercase tracking-wider">{customLabel || type}</span>
+                                <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">{customLabel || type}</span>
                             </div>
                             <div className="flex flex-wrap items-center gap-2 min-w-0">
                                 <h1 className="text-xl md:text-2xl font-semibold break-words min-w-0">{name}</h1>
@@ -105,14 +105,14 @@ export function EntityDetailHeader({
 
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-400 uppercase">Phone</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">Phone</p>
                         <div className="flex items-center gap-2">
                             {phone ? (
                                 <a href={`tel:${phone}`} className="text-sm text-primary font-medium hover:underline">
                                     {phone}
                                 </a>
                             ) : (
-                                <span className="text-sm text-slate-400 font-medium">No Phone</span>
+                                <span className="text-sm text-muted-foreground font-medium">No Phone</span>
                             )}
                             {phone && (
                                 <CopyButton value={phone} label="Phone" className="h-4 w-4" />
@@ -120,14 +120,14 @@ export function EntityDetailHeader({
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-400 uppercase">Email</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">Email</p>
                         <div className="flex items-center gap-2 overflow-hidden">
                             {email ? (
                                 <a href={`mailto:${email}`} className="text-sm text-primary font-medium truncate max-w-full hover:underline">
                                     {email}
                                 </a>
                             ) : (
-                                <span className="text-sm text-slate-400 font-medium">No Email</span>
+                                <span className="text-sm text-muted-foreground font-medium">No Email</span>
                             )}
                             {email && (
                                 <CopyButton value={email} label="Email" className="h-4 w-4 flex-shrink-0" />
@@ -135,7 +135,7 @@ export function EntityDetailHeader({
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-400 uppercase">{type} Owner</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">{type} Owner</p>
                         <div className="flex items-center gap-2">
                             <OwnerPopover ownerId={displayOwnerId} ownerName={displayOwnerName} className="text-sm font-medium" />
                             {onChangeOwner ? (
@@ -153,9 +153,9 @@ export function EntityDetailHeader({
                         </div>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-xs font-semibold text-slate-400 uppercase">{type} ID</p>
+                        <p className="text-xs font-semibold text-muted-foreground uppercase">{type} ID</p>
                         <div className="flex items-center gap-2">
-                            <span className="text-sm text-slate-300 font-medium">{id?.slice(-8) || "N/A"}</span>
+                            <span className="text-sm text-foreground font-medium">{id?.slice(-8) || "N/A"}</span>
                         </div>
                     </div>
                 </div>

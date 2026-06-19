@@ -316,7 +316,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
         return (
             <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-blue-500" />
-                <span className="ml-2 text-slate-400 text-sm">Loading costing...</span>
+                <span className="ml-2 text-muted-foreground text-sm">Loading costing...</span>
             </div>
         );
     }
@@ -324,7 +324,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
     return (
         <div className="space-y-4">
             {isLocked && (
-                <div className="flex items-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                <div className="flex items-center gap-2 rounded-md border border-red-500/40 bg-red-500/10 px-3 py-2 text-xs text-red-700 dark:text-red-300">
                     <Lock className="h-3.5 w-3.5 flex-shrink-0" />
                     This opportunity is locked. Financial data is read-only.
                 </div>
@@ -337,51 +337,51 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                     value={formatCurrency(opportunityAmount)}
                     bg="bg-blue-500/10 border-blue-500/30"
                     iconBg="bg-blue-500/15"
-                    labelColor="text-blue-300"
-                    valueColor="text-blue-200"
+                    labelColor="text-blue-700 dark:text-blue-300"
+                    valueColor="text-blue-800 dark:text-blue-200"
                 />
                 <SummaryCard
-                    icon={<ShoppingCart className="h-4 w-4 text-slate-300" />}
+                    icon={<ShoppingCart className="h-4 w-4 text-muted-foreground" />}
                     label="Total Cost"
                     value={formatCurrency(totalCost)}
-                    bg="bg-slate-800 border-slate-700"
-                    iconBg="bg-slate-700"
-                    labelColor="text-slate-400"
-                    valueColor="text-slate-200"
+                    bg="bg-muted border-border"
+                    iconBg="bg-secondary"
+                    labelColor="text-muted-foreground"
+                    valueColor="text-foreground"
                 />
                 <SummaryCard
-                    icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-400" : "text-red-400"}`} />}
+                    icon={<TrendingUp className={`h-4 w-4 ${profit >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`} />}
                     label={profit >= 0 ? "Profit" : "Loss"}
                     value={formatCurrency(profit)}
                     bg={profit >= 0 ? "bg-emerald-500/20 border-emerald-500/40" : "bg-red-500/20 border-red-500/40"}
                     iconBg={profit >= 0 ? "bg-emerald-500/30" : "bg-red-500/30"}
-                    labelColor={profit >= 0 ? "text-emerald-300" : "text-red-300"}
-                    valueColor={profit >= 0 ? "text-emerald-200" : "text-red-200"}
+                    labelColor={profit >= 0 ? "text-emerald-700 dark:text-emerald-300" : "text-red-700 dark:text-red-300"}
+                    valueColor={profit >= 0 ? "text-emerald-800 dark:text-emerald-200" : "text-red-800 dark:text-red-200"}
                 />
                 <SummaryCard
-                    icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-400" : "text-red-400"}`} />}
+                    icon={<Percent className={`h-4 w-4 ${profitPct >= 0 ? "text-purple-600 dark:text-purple-400" : "text-red-600 dark:text-red-400"}`} />}
                     label={profitPct >= 0 ? "Profit %" : "Loss %"}
                     value={`${profitPct.toFixed(2)}%`}
                     bg={profitPct >= 0 ? "bg-purple-500/10 border-purple-500/30" : "bg-red-500/10 border-red-500/30"}
                     iconBg={profitPct >= 0 ? "bg-purple-500/15" : "bg-red-500/15"}
-                    labelColor={profitPct >= 0 ? "text-purple-300" : "text-red-300"}
-                    valueColor={profitPct >= 0 ? "text-purple-200" : "text-red-200"}
+                    labelColor={profitPct >= 0 ? "text-purple-700 dark:text-purple-300" : "text-red-700 dark:text-red-300"}
+                    valueColor={profitPct >= 0 ? "text-purple-800 dark:text-purple-200" : "text-red-800 dark:text-red-200"}
                 />
             </div>
 
             {/* ── Add Items Multi-Select ── */}
             <div className="space-y-1">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Add Item&apos;s</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Add Item&apos;s</p>
                 <div className="relative" ref={dropdownRef}>
                     <div
-                        className={`flex flex-wrap items-center gap-1.5 min-h-[38px] border border-slate-700 rounded-md px-2 py-1.5 bg-slate-900 focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-500/20 ${isLocked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
+                        className={`flex flex-wrap items-center gap-1.5 min-h-[38px] border border-border rounded-md px-2 py-1.5 bg-card focus-within:border-blue-400 focus-within:ring-1 focus-within:ring-blue-500/20 ${isLocked ? "opacity-60 cursor-not-allowed" : "cursor-pointer"}`}
                         onClick={() => !isLocked && setIsTypeDropdownOpen((v) => !v)}
                     >
                         {selectedTypes.map((type) => (
                             <Badge
                                 key={type}
                                 variant="secondary"
-                                className="bg-blue-500/20 text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 flex items-center gap-1 text-xs h-6 px-2"
+                                className="bg-blue-500/20 text-blue-700 dark:text-blue-300 border border-blue-500/40 hover:bg-blue-500/30 flex items-center gap-1 text-xs h-6 px-2"
                                 onClick={(e) => { e.stopPropagation(); if (!isLocked) removeItemType(type); }}
                             >
                                 {type}
@@ -389,23 +389,23 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                             </Badge>
                         ))}
                         {selectedTypes.length === 0 && (
-                            <span className="text-slate-400 text-xs pl-1">Select items to add to costing...</span>
+                            <span className="text-muted-foreground text-xs pl-1">Select items to add to costing...</span>
                         )}
                         <div className="ml-auto flex items-center gap-1">
                             <X
-                                className="h-4 w-4 text-slate-400 hover:text-slate-300 cursor-pointer"
+                                className="h-4 w-4 text-muted-foreground hover:text-muted-foreground cursor-pointer"
                                 onClick={(e) => { e.stopPropagation(); }}
                             />
-                            <div className="w-px h-4 bg-slate-700" />
-                            <Plus className="h-4 w-4 text-slate-400" />
+                            <div className="w-px h-4 bg-border" />
+                            <Plus className="h-4 w-4 text-muted-foreground" />
                         </div>
                     </div>
 
                     {/* Dropdown list */}
                     {isTypeDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-slate-900 border border-slate-700 rounded-md shadow-lg overflow-hidden max-h-64 overflow-y-auto">
+                        <div className="absolute top-full left-0 right-0 z-50 mt-1 bg-card border border-border rounded-md shadow-lg overflow-hidden max-h-64 overflow-y-auto">
                             {allItemTypes.filter((t) => !selectedTypes.includes(t)).length === 0 ? (
-                                <div className="px-3 py-2 text-sm text-slate-400 italic">All item types added</div>
+                                <div className="px-3 py-2 text-sm text-muted-foreground italic">All item types added</div>
                             ) : (
                                 allItemTypes.map((type) => {
                                     const isSelected = selectedTypes.includes(type);
@@ -414,8 +414,8 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                             key={type}
                                             className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
                                                 isSelected
-                                                    ? "text-blue-300 font-semibold bg-blue-500/20"
-                                                    : "text-slate-200 hover:bg-blue-500/20 hover:text-blue-300"
+                                                    ? "text-blue-700 dark:text-blue-300 font-semibold bg-blue-500/20"
+                                                    : "text-foreground hover:bg-blue-500/20 hover:text-blue-700 dark:hover:text-blue-300"
                                             }`}
                                             onClick={() => !isSelected && addItemType(type)}
                                         >
@@ -430,22 +430,22 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
             </div>
 
             {/* ── Line Items Table ── */}
-            <div className="border border-slate-700 rounded-lg overflow-hidden">
+            <div className="border border-border rounded-lg overflow-hidden">
                 <div className="overflow-x-auto scrollbar-hide">
                     <table className="w-full text-sm">
                     <thead>
-                        <tr className="bg-slate-800 border-b border-slate-700">
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide w-32">Item&apos;s</th>
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">Select Supplier</th>
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide">Select Destinations</th>
-                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-slate-400 uppercase tracking-wide w-32">Amount</th>
+                        <tr className="bg-muted border-b border-border">
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-32">Item&apos;s</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Select Supplier</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide">Select Destinations</th>
+                            <th className="text-left px-3 py-2.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide w-32">Amount</th>
                             <th className="w-8"></th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800">
+                    <tbody className="divide-y divide-border">
                         {/* Dynamic rows */}
                         {items.map((item, idx) => (
-                            <tr key={item.item_type} className="hover:bg-slate-800/40 transition-colors">
+                            <tr key={item.item_type} className="hover:bg-muted/40 transition-colors">
                                 <td className="px-3 py-2.5">
                                     <span className="text-blue-400 font-medium text-xs">{item.item_type}</span>
                                 </td>
@@ -454,7 +454,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                         <div className="flex items-center gap-1">
                                             <Badge
                                                 variant="secondary"
-                                                className={`bg-slate-700 text-slate-200 flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] transition-colors group ${isLocked ? "cursor-default" : "cursor-pointer hover:bg-slate-600"}`}
+                                                className={`bg-secondary text-secondary-foreground flex items-center gap-1.5 text-xs h-7 px-2 max-w-[200px] transition-colors group ${isLocked ? "cursor-default" : "cursor-pointer hover:bg-secondary/80"}`}
                                                 onClick={() => !isLocked && clearSupplier(idx)}
                                                 title={isLocked ? undefined : "Click to change supplier"}
                                             >
@@ -467,7 +467,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                             </Badge>
                                         </div>
                                     ) : isLocked ? (
-                                        <span className="text-xs text-slate-500 italic">—</span>
+                                        <span className="text-xs text-muted-foreground italic">—</span>
                                     ) : (
                                         <SearchableSelect
                                             options={supplierOptions}
@@ -502,7 +502,7 @@ export function CostingTab({ opportunityId, destinationOptions, opportunityAmoun
                                     {!isLocked && (
                                         <button
                                             onClick={() => removeItemType(item.item_type)}
-                                            className="h-6 w-6 rounded hover:bg-red-500/20 flex items-center justify-center text-slate-400 hover:text-red-400 transition-colors"
+                                            className="h-6 w-6 rounded hover:bg-red-500/20 flex items-center justify-center text-muted-foreground hover:text-red-400 transition-colors"
                                             title="Remove item"
                                         >
                                             <X className="h-3.5 w-3.5" />
@@ -714,14 +714,14 @@ function DestinationMultiSelect({
     return (
         <div className="relative" ref={ref}>
             <div
-                className={`flex flex-wrap items-center gap-1 min-h-[32px] border border-slate-700 rounded-md px-2 py-1 bg-slate-900 transition-colors ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:border-blue-500/40"}`}
+                className={`flex flex-wrap items-center gap-1 min-h-[32px] border border-border rounded-md px-2 py-1 bg-card transition-colors ${disabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer hover:border-blue-500/40"}`}
                 onClick={() => !disabled && setOpen((v) => !v)}
             >
                 {selected.map((id, i) => (
                     <Badge
                         key={id}
                         variant="secondary"
-                        className="bg-slate-700 text-slate-200 hover:bg-slate-600 flex items-center gap-1 text-[11px] h-5 px-1.5"
+                        className="bg-secondary text-secondary-foreground hover:bg-secondary/80 flex items-center gap-1 text-[11px] h-5 px-1.5"
                         onClick={(e) => { e.stopPropagation(); if (!disabled) onRemove(id); }}
                     >
                         {selectedNames[i] || id}
@@ -729,32 +729,32 @@ function DestinationMultiSelect({
                     </Badge>
                 ))}
                 {selected.length === 0 && (
-                    <span className="text-slate-400 text-xs">Select destinations...</span>
+                    <span className="text-muted-foreground text-xs">Select destinations...</span>
                 )}
             </div>
 
             {open && (
-                <div className="absolute top-full left-0 z-50 mt-1 w-56 bg-slate-900 border border-slate-700 rounded-md shadow-lg">
+                <div className="absolute top-full left-0 z-50 mt-1 w-56 bg-card border border-border rounded-md shadow-lg">
                     <div className="p-2 border-b">
                         <input
                             autoFocus
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             placeholder="Search..."
-                            className="w-full text-xs border border-slate-700 rounded px-2 py-1 focus:outline-none focus:border-blue-400"
+                            className="w-full text-xs border border-border rounded px-2 py-1 focus:outline-none focus:border-blue-400"
                             onClick={(e) => e.stopPropagation()}
                         />
                     </div>
                     <div className="max-h-40 overflow-y-auto">
                         {options.length === 0 ? (
-                            <div className="px-3 py-2 text-xs text-slate-400 italic">No destinations selected on this opportunity</div>
+                            <div className="px-3 py-2 text-xs text-muted-foreground italic">No destinations selected on this opportunity</div>
                         ) : filtered.length === 0 ? (
-                            <div className="px-3 py-2 text-xs text-slate-400 italic">No more destinations available</div>
+                            <div className="px-3 py-2 text-xs text-muted-foreground italic">No more destinations available</div>
                         ) : (
                             filtered.map((o) => (
                                 <div
                                     key={o.value}
-                                    className="px-3 py-1.5 text-xs text-slate-200 hover:bg-blue-500/20 hover:text-blue-300 cursor-pointer"
+                                    className="px-3 py-1.5 text-xs text-foreground hover:bg-blue-500/20 hover:text-blue-700 dark:hover:text-blue-300 cursor-pointer"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         onToggle(o.value, o.label);

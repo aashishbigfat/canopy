@@ -25,13 +25,13 @@ export default function AccessFlowOpportunitiesPage() {
 
     return (
         <div className="mx-auto max-w-lg py-8 px-4">
-            <div className="rounded-2xl border border-slate-700 bg-slate-900 p-6 shadow-sm">
+            <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
                 <div className="flex items-center justify-between gap-4">
                     <div className="space-y-1 min-w-0">
-                        <Label htmlFor="hierarchy-toggle" className="text-base font-semibold text-slate-100">
+                        <Label htmlFor="hierarchy-toggle" className="text-base font-semibold text-foreground">
                             Hierarchy
                         </Label>
-                        <p className="text-sm text-slate-400 leading-snug">
+                        <p className="text-sm text-muted-foreground leading-snug">
                             When on, you only see records you own plus your downline. Peers on the same
                             hierarchy level cannot see each other&apos;s deals.
                         </p>
@@ -45,7 +45,7 @@ export default function AccessFlowOpportunitiesPage() {
                         onClick={toggle}
                         className={cn(
                             "relative h-8 w-14 shrink-0 rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-                            hierarchyOn ? "bg-blue-600" : "bg-slate-700"
+                            hierarchyOn ? "bg-blue-600" : "bg-input"
                         )}
                     >
                         <span

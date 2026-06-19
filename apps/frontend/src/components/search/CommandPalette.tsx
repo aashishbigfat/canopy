@@ -43,7 +43,7 @@ const moduleColors: Record<string, string> = {
     opportunities: "text-amber-500",
     person_accounts: "text-purple-500",
     suppliers: "text-orange-500",
-    files: "text-slate-400",
+    files: "text-muted-foreground",
 };
 
 export function CommandPalette() {

@@ -21,11 +21,11 @@ export default function DashboardLoading() {
 
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
                 <div className="col-span-4 border rounded-lg p-6 space-y-4">
-                    <div className="h-6 bg-slate-800 rounded-md animate-pulse w-1/4" />
-                    <div className="h-[300px] bg-slate-800 rounded-md animate-pulse w-full" />
+                    <div className="h-6 bg-muted rounded-md animate-pulse w-1/4" />
+                    <div className="h-[300px] bg-muted rounded-md animate-pulse w-full" />
                 </div>
                 <div className="col-span-3 border rounded-lg p-6 space-y-4">
-                    <div className="h-6 bg-slate-800 rounded-md animate-pulse w-1/3" />
+                    <div className="h-6 bg-muted rounded-md animate-pulse w-1/3" />
                     <LoadingSkeleton lines={6} />
                 </div>
             </div>

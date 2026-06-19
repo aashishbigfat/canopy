@@ -52,7 +52,7 @@ const getNotificationIcon = (type?: string, entityType?: string) => {
         case "email":
             return <Mail className={cn(iconClass, "text-red-500")} />;
         default:
-            return <Bell className={cn(iconClass, "text-slate-400")} />;
+            return <Bell className={cn(iconClass, "text-muted-foreground")} />;
     }
 };
 
@@ -106,7 +106,7 @@ export function NotificationBell() {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="relative text-slate-300 hover:bg-white/10 hover:text-white h-11 w-11 rounded-full transition-all"
+                    className="relative text-muted-foreground hover:bg-accent hover:text-foreground h-11 w-11 rounded-full transition-all"
                 >
                     <Bell className="h-6 w-6" />
                     {unreadCount > 0 && (

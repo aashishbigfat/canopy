@@ -27,7 +27,7 @@ function statusBadge(status: BDVisitStatus): { variant: "default" | "outline" | 
     case "completed": return { variant: "outline", className: "border-emerald-700/40 text-emerald-700" };
     case "cancelled": return { variant: "outline", className: "border-red-500/40 text-red-500" };
     case "no_show": return { variant: "outline", className: "border-orange-500/40 text-orange-500" };
-    default: return { variant: "outline", className: "border-slate-400/40 text-muted-foreground" };
+    default: return { variant: "outline", className: "border-border text-muted-foreground" };
   }
 }
 

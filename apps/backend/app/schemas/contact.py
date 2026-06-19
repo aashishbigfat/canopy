@@ -123,9 +123,12 @@ class ContactUpdate(BaseModel):
 class ContactResponse(ContactBase):
     """Schema for contact response"""
     # Relax input-only constraints for output: a legacy/imported contact with a
-    # malformed email must still serialize rather than 500 the read endpoint.
-    # (phone/mobile/zip are already sanitized to None via the safe_* validators.)
+    # malformed email or empty/short name must still serialize rather than 500
+    # the read endpoint. (phone/mobile/zip are already sanitized via safe_* validators.)
     email: Optional[str] = None
+    # Drop the create-time min_length=2 on names so legacy rows with "" don't 500 reads.
+    first_name: str = Field("", max_length=100)
+    last_name: str = Field("", max_length=100)
 
     id: str
     tenant_id: str

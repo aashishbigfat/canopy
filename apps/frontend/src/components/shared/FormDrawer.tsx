@@ -55,7 +55,7 @@ export function FormDrawer({
             {/* Backdrop overlay */}
             <div
                 className={cn(
-                    "fixed inset-0 z-50 bg-slate-900/20",
+                    "fixed inset-0 z-50 bg-black/20",
                     "animate-in fade-in-0 duration-300"
                 )}
                 onClick={() => onOpenChange(false)}

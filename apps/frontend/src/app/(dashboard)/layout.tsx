@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { NotificationBell } from "@/components/notifications/NotificationBell";
+import { ThemeToggle } from "@/components/layout/ThemeToggle";
 import { CommandPalette } from "@/components/search/CommandPalette";
 import { GlobalSearchBar } from "@/components/search/GlobalSearchBar";
 import { RouteGuard } from "@/components/permissions/RouteGuard";
@@ -136,6 +137,7 @@ export default function DashboardLayout({
                                 </DropdownMenuContent>
                             </DropdownMenu>
                         </div>
+                        <ThemeToggle />
                         <NotificationBell />
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>

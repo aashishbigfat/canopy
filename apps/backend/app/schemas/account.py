@@ -55,7 +55,7 @@ class AccountBase(BaseModel):
     website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
     is_person_account: bool = False
-    segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
+    segment: Optional[str] = None  # B2C, B2B, CORPORATE
     
     # Person Account specific fields
     salutation: Optional[str] = None
@@ -136,7 +136,7 @@ class AccountUpdate(BaseModel):
     category_id: Optional[str] = None
 
     custom_fields: Optional[Dict[str, Any]] = None
-    segment: Optional[str] = None  # B2C, B2B, B2B_DIRECT
+    segment: Optional[str] = None  # B2C, B2B, CORPORATE
     industry_data: Optional[Dict[str, Any]] = None
 
     @model_validator(mode="after")
@@ -154,6 +154,7 @@ class AccountResponse(AccountBase):
     """Schema for account response"""
     # Relax input-only constraints for output: legacy/partial records must still
     # serialize even if they predate current required-field / format rules.
+    name: str = Field("", max_length=255)  # drop create-time min_length=2 for reads
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None

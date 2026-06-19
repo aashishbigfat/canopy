@@ -10,7 +10,7 @@ export default function OpportunitiesLoading() {
                         Manage your sales pipeline and deals.
                     </p>
                 </div>
-                <div className="h-10 w-40 bg-slate-800 rounded-md animate-pulse" />
+                <div className="h-10 w-40 bg-muted rounded-md animate-pulse" />
             </div>
 
             <div className="border rounded-lg">

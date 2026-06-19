@@ -59,6 +59,7 @@ import { logger } from "@/lib/logger";
 import { LoadingButton } from "@/components/ui/loading";
 import { IndustryLeadFields } from "@/components/industry/IndustryLeadFields";
 import { useIndustry } from "@/lib/industry-labels";
+import { SEGMENT_OPTIONS, SEGMENTS } from "@/lib/segments";
 import {
     Card,
     CardContent,
@@ -361,7 +362,7 @@ const leadFormSchema = z.object({
     lead_status_id: z.string().optional(),
     source_id: z.string().optional(),
     source_medium: z.string().optional(),
-    combined_source: z.string().min(1, { message: "Source Medium is required." }),
+    combined_source: z.string().min(1, { message: "Source is required." }),
     industry_id: z.string().optional(),
     street: z.string().optional(),
     city: z.string().min(1, { message: "City is required." }),
@@ -409,7 +410,7 @@ const genericBaseFields = {
     lead_status_id: z.string().optional(),
     source_id: z.string().optional(),
     source_medium: z.string().optional(),
-    combined_source: z.string().min(1, { message: "Source Medium is required." }),
+    combined_source: z.string().min(1, { message: "Source is required." }),
     industry_id: z.string().optional(),
     street: z.string().optional(),
     city: z.string().min(1, { message: "City is required." }),
@@ -596,7 +597,9 @@ export function LeadForm({
             zip: initialData?.zip || "",
             country: initialData?.country || "",
             campaign_name: initialData?.campaign_name || "",
-            segment: initialData?.segment || "B2C",
+            // Normalise the legacy "B2B_DIRECT" value to CORPORATE so edits of
+            // not-yet-migrated leads show the right option.
+            segment: (initialData?.segment === "B2B_DIRECT" ? SEGMENTS.CORPORATE : initialData?.segment) || SEGMENTS.B2C,
             creation_type: normalizedCreationType,
             // Industry-specific defaults — prevents uncontrolled-to-controlled input errors
             ...(isTravel ? {
@@ -674,7 +677,8 @@ export function LeadForm({
         if (!domain) return;
 
         const isPublic = PUBLIC_EMAIL_DOMAINS.some(d => domain === d || domain.endsWith("." + d));
-        const detectedSegment = isPublic ? "B2C" : "B2B"; // B2B = Corporate (default for work domains)
+        // Public domain → B2C (individual); work domain → B2B. Corporate is set manually.
+        const detectedSegment = isPublic ? SEGMENTS.B2C : SEGMENTS.B2B;
 
         form.setValue("segment", detectedSegment);
     }, [email, form]);
@@ -859,7 +863,7 @@ export function LeadForm({
                                         <FormField control={form.control as any} name="combined_source" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Source <span className="text-red-500">*</span></FormLabel>
-                                                <FormControl><SearchableSelect options={sources.map(s => ({ label: s.name, value: s.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select source Medium" /></FormControl>
+                                                <FormControl><SearchableSelect options={sources.map(s => ({ label: s.name, value: s.id }))} value={field.value} onValueChange={field.onChange} placeholder="Select source" /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )} />
@@ -975,10 +979,28 @@ export function LeadForm({
                                     )} />
                                 )}
 
-                                {/* Segment (hidden but kept) */}
+                                {/* Campaign Name */}
+                                <FormField control={form.control as any} name="campaign_name" render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Campaign</FormLabel>
+                                        <FormControl><Input placeholder="Summer Sale" className="h-8 bg-background text-xs" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )} />
+
+                                {/* Segment — auto-detected from the email domain, editable */}
                                 <FormField control={form.control as any} name="segment" render={({ field }) => (
-                                    <FormItem className="hidden">
-                                        <FormControl><Input {...field} /></FormControl>
+                                    <FormItem>
+                                        <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Segment</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                {SEGMENT_OPTIONS.map((opt) => (
+                                                    <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
                                     </FormItem>
                                 )} />
                             </div>
@@ -1052,8 +1074,8 @@ export function LeadForm({
                 <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
                     <div className="space-y-6 xl:col-span-8">
                         {/* Client Information Section */}
-                        <Card className="border-slate-700 shadow-sm">
-                            <CardHeader className="bg-slate-800/50 border-b py-4">
+                        <Card className="border-border shadow-sm">
+                            <CardHeader className="bg-muted/50 border-b py-4">
                                 <div className="flex items-center gap-2">
                                     <User className="h-5 w-5 text-blue-600" />
                                     <div>
@@ -1069,7 +1091,7 @@ export function LeadForm({
                                         name="salutation"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Salutation</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Salutation</FormLabel>
                                                 <Select onValueChange={field.onChange} defaultValue={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger className="h-9">
@@ -1091,7 +1113,7 @@ export function LeadForm({
                                         name="first_name"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">First Name</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">First Name</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="John" className="h-9" {...field} />
                                                 </FormControl>
@@ -1104,7 +1126,7 @@ export function LeadForm({
                                         name="last_name"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                     Last Name <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
@@ -1119,7 +1141,7 @@ export function LeadForm({
                                         name="email"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                     Email <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
@@ -1134,7 +1156,7 @@ export function LeadForm({
                                         name="phone"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                     Phone <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
@@ -1149,7 +1171,7 @@ export function LeadForm({
                                         name="mobile"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                     Mobile <span className="text-red-500">*</span>
                                                 </FormLabel>
                                                 <FormControl>
@@ -1164,7 +1186,7 @@ export function LeadForm({
                                         name="segment"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Segment</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Segment</FormLabel>
                                                 <Select onValueChange={field.onChange} value={field.value}>
                                                     <FormControl>
                                                         <SelectTrigger className="h-9">
@@ -1172,9 +1194,9 @@ export function LeadForm({
                                                         </SelectTrigger>
                                                     </FormControl>
                                                     <SelectContent>
-                                                        <SelectItem value="B2C">B2C (Individual)</SelectItem>
-                                                        <SelectItem value="B2B">B2B (Corporate)</SelectItem>
-                                                        <SelectItem value="B2B_DIRECT">B2B</SelectItem>
+                                                        {SEGMENT_OPTIONS.map((opt) => (
+                                                            <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                                                        ))}
                                                     </SelectContent>
                                                 </Select>
                                                 <FormMessage />
@@ -1186,8 +1208,8 @@ export function LeadForm({
                         </Card>
 
                         {/* Company & Source Section */}
-                        <Card className="border-slate-700 shadow-sm h-full">
-                            <CardHeader className="bg-slate-800/50 border-b py-4">
+                        <Card className="border-border shadow-sm h-full">
+                            <CardHeader className="bg-muted/50 border-b py-4">
                                 <div className="flex items-center gap-2">
                                     <Building2 className="h-5 w-5 text-blue-600" />
                                     <div>
@@ -1203,7 +1225,7 @@ export function LeadForm({
                                         name="lead_status_id"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Lead Status</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Lead Status</FormLabel>
                                                 <FormControl>
                                                     <SearchableSelect
                                                         options={statuses.map(s => ({ label: s.name, value: s.id }))}
@@ -1221,7 +1243,7 @@ export function LeadForm({
                                         name="industry_id"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Industry</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Industry</FormLabel>
                                                 <FormControl>
                                                     <SearchableSelect
                                                         options={industries.map(i => ({ label: i.name, value: i.id }))}
@@ -1240,7 +1262,7 @@ export function LeadForm({
                                         name="experience_id"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Experience</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Experience</FormLabel>
                                                 <FormControl>
                                                     <SearchableSelect
                                                         options={experiences.map(e => ({ label: e.name, value: e.id }))}
@@ -1259,7 +1281,7 @@ export function LeadForm({
                                         name="company"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                     Company Name
                                                 </FormLabel>
                                                 <FormControl>
@@ -1274,7 +1296,7 @@ export function LeadForm({
                                         name="title"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Job Title</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Job Title</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Manager" className="h-9" {...field} />
                                                 </FormControl>
@@ -1289,7 +1311,7 @@ export function LeadForm({
                                                 name="creation_type"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                             Creation <span className="text-red-500">*</span>
                                                         </FormLabel>
                                                         <Select onValueChange={field.onChange} value={field.value}>
@@ -1312,7 +1334,7 @@ export function LeadForm({
                                                 name="combined_source"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                             Source <span className="text-red-500">*</span>
                                                         </FormLabel>
                                                         <FormControl>
@@ -1332,7 +1354,7 @@ export function LeadForm({
                                                 name="source_medium"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                        <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                             Source Medium
                                                         </FormLabel>
                                                         <FormControl>
@@ -1355,7 +1377,7 @@ export function LeadForm({
                                             name="combined_source"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                    <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                         Source <span className="text-red-500">*</span>
                                                     </FormLabel>
                                                     <FormControl>
@@ -1379,7 +1401,7 @@ export function LeadForm({
                                             name="source_medium"
                                             render={({ field }) => (
                                                 <FormItem>
-                                                    <FormLabel className="text-[10px] font-bold uppercase text-slate-400">
+                                                    <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                         Source Medium
                                                     </FormLabel>
                                                     <FormControl>
@@ -1401,7 +1423,7 @@ export function LeadForm({
                                         name="campaign_name"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Campaign</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Campaign</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="Summer Sale" className="h-9" {...field} />
                                                 </FormControl>
@@ -1414,7 +1436,7 @@ export function LeadForm({
                                         name="website"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Website</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Website</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="https://..." className="h-9" {...field} />
                                                 </FormControl>
@@ -1428,7 +1450,7 @@ export function LeadForm({
                                         name="no_employees"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">No. Employees</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">No. Employees</FormLabel>
                                                 <FormControl>
                                                     <Input type="number" min="0" placeholder="10" className="h-9" {...field} />
                                                 </FormControl>
@@ -1443,8 +1465,8 @@ export function LeadForm({
 
                     <div className="space-y-6 xl:col-span-4">
                         {/* Location Section */}
-                        <Card className="border-slate-700 shadow-sm h-full">
-                            <CardHeader className="bg-slate-800/50 border-b py-4">
+                        <Card className="border-border shadow-sm h-full">
+                            <CardHeader className="bg-muted/50 border-b py-4">
                                 <div className="flex items-center gap-2">
                                     <MapPin className="h-5 w-5 text-blue-600" />
                                     <div>
@@ -1461,7 +1483,7 @@ export function LeadForm({
                                         name="street"
                                         render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-400">Street Address</FormLabel>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Street Address</FormLabel>
                                                 <FormControl>
                                                     <Input placeholder="123 Main St" className="h-9" {...field} />
                                                 </FormControl>
@@ -1474,7 +1496,7 @@ export function LeadForm({
                         </Card>
 
                         {/* Industry-Specific Fields */}
-                        <Card className="border-slate-700 shadow-sm">
+                        <Card className="border-border shadow-sm">
                             <CardContent className="p-4">
                                 <IndustryLeadFields
                                     industry={industry}
@@ -1487,7 +1509,7 @@ export function LeadForm({
                         </Card>
                     </div>
                 </div>
-                <div className="flex justify-end gap-3 pt-6 border-t border-slate-800">
+                <div className="flex justify-end gap-3 pt-6 border-t border-border">
                     <Button
                         type="button"
                         variant="outline"

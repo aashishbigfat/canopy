@@ -43,7 +43,7 @@ export function GlobalSearchBar() {
     }, []);
 
     return (
-        <div className="flex w-full max-w-md items-center h-9 rounded-full overflow-visible border border-white/10 bg-white/5 backdrop-blur-sm transition-all focus-within:bg-white/10 focus-within:ring-1 focus-within:ring-cyan-500/30">
+        <div className="flex w-full max-w-md items-center h-9 rounded-full overflow-visible border border-border bg-muted/40 backdrop-blur-sm transition-all focus-within:bg-muted focus-within:ring-1 focus-within:ring-ring/40">
             {/* Category Dropdown */}
             <div className="relative" ref={dropdownRef}>
                 <button
@@ -56,7 +56,7 @@ export function GlobalSearchBar() {
                 </button>
 
                 {dropdownOpen && (
-                    <div className="absolute left-0 top-full mt-2 w-48 rounded-md border border-slate-700 bg-slate-900 shadow-xl z-[200] overflow-hidden py-1">
+                    <div className="absolute left-0 top-full mt-2 w-48 rounded-md border border-border bg-popover shadow-xl z-[200] overflow-hidden py-1">
                         {modules.map((m) => (
                             <button
                                 key={m.value}
@@ -66,7 +66,7 @@ export function GlobalSearchBar() {
                                     setDropdownOpen(false);
                                 }}
                                 className={cn(
-                                    "w-full text-left px-4 py-2 text-sm text-slate-200 hover:bg-slate-800 transition-colors",
+                                    "w-full text-left px-4 py-2 text-sm text-popover-foreground hover:bg-accent transition-colors",
                                     m.value === module && "bg-blue-500/20 text-[#1a6bb0] font-medium"
                                 )}
                             >
@@ -84,14 +84,14 @@ export function GlobalSearchBar() {
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Universal search..."
-                className="h-9 w-[180px] lg:w-[260px] bg-transparent px-3 text-sm text-white placeholder:text-slate-400 outline-none"
+                className="h-9 w-[180px] lg:w-[260px] bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none"
             />
 
             {/* Search Icon Button */}
             <button
                 type="button"
                 onClick={handleSearch}
-                className="flex items-center justify-center h-9 w-10 text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 rounded-r-full"
+                className="flex items-center justify-center h-9 w-10 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0 rounded-r-full"
                 aria-label="Search"
             >
                 <Search className="h-4 w-4" />

@@ -39,7 +39,7 @@ from app.core.logging_config import configure_logging
 from app.core.rate_limiter import limiter
 from app.core.cache import init_cache, close_cache
 from app.db.mongodb import init_db
-from app.middleware.activity_context import activity_context_middleware
+from app.middleware.activity_context import ActivityContextMiddleware
 from app.api.v1 import accounts
 
 # Configure root logger before anything else runs. JSON output in prod
@@ -126,10 +126,9 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _custom_rate_limit_handler)
 app.add_middleware(SlowAPIMiddleware)
 
-# Activity logging middleware
-@app.middleware("http")
-async def add_activity_context(request: Request, call_next):
-    return await activity_context_middleware(request, call_next)
+# Activity logging middleware — pure ASGI so cancelled/disconnected requests
+# don't trigger BaseHTTPMiddleware's "No response returned." RuntimeError.
+app.add_middleware(ActivityContextMiddleware)
 
 
 # CORS middleware - Added last to be outermost

@@ -80,12 +80,12 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
             <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={safeClose} />
 
             {/* Dialog */}
-            <div className="relative bg-slate-900 rounded-xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="relative bg-card rounded-xl shadow-2xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-200">
                 {/* Header */}
-                <div className="flex items-center justify-between px-6 py-4 border-b border-slate-700">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-border">
                     <div>
-                        <h3 className="text-base font-semibold text-slate-100">Payment Received</h3>
-                        <p className="text-xs text-slate-400 mt-0.5">
+                        <h3 className="text-base font-semibold text-foreground">Payment Received</h3>
+                        <p className="text-xs text-muted-foreground mt-0.5">
                             Amount:{" "}
                                 {formatCurrency(item.amount)}
                         </p>
@@ -93,9 +93,9 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                     <button
                         onClick={safeClose}
                         disabled={isSaving}
-                        className="h-7 w-7 rounded-full hover:bg-slate-800 flex items-center justify-center transition-colors disabled:opacity-50"
+                        className="h-7 w-7 rounded-full hover:bg-muted flex items-center justify-center transition-colors disabled:opacity-50"
                     >
-                        <X className="h-4 w-4 text-slate-400" />
+                        <X className="h-4 w-4 text-muted-foreground" />
                     </button>
                 </div>
 
@@ -104,13 +104,13 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                     {/* Amount Received (read-only display) */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Amount Received
                             </label>
                                 {formatCurrency(item.amount)}
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Date Received<span className="text-red-500">*</span>
                             </label>
                             <Input
@@ -125,13 +125,13 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                     {/* Payment Mode & Reference */}
                     <div className="grid grid-cols-2 gap-4">
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Payment Mode
                             </label>
                             <select
                                 value={paymentMethod}
                                 onChange={(e) => setPaymentMethod(e.target.value)}
-                                className="w-full h-10 rounded-md border border-slate-700 bg-slate-900 px-3 text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
+                                className="w-full h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors"
                             >
                                 {PAYMENT_MODES.map((mode) => (
                                     <option
@@ -144,7 +144,7 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
                             </select>
                         </div>
                         <div>
-                            <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                                 Reference ID
                             </label>
                             <Input
@@ -159,20 +159,20 @@ function PaymentReceivedDialog({ item, onConfirm, onCancel }: PaymentReceivedDia
 
                     {/* Notes */}
                     <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-1.5">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1.5">
                             Note
                         </label>
                         <textarea
                             value={notes}
                             onChange={(e) => setNotes(e.target.value)}
                             placeholder="Any notes about this payment..."
-                            className="w-full rounded-md border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
+                            className="w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-foreground min-h-[72px] focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors resize-y"
                         />
                     </div>
                 </div>
 
                 {/* Footer */}
-                <div className="flex justify-end gap-3 px-6 py-4 border-t border-slate-700 bg-slate-800/50 rounded-b-xl">
+                <div className="flex justify-end gap-3 px-6 py-4 border-t border-border bg-muted/50 rounded-b-xl">
                     <Button
                         variant="outline"
                         onClick={safeClose}
@@ -402,7 +402,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
         return (
             <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-5 w-5 animate-spin text-blue-500" />
-                <span className="ml-2 text-slate-400 text-sm">Loading payment schedule...</span>
+                <span className="ml-2 text-muted-foreground text-sm">Loading payment schedule...</span>
             </div>
         );
     }
@@ -424,13 +424,13 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                 <div className="space-y-4">
                     {/* Header with edit link */}
                     <div className="flex justify-between items-center">
-                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                             Payment Schedule
                         </p>
                         {!isLocked && (
                             <button
                                 onClick={() => setEditMode(true)}
-                                className="inline-flex items-center gap-1.5 text-blue-400 hover:text-blue-300 text-xs font-medium transition-colors"
+                                className="inline-flex items-center gap-1.5 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-xs font-medium transition-colors"
                             >
                                 <Pencil className="h-3 w-3" />
                                 Edit Schedule
@@ -439,30 +439,30 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                     </div>
 
                     {/* Table */}
-                    <div className="border border-slate-700 rounded-lg overflow-hidden">
+                    <div className="border border-border rounded-lg overflow-hidden">
                         <div className="overflow-x-auto scrollbar-hide">
                             <table className="w-full text-sm">
                                 <thead>
-                                    <tr className="bg-slate-800 border-b border-slate-700">
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 w-12">#</th>
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Date</th>
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400">Amount</th>
-                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-slate-400 w-40">Status</th>
+                                    <tr className="bg-muted border-b border-border">
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground w-12">#</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Date</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground">Amount</th>
+                                        <th className="text-left px-4 py-2.5 text-xs font-semibold text-muted-foreground w-40">Status</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {savedItems.map((item, idx) => (
                                         <tr
                                             key={item.id}
-                                            className="border-b border-slate-800 last:border-b-0 hover:bg-slate-800/40 transition-colors"
+                                            className="border-b border-border last:border-b-0 hover:bg-muted/40 transition-colors"
                                         >
-                                            <td className="px-4 py-3 text-slate-300">{idx + 1}</td>
-                                            <td className="px-4 py-3 text-slate-200">
+                                            <td className="px-4 py-3 text-muted-foreground">{idx + 1}</td>
+                                            <td className="px-4 py-3 text-foreground">
                                                 {item.due_date
                                                     ? formatDate(item.due_date)
                                                     : "—"}
                                             </td>
-                                            <td className="px-4 py-3 text-slate-200 font-medium">
+                                            <td className="px-4 py-3 text-foreground font-medium">
                                                 {formatCurrency(item.amount)}
                                             </td>
                                             <td className="px-4 py-3">
@@ -474,8 +474,8 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                                                     disabled={updateMutation.isPending || isLocked}
                                                     className={`text-sm border rounded-md px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors disabled:opacity-60 ${
                                                         item.status === "Received"
-                                                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
-                                                            : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                                                            ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border-emerald-500/40"
+                                                            : "bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40"
                                                     }`}
                                                 >
                                                     <option value="Pending">Pending</option>
@@ -499,7 +499,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
         <div className="space-y-4">
             {/* Header */}
             <div className="flex justify-between items-center">
-                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                     Payment Schedule
                 </p>
                 {!editMode && !hasSavedSchedule && !isLocked && (
@@ -550,9 +550,9 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                     {/* Column headers */}
                     {/* Column headers - hidden on mobile */}
                     <div className="hidden sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 mb-1">
-                        <p className="text-xs font-semibold text-slate-400">Date</p>
-                        <p className="text-xs font-semibold text-slate-400 text-right pr-2">Amount</p>
-                        <p className="text-xs font-semibold text-slate-400 text-right pr-2">Percentage</p>
+                        <p className="text-xs font-semibold text-muted-foreground">Date</p>
+                        <p className="text-xs font-semibold text-muted-foreground text-right pr-2">Amount</p>
+                        <p className="text-xs font-semibold text-muted-foreground text-right pr-2">Percentage</p>
                         <div />
                     </div>
 
@@ -564,10 +564,10 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                         return (
                             <div
                                 key={row.id || `new-${idx}`}
-                                className="flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none bg-slate-800/30 sm:bg-transparent relative"
+                                className="flex flex-col sm:grid sm:grid-cols-[1.5fr_1fr_1fr_40px] gap-3 p-3 sm:p-0 border sm:border-0 rounded-lg sm:rounded-none bg-muted/30 sm:bg-transparent relative"
                             >
                                 <div className="space-y-1 sm:space-y-0">
-                                    <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Due Date</label>
+                                    <label className="sm:hidden text-[10px] font-bold text-muted-foreground uppercase">Due Date</label>
                                     <Input
                                         type="date"
                                         value={row.due_date}
@@ -578,7 +578,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                                 </div>
                                 
                                 <div className="space-y-1 sm:space-y-0">
-                                    <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Amount</label>
+                                    <label className="sm:hidden text-[10px] font-bold text-muted-foreground uppercase">Amount</label>
                                     <Input
                                         type="number"
                                         min={0}
@@ -591,7 +591,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                                 </div>
 
                                 <div className="space-y-1 sm:space-y-0">
-                                    <label className="sm:hidden text-[10px] font-bold text-slate-400 uppercase">Percentage</label>
+                                    <label className="sm:hidden text-[10px] font-bold text-muted-foreground uppercase">Percentage</label>
                                     <div className="flex items-center gap-1">
                                         <Input
                                             type="number"
@@ -604,7 +604,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                                             className="h-9 text-sm sm:text-right"
                                             disabled={isReceived}
                                         />
-                                        <span className="text-sm text-slate-400 flex-shrink-0">%</span>
+                                        <span className="text-sm text-muted-foreground flex-shrink-0">%</span>
                                     </div>
                                 </div>
 
@@ -634,7 +634,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                     })}
 
                     {/* Remaining Amount */}
-                    <p className="text-sm text-slate-300">
+                    <p className="text-sm text-muted-foreground">
                         Remaining Amount:{" "}
                         <span
                             className={`font-semibold ${
@@ -642,7 +642,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
                                     ? "text-red-400"
                                     : remaining === 0
                                     ? "text-emerald-400"
-                                    : "text-slate-100"
+                                    : "text-foreground"
                             }`}
                         >
                             {formatCurrency(remaining)}
@@ -651,7 +651,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
 
                     {/* Over-budget warning */}
                     {remaining < 0 && (
-                        <div className="bg-red-500/20 border border-red-500/40 text-red-300 px-4 py-2 rounded-lg text-sm">
+                        <div className="bg-red-500/20 border border-red-500/40 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg text-sm">
                             <span className="font-semibold">Please check amount!</span> Payment
                             schedule exceeds opportunity amount by {formatCurrency(Math.abs(remaining))}
                         </div>
@@ -659,7 +659,7 @@ export function PaymentScheduleTab({ opportunityId, opportunityAmount, isLocked 
 
                     {/* Under-budget info */}
                     {remaining > 0.01 && (
-                        <div className="bg-amber-500/20 border border-amber-500/40 text-amber-300 px-4 py-2 rounded-lg text-sm">
+                        <div className="bg-amber-500/20 border border-amber-500/40 text-amber-700 dark:text-amber-300 px-4 py-2 rounded-lg text-sm">
                             <span className="font-semibold">Remaining amount must be 0.</span> Please
                             allocate {formatCurrency(remaining)} more to save.
                         </div>

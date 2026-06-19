@@ -7,7 +7,7 @@ import type { ActivityLog } from "@/features/dashboard/services/dashboardService
 
 const typeIcons: Record<string, React.ReactNode> = {
     task: <ClipboardList className="h-4 w-4 text-blue-500" />,
-    personal_account: <Building2 className="h-4 w-4 text-slate-400" />,
+    personal_account: <Building2 className="h-4 w-4 text-muted-foreground" />,
     opportunity: <Lightbulb className="h-4 w-4 text-violet-500" />,
     lead: <UserPlus className="h-4 w-4 text-amber-500" />,
     contact: <Users className="h-4 w-4 text-sky-500" />,
@@ -79,7 +79,7 @@ export function UserActivities({ activities }: { activities: ActivityLog[] }) {
                             return (
                                 <li key={activity.id} className="relative pl-8 pb-4">
                                     <div className="absolute left-0 flex h-6 w-6 items-center justify-center rounded-full border bg-background">
-                                        {typeIcons[activity.entity_type] || <ClipboardList className="h-4 w-4 text-slate-400" />}
+                                        {typeIcons[activity.entity_type] || <ClipboardList className="h-4 w-4 text-muted-foreground" />}
                                     </div>
                                     <p className="text-sm font-medium">
                                         {formatActivityTitle(activity.action, activity.entity_type)}

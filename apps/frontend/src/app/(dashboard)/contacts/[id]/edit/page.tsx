@@ -36,7 +36,7 @@ export default async function EditContactPage(props: EditContactPageProps) {
                 <h1 className="text-3xl font-bold">Edit Contact</h1>
                 <p className="text-muted-foreground">Update the details for {contact.first_name} {contact.last_name}</p>
             </div>
-            <div className="bg-slate-900 rounded-lg border p-6">
+            <div className="bg-card rounded-lg border p-6">
                 <ContactForm
                     id={params.id}
                     initialData={contact}

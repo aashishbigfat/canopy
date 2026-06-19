@@ -36,7 +36,7 @@ function AccoladeBadge({ emoji, name }: { emoji: string; name: string }) {
   return (
     <span
       title={name}
-      className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-300"
+      className="inline-flex items-center gap-0.5 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs text-amber-700 dark:text-amber-300"
     >
       {emoji} <span className="hidden sm:inline">{name}</span>
     </span>
@@ -51,7 +51,7 @@ function TopPerformerCard({ row }: { row: LeaderboardRow }) {
         {row.avatar_url ? (
           <img src={row.avatar_url} className="h-full w-full rounded-full object-cover" alt={row.name} />
         ) : (
-          <span className="text-3xl font-bold text-indigo-300">
+          <span className="text-3xl font-bold text-indigo-700 dark:text-indigo-300">
             {row.name.charAt(0).toUpperCase()}
           </span>
         )}
@@ -193,7 +193,7 @@ export default function LeaderboardPage() {
                       alt={row.name}
                     />
                   ) : (
-                    <span className="text-sm font-bold text-indigo-300">
+                    <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
                       {row.name.charAt(0).toUpperCase()}
                     </span>
                   )}

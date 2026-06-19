@@ -546,47 +546,6 @@ class OpportunityService(ActivityMixin):
         
         return True
     
-    async def change_opportunity_owner(
-        self,
-        opp_id: str,
-        new_owner_id: ObjectId,
-        current_user_id: ObjectId,
-        tenant_id: ObjectId
-    ) -> Optional[Opportunity]:
-        """Change opportunity owner with activity logging"""
-        opp = await self.get_opportunity(opp_id, tenant_id)
-        
-        if not opp:
-            return None
-        
-        old_owner = opp.owner_id
-        
-        opp.owner_id = new_owner_id
-        opp.last_modified_by_id = current_user_id
-        await opp.save()
-        
-        # Log assignment change
-        await self.log_assignment_changed(
-            entity=opp,
-            entity_type="opportunity",
-            old_assigned_to=str(old_owner),
-            new_assigned_to=str(new_owner_id)
-        )
-        
-        # Create notification for opportunity assignment
-        await self.notification_service.notify_user(
-            user_id=new_owner_id,
-            tenant_id=tenant_id,
-            title="Opportunity Assigned",
-            message=f"Opportunity '{opp.name}' has been assigned to you",
-            type="opportunity",
-            entity_type="opportunity",
-            entity_id=opp.id,
-            action_url=f"/opportunities/{opp.id}"
-        )
-        
-        return opp
-    
     async def get_opportunities_by_tenant(
         self,
         tenant_id: ObjectId,

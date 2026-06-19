@@ -183,7 +183,7 @@ function LeadsTable({ items }: { items: LeadSearchItem[] }) {
                                 <Button
                                     size="sm"
                                     variant="secondary"
-                                    className="h-7 px-3 text-xs bg-gray-600 text-white hover:bg-gray-700"
+                                    className="h-7 px-3 text-xs"
                                     onClick={() => router.push(`/leads/${row.id}?action=convert`)}
                                 >
                                     Convert

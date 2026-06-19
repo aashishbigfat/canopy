@@ -111,6 +111,10 @@ async def create_lead(
             custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None
         )
         return lead
+    except HTTPException:
+        # Preserve validation/permission status codes (e.g. the 422 raised by
+        # the industry guard) instead of masking them as a 500.
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
@@ -285,6 +289,10 @@ async def update_lead(
             user_name=current_user.name.strip() or current_user.email,
             custom_fields=lead_data.custom_fields if hasattr(lead_data, 'custom_fields') else None,
         )
+    except HTTPException:
+        # Preserve validation/permission status codes (e.g. the 422 raised by
+        # the industry guard) instead of masking them as a 500.
+        raise
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:

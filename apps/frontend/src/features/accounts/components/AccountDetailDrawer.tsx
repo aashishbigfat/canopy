@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { accountService } from "../services/accountService";
 import { Account } from "../types";
 import { formatDateTime } from "@/lib/format";
+import { getSegmentLabel, SEGMENTS } from "@/lib/segments";
 
 interface AccountDetailDrawerProps {
     accountId: string | null;
@@ -70,7 +71,7 @@ export function AccountDetailDrawer({ accountId, open, onOpenChange }: AccountDe
 
     const isB2C = account?.is_person_account;
     const basePath = isB2C ? "person-accounts" : "accounts";
-    const badgeLabel = account?.segment || (isB2C ? "B2C" : "B2B");
+    const badgeLabel = getSegmentLabel(account?.segment || (isB2C ? SEGMENTS.B2C : SEGMENTS.B2B));
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>

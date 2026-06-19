@@ -47,7 +47,7 @@ export default function SupplierDetailsPage({ params }: SupplierDetailsPageProps
     if (isError || !supplier) {
         return (
             <div className="flex h-[600px] w-full flex-col items-center justify-center gap-4">
-                <p className="text-xl font-semibold text-slate-100">Supplier not found</p>
+                <p className="text-xl font-semibold text-foreground">Supplier not found</p>
                 <Button variant="outline" onClick={() => router.push("/suppliers")}>
                     <ChevronLeft className="mr-2 h-4 w-4" />
                     Back to Suppliers
