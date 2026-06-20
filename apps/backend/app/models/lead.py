@@ -6,7 +6,7 @@ migrated to the `industry_data` dict. All industries (including travel) now
 store their metadata in `industry_data`, validated by the dispatcher in
 schemas/industry_data/__init__.py.
 """
-from beanie import Indexed
+from beanie import Indexed, before_event, Insert
 from pydantic import EmailStr, Field
 from typing import Optional, List, Dict, Any, Annotated
 from datetime import datetime
@@ -61,6 +61,8 @@ class Lead(BaseDocument):
     # Tenant & Ownership
     tenant_id: Indexed(PydanticObjectId)
     owner_id: Indexed(PydanticObjectId)
+    # Denormalized owner name (PERF, server-managed; not a form field).
+    owner_name: Optional[str] = None
     created_by: PydanticObjectId
     last_modified_by_id: Optional[PydanticObjectId] = None
 
@@ -89,6 +91,13 @@ class Lead(BaseDocument):
     view_count: int = 0
     is_favorite: bool = False
     
+    @before_event(Insert)
+    async def _denormalize_names(self):
+        """PERF: populate owner_name on create."""
+        if self.owner_id and not self.owner_name:
+            from app.services.denormalize import resolve_owner_name
+            self.owner_name = await resolve_owner_name(self.tenant_id, self.owner_id)
+
     class Settings:
         name = "leads"
         indexes = [

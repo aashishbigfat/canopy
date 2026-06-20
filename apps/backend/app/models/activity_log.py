@@ -36,12 +36,14 @@ class ActivityLog(BaseDocument):
     
     class Settings:
         name = "activity_logs"
-        # indexes = [
-        # "user_id", "tenant_id", "action", "entity_type",
-        # [("tenant_id", 1), ("created_at", -1)],
-            # [("user_id", 1), ("created_at", -1)],
-            # [("entity_type", 1), ("entity_id", 1)],
-        # ]
+        # This is the permanent audit / module-history store (never auto-deleted),
+        # so it grows over time — these indexes keep its queries fast.
+        indexes = [
+            # Dashboard "Recent Activity" + activity page: tenant-wide, newest first.
+            [("tenant_id", 1), ("created_at", -1)],
+            # Module History tabs: per-entity lookups.
+            [("entity_type", 1), ("entity_id", 1)],
+        ]
 
 
 class LoginLog(BaseDocument):

@@ -97,16 +97,22 @@ export interface AccountFilters {
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
     is_person_account?: boolean;
+    // Keyset "load more": pass the previous response's next_cursor to fetch the
+    // next page in O(1) (skips the COUNT). Mutually exclusive with `page`.
+    cursor?: string;
 }
 
 export interface AccountResponse {
     accounts: Account[];
     pagination: {
         current_page: number;
-        total: number;
+        total: number | null;
         per_page: number;
-        pages: number;
+        pages: number | null;
     };
+    // Keyset pagination: opaque cursor for the next page (null = no more rows).
+    next_cursor?: string | null;
+    has_more?: boolean;
     account_views?: any[];
     display_columns?: any[];
     users?: any[];

@@ -7,6 +7,7 @@ from app.models.role import Role
 from app.models.user import User
 from app.schemas.role import RoleCreate, RoleUpdate, PermissionAdd, PermissionRemove
 from app.mixins.activity_mixin import ActivityMixin
+from app.services.scope_cache import invalidate_scope_cache
 
 
 # ---------------------------------------------------------------------------
@@ -280,7 +281,10 @@ class RoleService(ActivityMixin):
         
         role.last_modified_by_id = updated_by
         await role.save()
-        
+
+        # PERF: toggling is_admin on a role flips visibility for its holders.
+        await invalidate_scope_cache(tenant_id)
+
         # Log update
         await self.log_entity_updated(
             entity=role,
@@ -288,7 +292,7 @@ class RoleService(ActivityMixin):
             old_values=old_values,
             updated_fields=updated_fields
         )
-        
+
         return role
     
     async def delete_role(

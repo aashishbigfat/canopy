@@ -302,10 +302,13 @@ class OpportunityResponse(BaseModel):
 class OpportunityListResponse(BaseModel):
     """Schema for list of opportunities"""
     opportunities: List[OpportunityResponse]
-    total: int
+    total: Optional[int] = None  # null on keyset "load more" pages (COUNT skipped)
     page: int = 1
     per_page: int = 10
-    pages: int
+    pages: Optional[int] = None
+    # Keyset pagination for "load more" (O(1) deep paging).
+    next_cursor: Optional[str] = None
+    has_more: bool = False
 
 
 

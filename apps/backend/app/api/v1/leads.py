@@ -135,11 +135,20 @@ async def get_leads(
     search: Optional[str] = None,
     lead_status_id: Optional[str] = None,
     view_id: Optional[str] = Query(None, description="Saved EntityView id (lead) whose filters to apply"),
+    cursor: Optional[str] = Query(None, description="Keyset cursor for 'load more' — returns the next page after this cursor and skips the COUNT."),
     current_user: User = Depends(check_permission("view_lead")),
     service: LeadService = Depends(get_lead_service)
 ):
     """Get all leads with pagination and optional predefined / saved views."""
     from app.services.visibility_scope import get_visible_owner_ids
+
+    # Validate the keyset cursor → clean 400 instead of a 500 from deep inside.
+    if cursor is not None:
+        from app.core.pagination import decode_cursor
+        try:
+            decode_cursor(cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid pagination cursor")
 
     visible_owner_ids = await get_visible_owner_ids(current_user)
 
@@ -155,6 +164,7 @@ async def get_leads(
         search=search,
         lead_status_id=lead_status_id,
         view_id=view_id,
+        cursor=cursor,
     )
     
     # Resolve destinations for each lead (scoped to tenant)

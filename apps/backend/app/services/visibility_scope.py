@@ -17,6 +17,7 @@ from bson import ObjectId
 from app.models.user import User
 from app.models.role import Role, RoleHierarchy
 from app.services import hierarchy_walker
+from app.services import scope_cache
 
 
 async def _is_admin_user(user: User) -> bool:
@@ -46,18 +47,8 @@ async def _collect_descendant_user_ids(tenant_id: ObjectId, hierarchy_node_id: O
     return await hierarchy_walker.descendant_user_ids(tenant_id, hierarchy_node_id)
 
 
-async def get_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:
-    """
-    Returns the list of owner_ids whose records the user can see:
-    - None → admin, sees everything (no filter applied)
-    - [user.id] → regular user with no hierarchy, sees only own records
-    - [user.id, sub1, sub2, ...] → manager, sees own + subordinates
-
-    Usage in queries:
-        visible = await get_visible_owner_ids(current_user)
-        if visible is not None:
-            query["owner_id"] = {"$in": visible}
-    """
+async def _compute_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:
+    """Uncached computation of the visible owner set (the role-hierarchy walk)."""
     # Admin sees everything
     if await _is_admin_user(user):
         return None
@@ -73,6 +64,32 @@ async def get_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:
         allowed.update(descendant_ids)
 
     return list(allowed)
+
+
+async def get_visible_owner_ids(user: User) -> Optional[List[ObjectId]]:
+    """
+    Returns the list of owner_ids whose records the user can see:
+    - None → admin, sees everything (no filter applied)
+    - [user.id] → regular user with no hierarchy, sees only own records
+    - [user.id, sub1, sub2, ...] → manager, sees own + subordinates
+
+    Result is cached in Redis per (tenant_id, user_id) for ~90s (PERF Phase 2)
+    so the role-hierarchy walk doesn't run on every list/detail request. The
+    cache is type-safe (ObjectIds round-trip correctly) and is invalidated on
+    role / hierarchy changes via scope_cache.invalidate_scope_cache.
+
+    Usage in queries:
+        visible = await get_visible_owner_ids(current_user)
+        if visible is not None:
+            query["owner_id"] = {"$in": visible}
+    """
+    cached = await scope_cache.get_cached_visible_owner_ids(user.tenant_id, user.id)
+    if cached is not scope_cache._MISS:
+        return cached
+
+    result = await _compute_visible_owner_ids(user)
+    await scope_cache.set_cached_visible_owner_ids(user.tenant_id, user.id, result)
+    return result
 
 
 async def opportunity_pool_owner_ids(user: User) -> List[ObjectId]:

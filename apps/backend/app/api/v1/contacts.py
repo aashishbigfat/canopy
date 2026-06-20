@@ -146,12 +146,20 @@ async def get_contacts(
     owner_id: Optional[str] = None,
     search: Optional[str] = None,
     view_id: Optional[str] = Query(None, description="Saved EntityView id (contact) whose filters to apply"),
+    cursor: Optional[str] = Query(None, description="Keyset cursor for 'load more' — returns the next page after this cursor and skips the COUNT."),
     current_user: User = Depends(check_permission("view_contact"))
 ):
     """Get all contacts with pagination, optional search and saved view."""
     import asyncio
     import logging
     logger = logging.getLogger(__name__)
+    # Validate cursor before the broad try/except (which would mask it as a 500).
+    if cursor is not None:
+        from app.core.pagination import decode_cursor
+        try:
+            decode_cursor(cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid pagination cursor")
     try:
         from app.services.visibility_scope import get_visible_owner_ids
         service = ContactService()
@@ -204,39 +212,58 @@ async def get_contacts(
                 {"mobile": _pat},
             ]
 
-        # Run count and paginated fetch in parallel
+        # --- Page fetch: keyset "load more" when a cursor is given, else offset ---
         skip = (page - 1) * per_page
+        from app.core.pagination import keyset_page, encode_cursor
+        from app.services.directory_cache import get_active_users
 
-        total, contacts, users = await asyncio.gather(
-            Contact.find(query).count(),
-            Contact.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list(),
-            User.find(
-                {"tenant_id": current_user.tenant_id, "is_active": True}
-            ).sort("+name").to_list(),
+        async def _fetch_page():
+            if cursor is not None:
+                return await keyset_page(
+                    Contact, query, sort_field="updated_at",
+                    direction="desc", limit=per_page, cursor=cursor,
+                )
+            rows = await Contact.find(query).sort(
+                [("updated_at", -1), ("_id", -1)]
+            ).skip(skip).limit(per_page).to_list()
+            nc = encode_cursor(rows[-1].updated_at, rows[-1].id) if rows else None
+            return {"items": rows, "next_cursor": nc, "has_more": len(rows) == per_page}
+
+        async def _count():
+            # COUNT only on the first (offset) load; deep "load more" stays O(1).
+            return None if cursor is not None else await Contact.find(query).count()
+
+        page_result, total, users = await asyncio.gather(
+            _fetch_page(),
+            _count(),
+            get_active_users(tenant_id=str(current_user.tenant_id)),
         )
+        contacts = page_result["items"]
+        next_cursor = page_result["next_cursor"]
+        has_more = page_result["has_more"]
 
-        pages = (total + per_page - 1) // per_page
-        
-        # Batch fetch accounts for the page of contacts
+        pages = ((total + per_page - 1) // per_page) if total is not None else None
+
+        # account_name is denormalized on the contact (PERF) — only fetch
+        # accounts for rows still missing it (empty after backfill → no query).
         from app.models.account import Account
-        account_ids = [c.account_id for c in contacts if c.account_id]
-        accounts = []
-        if account_ids:
+        missing_account_ids = [c.account_id for c in contacts
+                               if c.account_id and not getattr(c, 'account_name', None)]
+        account_map = {}
+        if missing_account_ids:
             from app.core.tenant_scope import fetch_in_tenant
-            accounts = await fetch_in_tenant(Account, current_user.tenant_id, account_ids)
-        
-        # Map account ID to name
-        account_map = {a.id: a.name for a in accounts}
-        # Map owner (user) ID to name so each row can show its owner
-        user_name_map = {str(u.id): u.name for u in users}
+            accounts = await fetch_in_tenant(Account, current_user.tenant_id, missing_account_ids)
+            account_map = {a.id: a.name for a in accounts}
 
-        # Prepare response
+        # Owner-name fallback map (cached directory) for any un-backfilled rows.
+        user_name_map = {u["id"]: u["name"] for u in users}
+
+        # Prepare response — prefer the denormalized names, fall back to lookups.
         contact_responses = []
         for c in contacts:
             resp = contact_to_response(c)
-            if c.account_id and c.account_id in account_map:
-                resp.account_name = account_map[c.account_id]
-            resp.owner_name = user_name_map.get(str(c.owner_id))
+            resp.account_name = getattr(c, 'account_name', None) or account_map.get(c.account_id)
+            resp.owner_name = getattr(c, 'owner_name', None) or user_name_map.get(str(c.owner_id))
             contact_responses.append(resp)
         
         return {
@@ -247,8 +274,10 @@ async def get_contacts(
                 "per_page": per_page,
                 "pages": pages
             },
+            "next_cursor": next_cursor,
+            "has_more": has_more,
             "users": [
-                {"id": str(u.id), "name": u.name, "email": u.email}
+                {"id": u["id"], "name": u["name"], "email": u["email"]}
                 for u in users
             ]
         }

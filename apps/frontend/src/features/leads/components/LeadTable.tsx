@@ -483,9 +483,9 @@ interface LeadTableProps {
     data: Lead[];
     pagination: {
         current_page: number;
-        total: number;
+        total: number | null;
         per_page: number;
-        pages: number;
+        pages: number | null;
     };
     lead_statuses: LeadStatus[];
     sources: Source[];
@@ -496,6 +496,10 @@ interface LeadTableProps {
     onSelectOne?: (id: string, checked: boolean) => void;
     onSelectAll?: (checked: boolean) => void;
     selectedIds?: string[];
+    // Keyset "load more" (infinite scroll).
+    hasMore?: boolean;
+    onLoadMore?: () => void;
+    isLoadingMore?: boolean;
 }
 
 export function LeadTable({
@@ -509,7 +513,10 @@ export function LeadTable({
     isLoading = false,
     onSelectOne,
     onSelectAll,
-    selectedIds = []
+    selectedIds = [],
+    hasMore = false,
+    onLoadMore,
+    isLoadingMore = false,
 }: LeadTableProps) {
     const [sorting, setSorting] = React.useState<SortingState>([]);
     const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
@@ -583,7 +590,7 @@ export function LeadTable({
     const table = useReactTable({
         data,
         columns,
-        pageCount: pagination.pages,
+        pageCount: pagination.pages ?? undefined,
         manualPagination: true,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
@@ -943,35 +950,23 @@ export function LeadTable({
                         {table.getFilteredSelectedRowModel().rows.length} of{" "}
                         {table.getFilteredRowModel().rows.length} row(s) selected.
                     </div>
-                    <div className="space-x-2">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set("page", (pagination.current_page - 1).toString());
-                                startTransition(() => {
-                                    router.push(`${pathname}?${params.toString()}`);
-                                });
-                            }}
-                            disabled={pagination.current_page <= 1}
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                                const params = new URLSearchParams(searchParams.toString());
-                                params.set("page", (pagination.current_page + 1).toString());
-                                startTransition(() => {
-                                    router.push(`${pathname}?${params.toString()}`);
-                                });
-                            }}
-                            disabled={pagination.current_page >= pagination.pages}
-                        >
-                            Next
-                        </Button>
+                    <div>
+                        {hasMore ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onLoadMore?.()}
+                                disabled={isLoadingMore}
+                            >
+                                {isLoadingMore ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</>
+                                ) : (
+                                    "Load more"
+                                )}
+                            </Button>
+                        ) : (
+                            <span className="text-xs text-muted-foreground">All records loaded</span>
+                        )}
                     </div>
                 </div>
             </div>

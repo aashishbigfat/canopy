@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { GroupedOpportunityTable } from "@/features/opportunities/components/GroupedOpportunityTable";
 import { KanbanBoard } from "@/features/opportunities/components/KanbanBoard";
-import { useOpportunities, useSalesStages } from "@/features/opportunities/api/useOpportunities";
+import { useInfiniteOpportunities, useSalesStages } from "@/features/opportunities/api/useOpportunities";
 import { Opportunity } from "@/features/opportunities/types";
 import { cn } from "@/lib/utils";
 import { normalizeSalesStages } from "@/features/opportunities/utils/stageConfig";
@@ -83,8 +83,7 @@ export default function OpportunitiesPageClient() {
     }, []);
     const searchParams = useSearchParams();
     const labels = useIndustryLabels();
-    
-    const page = parseInt(searchParams.get("page") || "1");
+
     const defaultView = searchParams.get("view") || searchParams.get("filter") || "today";
 
     const opportunityViews = [
@@ -106,9 +105,14 @@ export default function OpportunitiesPageClient() {
     const viewId = searchParams.get("view_id") || "";
     const hasActiveFilter = !!(ownerFilter || stageFilter);
 
-    const { data: opportunitiesData, isLoading: isLoadingOpportunities } = useOpportunities({
-        page: page,
-        per_page: 100, // Get more for kanban view
+    const {
+        data: infinite,
+        isLoading: isLoadingOpportunities,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteOpportunities({
+        per_page: 100, // chunk size for "load more" (kanban groups the accumulated rows)
         // When a saved view is active, let its stored filters drive the query
         view: viewId ? undefined : currentView,
         view_id: viewId || undefined,
@@ -118,7 +122,9 @@ export default function OpportunitiesPageClient() {
     });
     const { data: stages, isLoading: isLoadingStages } = useSalesStages();
 
-    const opportunities = opportunitiesData?.opportunities || [];
+    // Flatten the loaded pages; total comes from the first (offset) page.
+    const opportunities = infinite ? infinite.pages.flatMap((p) => p.opportunities) : [];
+    const totalCount = infinite?.pages[0]?.total ?? null;
     const normalizedStages = normalizeSalesStages(stages || []);
 
     // ── Saved views + owners (for the toolbar) ────────────────────────────────
@@ -194,16 +200,26 @@ export default function OpportunitiesPageClient() {
             applySavedView(null);
         } catch { toast.error("Failed to delete view"); }
     };
+    // Client-side CSV of the rows currently loaded (page 1 + any "Load more").
+    // With keyset pagination there's no "page N", so this exports what's loaded;
+    // the menu label reflects that. (A full server-side export would be a
+    // separate streaming endpoint — infeasible to do client-side at scale.)
     const exportCsv = () => {
-        const headers = ["Opportunity", "Stage", "Amount", "Close Date", "Owner"];
-        const rows = opportunities.map((o: any) => [o.name, o.sales_stage_name, o.amount, o.close_date, o.owner_name]);
+        if (opportunities.length === 0) {
+            toast.info("Nothing to export yet.");
+            return;
+        }
+        const headers = ["Opportunity", "Account", "Stage", "Amount", "Close Date", "Owner"];
+        const rows = opportunities.map((o: any) => [
+            o.name, o.account_name, o.sales_stage_name, o.amount, o.close_date, o.owner_name,
+        ]);
         const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
         const csv = [headers, ...rows].map((r) => r.map(esc).join(",")).join("\n");
-        const blob = new Blob([csv], { type: "text/csv" });
+        const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `opportunities-page-${page}.csv`;
+        a.download = `opportunities_${opportunities.length}_${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
         URL.revokeObjectURL(url);
     };
@@ -346,7 +362,7 @@ export default function OpportunitiesPageClient() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                                 <DropdownMenuItem onClick={refresh}><RotateCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
-                                <DropdownMenuItem onClick={exportCsv}><FileDown className="mr-2 h-4 w-4" /> Export page (CSV)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={exportCsv}><FileDown className="mr-2 h-4 w-4" /> Export loaded ({opportunities.length}) to CSV</DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem onClick={openSaveView}><Save className="mr-2 h-4 w-4" /> Save view…</DropdownMenuItem>
                                 {activeView && (
@@ -381,11 +397,22 @@ export default function OpportunitiesPageClient() {
                         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                     </div>
                 ) : viewMode === "kanban" ? (
-                    <KanbanBoard
-                        opportunities={opportunities}
-                        stages={normalizedStages}
-                        onOpportunityClick={handleOpportunityClick}
-                    />
+                    <div>
+                        <KanbanBoard
+                            opportunities={opportunities}
+                            stages={normalizedStages}
+                            onOpportunityClick={handleOpportunityClick}
+                        />
+                        <div className="flex items-center justify-center border-t bg-muted/30 px-4 py-3">
+                            {hasNextPage ? (
+                                <Button variant="outline" size="sm" onClick={() => fetchNextPage()} disabled={isFetchingNextPage}>
+                                    {isFetchingNextPage ? "Loading…" : `Load more (${opportunities.length} loaded)`}
+                                </Button>
+                            ) : (
+                                <span className="text-xs text-muted-foreground">All {opportunities.length} loaded</span>
+                            )}
+                        </div>
+                    </div>
                 ) : (
                     <div className="w-full overflow-x-auto">
                         <GroupedOpportunityTable
@@ -396,35 +423,23 @@ export default function OpportunitiesPageClient() {
                         
                         <div className="flex flex-col gap-2 space-x-0 border-t bg-muted/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-2 sm:px-6">
                             <div className="text-sm font-medium text-muted-foreground">
-                                Showing {opportunities.length} of {opportunitiesData?.total || 0} records
+                                Showing {opportunities.length}
+                                {totalCount != null ? ` of ${totalCount}` : "+"} records
                             </div>
-                            <div className="space-x-2">
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-3 font-medium"
-                                    onClick={() => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set("page", (page - 1).toString());
-                                        router.push(`${window.location.pathname}?${params.toString()}`);
-                                    }}
-                                    disabled={page <= 1}
-                                >
-                                    Previous
-                                </Button>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 px-3 font-medium"
-                                    onClick={() => {
-                                        const params = new URLSearchParams(searchParams.toString());
-                                        params.set("page", (page + 1).toString());
-                                        router.push(`${window.location.pathname}?${params.toString()}`);
-                                    }}
-                                    disabled={!opportunitiesData || page >= opportunitiesData.pages}
-                                >
-                                    Next
-                                </Button>
+                            <div>
+                                {hasNextPage ? (
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="h-8 px-3 font-medium"
+                                        onClick={() => fetchNextPage()}
+                                        disabled={isFetchingNextPage}
+                                    >
+                                        {isFetchingNextPage ? "Loading…" : "Load more"}
+                                    </Button>
+                                ) : (
+                                    <span className="text-xs text-muted-foreground">All records loaded</span>
+                                )}
                             </div>
                         </div>
                     </div>

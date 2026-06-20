@@ -227,8 +227,11 @@ export const dashboardService = {
 
     getActivityLogs: async (limit: number = 50): Promise<ActivityLog[]> => {
         try {
+            // Dashboard shows only the last 7 days of activity. The records live in
+            // the permanent activity_logs collection (also used by module History
+            // tabs); we just bound the view by days so the dashboard stays recent.
             const { data } = await apiClient.get<{ logs: ActivityLog[]; total: number }>("/timeline/events/", {
-                params: { limit }
+                params: { limit, days: 7 }
             });
             return data.logs;
         } catch (err) {

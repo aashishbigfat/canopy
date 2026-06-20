@@ -41,7 +41,7 @@ class ActivityLogService:
         )
         await log.insert()
         return log
-    
+
     async def get_activity_logs(
         self,
         tenant_id: ObjectId,

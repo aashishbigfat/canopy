@@ -478,15 +478,30 @@ class DashboardService:
         won_stage_ids = [s.id for s in won_stages]
         lost_stage_ids = [s.id for s in lost_stages]
 
+        async def _count_and_revenue(q: Dict[str, Any]) -> tuple[int, float]:
+            """PERF: count + sum(amount) in one aggregation instead of loading
+            every matching opportunity into memory and summing in Python."""
+            rows = await Opportunity.aggregate([
+                {"$match": q},
+                {"$group": {
+                    "_id": None,
+                    "count": {"$sum": 1},
+                    "revenue": {"$sum": {"$convert": {
+                        "input": "$amount", "to": "double", "onError": 0, "onNull": 0
+                    }}},
+                }},
+            ]).to_list()
+            if rows:
+                return rows[0].get("count", 0), rows[0].get("revenue", 0) or 0
+            return 0, 0.0
+
         # Won this month
         won_month_query = {
-            **base_query, 
+            **base_query,
             "sales_stage_id": {"$in": won_stage_ids},
             "close_date": {"$gte": month_start} # Using close_date as it's in the model
         }
-        won_this_month_list = await Opportunity.find(won_month_query).to_list()
-        won_this_month = len(won_this_month_list)
-        revenue_this_month = sum(getattr(opp, "amount", 0) or 0 for opp in won_this_month_list)
+        won_this_month, revenue_this_month = await _count_and_revenue(won_month_query)
         
         # Conversion rate
         conversion_rate = (won_this_month / opportunities_this_month * 100) if opportunities_this_month > 0 else 0
@@ -544,8 +559,7 @@ class DashboardService:
             "sales_stage_id": {"$in": won_stage_ids},
             "close_date": {"$gte": today_start, "$lt": today_end}
         }
-        won_today_list = await Opportunity.find(won_today_query).to_list()
-        today_revenue = sum(getattr(opp, "amount", 0) or 0 for opp in won_today_list)
+        _, today_revenue = await _count_and_revenue(won_today_query)
         
         # Build industry-specific KPIs — the strategy already returned the
         # per-industry dict; we just pass it through. Empty for non-travel
@@ -594,28 +608,41 @@ class DashboardService:
         if user_id:
             query["owner_id"] = PydanticObjectId(user_id)
         
-        opportunities = await Opportunity.find(query).to_list()
-        
+        # PERF: group by stage in MongoDB instead of loading every opportunity
+        # into memory and summing in Python (was a full-collection scan).
+        agg = await Opportunity.aggregate([
+            {"$match": query},
+            {"$group": {
+                "_id": "$sales_stage_id",
+                "count": {"$sum": 1},
+                "value": {"$sum": {"$convert": {
+                    "input": "$amount", "to": "double", "onError": 0, "onNull": 0
+                }}},
+            }},
+        ]).to_list()
+
         # Fetch stages scoped to THIS tenant to map names (prevents cross-industry leakage)
         all_stages = await SalesStage.find(
             {'tenant_id': tenant_obj_id}
         ).to_list()
         stages_map = {str(s.id): s.name for s in all_stages}
-        
-        stages = {}
-        for opp in opportunities:
-            stage_name = stages_map.get(str(opp.sales_stage_id), "Unknown") if opp.sales_stage_id else "Unknown"
-            if stage_name not in stages:
-                stages[stage_name] = {"count": 0, "value": 0}
-            stages[stage_name]["count"] += 1
-            stages[stage_name]["value"] += getattr(opp, "amount", 0) or 0
-        
+
+        # Multiple raw stage_ids (incl. None/unknown) can collapse to one display
+        # name, so accumulate by name rather than assigning directly.
+        stages: Dict[str, Dict[str, Any]] = {}
+        for row in agg:
+            sid = row.get("_id")
+            stage_name = stages_map.get(str(sid), "Unknown") if sid else "Unknown"
+            bucket = stages.setdefault(stage_name, {"count": 0, "value": 0})
+            bucket["count"] += row.get("count", 0)
+            bucket["value"] += row.get("value", 0) or 0
+
         return {
             "stages": [
                 {"stage": k, "count": v["count"], "value": v["value"]}
                 for k, v in stages.items()
             ],
-            "total_count": len(opportunities),
+            "total_count": sum(v["count"] for v in stages.values()),
             "total_value": sum(v["value"] for v in stages.values())
         }
     

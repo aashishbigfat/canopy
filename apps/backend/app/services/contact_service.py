@@ -725,13 +725,10 @@ class ContactService(ActivityMixin):
             raise ValueError("new_owner_id must reference an active user in this tenant")
 
         contact.owner_id = new_owner_id
+        # PERF: persist denormalized owner_name (now a real field).
+        contact.owner_name = owner.name
         contact.last_modified_by_id = current_user_id
         await contact.save()
-
-        # Stash the owner name as a transient attribute so contact_to_response can
-        # surface it. Pydantic's __setattr__ rejects undeclared fields, so write
-        # straight to __dict__; model_dump()/save() ignore it (never hits the DB).
-        object.__setattr__(contact, "owner_name", owner.name)
 
         try:
             from app.tasks.account_tasks import send_owner_change_email

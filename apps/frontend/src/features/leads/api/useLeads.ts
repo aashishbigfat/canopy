@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFilters, LeadCreateData, LeadConvertData } from "../types";
 import { ErrorHandler, showSuccessToast, showWarningToast, showErrorToast } from "@/lib/error-handler";
@@ -9,6 +9,23 @@ export const useLeads = (filters: LeadFilters = { page: 1, per_page: 10 }) => {
         queryFn: () => leadsService.getLeads(filters),
         staleTime: 30_000, // 30 seconds
         placeholderData: keepPreviousData,
+    });
+};
+
+/**
+ * Keyset "load more" leads. Page 1 fetches offset (with total + cursor); each
+ * subsequent page uses the cursor (O(1), COUNT skipped). next_cursor/has_more
+ * travel inside `pagination`.
+ */
+export const useInfiniteLeads = (filters: LeadFilters = {}) => {
+    return useInfiniteQuery({
+        queryKey: ["leads", "infinite", filters],
+        queryFn: ({ pageParam }) =>
+            leadsService.getLeads({ ...filters, cursor: pageParam as string | undefined }),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage: any) =>
+            lastPage?.pagination?.has_more ? (lastPage.pagination.next_cursor ?? undefined) : undefined,
+        staleTime: 30_000,
     });
 };
 

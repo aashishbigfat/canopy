@@ -553,15 +553,21 @@ class OpportunityService(ActivityMixin):
         limit: int = 10,
         owner_id: Optional[ObjectId] = None,
         sales_stage_id: Optional[ObjectId] = None,
+        cursor: Optional[str] = None,
         **kwargs
-    ) -> Tuple[List[Opportunity], int]:
-        """Get opportunities for a tenant with pagination"""
+    ) -> Tuple[List[Opportunity], Optional[int], Optional[str], bool]:
+        """Get opportunities for a tenant with pagination.
+
+        Returns (opportunities, total, next_cursor, has_more). `cursor` switches
+        to keyset "load more" (total is None, COUNT skipped).
+        """
         return await self.repository.get_filtered_opportunities(
             tenant_id=tenant_id,
             skip=skip,
             limit=limit,
             owner_id=owner_id,
             sales_stage_id=sales_stage_id,
+            cursor=cursor,
             **kwargs
         )
     
@@ -802,11 +808,8 @@ class OpportunityService(ActivityMixin):
             raise ValueError("new_owner_id must reference an active user in this tenant")
 
         opportunity.owner_id = new_owner_id
+        # PERF: persist denormalized owner_name (now a real field).
+        opportunity.owner_name = owner.name
         opportunity.last_modified_by_id = current_user_id
         await opportunity.save()
-        # Attach the enriched owner name without triggering Beanie/Pydantic's
-        # field validation (the model has no `owner_name` field). Plain setattr
-        # raises ValueError here; object.__setattr__ bypasses it — matching the
-        # account/contact/supplier change_owner services.
-        object.__setattr__(opportunity, "owner_name", owner.name)
         return opportunity

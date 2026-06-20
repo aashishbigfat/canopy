@@ -156,6 +156,40 @@ async def _resolve_destinations(industry_data: dict) -> dict:
     return industry_data
 
 
+async def _build_destination_name_map(industry_datas: List[dict]) -> Dict[str, str]:
+    """PERF: resolve destination names for a whole PAGE of opportunities in ONE
+    DestinationPicklist query (was an N+1: one query per opportunity)."""
+    from app.models.consolidated_picklists import DestinationPicklist
+    from bson import ObjectId as _OID
+
+    all_ids = set()
+    for idata in industry_datas:
+        if not idata:
+            continue
+        for d_id in idata.get("destination_ids", []) or []:
+            try:
+                all_ids.add(_OID(d_id))
+            except Exception:
+                pass
+    if not all_ids:
+        return {}
+    dests = await DestinationPicklist.find(
+        {"_id": {"$in": list(all_ids)}, "picklist_type": "destination"}
+    ).to_list()
+    return {str(d.id): d.name for d in dests}
+
+
+def _apply_destination_names(industry_data: dict, name_map: Dict[str, str]) -> dict:
+    """Pure in-memory resolution using a prebuilt name map (no DB call)."""
+    if not industry_data or "destination_ids" not in industry_data:
+        return industry_data
+    dest_ids = industry_data.get("destination_ids", []) or []
+    industry_data["destination_names"] = [
+        name_map[str(d_id)] for d_id in dest_ids if str(d_id) in name_map
+    ]
+    return industry_data
+
+
 
 
 @router.post("/", response_model=OpportunityResponse, status_code=201)
@@ -211,6 +245,7 @@ async def get_opportunities(
     view: Optional[str] = Query(None, description="View filter (today, recent, etc.)"),
     search: Optional[str] = Query(None, description="Free-text search on opportunity name"),
     view_id: Optional[str] = Query(None, description="Saved EntityView id (opportunity) whose filters to apply"),
+    cursor: Optional[str] = Query(None, description="Keyset cursor for 'load more' — returns the next page after this cursor and skips the COUNT."),
     current_user: User = Depends(check_permission("view_opportunity"))
 ):
     """
@@ -226,10 +261,17 @@ async def get_opportunities(
     Returns:
         Paginated list of opportunities
     """
+    # Validate cursor before the broad try/except (which would mask it as a 500).
+    if cursor is not None:
+        from app.core.pagination import decode_cursor
+        try:
+            decode_cursor(cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid pagination cursor")
     try:
         from app.models.opportunity_picklists import SalesStage, OpportunityType
         from app.services.visibility_scope import get_visible_owner_ids, apply_visibility_filter
-        
+
         service = OpportunityService()
 
         # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
@@ -308,13 +350,14 @@ async def get_opportunities(
             import re as _re
             filters["name"] = {"$regex": _re.escape(str(search).strip()), "$options": "i"}
 
-        # Get opportunities
-        opportunities, total = await service.get_opportunities_by_tenant(
+        # Get opportunities (keyset "load more" when a cursor is supplied)
+        opportunities, total, next_cursor, has_more = await service.get_opportunities_by_tenant(
             tenant_id=current_user.tenant_id,
             skip=(page - 1) * per_page,
             limit=per_page,
             owner_id=effective_owner_id,
             sales_stage_id=stage_filter,
+            cursor=cursor,
             **filters
         )
         # Get related data names
@@ -325,25 +368,42 @@ async def get_opportunities(
         # 1. Collect all IDs for batch fetching
         sales_stage_ids = {opp.sales_stage_id for opp in opportunities if opp.sales_stage_id}
         opportunity_type_ids = {opp.opportunity_type_id for opp in opportunities if opp.opportunity_type_id}
-        owner_ids = {opp.owner_id for opp in opportunities if opp.owner_id}
         account_ids = {opp.account_id for opp in opportunities if opp.account_id}
+        # owner_name is denormalized on the opportunity (PERF) — only fetch users
+        # for the rows still missing it (after backfill that's an empty set, so
+        # the user lookup disappears entirely).
+        _tid = current_user.tenant_id
+        missing_owner_ids = {opp.owner_id for opp in opportunities
+                             if opp.owner_id and not getattr(opp, 'owner_name', None)}
+
+        async def _users_by_ids(ids):
+            if not ids:
+                return []
+            return await UserDoc.find(
+                {"_id": {"$in": list(ids)}, "tenant_id": _tid, "deleted_at": None}
+            ).to_list()
 
         # 2. Batch fetch related documents — every $in lookup must be
         # tenant-scoped, otherwise a cross-tenant ObjectId in any pivot field
         # would surface another tenant's entity in the response.
-        _tid = current_user.tenant_id
         [stages, opp_types, owners, accounts] = await asyncio.gather(
             SalesStage.find({"_id": {"$in": list(sales_stage_ids)}, "tenant_id": _tid}).to_list(),
             OpportunityType.find({"_id": {"$in": list(opportunity_type_ids)}, "tenant_id": _tid}).to_list(),
-            UserDoc.find({"_id": {"$in": list(owner_ids)}, "tenant_id": _tid, "deleted_at": None}).to_list(),
+            _users_by_ids(missing_owner_ids),
             AccountDoc.find({"_id": {"$in": list(account_ids)}, "tenant_id": _tid, "deleted_at": None}).to_list(),
         )
 
         # 3. Create lookup maps
         stage_map = {s.id: s for s in stages}
         type_map = {t.id: t for t in opp_types}
-        owner_map = {o.id: o for o in owners}
+        owner_map = {o.id: o.name for o in owners}  # fallback names for any un-backfilled rows
         account_map = {a.id: a for a in accounts}
+
+        # PERF: resolve destination names for the whole page in ONE query
+        # (was an N+1 — one DestinationPicklist query per opportunity).
+        dest_name_map = await _build_destination_name_map(
+            [opp.industry_data for opp in opportunities]
+        )
 
         # Convert to response format
         opportunity_responses = []
@@ -351,10 +411,10 @@ async def get_opportunities(
             # Get related data from maps
             sales_stage = stage_map.get(opp.sales_stage_id)
             opportunity_type = type_map.get(opp.opportunity_type_id)
-            owner = owner_map.get(opp.owner_id)
             account = account_map.get(opp.account_id)
-            
-            owner_name = owner.name if owner else "Unknown"
+
+            # Prefer the denormalized owner_name; fall back for un-backfilled rows.
+            owner_name = getattr(opp, 'owner_name', None) or owner_map.get(opp.owner_id) or "Unknown"
             
             account_name = "-"
             is_person_account = False
@@ -373,15 +433,17 @@ async def get_opportunities(
             # Build response
             opp_response = OpportunityResponse.from_orm(opp)
             
-            # Resolve destinations if in travel industry
+            # Resolve destinations from the prebuilt page-wide map (no DB call).
             if opp_response.industry_data and "destination_ids" in opp_response.industry_data:
-                opp_response.industry_data = await _resolve_destinations(opp_response.industry_data)
+                opp_response.industry_data = _apply_destination_names(
+                    opp_response.industry_data, dest_name_map
+                )
 
             if sales_stage:
                 opp_response.sales_stage_name = sales_stage.name
             if opportunity_type:
                 opp_response.opportunity_type_name = opportunity_type.name
-            
+
             opp_response.owner_name = owner_name
             opp_response.account_name = account_name
             opp_response.is_person_account = is_person_account
@@ -396,7 +458,9 @@ async def get_opportunities(
             total=total,
             page=page,
             per_page=per_page,
-            pages=(total + per_page - 1) // per_page
+            pages=((total + per_page - 1) // per_page) if total is not None else None,
+            next_cursor=next_cursor,
+            has_more=has_more,
         )
     
     except Exception as e:
@@ -445,58 +509,117 @@ async def get_opportunity(
         from app.models.account import Account as AccountDoc
         from app.models.contact import Contact as ContactDoc
         
-        sales_stage = None
-        if opportunity.sales_stage_id:
-            sales_stage = await SalesStage.get(opportunity.sales_stage_id)
-        
-        opportunity_type = None
-        if opportunity.opportunity_type_id:
-            opportunity_type = await OpportunityType.get(opportunity.opportunity_type_id)
-        
-        owner_name = "Unknown"
-        if opportunity.owner_id:
-            owner = await UserDoc.get(opportunity.owner_id)
-            if owner:
-                owner_name = owner.name
-        
+        # PERF: collapse up to 6 sequential user .get() calls into ONE
+        # tenant-scoped batch query, and run all remaining independent lookups
+        # concurrently with asyncio.gather (was ~13 serial round-trips).
+        from app.core.tenant_scope import fetch_in_tenant
+        user_ids = [
+            opportunity.owner_id,
+            opportunity.created_by,
+            opportunity.last_modified_by_id,
+            opportunity.bd_owner_id,
+            opportunity.reporting_manager_id,
+            getattr(opportunity, "operation_user_id", None),
+        ]
+        users = await fetch_in_tenant(UserDoc, current_user.tenant_id, user_ids)
+        user_map = {u.id: u for u in users}
+
+        async def _none():
+            return None
+
+        async def _get_territory():
+            try:
+                if opportunity.territory_id:
+                    from app.models.territory import Territory as TerritoryDoc
+                    return await TerritoryDoc.find_one(
+                        {"_id": opportunity.territory_id, "tenant_id": current_user.tenant_id}
+                    )
+            except Exception:
+                pass
+            return None
+
+        async def _get_source():
+            try:
+                if opportunity.source_id:
+                    from app.models.consolidated_picklists import Source
+                    return await Source.get(opportunity.source_id)
+            except Exception:
+                pass
+            return None
+
+        exp_id = (opportunity.industry_data or {}).get("experience_id")
+
+        async def _get_experience():
+            try:
+                if exp_id:
+                    from bson import ObjectId as BsonObjectId
+                    from app.models.opportunity_picklists import Experience as ExperienceDoc
+                    return await ExperienceDoc.get(
+                        BsonObjectId(exp_id) if isinstance(exp_id, str) else exp_id
+                    )
+            except Exception:
+                pass
+            return None
+
+        async def _get_custom_fields():
+            try:
+                from app.services import field_registry_service
+                return await field_registry_service.read_custom_field_values(
+                    "opportunity", opportunity.id, current_user.tenant_id,
+                )
+            except Exception:
+                return {}
+
+        (
+            sales_stage, opportunity_type, account, contact,
+            territory, source, experience, custom_fields,
+        ) = await asyncio.gather(
+            SalesStage.get(opportunity.sales_stage_id) if opportunity.sales_stage_id else _none(),
+            OpportunityType.get(opportunity.opportunity_type_id) if opportunity.opportunity_type_id else _none(),
+            AccountDoc.get(opportunity.account_id) if opportunity.account_id else _none(),
+            ContactDoc.get(opportunity.contact_id) if opportunity.contact_id else _none(),
+            _get_territory(),
+            _get_source(),
+            _get_experience(),
+            _get_custom_fields(),
+        )
+
+        # --- Resolve names from the batched user_map + concurrent results ---
+        owner = user_map.get(opportunity.owner_id)
+        owner_name = owner.name if owner else "Unknown"
+
         account_name = "-"
         is_person_account = False
-        if opportunity.account_id:
-            account = await AccountDoc.get(opportunity.account_id)
-            if account:
-                account_name = account.name
-                is_person_account = getattr(account, 'is_person_account', False)
+        if account:
+            account_name = account.name
+            is_person_account = getattr(account, 'is_person_account', False)
 
-        # Fetch Contact info
         contact_name = None
         contact_email = None
         contact_phone = None
-        if opportunity.contact_id:
-            contact = await ContactDoc.get(opportunity.contact_id)
-            if contact:
-                name_parts = [p for p in [getattr(contact, 'salutation', None), getattr(contact, 'first_name', None), getattr(contact, 'last_name', None)] if p]
-                contact_name = " ".join(name_parts) or None
-                contact_email = getattr(contact, 'email', None)
-                contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
-        
-        # Resolve creator and modifier names
-        created_by_user = await UserDoc.get(opportunity.created_by)
+        if contact:
+            name_parts = [p for p in [getattr(contact, 'salutation', None), getattr(contact, 'first_name', None), getattr(contact, 'last_name', None)] if p]
+            contact_name = " ".join(name_parts) or None
+            contact_email = getattr(contact, 'email', None)
+            contact_phone = getattr(contact, 'phone', None) or getattr(contact, 'mobile', None)
+
+        created_by_user = user_map.get(opportunity.created_by)
         created_by_name = created_by_user.name if created_by_user else "Unknown"
-        
+
         last_modified_by_name = None
         if opportunity.last_modified_by_id:
-            last_modified_by_user = await UserDoc.get(opportunity.last_modified_by_id)
-            if last_modified_by_user:
-                last_modified_by_name = last_modified_by_user.name
-        
+            lm = user_map.get(opportunity.last_modified_by_id)
+            if lm:
+                last_modified_by_name = lm.name
+
         segment = getattr(opportunity, 'segment', None)
         if not segment:
             segment = Segment.default_for_account(is_person_account)
-        
+
         creation_type = "Auto" if getattr(opportunity, 'lead_id', None) else (getattr(opportunity, 'creation_type', None) or "Manual")
 
         opp_response = OpportunityResponse.from_orm(opportunity)
-        
+
         # Resolve destinations if in travel industry
         if opp_response.industry_data and "destination_ids" in opp_response.industry_data:
             opp_response.industry_data = await _resolve_destinations(opp_response.industry_data)
@@ -505,7 +628,7 @@ async def get_opportunity(
             opp_response.sales_stage_name = sales_stage.name
         if opportunity_type:
             opp_response.opportunity_type_name = opportunity_type.name
-        
+
         opp_response.owner_name = owner_name
         opp_response.account_name = account_name
         opp_response.is_person_account = is_person_account
@@ -518,60 +641,24 @@ async def get_opportunity(
         opp_response.segment = segment
         opp_response.creation_type = creation_type
 
-        # BD triple name enrichment for the right-side panel
-        try:
-            from app.models.territory import Territory as TerritoryDoc
-            if opportunity.bd_owner_id:
-                bd_owner = await UserDoc.get(opportunity.bd_owner_id)
-                if bd_owner:
-                    opp_response.bd_owner_name = bd_owner.name
-            if opportunity.reporting_manager_id:
-                mgr = await UserDoc.get(opportunity.reporting_manager_id)
-                if mgr:
-                    opp_response.reporting_manager_name = mgr.name
-            if opportunity.operation_user_id:
-                op_user = await UserDoc.get(opportunity.operation_user_id)
-                if op_user:
-                    opp_response.operation_user_name = op_user.name
-            if opportunity.territory_id:
-                terr = await TerritoryDoc.find_one(
-                    {"_id": opportunity.territory_id, "tenant_id": current_user.tenant_id}
-                )
-                if terr:
-                    opp_response.territory_name = terr.name
-        except Exception:
-            pass
-
-        # Resolve source name
-        try:
-            if opportunity.source_id:
-                from app.models.consolidated_picklists import Source
-                source = await Source.get(opportunity.source_id)
-                if source:
-                    opp_response.source_name = source.name
-        except Exception:
-            pass
-
-        # Resolve experience name (travel industry)
-        try:
-            exp_id = (opportunity.industry_data or {}).get("experience_id")
-            if exp_id:
-                from bson import ObjectId as BsonObjectId
-                from app.models.opportunity_picklists import Experience as ExperienceDoc
-                exp = await ExperienceDoc.get(BsonObjectId(exp_id) if isinstance(exp_id, str) else exp_id)
-                if exp:
-                    opp_response.experience_name = exp.name
-        except Exception:
-            pass
-
-        # Sprint D — populate custom_fields
-        try:
-            from app.services import field_registry_service
-            opp_response.custom_fields = await field_registry_service.read_custom_field_values(
-                "opportunity", opportunity.id, current_user.tenant_id,
-            )
-        except Exception:
-            opp_response.custom_fields = {}
+        # BD triple + territory/source/experience — from batched/concurrent results
+        bd_owner = user_map.get(opportunity.bd_owner_id) if opportunity.bd_owner_id else None
+        if bd_owner:
+            opp_response.bd_owner_name = bd_owner.name
+        mgr = user_map.get(opportunity.reporting_manager_id) if opportunity.reporting_manager_id else None
+        if mgr:
+            opp_response.reporting_manager_name = mgr.name
+        _op_uid = getattr(opportunity, "operation_user_id", None)
+        op_user = user_map.get(_op_uid) if _op_uid else None
+        if op_user:
+            opp_response.operation_user_name = op_user.name
+        if territory:
+            opp_response.territory_name = territory.name
+        if source:
+            opp_response.source_name = source.name
+        if experience:
+            opp_response.experience_name = experience.name
+        opp_response.custom_fields = custom_fields or {}
 
         return opp_response
 

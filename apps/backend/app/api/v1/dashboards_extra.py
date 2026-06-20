@@ -39,6 +39,81 @@ async def _won_stage_ids(tenant_id: PydanticObjectId) -> List[PydanticObjectId]:
     return [s.id for s in stages]
 
 
+# ---------------------------------------------------------------------------
+# Aggregation helpers (PERF) — replace per-user / per-month query loops with a
+# single MongoDB aggregation. A leaderboard or incentive page used to fire
+# N_users (× N_months) opportunity queries; these do it in ONE pass.
+# ---------------------------------------------------------------------------
+
+def _amount_double(field: str = "$amount") -> Dict[str, Any]:
+    """Coerce a (possibly string/missing) numeric field to a double, default 0."""
+    return {"$convert": {"input": field, "to": "double", "onError": 0, "onNull": 0}}
+
+
+async def _aggregate_owner_period(
+    tenant_id: PydanticObjectId,
+    start: datetime,
+    end: datetime,
+    won_ids: List[PydanticObjectId],
+) -> Dict[str, Dict[str, Any]]:
+    """Per-owner opportunity metrics for opps created in [start, end].
+
+    Returns {owner_id_str: {total_count, won_count, revenue, no_of_pax,
+    leads_converted}}. won_ids=[] yields zero won metrics (the $in is always
+    false), matching the old Python behaviour.
+    """
+    won_expr = {"$in": ["$sales_stage_id", won_ids]}
+    pipeline = [
+        {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start, "$lte": end}}},
+        {"$group": {
+            "_id": "$owner_id",
+            "total_count": {"$sum": 1},
+            "won_count": {"$sum": {"$cond": [won_expr, 1, 0]}},
+            "revenue": {"$sum": {"$cond": [won_expr, _amount_double(), 0]}},
+            "no_of_pax": {"$sum": {"$cond": [
+                won_expr, _amount_double("$industry_data.no_of_pax"), 0
+            ]}},
+            "leads_converted": {"$sum": {"$cond": [
+                {"$and": [won_expr, {"$gt": [{"$ifNull": ["$lead_id", None]}, None]}]}, 1, 0
+            ]}},
+        }},
+    ]
+    rows = await Opportunity.aggregate(pipeline).to_list()
+    return {str(r["_id"]): r for r in rows}
+
+
+async def _aggregate_owner_month(
+    tenant_id: PydanticObjectId,
+    start: datetime,
+    end: datetime,
+    won_ids: List[PydanticObjectId],
+) -> Dict[tuple, Dict[str, Any]]:
+    """Per-(owner, year, month) metrics for opps created in [start, end].
+
+    Returns {(owner_id_str, year, month): {total, won, sales_amount}}. Buckets
+    by created_at in UTC (matches how the month windows are built).
+    """
+    won_expr = {"$in": ["$sales_stage_id", won_ids]}
+    pipeline = [
+        {"$match": {"tenant_id": tenant_id, "created_at": {"$gte": start, "$lte": end}}},
+        {"$group": {
+            "_id": {
+                "owner": "$owner_id",
+                "y": {"$year": "$created_at"},
+                "m": {"$month": "$created_at"},
+            },
+            "total": {"$sum": 1},
+            "won": {"$sum": {"$cond": [won_expr, 1, 0]}},
+            "sales_amount": {"$sum": {"$cond": [won_expr, _amount_double(), 0]}},
+        }},
+    ]
+    rows = await Opportunity.aggregate(pipeline).to_list()
+    return {
+        (str(r["_id"]["owner"]), r["_id"]["y"], r["_id"]["m"]): r
+        for r in rows
+    }
+
+
 def _period_bounds(period: str):
     now = datetime.utcnow()
     if period == "last_month":
@@ -67,26 +142,17 @@ async def _compute_leaderboard_rows(
         {"tenant_id": tenant_id, "is_active": True}
     ).to_list()
 
+    # PERF: one aggregation for the whole tenant instead of one query per user.
+    agg = await _aggregate_owner_period(tenant_id, period_start, period_end, won_ids)
+
     rows: List[Dict[str, Any]] = []
     for user in users:
-        # All opportunities owned by this user in the period
-        all_opps = await Opportunity.find({
-            "tenant_id": tenant_id,
-            "owner_id": user.id,
-            "created_at": {"$gte": period_start, "$lte": period_end},
-        }).to_list()
-        total_count = len(all_opps)
-
-        # Won opportunities
-        won_opps = [o for o in all_opps if o.sales_stage_id in won_ids] if won_ids else []
-
-        close_won = len(won_opps)
-        revenue = sum(o.amount or 0 for o in won_opps)
-        no_of_pax = sum(
-            (o.industry_data or {}).get("no_of_pax", 0)
-            for o in won_opps
-        )
-        leads_converted = sum(1 for o in won_opps if o.lead_id)
+        a = agg.get(str(user.id)) or {}
+        total_count = a.get("total_count", 0)
+        close_won = a.get("won_count", 0)
+        revenue = a.get("revenue", 0) or 0
+        no_of_pax = a.get("no_of_pax", 0) or 0
+        leads_converted = a.get("leads_converted", 0)
         ccr = round(close_won / total_count * 100, 2) if total_count else 0.0
 
         metric_map = {
@@ -258,6 +324,14 @@ async def user_incentive_records(
         {"tenant_id": current_user.tenant_id, "is_active": True}
     ).to_list()
 
+    # PERF: ONE aggregation over the full date range instead of (users × months)
+    # opportunity queries (was ~N×12 round-trips per request).
+    range_start = month_buckets[-1][2]  # oldest bucket start
+    range_end = month_buckets[0][3]     # newest bucket end
+    monthly = await _aggregate_owner_month(
+        current_user.tenant_id, range_start, range_end, won_ids
+    )
+
     # Group users by their primary role display name
     groups: Dict[str, List[Dict]] = {}
     for user in users:
@@ -267,20 +341,15 @@ async def user_incentive_records(
 
         records = []
         for year, month, start, end, label in month_buckets:
-            all_opps = await Opportunity.find({
-                "tenant_id": current_user.tenant_id,
-                "owner_id": user.id,
-                "created_at": {"$gte": start, "$lte": end},
-            }).to_list()
-            won_opps = [o for o in all_opps if o.sales_stage_id in won_ids] if won_ids else []
+            r = monthly.get((str(user.id), year, month)) or {}
             records.append({
                 "month_label": label,
                 "year": year,
                 "month": month,
-                "opportunities_won": len(won_opps),
-                "total_opportunities": len(all_opps),
+                "opportunities_won": r.get("won", 0),
+                "total_opportunities": r.get("total", 0),
                 "target": user.monthly_revenue_target or 0,
-                "sales_amount": sum(o.amount or 0 for o in won_opps),
+                "sales_amount": r.get("sales_amount", 0) or 0,
                 "earn_rupees": 0,
                 "mature_rupees": 0,
             })
@@ -325,6 +394,14 @@ async def department_incentive_records(
         {"tenant_id": current_user.tenant_id, "is_active": True}
     ).to_list()
 
+    # PERF: one aggregation for the whole tenant; sum per department in memory
+    # (was department × months opportunity queries).
+    range_start = month_buckets[-1][2]
+    range_end = month_buckets[0][3]
+    monthly = await _aggregate_owner_month(
+        current_user.tenant_id, range_start, range_end, won_ids
+    )
+
     # Group by department_id
     dept_users: Dict[str, List] = {}
     for user in users:
@@ -335,20 +412,21 @@ async def department_incentive_records(
     for dept_name, dept_user_list in dept_users.items():
         records = []
         for year, month, start, end, label in month_buckets:
-            user_ids = [u.id for u in dept_user_list]
-            all_opps = await Opportunity.find({
-                "tenant_id": current_user.tenant_id,
-                "owner_id": {"$in": user_ids},
-                "created_at": {"$gte": start, "$lte": end},
-            }).to_list()
-            won_opps = [o for o in all_opps if o.sales_stage_id in won_ids] if won_ids else []
+            won = total = 0
+            sales_amount = 0.0
+            for u in dept_user_list:
+                r = monthly.get((str(u.id), year, month))
+                if r:
+                    won += r.get("won", 0)
+                    total += r.get("total", 0)
+                    sales_amount += r.get("sales_amount", 0) or 0
             records.append({
                 "month_label": label,
                 "year": year,
                 "month": month,
-                "opportunities_won": len(won_opps),
-                "total_opportunities": len(all_opps),
-                "sales_amount": sum(o.amount or 0 for o in won_opps),
+                "opportunities_won": won,
+                "total_opportunities": total,
+                "sales_amount": sales_amount,
                 "earn_rupees": 0,
                 "mature_rupees": 0,
             })

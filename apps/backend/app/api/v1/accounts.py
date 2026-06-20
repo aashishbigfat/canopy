@@ -17,6 +17,7 @@ from app.services.account_service import AccountService
 from app.api.deps import get_current_user, check_permission
 from app.models.tenant import Tenant
 from app.core.industry_guard import resolve_industry_data
+from app.services.directory_cache import get_active_users
 
 router = APIRouter()
 
@@ -242,9 +243,19 @@ async def get_accounts(
     is_person_account: Optional[bool] = None,
     search: Optional[str] = Query(None, description="Free-text search across name, email, phone, city"),
     view_id: Optional[str] = Query(None, description="Apply a saved AccountView's filters"),
+    cursor: Optional[str] = Query(None, description="Keyset cursor for 'load more' — when set, returns the next page after this cursor and skips the COUNT (O(1) deep pagination)."),
     current_user: User = Depends(check_permission("view_account"))
 ):
     """Get all accounts with pagination, views, and columns"""
+    # Validate the keyset cursor up-front (BEFORE the broad try/except, which
+    # would otherwise swallow this HTTPException into a 500). A malformed/stale
+    # cursor is a client error → 400, not a server error.
+    if cursor is not None:
+        from app.core.pagination import decode_cursor
+        try:
+            decode_cursor(cursor)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid pagination cursor")
     try:
         import asyncio
         from app.models.user_account_view import UserAccountView
@@ -252,11 +263,14 @@ async def get_accounts(
         from app.models.picklists import Industry, AccountType, AccountCategory
         from app.services.visibility_scope import get_visible_owner_ids
         from app.core.picklist_query import build_picklist_query, dedup_picklist_items
-        from app.models.tenant import Tenant
-        
-        # Resolve tenant industry for picklist scoping
-        tenant = await Tenant.get(current_user.tenant_id)
-        tenant_industry = tenant.industry if tenant else None
+        from app.services.industry_service import get_tenant_industry, TenantNotFoundError
+
+        # Resolve tenant industry for picklist scoping (cross-request cached —
+        # avoids a ~one-RTT Tenant.get on every list request).
+        try:
+            tenant_industry = await get_tenant_industry(current_user.tenant_id)
+        except TenantNotFoundError:
+            tenant_industry = None
         # Base query
         query = {
             "tenant_id": current_user.tenant_id,
@@ -352,45 +366,69 @@ async def get_accounts(
         elif is_person_account is False:
             account_view_query["is_person_account"] = {"$ne": True}
 
-        # Run total count, paginated accounts fetch, and all metadata queries in parallel
+        # --- Page fetch: keyset "load more" when a cursor is given, else offset ---
+        # Both orderings are (updated_at desc, _id desc) so the offset page-1 and
+        # the keyset continuation share an exact, index-backed sort with no
+        # duplicate/skipped rows at the page boundary.
+        from app.core.pagination import keyset_page, encode_cursor
+
+        async def _fetch_page():
+            if cursor is not None:
+                return await keyset_page(
+                    Account, query, sort_field="updated_at",
+                    direction="desc", limit=per_page, cursor=cursor,
+                )
+            rows = await Account.find(query).sort(
+                [("updated_at", -1), ("_id", -1)]
+            ).skip(skip).limit(per_page).to_list()
+            nc = encode_cursor(rows[-1].updated_at, rows[-1].id) if rows else None
+            return {"items": rows, "next_cursor": nc, "has_more": len(rows) == per_page}
+
+        async def _count():
+            # The COUNT is the expensive full-filtered-set scan. Run it only on the
+            # first (offset) load so deep "load more" pages stay O(1).
+            if cursor is not None:
+                return None
+            return await Account.find(query).count()
+
+        # Run page fetch, count, and all metadata queries in parallel.
         # picklist_type prevents cross-contamination in shared 'picklists' collection
         (
+            page_result,
             total,
-            accounts,
             account_views,
             users,
             industries_raw,
             acc_types_raw,
             categories_raw,
         ) = await asyncio.gather(
-            # 1. Total count
-            Account.find(query).count(),
-            # 2. Paginated accounts (sorted by most-recently-updated)
-            Account.find(query).sort("-updated_at").skip(skip).limit(per_page).to_list(),
-            # 3. Account views (scoped to this list type)
+            _fetch_page(),
+            _count(),
+            # Account views (scoped to this list type)
             AccountView.find(account_view_query).to_list(),
-            # 4. Users for owner selection
-            User.find({
-                "tenant_id": current_user.tenant_id,
-                "is_active": True
-            }).sort("+name").to_list(),
-            # 5. Industries (platform defaults + tenant overrides)
+            # Users for owner selection (cached per tenant, 60s TTL)
+            get_active_users(tenant_id=str(current_user.tenant_id)),
+            # Industries (platform defaults + tenant overrides)
             Industry.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="industry")).sort("+sorting").to_list(),
-            # 6. Account types (platform defaults + tenant overrides)
+            # Account types (platform defaults + tenant overrides)
             AccountType.find(build_picklist_query(current_user.tenant_id, industry=tenant_industry, picklist_type="account_type")).sort("+sorting").to_list(),
-            # 7. Account categories (platform defaults + tenant overrides)
+            # Account categories (platform defaults + tenant overrides)
             AccountCategory.find(build_picklist_query(current_user.tenant_id, picklist_type="account_category")).sort("+sorting").to_list(),
         )
+
+        accounts = page_result["items"]
+        next_cursor = page_result["next_cursor"]
+        has_more = page_result["has_more"]
 
         # Tenant items shadow platform defaults with same name
         industries = dedup_picklist_items(industries_raw)
         acc_types = dedup_picklist_items(acc_types_raw)
         categories = dedup_picklist_items(categories_raw)
 
-        pages = (total + per_page - 1) // per_page
-        
-        # Build lookup maps
-        user_map = {str(u.id): u.name for u in users}
+        pages = ((total + per_page - 1) // per_page) if total is not None else None
+
+        # Build lookup maps (users come from the cached directory as dicts)
+        user_map = {u["id"]: u["name"] for u in users}
         acc_type_map = {str(t.id): t.name for t in acc_types}
         category_map = {str(c.id): c.name for c in categories}
         
@@ -447,6 +485,10 @@ async def get_accounts(
                 "per_page": per_page,
                 "pages": pages
             },
+            # Keyset cursor for "load more" — O(1) deep pagination. `next_cursor`
+            # is null when there are no more rows.
+            "next_cursor": next_cursor,
+            "has_more": has_more,
             "account_views": [
                 {
                     "id": str(v.id),
@@ -464,7 +506,7 @@ async def get_accounts(
                 } for c in display_columns
             ],
             "users": [
-                {"id": str(u.id), "name": u.name, "email": u.email}
+                {"id": u["id"], "name": u["name"], "email": u["email"]}
                 for u in users
             ],
             "industries": [

@@ -112,12 +112,17 @@ export interface OpportunityFilters {
     view?: string;
     // Saved EntityView id (opportunity) whose stored filters the server should apply.
     view_id?: string;
+    // Keyset "load more" cursor (O(1) deep pagination; skips the COUNT).
+    cursor?: string;
 }
 
 export interface OpportunityResponse {
     opportunities: Opportunity[];
-    total: number;
+    total: number | null;
     page: number;
     per_page: number;
-    pages: number;
+    pages: number | null;
+    // Keyset pagination for "load more".
+    next_cursor?: string | null;
+    has_more?: boolean;
 }

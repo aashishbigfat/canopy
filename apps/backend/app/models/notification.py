@@ -6,6 +6,7 @@ from pydantic import Field
 from typing import Optional, Dict, Any
 from beanie import PydanticObjectId
 from datetime import datetime
+from pymongo import IndexModel
 from app.models.base import BaseDocument
 
 
@@ -38,8 +39,16 @@ class Notification(BaseDocument):
     
     class Settings:
         name = "notifications"
-        # indexes = [
-        # "user_id", "tenant_id", "is_read",
-        # [("user_id", 1), ("is_read", 1), ("created_at", -1)],
-            # [("user_id", 1), ("created_at", -1)],
-        # ]
+        indexes = [
+            # Supports the bell/list query: filter by user + read state, newest first.
+            [("user_id", 1), ("is_read", 1), ("created_at", -1)],
+            # TTL — auto-delete notifications 7 days after creation. Hard delete,
+            # silent and unstoppable; notifications are ephemeral dashboard data
+            # (mirrors LocationPing's TTL). Changing the window later requires a
+            # collMod/recreate — Mongo won't alter expireAfterSeconds from here.
+            IndexModel(
+                [("created_at", 1)],
+                expireAfterSeconds=7 * 24 * 3600,  # 604800 = 1 week
+                name="notifications_ttl",
+            ),
+        ]

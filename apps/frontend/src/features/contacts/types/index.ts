@@ -70,15 +70,19 @@ export interface ContactFilters {
     view_id?: string;
     sort_by?: string;
     sort_order?: 'asc' | 'desc';
+    // Keyset "load more" cursor (O(1) deep pagination; skips the COUNT).
+    cursor?: string;
 }
 
 export interface ContactResponse {
     contacts: Contact[];
     pagination: {
         current_page: number;
-        total: number;
+        total: number | null;
         per_page: number;
-        pages: number;
+        pages: number | null;
     };
+    next_cursor?: string | null;
+    has_more?: boolean;
     users?: any[];
 }

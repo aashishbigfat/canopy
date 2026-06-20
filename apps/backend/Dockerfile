@@ -35,5 +35,10 @@ COPY . .
 # Expose port
 EXPOSE 8000
 
-# Command to run the application
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips", "*"]
+# Command to run the application.
+# PERF: run multiple worker processes so one slow request can't block all
+# others (was a single process). Worker count is configurable via WEB_CONCURRENCY
+# (default 4); size it to roughly 2*CPU+1 for the deploy host. Redis is the
+# shared cache/rate-limit store, so workers stay coherent.
+# Shell form is used intentionally so ${WEB_CONCURRENCY} is expanded at runtime.
+CMD uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips "*" --workers ${WEB_CONCURRENCY:-4}

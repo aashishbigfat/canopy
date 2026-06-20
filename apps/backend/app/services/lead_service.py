@@ -334,6 +334,10 @@ class LeadService(ActivityMixin):
         # Create notification for lead assignment if owner changed
         if 'owner_id' in updated_fields and updated_fields['owner_id'] != original_values['owner_id']:
             new_owner_id = ObjectId(updated_fields['owner_id'])
+            # PERF: keep denormalized owner_name in sync on reassignment.
+            from app.services.denormalize import resolve_owner_name
+            lead.owner_name = await resolve_owner_name(tenant_id, new_owner_id)
+            await lead.save()
             await self.notification_service.notify_user(
                 user_id=new_owner_id,
                 tenant_id=tenant_id,
@@ -1311,8 +1315,13 @@ class LeadService(ActivityMixin):
         search: Optional[str] = None,
         lead_status_id: Optional[str] = None,
         view_id: Optional[str] = None,
+        cursor: Optional[str] = None,
     ) -> Dict:
-        """Get leads with metadata (statuses, sources, users, etc.)"""
+        """Get leads with metadata (statuses, sources, users, etc.).
+
+        `cursor` switches the main (non-recency) path to keyset "load more"
+        (O(1) deep paging, COUNT skipped → pagination.total is None).
+        """
 
         # 1. Build base query / special view queries
         base_filter: dict = {"tenant_id": tenant_id, "deleted_at": None}
@@ -1389,12 +1398,19 @@ class LeadService(ActivityMixin):
         elif view == "last_week":
             base_filter["created_at"] = {"$gte": last_week_start, "$lt": tomorrow_start}
 
-        # Recently viewed: use UserLeadView ordering
+        # Pagination — keyset "load more" (cursor) on the main path, offset
+        # fallback. next_cursor/has_more travel inside the pagination dict.
+        next_cursor = None
+        has_more = False
+
+        # Recently viewed: use UserLeadView ordering. This is a bounded (<=200)
+        # set ordered by view-recency, NOT created_at, so keyset doesn't apply —
+        # keep the in-memory slice (already bounded, not a scale risk).
         if view in ("recent", "recently_viewed") and current_user_id:
             recent_views = await UserLeadView.find(
                 {"user_id": current_user_id, "tenant_id": tenant_id}
             ).sort("-updated_at").limit(200).to_list()
-            
+
             lead_ids = [rv.lead_id for rv in recent_views]
             if lead_ids:
                 recent_filter: dict = {"_id": {"$in": lead_ids}, "tenant_id": tenant_id, "deleted_at": None}
@@ -1402,31 +1418,52 @@ class LeadService(ActivityMixin):
                 if visible_owner_ids is not None:
                     recent_filter["owner_id"] = {"$in": visible_owner_ids}
 
-                leads = await Lead.find(recent_filter).to_list()
-                lead_map = {l.id: l for l in leads}
+                _found = await Lead.find(recent_filter).to_list()
+                lead_map = {l.id: l for l in _found}
                 all_leads = [lead_map[lid] for lid in lead_ids if lid in lead_map]
             else:
                 all_leads = []
+            total = len(all_leads)
+            skip = (page - 1) * per_page
+            leads = all_leads[skip: skip + per_page]
+            pages = (total + per_page - 1) // per_page if per_page > 0 else 0
+            has_more = skip + per_page < total
         else:
-            # Sort by created_at desc for all other views
-            all_leads = await Lead.find(base_filter).sort("-created_at").to_list()
-
-        # Paginate
-        total = len(all_leads)
-        skip = (page - 1) * per_page
-        leads = all_leads[skip : skip + per_page]
-        pages = (total + per_page - 1) // per_page if per_page > 0 else 0
+            # Main path: paginate IN THE DB instead of loading every matching
+            # lead into memory and slicing in Python (was unbounded at scale).
+            from app.core.pagination import keyset_page, encode_cursor
+            if cursor is not None:
+                pr = await keyset_page(
+                    Lead, base_filter, sort_field="created_at",
+                    direction="desc", limit=per_page, cursor=cursor,
+                )
+                leads = pr["items"]
+                next_cursor = pr["next_cursor"]
+                has_more = pr["has_more"]
+                total = None
+                pages = None
+            else:
+                skip = (page - 1) * per_page
+                total = await Lead.find(base_filter).count()
+                leads = await Lead.find(base_filter).sort(
+                    [("created_at", -1), ("_id", -1)]
+                ).skip(skip).limit(per_page).to_list()
+                next_cursor = encode_cursor(leads[-1].created_at, leads[-1].id) if leads else None
+                has_more = len(leads) == per_page
+                pages = (total + per_page - 1) // per_page if per_page > 0 else 0
 
         # 2. Fetch Metadata in parallel (except sales stages which need special handling)
         import asyncio
         from app.models.opportunity_picklists import Experience, SalesStage
         from app.models.lead_picklists import SourceMedium
         from app.core.picklist_query import build_picklist_query
-        from app.models.tenant import Tenant
-        
-        # Resolve tenant industry for picklist scoping
-        tenant = await Tenant.get(tenant_id)
-        tenant_industry = tenant.industry if tenant else None
+
+        # Resolve tenant industry for picklist scoping (cross-request cached).
+        from app.services.industry_service import get_tenant_industry, TenantNotFoundError
+        try:
+            tenant_industry = await get_tenant_industry(tenant_id)
+        except TenantNotFoundError:
+            tenant_industry = None
         
         # Fetch regular metadata in parallel (platform defaults + tenant overrides)
         # Each query uses picklist_type to avoid cross-contamination in shared collection
@@ -1462,6 +1499,8 @@ class LeadService(ActivityMixin):
                 "total": total,
                 "per_page": per_page,
                 "pages": pages,
+                "next_cursor": next_cursor,
+                "has_more": has_more,
             },
             "lead_statuses": [
                 {"id": str(ls.id), "name": ls.name, "color": ls.color}
