@@ -107,6 +107,25 @@ async def lifespan(app: FastAPI):
     # Startup
     await init_db()
     await init_cache()
+
+    # PERF/correctness: with multiple Uvicorn workers the per-process in-memory
+    # cache fallback is NOT shared, so the visibility/directory caches would
+    # diverge between workers. Redis must be the active backend in production.
+    try:
+        from app.core.cache import get_cache_status
+        _cache_status = await get_cache_status()
+        if _cache_status.get("backend") != "redis":
+            msg = (
+                "Cache backend is '%s', not redis. With multiple workers this "
+                "yields incoherent caches across processes — check REDIS_URL/connectivity."
+            )
+            if settings.ENVIRONMENT == "production":
+                _logger.critical(msg, _cache_status.get("backend"))
+            else:
+                _logger.warning(msg, _cache_status.get("backend"))
+    except Exception:
+        _logger.exception("Cache backend health check failed at startup")
+
     yield
     # Shutdown (cleanup if needed)
     await close_cache()

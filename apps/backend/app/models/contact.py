@@ -1,7 +1,7 @@
 """
 Contact model matching Laravel Contact
 """
-from beanie import Indexed
+from beanie import Indexed, before_event, Insert
 from pydantic import EmailStr, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -48,11 +48,15 @@ class Contact(BaseDocument):
     # References
     tenant_id: Indexed(PydanticObjectId)
     owner_id: Indexed(PydanticObjectId)
+    # Denormalized owner name (PERF, server-managed; not a form field).
+    owner_name: Optional[str] = None
     created_by: PydanticObjectId
     last_modified_by_id: Optional[PydanticObjectId] = None
-    
+
     # Account relationship (primary account)
     account_id: Optional[Indexed(PydanticObjectId)] = None
+    # Denormalized account name (PERF, server-managed; not a form field).
+    account_name: Optional[str] = None
     
     # Custom Fields
     custom_fields: Dict[str, Any] = Field(default_factory=dict)
@@ -71,6 +75,15 @@ class Contact(BaseDocument):
     reporting_manager_id: Optional[PydanticObjectId] = None
     territory_match_source: Optional[str] = None
     territory_assigned_at: Optional[datetime] = None
+
+    @before_event(Insert)
+    async def _denormalize_names(self):
+        """PERF: populate owner_name + account_name on create."""
+        from app.services.denormalize import resolve_owner_name, resolve_account_name
+        if self.owner_id and not self.owner_name:
+            self.owner_name = await resolve_owner_name(self.tenant_id, self.owner_id)
+        if self.account_id and not self.account_name:
+            self.account_name = await resolve_account_name(self.tenant_id, self.account_id)
 
     class Settings:
         name = "contacts"

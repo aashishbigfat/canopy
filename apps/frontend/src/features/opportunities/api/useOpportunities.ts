@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { opportunitiesService } from "@/lib/api/services/opportunities.service";
 import { OpportunityFilters, OpportunityCreateData } from "../types";
@@ -9,6 +9,23 @@ export const useOpportunities = (filters: OpportunityFilters = { page: 1, per_pa
         queryFn: () => opportunitiesService.getOpportunities(filters),
         staleTime: 30_000, // 30 seconds – fresh enough for CRM, prevents duplicate fetches
         placeholderData: keepPreviousData,
+    });
+};
+
+/**
+ * Keyset "load more" opportunities. Page 1 fetches offset (with total + cursor);
+ * each subsequent page uses the cursor (O(1) deep paging, COUNT skipped). Feeds
+ * both the flat list and the kanban (which groups the accumulated rows).
+ */
+export const useInfiniteOpportunities = (filters: OpportunityFilters = {}) => {
+    return useInfiniteQuery({
+        queryKey: ["opportunities", "infinite", filters],
+        queryFn: ({ pageParam }) =>
+            opportunitiesService.getOpportunities({ ...filters, cursor: pageParam as string | undefined }),
+        initialPageParam: undefined as string | undefined,
+        getNextPageParam: (lastPage: any) =>
+            lastPage?.has_more ? (lastPage.next_cursor ?? undefined) : undefined,
+        staleTime: 30_000,
     });
 };
 
@@ -104,6 +121,21 @@ export const useUpdateOpportunityStage = () => {
                     };
                 }
 
+                // Handle Infinite Response (pages of list responses)
+                if (old.pages && Array.isArray(old.pages)) {
+                    return {
+                        ...old,
+                        pages: old.pages.map((pg: any) => ({
+                            ...pg,
+                            opportunities: (pg.opportunities || []).map((opp: any) =>
+                                opp.id === newOpportunity.id
+                                    ? { ...opp, sales_stage_id: newOpportunity.stageId }
+                                    : opp
+                            ),
+                        })),
+                    };
+                }
+
                 // Handle Single Record Response
                 if (old.id === newOpportunity.id) {
                     return { ...old, sales_stage_id: newOpportunity.stageId };
@@ -126,6 +158,17 @@ export const useUpdateOpportunityStage = () => {
                         opportunities: old.opportunities.map((opp: any) =>
                             opp.id === data.id ? data : opp
                         ),
+                    };
+                }
+                if (old.pages && Array.isArray(old.pages)) {
+                    return {
+                        ...old,
+                        pages: old.pages.map((pg: any) => ({
+                            ...pg,
+                            opportunities: (pg.opportunities || []).map((opp: any) =>
+                                opp.id === data.id ? data : opp
+                            ),
+                        })),
                     };
                 }
                 return old;
@@ -253,6 +296,19 @@ export const useChangeOpportunityOwner = () => {
                         opportunities: old.opportunities.map((opp: any) =>
                             opp.id === newOwner.id ? patch(opp) : opp
                         ),
+                    };
+                }
+
+                // Handle Infinite Response (pages of list responses)
+                if (old.pages && Array.isArray(old.pages)) {
+                    return {
+                        ...old,
+                        pages: old.pages.map((pg: any) => ({
+                            ...pg,
+                            opportunities: (pg.opportunities || []).map((opp: any) =>
+                                opp.id === newOwner.id ? patch(opp) : opp
+                            ),
+                        })),
                     };
                 }
 

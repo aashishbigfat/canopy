@@ -9,7 +9,6 @@ import {
     flexRender,
     getCoreRowModel,
     getFilteredRowModel,
-    getPaginationRowModel,
     getSortedRowModel,
     useReactTable,
 } from "@tanstack/react-table";
@@ -175,21 +174,61 @@ export function PersonAccountTable({
     pagination,
     views = [],
     activeViewId,
+    nextCursor = null,
+    hasMore = false,
 }: {
     data: Account[],
     pagination: {
         current_page: number;
-        total: number;
+        total: number | null;
         per_page: number;
-        pages: number;
+        pages: number | null;
     },
     views?: AccountListView[];
     activeViewId?: string;
+    nextCursor?: string | null;
+    hasMore?: boolean;
 }) {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [isPending, startTransition] = React.useTransition();
+
+    // ── Keyset "load more" (infinite scroll) — same backend endpoint as company
+    // accounts, with is_person_account=true. SSR seeds page 1; cursor appends. ──
+    const [rows, setRows] = React.useState<Account[]>(data);
+    const [cursor, setCursor] = React.useState<string | null>(nextCursor);
+    const [moreAvailable, setMoreAvailable] = React.useState<boolean>(hasMore);
+    const [loadingMore, setLoadingMore] = React.useState(false);
+
+    React.useEffect(() => {
+        setRows(data);
+        setCursor(nextCursor);
+        setMoreAvailable(hasMore);
+    }, [data, nextCursor, hasMore]);
+
+    const loadMore = React.useCallback(async () => {
+        if (!cursor || loadingMore) return;
+        setLoadingMore(true);
+        try {
+            const res = await accountService.getAccounts({
+                is_person_account: true,
+                per_page: pagination.per_page,
+                search: searchParams.get("search") || undefined,
+                owner_id: searchParams.get("owner_id") || undefined,
+                view_id: searchParams.get("view_id") || undefined,
+                billing_city: searchParams.get("billing_city") || undefined,
+                cursor,
+            });
+            setRows((prev) => [...prev, ...res.accounts]);
+            setCursor(res.next_cursor ?? null);
+            setMoreAvailable(!!res.has_more);
+        } catch (e: any) {
+            toast.error(e?.response?.data?.detail || "Failed to load more");
+        } finally {
+            setLoadingMore(false);
+        }
+    }, [cursor, loadingMore, pagination.per_page, searchParams]);
 
     const [detailId, setDetailId] = React.useState<string | null>(null);
     const [detailOpen, setDetailOpen] = React.useState(false);
@@ -467,14 +506,12 @@ export function PersonAccountTable({
     ], [openDetail, refresh]);
 
     const table = useReactTable({
-        data,
+        data: rows,
         columns,
-        pageCount: pagination.pages,
         manualPagination: true,
         onSortingChange: setSorting,
         onColumnFiltersChange: setColumnFilters,
         getCoreRowModel: getCoreRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         onColumnVisibilityChange: setColumnVisibility,
@@ -719,37 +756,21 @@ export function PersonAccountTable({
             </div>
             <div className="flex items-center justify-end space-x-2 border-t px-4 py-4">
                 <div className="flex-1 text-sm text-muted-foreground">
-                    Showing {data.length} of {pagination.total} records
+                    Showing {rows.length}
+                    {pagination.total != null ? ` of ${pagination.total}` : "+"} records
                 </div>
-                <div className="space-x-2">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.set("page", (pagination.current_page - 1).toString());
-                            startTransition(() => {
-                                router.push(`${pathname}?${params.toString()}`);
-                            });
-                        }}
-                        disabled={pagination.current_page <= 1}
-                    >
-                        Previous
-                    </Button>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                            const params = new URLSearchParams(searchParams.toString());
-                            params.set("page", (pagination.current_page + 1).toString());
-                            startTransition(() => {
-                                router.push(`${pathname}?${params.toString()}`);
-                            });
-                        }}
-                        disabled={pagination.current_page >= pagination.pages}
-                    >
-                        Next
-                    </Button>
+                <div>
+                    {moreAvailable ? (
+                        <Button variant="outline" size="sm" onClick={loadMore} disabled={loadingMore}>
+                            {loadingMore ? (
+                                <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…</>
+                            ) : (
+                                "Load more"
+                            )}
+                        </Button>
+                    ) : (
+                        <span className="text-xs text-muted-foreground">All records loaded</span>
+                    )}
                 </div>
             </div>
             {/* Save a named view */}

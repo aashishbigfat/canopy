@@ -78,7 +78,9 @@ class User(BaseDocument):
     
     class Settings:
         name = "users"
-        # Indexes temporarily disabled to fix startup
+        # Indexes are managed OUT OF BAND by scripts/create_indexes.py (run as a
+        # deploy step), NOT here — auto-creating them at init_beanie crashed boot.
+        # Do not re-enable this block; add new indexes to that script instead.
         # indexes = [
         #     "email",
         #     "tenant_id",

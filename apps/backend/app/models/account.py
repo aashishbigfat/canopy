@@ -1,4 +1,4 @@
-from beanie import Indexed
+from beanie import Indexed, before_event, Insert
 from pydantic import EmailStr, Field, field_validator
 from typing import Optional, List, Dict, Any
 from datetime import datetime
@@ -40,6 +40,11 @@ class Account(BaseDocument):
     # References
     tenant_id: Indexed(PydanticObjectId)
     owner_id: Indexed(PydanticObjectId)
+    # Denormalized owner name (PERF) — server-managed copy of the owner User's
+    # name so list endpoints don't have to join users. NOT a form field; set on
+    # create / change-owner and propagated on user rename. Reads fall back to a
+    # live lookup when missing.
+    owner_name: Optional[str] = None
     created_by: PydanticObjectId
     last_modified_by_id: Optional[PydanticObjectId] = None
     
@@ -84,6 +89,13 @@ class Account(BaseDocument):
             return None
         return v
     
+    @before_event(Insert)
+    async def _denormalize_names(self):
+        """PERF: populate owner_name on create (catches all create paths)."""
+        if self.owner_id and not self.owner_name:
+            from app.services.denormalize import resolve_owner_name
+            self.owner_name = await resolve_owner_name(self.tenant_id, self.owner_id)
+
     class Settings:
         name = "accounts"
         indexes = [

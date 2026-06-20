@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { useIndustryLabels } from "@/lib/industry-labels";
 
 import { LeadTable } from "@/features/leads/components/LeadTable";
-import { useLeads } from "@/features/leads/api/useLeads";
+import { useInfiniteLeads } from "@/features/leads/api/useLeads";
 import { leadsService } from "@/lib/api/services/leads.service";
 import { LeadFormDrawer } from "@/features/leads/components/LeadFormDrawer";
 import { PermissionGate } from "@/components/permissions/PermissionGate";
@@ -35,8 +35,14 @@ export default function LeadsClientPage() {
     const owner_id = searchParams.get("owner_id") || undefined;
     const lead_status_id = searchParams.get("lead_status_id") || undefined;
 
-    const { data: response, isLoading, error } = useLeads({
-        page,
+    const {
+        data: infinite,
+        isLoading,
+        error,
+        fetchNextPage,
+        hasNextPage,
+        isFetchingNextPage,
+    } = useInfiniteLeads({
         per_page,
         search,
         view,
@@ -44,6 +50,12 @@ export default function LeadsClientPage() {
         owner_id,
         lead_status_id,
     });
+
+    // Flatten the loaded pages into the response shape the page/table expect:
+    // accumulated leads, with metadata + total taken from the first page.
+    const response = infinite
+        ? { ...infinite.pages[0], leads: infinite.pages.flatMap((p) => p.leads) }
+        : undefined;
 
     // Bulk Delete Mutation
     const bulkDeleteMutation = useMutation({
@@ -180,6 +192,9 @@ export default function LeadsClientPage() {
                     experiences={response.experiences}
                     sales_stages={response.sales_stages}
                     isLoading={isLoading}
+                    hasMore={!!hasNextPage}
+                    onLoadMore={() => fetchNextPage()}
+                    isLoadingMore={isFetchingNextPage}
                     selectedIds={selectedLeads}
                     onSelectOne={handleSelectLead}
                     onSelectAll={handleSelectAll}

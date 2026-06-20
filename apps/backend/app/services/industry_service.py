@@ -17,8 +17,9 @@ This service:
 """
 from __future__ import annotations
 
+import time
 from contextvars import ContextVar
-from typing import Dict, Literal
+from typing import Dict, Literal, Tuple
 
 from bson import ObjectId
 
@@ -31,6 +32,20 @@ from app.models.tenant import Tenant
 _industry_cache: ContextVar[Dict[str, str]] = ContextVar(
     "industry_cache", default={}
 )
+
+# PERF: process-level cache that survives ACROSS requests. A tenant's industry is
+# effectively immutable, so the per-request ContextVar above still cost one DB
+# round-trip on every request. This removes that ~one-RTT-per-request tax for
+# every caller of get_tenant_industry (list endpoints, dashboards, validators).
+# Per-worker by design (read-mostly, immutable data); the TTL bounds staleness if
+# an industry ever changes. Call invalidate_tenant_industry() to clear early.
+_PROCESS_TTL_SECONDS = 600
+_process_industry_cache: Dict[str, Tuple[str, float]] = {}
+
+
+def invalidate_tenant_industry(tenant_id: ObjectId | str) -> None:
+    """Drop the cross-request industry cache for a tenant (call if it changes)."""
+    _process_industry_cache.pop(str(tenant_id), None)
 
 
 class TenantNotFoundError(LookupError):
@@ -50,6 +65,12 @@ async def get_tenant_industry(tenant_id: ObjectId | str) -> str:
     cache = _industry_cache.get()
     if key in cache:
         return cache[key]
+
+    # Cross-request process cache (skips the DB round-trip entirely on a hit).
+    hit = _process_industry_cache.get(key)
+    if hit is not None and hit[1] > time.monotonic():
+        cache[key] = hit[0]
+        return hit[0]
 
     try:
         oid = ObjectId(tenant_id) if not isinstance(tenant_id, ObjectId) else tenant_id
@@ -71,6 +92,7 @@ async def get_tenant_industry(tenant_id: ObjectId | str) -> str:
     # Update the cache in place — ContextVar.set would create a new dict per
     # update; mutating the existing dict is fine since the var is per-task.
     cache[key] = industry
+    _process_industry_cache[key] = (industry, time.monotonic() + _PROCESS_TTL_SECONDS)
     return industry
 
 

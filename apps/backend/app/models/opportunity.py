@@ -5,7 +5,7 @@ Travel-specific fields (travel_date, no_of_pax, destination_ids, etc.) have been
 migrated to the `industry_data` dict. All industries (including travel) now
 store their metadata in `industry_data`.
 """
-from beanie import Indexed
+from beanie import Indexed, before_event, Insert
 from pydantic import Field
 from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
@@ -31,6 +31,8 @@ class Opportunity(BaseDocument):
     
     # Direct relationships
     account_id: Optional[PydanticObjectId] = None  # For direct account link
+    # Denormalized account name (PERF, server-managed; not a form field).
+    account_name: Optional[str] = None
     contact_id: Optional[PydanticObjectId] = None
     lead_id: Optional[PydanticObjectId] = None  # If converted from lead
     
@@ -47,6 +49,8 @@ class Opportunity(BaseDocument):
     
     # Team & Operations
     owner_id: Indexed(PydanticObjectId)
+    # Denormalized owner name (PERF, server-managed; not a form field).
+    owner_name: Optional[str] = None
     operation_user_id: Optional[PydanticObjectId] = None
     team_member_ids: List[PydanticObjectId] = Field(default_factory=list)
 
@@ -98,6 +102,15 @@ class Opportunity(BaseDocument):
     # Human-readable sequential display ID (per-tenant, zero-padded to 10 digits on frontend)
     opportunity_number: Optional[int] = None
     
+    @before_event(Insert)
+    async def _denormalize_names(self):
+        """PERF: populate owner_name + account_name on create."""
+        from app.services.denormalize import resolve_owner_name, resolve_account_name
+        if self.owner_id and not self.owner_name:
+            self.owner_name = await resolve_owner_name(self.tenant_id, self.owner_id)
+        if self.account_id and not self.account_name:
+            self.account_name = await resolve_account_name(self.tenant_id, self.account_id)
+
     class Settings:
         name = "opportunities"
         indexes = [

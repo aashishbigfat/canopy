@@ -217,15 +217,20 @@ export interface LeadFilters {
     view?: string;
     // Saved EntityView id (lead) whose stored filters the server should apply.
     view_id?: string;
+    // Keyset "load more" cursor (O(1) deep pagination; skips the COUNT).
+    cursor?: string;
 }
 
 export interface LeadResponse {
     leads: Lead[];
     pagination: {
         current_page: number;
-        total: number;
+        total: number | null;
         per_page: number;
-        pages: number;
+        pages: number | null;
+        // Keyset pagination (inside pagination for leads).
+        next_cursor?: string | null;
+        has_more?: boolean;
     };
     lead_statuses: LeadStatus[];
     sources: Source[];

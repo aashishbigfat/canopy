@@ -43,6 +43,7 @@ class File(BaseDocument):
     
     class Settings:
         name = "files"
+        # Indexes managed out of band by scripts/create_indexes.py (deploy step).
         # indexes = [
         # "tenant_id",
         # "owner_id",

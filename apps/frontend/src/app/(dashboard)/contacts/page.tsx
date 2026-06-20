@@ -67,6 +67,8 @@ export default async function ContactsPage({
                     data={contactsData.contacts}
                     pagination={contactsData.pagination}
                     users={contactsData.users}
+                    nextCursor={contactsData.next_cursor ?? null}
+                    hasMore={contactsData.has_more ?? false}
                 />
             </div>
         </div>

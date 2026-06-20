@@ -46,6 +46,7 @@ class Task(BaseDocument):
     
     class Settings:
         name = "tasks"
+        # Indexes managed out of band by scripts/create_indexes.py (deploy step).
         # indexes = [
         # "tenant_id",
         # "assigned_user_id",

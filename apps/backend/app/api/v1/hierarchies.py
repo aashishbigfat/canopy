@@ -19,6 +19,7 @@ from app.schemas.hierarchy import (
     HierarchyUpdate,
 )
 from app.services.hierarchy_service import HierarchyService
+from app.services.scope_cache import invalidate_scope_cache
 
 router = APIRouter()
 
@@ -86,6 +87,8 @@ async def create_hierarchy(
     service = HierarchyService()
     try:
         hierarchy = await service.create_hierarchy(hierarchy_data, current_user.id, current_user.tenant_id)
+        # PERF: hierarchy structure feeds visible-scope computation for the tenant.
+        await invalidate_scope_cache(current_user.tenant_id)
         return await _build_response(hierarchy, current_user.tenant_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -130,6 +133,8 @@ async def update_hierarchy(
         hierarchy = await service.update_hierarchy(hierarchy_id, hierarchy_data, current_user.tenant_id)
         if not hierarchy:
             raise HTTPException(status_code=404, detail="Hierarchy not found")
+        # PERF: re-parenting a node changes managers' visible scope.
+        await invalidate_scope_cache(current_user.tenant_id)
         return await _build_response(hierarchy, current_user.tenant_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -145,6 +150,8 @@ async def delete_hierarchy(
         success = await service.delete_hierarchy(hierarchy_id, current_user.tenant_id)
         if not success:
             raise HTTPException(status_code=404, detail="Hierarchy not found")
+        # PERF: removing a node changes the tenant's visible-scope computation.
+        await invalidate_scope_cache(current_user.tenant_id)
         return {"error": False, "message": "Hierarchy deleted successfully"}
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))

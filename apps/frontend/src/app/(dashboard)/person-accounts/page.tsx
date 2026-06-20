@@ -68,6 +68,8 @@ export default async function PersonAccountsPage({
                     pagination={accountsData.pagination}
                     views={accountViews}
                     activeViewId={view_id}
+                    nextCursor={accountsData.next_cursor ?? null}
+                    hasMore={accountsData.has_more ?? false}
                 />
             </div>
         </div>

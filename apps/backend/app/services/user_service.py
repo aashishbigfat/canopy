@@ -12,11 +12,12 @@ from app.schemas.user import (
     UserTargetUpdate
 )
 from app.mixins.activity_mixin import ActivityMixin
+from app.core.cache import invalidate_tenant_cache
 
 
 class UserService(ActivityMixin):
     """Service for User business logic"""
-    
+
     def __init__(self):
         super().__init__()
     
@@ -84,7 +85,11 @@ class UserService(ActivityMixin):
         validate_user_record(user, is_create=True)
         
         await user.insert()
-        
+
+        # PERF: a new user widens the active-user directory and can widen a
+        # manager's visible scope — clear the tenant's cached lookups + scopes.
+        await invalidate_tenant_cache(str(user.tenant_id))
+
         # Log user creation
         await self.log_entity_created(
             entity=user,
@@ -249,7 +254,16 @@ class UserService(ActivityMixin):
 
         user.last_modified_by_id = updated_by
         await user.save()
-        
+
+        # PERF: name / role / hierarchy / active changes affect the cached
+        # directory + visibility scopes for this tenant — clear them.
+        await invalidate_tenant_cache(str(tenant_id))
+
+        # PERF: a renamed user → propagate to denormalized owner_name on records.
+        if 'name' in updated_fields:
+            from app.services.denormalize import propagate_owner_name
+            await propagate_owner_name(tenant_id, user.id, user.name)
+
         # Log update
         await self.log_entity_updated(
             entity=user,
@@ -257,7 +271,7 @@ class UserService(ActivityMixin):
             old_values=old_values,
             updated_fields=updated_fields
         )
-        
+
         return user
     
     async def update_password(
@@ -295,7 +309,10 @@ class UserService(ActivityMixin):
             return False
         
         await user.soft_delete()
-        
+
+        # PERF: removing a user changes the directory + managers' visible scope.
+        await invalidate_tenant_cache(str(tenant_id))
+
         # Log deletion
         await self.log_entity_deleted(
             entity=user,
@@ -385,7 +402,10 @@ class UserService(ActivityMixin):
         
         user.is_active = status_data.is_active
         await user.save()
-        
+
+        # PERF: (de)activation changes the directory + cached visibility scopes.
+        await invalidate_tenant_cache(str(tenant_id))
+
         return user
     
     async def assign_roles(
@@ -421,7 +441,10 @@ class UserService(ActivityMixin):
 
         user.role_ids = role_ids
         await user.save()
-        
+
+        # PERF: role changes (esp. admin grant) flip visible scope — clear cache.
+        await invalidate_tenant_cache(str(tenant_id))
+
         # Log role assignment change
         await self.log_assignment_changed(
             entity=user,

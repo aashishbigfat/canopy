@@ -461,6 +461,12 @@ class AccountService(ActivityMixin):
 
         await account.save()
 
+        # PERF: a renamed account → propagate to denormalized account_name on
+        # its contacts + opportunities (one index-backed update_many each).
+        if 'name' in updated_fields:
+            from app.services.denormalize import propagate_account_name
+            await propagate_account_name(tenant_id, account.id, account.name)
+
         # Custom fields write (Phase 1 §A)
         if custom_fields:
             payloads = [
@@ -706,14 +712,11 @@ class AccountService(ActivityMixin):
 
         old_owner_id = account.owner_id
         account.owner_id = new_owner_id
+        # PERF: persist the denormalized owner_name (owner_name is now a real
+        # field — no more transient-attribute hack) so lists need no user join.
+        account.owner_name = owner.name
         account.last_modified_by_id = current_user_id
         await account.save()
-
-        # Attach the resolved owner name as a transient (non-persisted) attribute
-        # so account_to_response() can surface it without an extra query. Pydantic's
-        # __setattr__ rejects undeclared fields, so write straight to the instance
-        # __dict__; model_dump()/save() ignore it, so it never hits the database.
-        object.__setattr__(account, 'owner_name', owner.name)
 
         # TODO: Send email notification about owner change
         # TODO: Dispatch background job for owner change tracking
