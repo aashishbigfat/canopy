@@ -125,7 +125,7 @@ function LocationFields({ form }: { form: any }) {
                     setCountries(searchCache.countries.get(cacheKey));
                 } else {
                     setLoadingCountries(true);
-                    locationService.getCountries(true).then(r => {
+                    locationService.getCountries().then(r => {
                         searchCache.countries.set(cacheKey, r.countries);
                         setCountries(r.countries);
                         setLoadingCountries(false);
@@ -144,7 +144,7 @@ function LocationFields({ form }: { form: any }) {
                     setCountries(searchCache.countries.get(cacheKey));
                     return;
                 }
-                const res = await locationService.getCountries(true, signal);
+                const res = await locationService.getCountries(undefined, signal);
                 searchCache.countries.set(cacheKey, res.countries);
                 setCountries(res.countries);
                 return;
