@@ -533,7 +533,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                             <FormControl>
                                                 <SearchableSelect
                                                     options={accountOptions.map(a => ({ label: a.name, value: a.id }))}
-                                                    value={field.value}
+                                                    value={field.value || ""}
                                                     onValueChange={(val) => {
                                                         field.onChange(val);
                                                         setSelectedAccountId(val);
@@ -559,7 +559,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                                 <FormControl>
                                                     <SearchableSelect
                                                         options={accountContacts.map(c => ({ label: c.full_name || `${c.first_name} ${c.last_name}`, value: c.id }))}
-                                                        value={field.value}
+                                                        value={field.value || ""}
                                                         onValueChange={field.onChange}
                                                         placeholder={loadingContacts ? "Loading contacts..." : (selectedAccountId ? "Select contact" : "Select an account first")}
                                                         disabled={!selectedAccountId || loadingContacts}
@@ -578,7 +578,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Sales Stage *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <Select onValueChange={field.onChange} value={field.value || ""}>
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select a stage" />

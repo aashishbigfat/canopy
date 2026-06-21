@@ -826,7 +826,7 @@ export function LeadForm({
                                 <FormField control={form.control as any} name="salutation" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Salutation</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
                                             <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                                             <SelectContent>
                                                 {salutations.map((s) => (
@@ -850,7 +850,7 @@ export function LeadForm({
                                         <FormField control={form.control as any} name="creation_type" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Creation <span className="text-red-500">*</span></FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                <Select onValueChange={field.onChange} value={field.value || ""}>
                                                     <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select source" /></SelectTrigger></FormControl>
                                                     <SelectContent>
                                                         <SelectItem value="manual">Manual</SelectItem>
@@ -992,7 +992,7 @@ export function LeadForm({
                                 <FormField control={form.control as any} name="segment" render={({ field }) => (
                                     <FormItem>
                                         <FormLabel className="text-[10px] font-bold uppercase text-foreground/80">Segment</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <Select onValueChange={field.onChange} value={field.value || ""}>
                                             <FormControl><SelectTrigger className="h-8 bg-background text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl>
                                             <SelectContent>
                                                 {SEGMENT_OPTIONS.map((opt) => (
@@ -1187,7 +1187,7 @@ export function LeadForm({
                                         render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">Segment</FormLabel>
-                                                <Select onValueChange={field.onChange} value={field.value}>
+                                                <Select onValueChange={field.onChange} value={field.value || ""}>
                                                     <FormControl>
                                                         <SelectTrigger className="h-9">
                                                             <SelectValue placeholder="Select" />
@@ -1314,7 +1314,7 @@ export function LeadForm({
                                                         <FormLabel className="text-[10px] font-bold uppercase text-muted-foreground">
                                                             Creation <span className="text-red-500">*</span>
                                                         </FormLabel>
-                                                        <Select onValueChange={field.onChange} value={field.value}>
+                                                        <Select onValueChange={field.onChange} value={field.value || ""}>
                                                             <FormControl>
                                                                 <SelectTrigger className="h-9">
                                                                     <SelectValue placeholder="Select source" />
