@@ -84,6 +84,7 @@ export interface OpportunitySearchItem {
     close_date: string | null;
     owner: string;
     create_date: string | null;
+    industry_data: Record<string, any>;
     url: string;
     updated_at: string | null;
 }
