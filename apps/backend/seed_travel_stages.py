@@ -33,7 +33,7 @@ async def main():
         {"name": "Proposal",    "probability": 30,  "sorting": 30, "is_default": False, "is_won": False, "is_lost": False, "color": "#06b6d4"},
         {"name": "Closed Won",  "probability": 100, "sorting": 40, "is_default": False, "is_won": True,  "is_lost": False, "color": "#10b981"},
         {"name": "Closed Lost", "probability": 0,   "sorting": 50, "is_default": False, "is_won": False, "is_lost": True,  "color": "#ef4444"},
-        {"name": "Refunded",    "probability": 0,   "sorting": 60, "is_default": False, "is_won": False, "is_lost": True,  "color": "#9ca3af"},
+        {"name": "Refunded",    "probability": 0,   "sorting": 60, "is_default": False, "is_won": False, "is_lost": False, "color": "#9ca3af"},
     ]
 
     inserted = 0

@@ -197,7 +197,7 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await Contact.find(query).skip(skip).limit(limit).to_list()
+        docs = await Contact.find(query).sort("_id").skip(skip).limit(limit).to_list()
         docs = _relevance_sort(docs, q, ["first_name", "last_name", "email"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
@@ -236,7 +236,7 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await Lead.find(query).skip(skip).limit(limit).to_list()
+        docs = await Lead.find(query).sort("_id").skip(skip).limit(limit).to_list()
         docs = _relevance_sort(docs, q, ["first_name", "last_name", "company", "email"])
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
@@ -311,16 +311,20 @@ async def search_by_module(
             ).to_list()
             account_map = {str(a.id): a.name or "" for a in accounts}
 
-        # Resolve experience names (travel-specific, only when data exists)
-        exp_ids = list({str(d.experience_id): d.experience_id for d in docs if getattr(d, "experience_id", None)}.values())
+        # Resolve experience names (travel-specific; experience_id lives in industry_data)
+        exp_id_strs = list({
+            str((d.industry_data or {}).get("experience_id"))
+            for d in docs if (d.industry_data or {}).get("experience_id")
+        })
         exp_map: Dict[str, str] = {}
-        if exp_ids:
+        if exp_id_strs:
             try:
                 from app.core.tenant_scope import fetch_picklists_in_tenant
                 from app.services.industry_service import get_tenant_industry
                 _industry = await get_tenant_industry(tenant_id)
+                exp_oids = [ObjectId(s) for s in exp_id_strs if ObjectId.is_valid(s)]
                 exps = await fetch_picklists_in_tenant(
-                    Experience, tenant_id, exp_ids, picklist_type="experience", industry=_industry
+                    Experience, tenant_id, exp_oids, picklist_type="experience", industry=_industry
                 )
                 exp_map = {str(e.id): e.name for e in exps}
             except Exception:
@@ -330,11 +334,13 @@ async def search_by_module(
             {
                 "id": str(d.id),
                 "opportunity_name": d.name or "",
-                "experience": exp_map.get(str(d.experience_id), "") if getattr(d, "experience_id", None) else "",
+                "experience": exp_map.get(str((d.industry_data or {}).get("experience_id")), ""),
                 "account_name": account_map.get(str(d.account_id), "") if d.account_id else "",
                 "sales_stage": stage_map.get(str(d.sales_stage_id), "") if d.sales_stage_id else "",
                 # travel_date now lives in industry_data (migrated from top-level)
                 "travel_date": (d.industry_data or {}).get("travel_date") if getattr(d, "industry_data", None) else None,
+                # Full industry_data so non-travel industries can render their own columns
+                "industry_data": d.industry_data or {},
                 "close_date": d.close_date.isoformat() if d.close_date else None,
                 "owner": owner_map.get(str(d.owner_id), ""),
                 "create_date": d.created_at.isoformat() if d.created_at else None,
@@ -391,7 +397,7 @@ async def search_by_module(
         if visible_owner_ids is not None:
             query["owner_id"] = {"$in": visible_owner_ids}
             
-        docs = await File.find(query).skip(skip).limit(limit).to_list()
+        docs = await File.find(query).sort("_id").skip(skip).limit(limit).to_list()
 
         owner_map = await _get_owner_map([d.owner_id for d in docs], tenant_id)
 

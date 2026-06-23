@@ -212,7 +212,7 @@ function OpportunitiesTable({ items, industry }: { items: OpportunitySearchItem[
         : ["Details", "Status"];
 
     function getIndustryCells(row: OpportunitySearchItem) {
-        const idata = (row as any).industry_data || {};
+        const idata = row.industry_data || {};
         if (industry === "travel") {
             return [row.experience || "-", formatDate(row.travel_date)];
         } else if (industry === "healthcare") {
