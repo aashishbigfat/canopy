@@ -22,8 +22,38 @@ from app.services import field_registry_service
 from app.schemas.field_registry import CustomFieldValuePayload
 from app.services.bd_assignment_service import bd_assignment_service
 import logging as _logging
+from datetime import timezone as _dt_timezone
 
 logger = _logging.getLogger(__name__)
+
+# Business default timezone for the date-based lead views (today/yesterday/
+# last_week). ``created_at`` is stored in UTC, so the day boundaries MUST be
+# computed in the tenant's local time — otherwise a lead created in the early
+# local morning falls into the *previous* UTC day and disappears from the
+# "Today Leads" preset even though it is neither converted nor deleted. The
+# deployment default is India (IST, UTC+5:30), matching the auto-lock logic in
+# opportunity_service.
+_DEFAULT_BUSINESS_TZ = _dt_timezone(timedelta(hours=5, minutes=30))
+
+
+async def _resolve_tenant_tz(tenant_id):
+    """Return the tzinfo to use for a tenant's day-boundary math.
+
+    Honors ``tenant.timezone`` when it is set to a real IANA zone; falls back to
+    the business default (IST) when it is unset or left at the "UTC" default.
+    Resolution never raises — an unknown zone name degrades to the default.
+    """
+    from app.models.tenant import Tenant
+    try:
+        tenant = await Tenant.get(tenant_id)
+        tzname = ((tenant.timezone if tenant else "") or "").strip()
+        if tzname and tzname.upper() != "UTC":
+            from zoneinfo import ZoneInfo
+            return ZoneInfo(tzname)
+    except Exception:
+        # Missing tenant, missing tzdata (e.g. Windows dev), or bad zone name.
+        pass
+    return _DEFAULT_BUSINESS_TZ
 
 
 class LeadService(ActivityMixin):
@@ -1302,6 +1332,46 @@ class LeadService(ActivityMixin):
         await lead.save()
         return lead
 
+    async def _apply_whatsapp_filter(self, base_filter: dict, tenant_id) -> None:
+        """Scope ``base_filter`` to WhatsApp-sourced leads (the 'whatsapp' view).
+
+        'WhatsApp' is seeded both as a Source ("Whatsapp", "Double Click
+        Whatsapp") and as a SourceMedium ("WhatsApp"). A lead may carry the tag
+        on either id, or only on the denormalized ``source_medium`` string, so we
+        match any of them. The condition is appended under ``$and`` so it
+        co-exists with the free-text ``$or`` search instead of overwriting it.
+        """
+        import re as _re
+        from app.models.lead_picklists import Source, SourceMedium
+        from app.core.picklist_query import build_picklist_query
+        from app.services.industry_service import get_tenant_industry, TenantNotFoundError
+
+        try:
+            industry = await get_tenant_industry(tenant_id)
+        except TenantNotFoundError:
+            industry = None
+
+        wa_re = _re.compile("whatsapp", _re.IGNORECASE)
+        import asyncio
+        sources, mediums = await asyncio.gather(
+            Source.find(
+                build_picklist_query(tenant_id, industry=industry, picklist_type="source")
+            ).to_list(),
+            SourceMedium.find(
+                build_picklist_query(tenant_id, industry=industry, picklist_type="source_medium")
+            ).to_list(),
+        )
+        source_ids = [s.id for s in sources if wa_re.search(s.name or "")]
+        medium_ids = [m.id for m in mediums if wa_re.search(m.name or "")]
+
+        wa_or: list = [{"source_medium": {"$regex": wa_re}}]
+        if source_ids:
+            wa_or.append({"source_id": {"$in": source_ids}})
+        if medium_ids:
+            wa_or.append({"source_medium_id": {"$in": medium_ids}})
+
+        base_filter.setdefault("$and", []).append({"$or": wa_or})
+
     async def get_leads_with_metadata(
         self,
         tenant_id: ObjectId,
@@ -1328,16 +1398,17 @@ class LeadService(ActivityMixin):
 
         # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
         # filters seed the effective criteria below; a direct query param wins.
+        active_view = None
         if view_id and ObjectId.is_valid(view_id):
             from app.models.entity_views import EntityView
-            _ev = await EntityView.find_one({
+            active_view = await EntityView.find_one({
                 "_id": ObjectId(view_id),
                 "entity_type": "lead",
                 "tenant_id": tenant_id,
                 "$or": [{"created_by": current_user_id}, {"is_public": True}],
             })
-            if _ev and _ev.filters:
-                _f = _ev.filters
+            if active_view and active_view.filters:
+                _f = active_view.filters
                 owner_id = owner_id or _f.get("owner_id")
                 search = search or _f.get("search")
                 lead_status_id = lead_status_id or _f.get("lead_status_id")
@@ -1384,12 +1455,22 @@ class LeadService(ActivityMixin):
 
         all_leads: List[Lead] = []
 
-        # Date-based views
-        now = datetime.utcnow()
-        today_start = datetime(now.year, now.month, now.day)
-        tomorrow_start = today_start + timedelta(days=1)
-        yesterday_start = today_start - timedelta(days=1)
-        last_week_start = today_start - timedelta(days=7)
+        # Date-based views — compute the day boundaries in the tenant's local
+        # timezone, then convert back to UTC for the query (created_at is stored
+        # in UTC). Using UTC midnight directly dropped leads created in the early
+        # local morning into the previous day, hiding them from "Today Leads".
+        biz_tz = await _resolve_tenant_tz(tenant_id)
+        now_local = datetime.now(biz_tz)
+        today_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        def _to_utc_naive(dt_local: datetime) -> datetime:
+            # pymongo compares naive datetimes as UTC, matching stored created_at.
+            return dt_local.astimezone(_dt_timezone.utc).replace(tzinfo=None)
+
+        today_start = _to_utc_naive(today_local)
+        tomorrow_start = _to_utc_naive(today_local + timedelta(days=1))
+        yesterday_start = _to_utc_naive(today_local - timedelta(days=1))
+        last_week_start = _to_utc_naive(today_local - timedelta(days=7))
 
         if view in ("today", "todays_lead", "todays"):
             base_filter["created_at"] = {"$gte": today_start, "$lt": tomorrow_start}
@@ -1397,6 +1478,17 @@ class LeadService(ActivityMixin):
             base_filter["created_at"] = {"$gte": yesterday_start, "$lt": today_start}
         elif view == "last_week":
             base_filter["created_at"] = {"$gte": last_week_start, "$lt": tomorrow_start}
+        elif view in ("whatsapp", "whatsapp_enquiry"):
+            # "WhatsApp Enquiry Leads" — previously unimplemented, so it silently
+            # returned every lead (including non-WhatsApp ones). Scope it properly.
+            await self._apply_whatsapp_filter(base_filter, tenant_id)
+
+        # Structured "Edit List Filters" rows (+ custom-field rules) from the view.
+        if active_view:
+            from app.services.field_registry_service import apply_entity_view_filters
+            await apply_entity_view_filters(
+                base_filter, "lead", active_view, current_user_id, tenant_id
+            )
 
         # Pagination — keyset "load more" (cursor) on the main path, offset
         # fallback. next_cursor/has_more travel inside the pagination dict.
@@ -1451,6 +1543,18 @@ class LeadService(ActivityMixin):
                 next_cursor = encode_cursor(leads[-1].created_at, leads[-1].id) if leads else None
                 has_more = len(leads) == per_page
                 pages = (total + per_page - 1) // per_page if per_page > 0 else 0
+
+        # When the active view displays custom columns, attach their values to the
+        # page rows (single batched query — only paid for when actually shown).
+        from app.services.field_registry_service import view_has_custom_columns
+        if view_has_custom_columns(active_view) and leads:
+            from app.services.field_registry_service import bulk_read_custom_field_values
+            try:
+                _cf = await bulk_read_custom_field_values("lead", [l.id for l in leads], tenant_id)
+                for l in leads:
+                    l.custom_fields = _cf.get(str(l.id), {})
+            except Exception:
+                pass
 
         # 2. Fetch Metadata in parallel (except sales stages which need special handling)
         import asyncio

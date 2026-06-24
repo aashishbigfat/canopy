@@ -23,7 +23,16 @@ class EntityView(Document):
     name: str
     description: Optional[str] = None
 
+    # Legacy flat filter dict (kept for back-compat with existing callers).
     filters: Dict[str, Any] = Field(default_factory=dict)
+    # Structured "Edit List Filters" rows: [{field, operator, value}, ...].
+    # Translated to a Mongo query by app/core/entity_filter.py.
+    filter_rules: List[Dict[str, Any]] = Field(default_factory=list)
+    # "Select Fields to display" — ordered display columns (field_keys). Custom
+    # fields are encoded as "additional:<field_id>". Empty => default columns.
+    display_columns: List[str] = Field(default_factory=list)
+    # "Show me" scope selector: "all" (default) or "mine" (owner == me).
+    scope: Optional[str] = None
     sort_by: Optional[str] = None
     sort_dir: str = "desc"
 

@@ -764,6 +764,92 @@ async def attach_custom_fields_bulk(
     return out
 
 
+async def match_custom_field_entity_ids(
+    entity_type: str,
+    rule: Dict[str, Any],
+    tenant_id: PydanticObjectId,
+) -> Optional[List[PydanticObjectId]]:
+    """Entity ids whose custom-field value matches a single 'additional:<id>' rule.
+
+    Custom values live in a separate collection, so a custom-field filter is
+    resolved to a set of matching entity ids the caller ANDs into the main query
+    via {_id: {$in: ids}}. Shared by every module's list endpoint.
+
+    Returns a list (possibly empty) for a supported op, or None when the rule
+    should be SKIPPED (unsupported op / no value / bad id) — so the caller never
+    constrains the query to an empty set by mistake. Only positive-match string
+    operators are supported (set-complement ops would also need to match rows
+    that have no value document).
+    """
+    import re as _re
+    from bson import ObjectId
+
+    cfg = CUSTOM_FIELD_VALUE_MAP.get(entity_type)
+    if not cfg:
+        return None
+    ValueDoc, entity_fk, field_fk = cfg["doc"], cfg["entity_fk"], cfg["field_fk"]
+
+    field_id = str(rule.get("field", "")).split("additional:", 1)[-1]
+    if not ObjectId.is_valid(field_id):
+        return None
+    op = str(rule.get("operator", ""))
+    value = rule.get("value")
+
+    q: Dict[str, Any] = {field_fk: ObjectId(field_id), "tenant_id": tenant_id}
+    if op == "is_not_empty":
+        q["field_value"] = {"$nin": [None, ""]}
+    elif value in (None, ""):
+        return None
+    elif op == "equals":
+        q["field_value"] = _re.compile(f"^{_re.escape(str(value))}$", _re.IGNORECASE)
+    elif op == "contains":
+        q["field_value"] = {"$regex": _re.compile(_re.escape(str(value)), _re.IGNORECASE)}
+    elif op == "starts_with":
+        q["field_value"] = {"$regex": _re.compile(f"^{_re.escape(str(value))}", _re.IGNORECASE)}
+    else:
+        return None
+
+    docs = await ValueDoc.find(q).to_list()
+    return [getattr(d, entity_fk) for d in docs]
+
+
+async def apply_entity_view_filters(
+    query: Dict[str, Any],
+    entity_type: str,
+    view: Any,
+    current_user_id: PydanticObjectId,
+    tenant_id: PydanticObjectId,
+) -> None:
+    """AND a saved view's structured filter_rules (+ custom-field rules) into `query`.
+
+    Standard fields go through the whitelisted translator; custom 'additional:'
+    rules resolve to a set of matching ids. Shared by every module's list
+    endpoint so the behavior is identical across modules.
+    """
+    from app.core.entity_filter import build_filter_clauses
+
+    rules = getattr(view, "filter_rules", None) or []
+    clauses = build_filter_clauses(
+        entity_type, rules,
+        scope=getattr(view, "scope", None),
+        current_user_id=current_user_id,
+    )
+    if clauses:
+        query.setdefault("$and", []).extend(clauses)
+    for cr in rules:
+        if str(cr.get("field", "")).startswith("additional:"):
+            ids = await match_custom_field_entity_ids(entity_type, cr, tenant_id)
+            if ids is not None:  # None ⇒ unsupported op, skip (don't empty the result)
+                query.setdefault("$and", []).append({"_id": {"$in": ids}})
+
+
+def view_has_custom_columns(view: Any) -> bool:
+    """True when the active view displays any custom/'additional:' column."""
+    return bool(view) and any(
+        str(c).startswith("additional:") for c in (getattr(view, "display_columns", None) or [])
+    )
+
+
 async def delete_custom_field_values_for_entity(
     entity_type: str,
     entity_id: PydanticObjectId,
