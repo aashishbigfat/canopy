@@ -1,8 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "main": ".open-next/worker.js",
-  "name": "tutterfly-frontend",
-  "compatibility_date": "2025-03-25",
+  "name": "tutterfly",
+  "compatibility_date": "2026-06-24",
   "compatibility_flags": [
     "nodejs_compat",
     "global_fetch_strictly_public"
