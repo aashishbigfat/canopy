@@ -19,6 +19,20 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // Keep browser-only heavy libraries (jspdf) out of the server bundle so the
+  // Cloudflare Worker stays under the size limit. These are only ever invoked
+  // inside client event handlers, never during SSR.
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.resolve = config.resolve ?? {};
+      config.resolve.alias = {
+        ...(config.resolve.alias ?? {}),
+        jspdf: false,
+        "jspdf-autotable": false,
+      };
+    }
+    return config;
+  },
 };
 
 export default nextConfig;
