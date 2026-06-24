@@ -36,6 +36,19 @@ export const accountService = {
         return data;
     },
 
+    // Lightweight server-side name autocomplete (id+name, capped at 10) — used by
+    // searchable lookups that reference accounts (e.g. Account Parent) so we never
+    // load thousands of rows into a dropdown.
+    autocompleteAccounts: async (
+        s: string,
+        isPersonAccount = false,
+    ): Promise<{ id: string; name: string }[]> => {
+        const { data } = await apiClient.get(`${BASE_URL}/search-account`, {
+            params: { s, is_person_account: isPersonAccount },
+        });
+        return (data?.accounts || []).map((a: any) => ({ id: a.id, name: a.name }));
+    },
+
     changeOwner: async (id: string, newOwnerId: string) => {
         const { data } = await apiClient.post(`${BASE_URL}/${id}/change-owner`, {
             new_owner_id: newOwnerId

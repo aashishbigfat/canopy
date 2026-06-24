@@ -50,3 +50,6 @@ tsconfig.tsbuildinfo
 # OS System Files
 .DS_Store
 Thumbs.db
+
+# Location master-data SQL dumps (large; provided by data team, seeded via scripts/seed_locations.py)
+docs/locations/*.sql

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { X, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { formatCurrency } from "@/lib/format";
 import { toast } from "sonner";
 
@@ -234,32 +235,18 @@ export function TransactionModal({
                                         Supplier
                                         <span className="text-red-500 ml-0.5">*</span>
                                     </label>
-                                    <select
+                                    <SearchableSelect
                                         value={supplier}
-                                        onChange={(e) => {
-                                            setSupplier(e.target.value);
+                                        onValueChange={(v) => {
+                                            setSupplier(v);
                                             // Reset service — it depends on the chosen supplier
                                             setService("");
                                         }}
-                                        className={`w-full h-10 rounded-md border bg-card px-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 transition-colors ${
-                                            !supplier
-                                                ? "border-border text-muted-foreground"
-                                                : "border-border text-foreground"
-                                        }`}
-                                    >
-                                        <option value="">Select Supplier</option>
-                                        {suppliers.length > 0 ? (
-                                            suppliers.map((s) => (
-                                                <option key={s.id} value={s.name}>
-                                                    {s.name}
-                                                </option>
-                                            ))
-                                        ) : (
-                                            <option disabled value="">
-                                                No suppliers available
-                                            </option>
-                                        )}
-                                    </select>
+                                        placeholder="Select Supplier"
+                                        searchPlaceholder="Search suppliers..."
+                                        emptyMessage="No suppliers available"
+                                        options={suppliers.map((s) => ({ label: s.name, value: s.name }))}
+                                    />
                                 </div>
 
                                 {/* Services — follow the selected supplier */}

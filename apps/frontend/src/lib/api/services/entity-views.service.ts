@@ -6,12 +6,22 @@ import type { EntityType } from "@/lib/api/services/field-registry.service";
 
 const BASE = "/entity_views";
 
+/** One row in a saved view's "Edit List Filters" builder. */
+export interface FilterRule {
+  field: string;
+  operator: string;
+  value?: any;
+}
+
 export interface EntityView {
   id: string;
   entity_type: string;
   name: string;
   description?: string | null;
   filters: Record<string, any>;
+  filter_rules: FilterRule[];
+  display_columns: string[];
+  scope?: string | null;
   sort_by?: string | null;
   sort_dir: "asc" | "desc";
   is_public: boolean;
@@ -26,6 +36,9 @@ export interface EntityViewIn {
   name: string;
   description?: string | null;
   filters?: Record<string, any>;
+  filter_rules?: FilterRule[];
+  display_columns?: string[];
+  scope?: string | null;
   sort_by?: string | null;
   sort_dir?: "asc" | "desc";
   is_public?: boolean;

@@ -30,6 +30,7 @@ import { ActivityTimeline } from "@/components/activity/ActivityTimeline";
 import { toast } from "sonner";
 import { tasksService } from "@/lib/api/services/activities.service";
 import { useGetUsers } from "@/features/admin/api/use-users";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 
 interface OpportunitySummaryMetric {
     count: number;
@@ -193,21 +194,20 @@ export function EntityActivitySidebar({
                                         <div className="grid grid-cols-1 gap-4">
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-muted-foreground">Assigned To</label>
-                                                <Select value={assignedTo || session?.user?.id || ""} onValueChange={setAssignedTo}>
-                                                    <SelectTrigger className="h-9">
-                                                        <SelectValue placeholder="Assign To" />
-                                                    </SelectTrigger>
-                                                    <SelectContent>
-                                                        {users.map((u: any) => (
-                                                            <SelectItem key={u.id || u._id} value={u.id || u._id}>
-                                                                {u.name}
-                                                            </SelectItem>
-                                                        ))}
-                                                        {!users.length && session?.user && (
-                                                            <SelectItem value={session.user.id}>{session.user.name || "Me"}</SelectItem>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
+                                                <SearchableSelect
+                                                    value={assignedTo || session?.user?.id || ""}
+                                                    onValueChange={setAssignedTo}
+                                                    placeholder="Assign To"
+                                                    searchPlaceholder="Search users..."
+                                                    className="h-9"
+                                                    options={
+                                                        users.length
+                                                            ? users.map((u: any) => ({ label: u.name, value: u.id || u._id }))
+                                                            : session?.user
+                                                            ? [{ label: session.user.name || "Me", value: session.user.id }]
+                                                            : []
+                                                    }
+                                                />
                                             </div>
                                             <div className="space-y-1">
                                                 <label className="text-xs font-medium text-muted-foreground">Select Due Date</label>

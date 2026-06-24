@@ -166,16 +166,17 @@ async def get_contacts(
 
         # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
         # filters seed the effective criteria; a direct query param wins.
+        active_view = None
         if view_id and ObjectId.is_valid(view_id):
             from app.models.entity_views import EntityView
-            _ev = await EntityView.find_one({
+            active_view = await EntityView.find_one({
                 "_id": ObjectId(view_id),
                 "entity_type": "contact",
                 "tenant_id": current_user.tenant_id,
                 "$or": [{"created_by": current_user.id}, {"is_public": True}],
             })
-            if _ev and _ev.filters:
-                _f = _ev.filters
+            if active_view and active_view.filters:
+                _f = active_view.filters
                 owner_id = owner_id or _f.get("owner_id")
                 search = search or _f.get("search")
 
@@ -211,6 +212,13 @@ async def get_contacts(
                 {"phone": _pat},
                 {"mobile": _pat},
             ]
+
+        # Structured "Edit List Filters" rows (+ custom-field rules) from the view.
+        if active_view:
+            from app.services.field_registry_service import apply_entity_view_filters
+            await apply_entity_view_filters(
+                query, "contact", active_view, current_user.id, current_user.tenant_id
+            )
 
         # --- Page fetch: keyset "load more" when a cursor is given, else offset ---
         skip = (page - 1) * per_page
@@ -265,9 +273,23 @@ async def get_contacts(
             resp.account_name = getattr(c, 'account_name', None) or account_map.get(c.account_id)
             resp.owner_name = getattr(c, 'owner_name', None) or user_name_map.get(str(c.owner_id))
             contact_responses.append(resp)
-        
+
+        contact_dicts = [c.model_dump() for c in contact_responses]
+        # Attach custom-field values only when the active view shows custom columns.
+        from app.services.field_registry_service import view_has_custom_columns
+        if view_has_custom_columns(active_view):
+            from app.services.field_registry_service import bulk_read_custom_field_values
+            try:
+                _cf = await bulk_read_custom_field_values(
+                    "contact", [c.id for c in contacts], current_user.tenant_id
+                )
+            except Exception:
+                _cf = {}
+            for d, c in zip(contact_dicts, contacts):
+                d["custom_fields"] = _cf.get(str(c.id), {})
+
         return {
-            "contacts": [c.model_dump() for c in contact_responses],
+            "contacts": contact_dicts,
             "pagination": {
                 "current_page": page,
                 "total": total,

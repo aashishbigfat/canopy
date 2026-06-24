@@ -276,16 +276,17 @@ async def get_opportunities(
 
         # Saved list view (EntityView): tenant-scoped, owner-or-public. Its stored
         # filters seed the effective criteria; a direct query param wins.
+        active_view = None
         if view_id and ObjectId.is_valid(view_id):
             from app.models.entity_views import EntityView
-            _ev = await EntityView.find_one({
+            active_view = await EntityView.find_one({
                 "_id": ObjectId(view_id),
                 "entity_type": "opportunity",
                 "tenant_id": current_user.tenant_id,
                 "$or": [{"created_by": current_user.id}, {"is_public": True}],
             })
-            if _ev and _ev.filters:
-                _f = _ev.filters
+            if active_view and active_view.filters:
+                _f = active_view.filters
                 owner_id = owner_id or _f.get("owner_id")
                 sales_stage_id = sales_stage_id or _f.get("sales_stage_id")
                 search = search or _f.get("search")
@@ -349,6 +350,15 @@ async def get_opportunities(
         if search and str(search).strip():
             import re as _re
             filters["name"] = {"$regex": _re.escape(str(search).strip()), "$options": "i"}
+
+        # Structured "Edit List Filters" rows (+ custom-field rules) from the view.
+        # apply_entity_view_filters adds a "$and" key which the repository merges
+        # straight into the Mongo query (preserving tenant + visibility scoping).
+        if active_view:
+            from app.services.field_registry_service import apply_entity_view_filters
+            await apply_entity_view_filters(
+                filters, "opportunity", active_view, current_user.id, current_user.tenant_id
+            )
 
         # Get opportunities (keyset "load more" when a cursor is supplied)
         opportunities, total, next_cursor, has_more = await service.get_opportunities_by_tenant(

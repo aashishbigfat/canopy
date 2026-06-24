@@ -58,6 +58,11 @@ import { contactsService } from "@/lib/api/services/contacts.service";
 import { OwnerPopover } from "@/components/shared/OwnerPopover";
 import { ImportDataDialog, normalizeImportResult } from "@/components/shared/ImportDataDialog";
 import { entityViewsService } from "@/lib/api/services/entity-views.service";
+import { customFieldsService, type EntityType } from "@/lib/api/services/field-registry.service";
+import { ListViewSelector, ListViewSettings } from "@/features/views/ListViewMenu";
+import { ListViewFilterButton } from "@/features/views/ListViewFilterButton";
+import { buildEntityColumns, type ViewLookups } from "@/features/views/accountColumnFactory";
+import { buildLookupOptions, standardFieldByKey } from "@/features/views/accountFields";
 import { useDebounce } from "@/hooks/use-debounce";
 import { validateInlineField, normalizePhoneValue, isPhoneField } from "@/lib/validation/inline-field-validation";
 import { PhoneInput } from "@/components/ui/phone-input";
@@ -255,6 +260,22 @@ export function ContactTable({
         return map;
     }, [users]);
 
+    // ── List-view manager (filters + Select Fields) ───────────────────────────
+    const entity: EntityType = "contact";
+    const { data: customFields = [] } = useQuery({
+        queryKey: ["custom-fields", entity],
+        queryFn: () => customFieldsService.list(entity, true),
+        staleTime: 5 * 60 * 1000,
+    });
+    const fieldLabels = React.useMemo(() => {
+        const m = new Map<string, string>();
+        standardFieldByKey(entity).forEach((f, k) => m.set(k, f.label));
+        customFields.forEach((f) => m.set("additional:" + f.id, f.label || f.name));
+        return m;
+    }, [customFields]);
+    const viewLookups = React.useMemo<ViewLookups>(() => ({ users: ownerNameById }), [ownerNameById]);
+    const lookupOptions = React.useMemo(() => buildLookupOptions(entity, { users }), [users]);
+
     // ── Saved views (contact-scoped EntityViews) ─────────────────────────────
     const queryClient = useQueryClient();
     const { data: savedViews = [] } = useQuery({
@@ -345,7 +366,15 @@ export function ContactTable({
     };
 
     const columns = React.useMemo<ColumnDef<Contact>[]>(
-        () => [
+        () => {
+            if (activeView?.display_columns?.length) {
+                return buildEntityColumns(activeView.display_columns, fieldLabels, {
+                    entity,
+                    openDetail: undefined,
+                    lookups: viewLookups,
+                }) as ColumnDef<Contact>[];
+            }
+            return [
             {
                 accessorKey: "first_name",
                 header: "First Name",
@@ -399,8 +428,9 @@ export function ContactTable({
                     />
                 ),
             },
-        ],
-        [refresh, ownerNameById]
+            ];
+        },
+        [refresh, ownerNameById, activeView, fieldLabels, viewLookups]
     );
 
     const table = useReactTable({
@@ -419,26 +449,7 @@ export function ContactTable({
         <div className="w-full">
             <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:justify-between">
                 {/* Saved-view selector */}
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button variant="outline" size="sm" className="gap-1">
-                            {activeView ? activeView.name : "All records"}
-                            <ChevronDown className="h-4 w-4" />
-                        </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
-                        <DropdownMenuItem onClick={() => applySavedView(null)} className={!activeView ? "font-semibold text-primary" : ""}>
-                            All records
-                        </DropdownMenuItem>
-                        {savedViews.length > 0 && <DropdownMenuSeparator />}
-                        {savedViews.map((v) => (
-                            <DropdownMenuItem key={v.id} onClick={() => applySavedView(v.id)} className={v.id === viewId ? "font-semibold text-primary" : ""}>
-                                {v.name}
-                                {v.is_public && <span className="ml-1 text-[10px] text-muted-foreground">(team)</span>}
-                            </DropdownMenuItem>
-                        ))}
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                <ListViewSelector entity={entity} presetLabel="All records" />
 
                 <div className="flex flex-wrap items-center gap-2">
                     {/* Search */}
@@ -462,51 +473,21 @@ export function ContactTable({
                         <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
                     </Button>
 
-                    {/* Filter */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant={hasActiveFilter ? "default" : "outline"} size="icon" title="Filter">
-                                <Filter className="h-4 w-4" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-72 space-y-3">
-                            <p className="text-sm font-semibold">Filter contacts</p>
-                            <div className="space-y-1.5">
-                                <label className="text-xs text-muted-foreground">Owner</label>
-                                <Select value={ownerFilter || "all"} onValueChange={(v) => applyFilter("owner_id", v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All owners" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All owners</SelectItem>
-                                        {users.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            {hasActiveFilter && (
-                                <Button variant="ghost" size="sm" className="w-full" onClick={clearFilters}>Clear all filters</Button>
-                            )}
-                        </PopoverContent>
-                    </Popover>
+                    {/* Filter — view-aware */}
+                    <ListViewFilterButton entity={entity} lookupOptions={lookupOptions} />
 
-                    {/* Settings */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="gap-1">
-                                <Settings className="h-4 w-4" /> Settings <ChevronDown className="h-4 w-4" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={refresh}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportAll("csv")}><Download className="mr-2 h-4 w-4" /> Export all (CSV)</DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" /> Import Contacts (CSV)</DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={openSaveView}><Save className="mr-2 h-4 w-4" /> Save view…</DropdownMenuItem>
-                            {activeView && (
-                                <DropdownMenuItem onClick={deleteActiveView} className="text-red-600 focus:text-red-600">
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete view “{activeView.name}”
-                                </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                    {/* Settings (context-aware list-view manager + data actions) */}
+                    <ListViewSettings
+                        entity={entity}
+                        lookupOptions={lookupOptions}
+                        extra={
+                            <>
+                                <DropdownMenuItem onClick={refresh}><RefreshCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => exportAll("csv")}><Download className="mr-2 h-4 w-4" /> Export all (CSV)</DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setImportOpen(true)}><Upload className="mr-2 h-4 w-4" /> Import Contacts (CSV)</DropdownMenuItem>
+                            </>
+                        }
+                    />
                 </div>
             </div>
             <div className={`rounded-md border transition-opacity duration-200 ${isPending ? "opacity-50 pointer-events-none" : ""}`}>
@@ -573,56 +554,6 @@ export function ContactTable({
                     )}
                 </div>
             </div>
-
-            {/* Save a named view */}
-            <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Save view</DialogTitle>
-                        <DialogDescription>
-                            Name the view and choose which contacts it should show.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">View name</label>
-                            <Input autoFocus value={vName} onChange={(e) => setVName(e.target.value)} placeholder="e.g. Key contacts" />
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Owner</label>
-                                <Select value={vOwner || "all"} onValueChange={(v) => setVOwner(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Any owner" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any owner</SelectItem>
-                                        {users.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Search text</label>
-                                <Input value={vSearch} onChange={(e) => setVSearch(e.target.value)} placeholder="name / email / phone" className="h-9 text-sm" />
-                            </div>
-                        </div>
-                        <div className="space-y-2 rounded-md border border-border/60 p-3">
-                            <p className="text-xs font-medium text-muted-foreground">Who sees this view?</p>
-                            <div className="flex items-center gap-2">
-                                <Switch checked={vPublic} onCheckedChange={(v: boolean) => setVPublic(v)} />
-                                <span className="text-sm">{vPublic ? "All users in your team" : "Only me"}</span>
-                            </div>
-                        </div>
-                        {viewFilterCount === 0 && (
-                            <p className="text-xs text-amber-600">No filters set — this view will show all contacts.</p>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setSaveOpen(false)} disabled={savingView}>Cancel</Button>
-                        <Button onClick={saveView} disabled={savingView || !vName.trim()}>
-                            {savingView ? "Saving..." : "Save view"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
 
             {/* Bulk import (CSV/Excel) with sample download */}
             <ImportDataDialog

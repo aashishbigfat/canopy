@@ -30,8 +30,11 @@ export default function LeadsClientPage() {
     const page = parseInt(searchParams.get("page") || "1");
     const per_page = parseInt(searchParams.get("per_page") || "100");
     const search = searchParams.get("search") || undefined;
-    const view = searchParams.get("view") || undefined;
     const view_id = searchParams.get("view_id") || undefined;
+    // Default landing = "Today Leads" (matches the dropdown's default label).
+    // Only default when no saved view is active, so a saved view isn't silently
+    // constrained to today's leads.
+    const view = searchParams.get("view") || (view_id ? undefined : "today");
     const owner_id = searchParams.get("owner_id") || undefined;
     const lead_status_id = searchParams.get("lead_status_id") || undefined;
 
@@ -191,6 +194,8 @@ export default function LeadsClientPage() {
                     users={response.users}
                     experiences={response.experiences}
                     sales_stages={response.sales_stages}
+                    source_mediums={(response as any).source_mediums || []}
+                    industries={(response as any).industries || []}
                     isLoading={isLoading}
                     hasMore={!!hasNextPage}
                     onLoadMore={() => fetchNextPage()}

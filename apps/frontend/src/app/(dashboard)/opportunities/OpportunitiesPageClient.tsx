@@ -62,6 +62,14 @@ import {
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { entityViewsService } from "@/lib/api/services/entity-views.service";
 import { accountService } from "@/features/accounts/services/accountService";
+import { destinationsService } from "@/lib/api/services/destinations.service";
+import { ListViewSelector, ListViewSettings, type ViewPreset } from "@/features/views/ListViewMenu";
+import { ListViewFilterButton } from "@/features/views/ListViewFilterButton";
+import { buildLookupOptions, standardFieldByKey } from "@/features/views/accountFields";
+import { buildEntityColumns, type ViewLookups } from "@/features/views/accountColumnFactory";
+import { DynamicListTable } from "@/features/views/DynamicListTable";
+import { customFieldsService } from "@/lib/api/services/field-registry.service";
+import * as React from "react";
 import { useDebounce } from "@/hooks/use-debounce";
 import { toast } from "sonner";
 
@@ -84,16 +92,14 @@ export default function OpportunitiesPageClient() {
     const searchParams = useSearchParams();
     const labels = useIndustryLabels();
 
-    const defaultView = searchParams.get("view") || searchParams.get("filter") || "today";
-
-    const opportunityViews = [
+    const opportunityViews: ViewPreset[] = [
         { label: `Today ${labels.opportunities}`, value: "today" },
         { label: "Recently Viewed", value: "recent" },
         { label: `All ${labels.opportunities}`, value: "all" },
         { label: `Closed ${labels.opportunities}`, value: "closed" },
     ];
-    const [currentView, setCurrentView] = useState(defaultView);
-    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || opportunityViews.find(v => v.value === "today")?.label || `Today ${labels.opportunities}`;
+    const currentView = searchParams.get("view") || searchParams.get("filter") || "today";
+    const currentViewLabel = opportunityViews.find(v => v.value === currentView)?.label || `Today ${labels.opportunities}`;
 
     const pathname = usePathname();
     const queryClient = useQueryClient();
@@ -141,6 +147,49 @@ export default function OpportunitiesPageClient() {
         staleTime: 5 * 60 * 1000,
     });
     const owners: { id: string; name: string }[] = ownerFormData?.users || [];
+
+    const { data: destinationsData } = useQuery({
+        queryKey: ["destinations", "all"],
+        queryFn: () => destinationsService.getDestinations({ limit: 1000 }),
+        staleTime: 10 * 60 * 1000,
+    });
+    const destinationOptions: { id: string; name: string }[] =
+        destinationsData?.destinations?.map((d) => ({ id: d.id, name: d.name })) || [];
+
+    // field_key → value options for the Edit List Filters dropdowns.
+    const lookupOptions = buildLookupOptions("opportunity", {
+        users: owners,
+        sales_stages: normalizedStages.map((s: any) => ({ id: s.id, name: s.name })),
+        destinations: destinationOptions,
+    });
+
+    // Dynamic "Select Fields to display" columns for the flat list view.
+    const { data: oppCustomFields = [] } = useQuery({
+        queryKey: ["custom-fields", "opportunity"],
+        queryFn: () => customFieldsService.list("opportunity", true),
+        staleTime: 5 * 60 * 1000,
+    });
+    const oppFieldLabels = React.useMemo(() => {
+        const m = new Map<string, string>();
+        standardFieldByKey("opportunity").forEach((f, k) => m.set(k, f.label));
+        oppCustomFields.forEach((f) => m.set("additional:" + f.id, f.label || f.name));
+        return m;
+    }, [oppCustomFields]);
+    const oppViewLookups = React.useMemo<ViewLookups>(() => {
+        const toM = (arr: { id: string; name: string }[]) => new Map(arr.map((o) => [o.id, o.name]));
+        return {
+            users: toM(owners),
+            sales_stages: toM(normalizedStages.map((s: any) => ({ id: s.id, name: s.name }))),
+            destinations: toM(destinationOptions),
+        };
+    }, [owners, normalizedStages, destinationOptions]);
+    const dynamicOppColumns = React.useMemo(() => {
+        if (!activeView?.display_columns?.length) return null;
+        return buildEntityColumns(activeView.display_columns, oppFieldLabels, {
+            entity: "opportunity",
+            lookups: oppViewLookups,
+        });
+    }, [activeView, oppFieldLabels, oppViewLookups]);
 
     const setParams = (mut: (p: URLSearchParams) => void) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -243,40 +292,7 @@ export default function OpportunitiesPageClient() {
                             <div className="flex items-center gap-2 text-[10px] font-semibold uppercase text-primary">
                                 {labels.opportunity} ({opportunities.length})
                             </div>
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <div className="flex cursor-pointer items-center gap-2 text-lg font-semibold text-foreground transition-colors hover:text-primary">
-                                        {activeView ? activeView.name : currentViewLabel}
-                                        <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                    </div>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="max-h-80 w-56 overflow-y-auto">
-                                    {opportunityViews.map((view) => (
-                                        <DropdownMenuItem
-                                            key={view.value}
-                                            onClick={() => { applySavedView(null); setCurrentView(view.value); }}
-                                            className={!activeView && currentView === view.value ? "font-semibold text-primary" : ""}
-                                        >
-                                            {view.label}
-                                        </DropdownMenuItem>
-                                    ))}
-                                    {savedViews.length > 0 && (
-                                        <>
-                                            <DropdownMenuSeparator />
-                                            {savedViews.map((v) => (
-                                                <DropdownMenuItem
-                                                    key={v.id}
-                                                    onClick={() => applySavedView(v.id)}
-                                                    className={v.id === viewId ? "font-semibold text-primary" : ""}
-                                                >
-                                                    {v.name}
-                                                    {v.is_public && <span className="ml-1 text-[10px] text-muted-foreground">(team)</span>}
-                                                </DropdownMenuItem>
-                                            ))}
-                                        </>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                            <ListViewSelector entity="opportunity" presets={opportunityViews} presetLabel={currentViewLabel} />
                         </div>
                     </div>
 
@@ -321,57 +337,21 @@ export default function OpportunitiesPageClient() {
                         <Button variant="outline" size="icon" className="h-9 w-9 border-border bg-card text-foreground hover:bg-accent" onClick={refresh} title="Refresh">
                             <RotateCw className="h-4 w-4" />
                         </Button>
-                        <Popover>
-                            <PopoverTrigger asChild>
-                                <Button variant={hasActiveFilter ? "default" : "outline"} size="icon" className="h-9 w-9" title="Filter">
-                                    <FilterIcon className="h-4 w-4" />
-                                </Button>
-                            </PopoverTrigger>
-                            <PopoverContent align="end" className="w-72 space-y-3">
-                                <p className="text-sm font-semibold">Filter {labels.opportunities.toLowerCase()}</p>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs text-muted-foreground">Owner</label>
-                                    <Select value={ownerFilter || "all"} onValueChange={(v) => applyFilter("owner_id", v === "all" ? "" : v)}>
-                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All owners" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All owners</SelectItem>
-                                            {owners.map((o) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div className="space-y-1.5">
-                                    <label className="text-xs text-muted-foreground">Sales stage</label>
-                                    <Select value={stageFilter || "all"} onValueChange={(v) => applyFilter("sales_stage_id", v === "all" ? "" : v)}>
-                                        <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All stages" /></SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">All stages</SelectItem>
-                                            {normalizedStages.map((s: any) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                {hasActiveFilter && (
-                                    <Button variant="ghost" size="sm" className="w-full" onClick={clearFilters}>Clear all filters</Button>
-                                )}
-                            </PopoverContent>
-                        </Popover>
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="outline" className="h-9 gap-1 font-medium">
-                                    <SettingsIcon className="h-4 w-4" /> Settings <ChevronDown className="h-4 w-4" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={refresh}><RotateCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
-                                <DropdownMenuItem onClick={exportCsv}><FileDown className="mr-2 h-4 w-4" /> Export loaded ({opportunities.length}) to CSV</DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem onClick={openSaveView}><Save className="mr-2 h-4 w-4" /> Save view…</DropdownMenuItem>
-                                {activeView && (
-                                    <DropdownMenuItem onClick={deleteActiveView} className="text-red-600 focus:text-red-600">
-                                        <Trash2 className="mr-2 h-4 w-4" /> Delete view “{activeView.name}”
-                                    </DropdownMenuItem>
-                                )}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                        {/* Filter — view-aware (Edit List Filters for the active view) */}
+                        <ListViewFilterButton entity="opportunity" lookupOptions={lookupOptions} />
+
+                        {/* Settings — Select Fields renders the flat DynamicListTable (list mode);
+                            the grouped/kanban layouts apply when a view has no chosen columns. */}
+                        <ListViewSettings
+                            entity="opportunity"
+                            lookupOptions={lookupOptions}
+                            extra={
+                                <>
+                                    <DropdownMenuItem onClick={refresh}><RotateCw className="mr-2 h-4 w-4" /> Refresh</DropdownMenuItem>
+                                    <DropdownMenuItem onClick={exportCsv}><FileDown className="mr-2 h-4 w-4" /> Export loaded ({opportunities.length}) to CSV</DropdownMenuItem>
+                                </>
+                            }
+                        />
                         <Button
                             variant={viewMode === "kanban" ? "default" : "outline"}
                             size="sm"
@@ -415,12 +395,20 @@ export default function OpportunitiesPageClient() {
                     </div>
                 ) : (
                     <div className="w-full overflow-x-auto">
-                        <GroupedOpportunityTable
-                            data={opportunities}
-                            onOpportunityClick={handleOpportunityClick}
-                            groupByOwner={groupByOwner}
-                        />
-                        
+                        {dynamicOppColumns ? (
+                            <DynamicListTable<any>
+                                data={opportunities}
+                                columns={dynamicOppColumns}
+                                onRowClick={handleOpportunityClick}
+                            />
+                        ) : (
+                            <GroupedOpportunityTable
+                                data={opportunities}
+                                onOpportunityClick={handleOpportunityClick}
+                                groupByOwner={groupByOwner}
+                            />
+                        )}
+
                         <div className="flex flex-col gap-2 space-x-0 border-t bg-muted/30 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:space-x-2 sm:px-6">
                             <div className="text-sm font-medium text-muted-foreground">
                                 Showing {opportunities.length}
@@ -452,65 +440,6 @@ export default function OpportunitiesPageClient() {
                 stages={normalizedStages}
             />
 
-            {/* Save a named view */}
-            <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Save view</DialogTitle>
-                        <DialogDescription>
-                            Name the view and choose which {labels.opportunities.toLowerCase()} it should show.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">View name</label>
-                            <Input autoFocus value={vName} onChange={(e) => setVName(e.target.value)} placeholder="e.g. My pipeline" />
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Owner</label>
-                                <Select value={vOwner || "all"} onValueChange={(v) => setVOwner(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Any owner" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any owner</SelectItem>
-                                        {owners.map((o) => (<SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Sales stage</label>
-                                <Select value={vStage || "all"} onValueChange={(v) => setVStage(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Any stage" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any stage</SelectItem>
-                                        {normalizedStages.map((s: any) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <label className="text-xs font-medium text-muted-foreground">Search text</label>
-                                <Input value={vSearch} onChange={(e) => setVSearch(e.target.value)} placeholder="opportunity name" className="h-9 text-sm" />
-                            </div>
-                        </div>
-                        <div className="space-y-2 rounded-md border border-border/60 p-3">
-                            <p className="text-xs font-medium text-muted-foreground">Who sees this view?</p>
-                            <div className="flex items-center gap-2">
-                                <Switch checked={vPublic} onCheckedChange={(v: boolean) => setVPublic(v)} />
-                                <span className="text-sm">{vPublic ? "All users in your team" : "Only me"}</span>
-                            </div>
-                        </div>
-                        {viewFilterCount === 0 && (
-                            <p className="text-xs text-amber-600">No filters set — this view will show all {labels.opportunities.toLowerCase()}.</p>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setSaveOpen(false)} disabled={savingView}>Cancel</Button>
-                        <Button onClick={saveView} disabled={savingView || !vName.trim()}>
-                            {savingView ? "Saving..." : "Save view"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     );
 }

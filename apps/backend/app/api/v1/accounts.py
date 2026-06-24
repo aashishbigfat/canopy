@@ -319,34 +319,44 @@ async def get_accounts(
             }
 
         # --- Saved view filters (ANDed in; visibility scoping preserved) ---
+        # Accounts now use the polymorphic EntityView system (entity_type
+        # account / personal_account), like Contacts/Leads. The structured
+        # filter_rules are translated by app.core.entity_filter with a strict
+        # per-entity field whitelist.
+        active_view = None
+        view_entity_type = "personal_account" if is_person_account else "account"
         if view_id and ObjectId.is_valid(view_id):
-            view = await AccountView.find_one({
+            from app.models.entity_views import EntityView
+            from app.core.entity_filter import build_filter_clauses
+
+            active_view = await EntityView.find_one({
                 "_id": ObjectId(view_id),
                 "tenant_id": current_user.tenant_id,
+                "entity_type": view_entity_type,
                 "$or": [
                     {"created_by": current_user.id},
-                    {"public_view": True},
+                    {"is_public": True},
                 ],
             })
-            if view and view.filters:
-                vf = dict(view.filters)
-                # A saved free-text search spans several columns (same fields as
-                # the live search box). ANDed in so it narrows the view, not widen.
-                vsearch = vf.pop("search", None)
-                if vsearch and str(vsearch).strip():
-                    import re as _re
-                    spat = {"$regex": _re.compile(f".*{_re.escape(str(vsearch).strip())}.*", _re.IGNORECASE)}
-                    query.setdefault("$and", []).append({"$or": [
-                        {"name": spat},
-                        {"email": spat},
-                        {"phone": spat},
-                        {"billing_city": spat},
-                        {"billing_street": spat},
-                    ]})
-                # Structured field filters (owner_id, acc_type_id, city, …).
-                view_clauses = translate_account_view_filters(vf)
+            if active_view:
+                rules = getattr(active_view, "filter_rules", None) or []
+                # Standard fields → whitelisted Mongo clauses (custom rules dropped here).
+                view_clauses = build_filter_clauses(
+                    view_entity_type,
+                    rules,
+                    scope=getattr(active_view, "scope", None),
+                    current_user_id=current_user.id,
+                )
                 if view_clauses:
                     query.setdefault("$and", []).extend(view_clauses)
+                # Custom/"additional:" fields → resolve matching ids from the
+                # custom-value collection and AND them in (empty set ⇒ no match).
+                from app.services.field_registry_service import match_custom_field_entity_ids
+                for cr in rules:
+                    if str(cr.get("field", "")).startswith("additional:"):
+                        ids = await match_custom_field_entity_ids(view_entity_type, cr, current_user.tenant_id)
+                        if ids is not None:  # None ⇒ unsupported op, skip (don't empty the result)
+                            query.setdefault("$and", []).append({"_id": {"$in": ids}})
 
         # --- Server-side pagination (no full-collection load) ---
         skip = (page - 1) * per_page
@@ -420,6 +430,33 @@ async def get_accounts(
         next_cursor = page_result["next_cursor"]
         has_more = page_result["has_more"]
 
+        # If the active view displays any custom/"additional:" columns, batch-read
+        # their values for just this page (single query — no N+1). Skipped entirely
+        # when the view has no additional columns, so the default list pays nothing.
+        custom_values_by_id: Dict[str, Dict[str, Any]] = {}
+        if active_view and any(
+            str(c).startswith("additional:") for c in (getattr(active_view, "display_columns", None) or [])
+        ):
+            from app.services.field_registry_service import bulk_read_custom_field_values
+            try:
+                custom_values_by_id = await bulk_read_custom_field_values(
+                    view_entity_type, [a.id for a in accounts], current_user.tenant_id
+                )
+            except Exception:
+                custom_values_by_id = {}
+
+        # If the active view shows the Account Parent column, resolve parent names
+        # for this page (one tenant-scoped query) — the bounded form-data parent
+        # list can't cover thousands of accounts.
+        parent_name_map: Dict[str, str] = {}
+        if active_view and "acc_parent_id" in (getattr(active_view, "display_columns", None) or []):
+            parent_ids = list({a.acc_parent_id for a in accounts if getattr(a, "acc_parent_id", None)})
+            if parent_ids:
+                parents = await Account.find(
+                    {"_id": {"$in": parent_ids}, "tenant_id": current_user.tenant_id}
+                ).to_list()
+                parent_name_map = {str(p.id): p.name for p in parents}
+
         # Tenant items shadow platform defaults with same name
         industries = dedup_picklist_items(industries_raw)
         acc_types = dedup_picklist_items(acc_types_raw)
@@ -462,6 +499,7 @@ async def get_accounts(
                     "acc_type_id": str(acc.acc_type_id) if acc.acc_type_id else None,
                     "account_type_name": acc_type_map.get(str(acc.acc_type_id)) if acc.acc_type_id else None,
                     "acc_parent_id": str(acc.acc_parent_id) if acc.acc_parent_id else None,
+                    "acc_parent_name": parent_name_map.get(str(acc.acc_parent_id)) if acc.acc_parent_id else None,
                     "industry_id": str(acc.industry_id) if acc.industry_id else None,
                     "category_id": str(acc.category_id) if getattr(acc, 'category_id', None) else None,
                     "category_name": category_map.get(str(acc.category_id)) if getattr(acc, 'category_id', None) else None,
@@ -475,7 +513,10 @@ async def get_accounts(
                     "created_at": acc.created_at,
                     "updated_at": acc.updated_at,
                     "deleted_at": acc.deleted_at,
-                    "industry_data": getattr(acc, 'industry_data', {})
+                    "industry_data": getattr(acc, 'industry_data', {}),
+                    # {additional_field_id: {value, type, name, label}} — populated
+                    # only when the active view shows custom columns (else empty).
+                    "custom_fields": custom_values_by_id.get(str(acc.id), {}),
                 }
                 for acc in accounts
             ],
