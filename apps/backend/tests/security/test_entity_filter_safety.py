@@ -149,12 +149,37 @@ def test_opportunity_new_top_level_fields():
 
 
 def test_travel_date_string_range():
-    # industry_data.travel_date is stored as an ISO string → string comparison.
+    # Lead industry_data.travel_date is stored as an ISO string → string comparison.
     clauses = build_filter_clauses(
         "lead",
         [{"field": "industry_data.travel_date", "operator": "between", "value": ["2026-01-01", "2026-12-31"]}],
     )
     assert clauses == [{"industry_data.travel_date": {"$gte": "2026-01-01", "$lte": "2026-12-31"}}]
+
+
+def test_opportunity_travel_date_matches_date_and_string_storage():
+    # Opportunities store travel_date as a BSON Date (datetime), but converted /
+    # migrated rows may hold an ISO string. The 'between' filter must match either,
+    # so it ORs a Date-typed branch and a String-typed branch (Mongo brackets range
+    # comparisons by BSON type, keeping each branch to its own representation).
+    from datetime import datetime
+    clauses = build_filter_clauses(
+        "opportunity",
+        [{"field": "industry_data.travel_date", "operator": "between", "value": ["2026-05-25", "2026-06-24"]}],
+    )
+    assert len(clauses) == 1 and "$or" in clauses[0]
+    branches = clauses[0]["$or"]
+    conds = [b["industry_data.travel_date"] for b in branches]
+    # One Date branch (inclusive of the whole end calendar day) ...
+    assert {"$gte": datetime(2026, 5, 25), "$lt": datetime(2026, 6, 25)} in conds
+    # ... and one ISO-string branch with the same inclusive end-day bound.
+    assert {"$gte": "2026-05-25", "$lt": "2026-06-25"} in conds
+
+    # A malformed (non-2-element) value is dropped, never injected.
+    assert build_filter_clauses(
+        "opportunity",
+        [{"field": "industry_data.travel_date", "operator": "between", "value": "2026-05-25"}],
+    ) == []
 
 
 def test_destination_strlookup_matches_string_and_oid():

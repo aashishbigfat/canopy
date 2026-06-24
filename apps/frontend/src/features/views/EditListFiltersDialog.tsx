@@ -28,6 +28,8 @@ import {
 } from "@/lib/api/services/field-registry.service";
 import { accountService } from "@/features/accounts/services/accountService";
 import { contactsService } from "@/lib/api/services/contacts.service";
+import { destinationsService } from "@/lib/api/services/destinations.service";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { operatorsForType, operatorArityForType } from "./fieldMeta";
 import type { LogicalType } from "./fieldMeta";
 import {
@@ -101,6 +103,32 @@ export function EditListFiltersDialog({
     [],
   );
 
+  // Destination is an unbounded picklist (cities). Rather than dump thousands of
+  // options into a plain <Select>, load the full set once (for label resolution)
+  // and drive the value editor with a type-to-search picker, mirroring how
+  // Account/Contact references already work in this dialog.
+  const DEST_FIELD = "industry_data.destination_ids";
+  const hasDestination = React.useMemo(() => standard.some((f) => f.key === DEST_FIELD), [standard]);
+  const { data: allDestinations = [] } = useQuery({
+    queryKey: ["destinations", "filter-all"],
+    queryFn: () => destinationsService.getDestinations({ limit: 100000 }).then((r) => r.destinations),
+    staleTime: 5 * 60 * 1000,
+    enabled: open && hasDestination,
+  });
+  const destMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    allDestinations.forEach((d) => m.set(d.id, d.name));
+    return m;
+  }, [allDestinations]);
+  const destinationSearch = React.useCallback(
+    async (q: string) => {
+      const query = q.trim().toLowerCase();
+      const base = query ? allDestinations.filter((d) => d.name.toLowerCase().includes(query)) : allDestinations;
+      return base.slice(0, 50).map((d) => ({ id: d.id, name: d.name }));
+    },
+    [allDestinations],
+  );
+
   const fieldByKey = React.useMemo(() => {
     const m = new Map<string, FieldMeta>();
     [...standard, ...custom].forEach((f) => m.set(f.key, f));
@@ -139,6 +167,7 @@ export function EditListFiltersDialog({
   const optionsFor = (field: string): OptionList => lookupOptions[field] || [];
   const lookupName = (field: string, id: string) => {
     if (isRef(field)) return labelCache[id] || id;
+    if (field === DEST_FIELD) return destMap.get(id) || labelCache[id] || id;
     return optionsFor(field).find((o) => o.id === id)?.name || id;
   };
 
@@ -219,20 +248,35 @@ export function EditListFiltersDialog({
       );
     }
 
-    // Lookup / picklist fields → pick from their values (never a raw id box).
+    // Destination → unbounded picklist; type-to-search (never a giant list).
+    if (draft.field === DEST_FIELD) {
+      return (
+        <AsyncEntitySelect
+          value={draft.value || ""}
+          label={draft.value ? destMap.get(draft.value) || labelCache[draft.value] : undefined}
+          search={destinationSearch}
+          placeholder="Search destinations…"
+          onSelect={(id, name) => {
+            patchDraft({ value: id });
+            setLabelCache((c) => ({ ...c, [id]: name }));
+          }}
+        />
+      );
+    }
+
+    // Lookup / picklist fields → searchable pick from their values (never a raw
+    // id box, and never an unsearchable wall of options).
     if (type === "lookup") {
       const options = optionsFor(draft.field);
       return (
-        <Select value={draft.value || ""} onValueChange={(v) => patchDraft({ value: v })} disabled={!options.length}>
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder={options.length ? "Select…" : "Loading…"} />
-          </SelectTrigger>
-          <SelectContent>
-            {options.map((o) => (
-              <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect
+          options={options.map((o) => ({ label: o.name, value: o.id }))}
+          value={draft.value || ""}
+          onValueChange={(v) => patchDraft({ value: v })}
+          placeholder={options.length ? "Select…" : "Loading…"}
+          searchPlaceholder="Search…"
+          disabled={!options.length}
+        />
       );
     }
     const inputType = type === "date" ? "date" : type === "number" ? "number" : "text";
@@ -341,14 +385,14 @@ export function EditListFiltersDialog({
                   <SelectTrigger className="h-9"><SelectValue placeholder="Field" /></SelectTrigger>
                   <SelectContent className="max-h-72">
                     <SelectGroup>
-                      <SelectLabel className="bg-muted font-semibold text-foreground">Standard Fields</SelectLabel>
+                      <SelectLabel className="border-b border-border bg-primary/10 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">Standard Fields</SelectLabel>
                       {standard.map((f) => (
                         <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
                       ))}
                     </SelectGroup>
                     {custom.length > 0 && (
                       <SelectGroup>
-                        <SelectLabel className="bg-muted font-semibold text-foreground">Custom Fields</SelectLabel>
+                        <SelectLabel className="mt-1 border-t border-border bg-primary/10 px-2 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">Custom Fields</SelectLabel>
                         {custom.map((f) => (
                           <SelectItem key={f.key} value={f.key}>{f.label}</SelectItem>
                         ))}

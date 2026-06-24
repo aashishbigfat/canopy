@@ -116,6 +116,7 @@ _LEAD_FIELDS: Dict[str, str] = {
     "segment": "string",        # stored as "B2C"/"B2B" — string match (UI: select)
     "creation_type": "string",  # stored as "manual"/"auto" — string match (UI: select)
     # Travel industry_data fields (nested) — only meaningful for the travel industry.
+    # Leads persist travel_date as an ISO string (TravelLeadData.travel_date: str).
     "industry_data.travel_date": "datestr",
     "industry_data.destination_ids": "strlookup",
     "industry_data.no_of_pax": "number",
@@ -143,7 +144,10 @@ _OPPORTUNITY_FIELDS: Dict[str, str] = {
     "last_modified_by_id": "lookup",
     "close_lost_reason": "string",
     "close_date": "date",
-    "industry_data.travel_date": "datestr",
+    # Opportunities persist travel_date as a BSON Date (TravelOpportunityData
+    # .travel_date: datetime), but converted/migrated rows may hold a string —
+    # so match either representation. (Leads, by contrast, are always strings.)
+    "industry_data.travel_date": "datemixed",
     "industry_data.destination_ids": "strlookup",
     "industry_data.no_of_pax": "number",
     "created_at": "date",
@@ -170,9 +174,12 @@ OPERATORS_BY_TYPE: Dict[str, set] = {
     "bool": {"equals"},
     "number": {"equals", "not_equals", "greater_than", "less_than", "between", "is_empty", "is_not_empty"},
     "date": {"equals", "greater_than", "less_than", "between", "is_empty", "is_not_empty"},
-    # ISO date stored as a STRING (e.g. industry_data.travel_date) — lexicographic
-    # comparison works because "YYYY-MM-DD" sorts chronologically.
+    # ISO date stored as a STRING (e.g. lead industry_data.travel_date) —
+    # lexicographic comparison works because "YYYY-MM-DD" sorts chronologically.
     "datestr": {"equals", "greater_than", "less_than", "between", "is_empty", "is_not_empty"},
+    # A date that may be stored as a BSON Date (opportunity travel_date) OR an ISO
+    # string (lead / converted / migrated). Matches both representations.
+    "datemixed": {"equals", "greater_than", "less_than", "between", "is_empty", "is_not_empty"},
     # String/ObjectId id that may live in a scalar OR an array field
     # (e.g. industry_data.destination_ids). {field: value} is array-contains in Mongo.
     "strlookup": {"equals", "not_equals", "is_empty", "is_not_empty"},
@@ -339,6 +346,56 @@ def _datestr_clause(field: str, op: str, value: Any) -> Optional[dict]:
     return None
 
 
+def _datemixed_clause(field: str, op: str, value: Any) -> Optional[dict]:
+    """A date that may be persisted as a BSON Date OR an ISO string.
+
+    The product stores ``industry_data.travel_date`` inconsistently — Opportunities
+    persist it as a ``datetime`` (BSON Date), Leads as a ``str``, and converted /
+    migrated records may be either. A single-type comparison silently fails for the
+    other representation because MongoDB *brackets* range comparisons by BSON type
+    (a string bound never matches a Date value, and vice-versa) — which is exactly
+    why the opportunity "Travel Date between …" filter didn't filter. We OR a Date
+    branch and a String branch; type bracketing keeps each branch to its own
+    representation, so together they cover both without double counting.
+    """
+    if op == "is_empty":
+        return {field: {"$in": [None, ""]}}
+    if op == "is_not_empty":
+        return {field: {"$nin": [None, ""]}}
+
+    def _both(date_cond: dict, str_cond: Any) -> dict:
+        return {"$or": [{field: date_cond}, {field: str_cond}]}
+
+    if op == "between":
+        if not isinstance(value, (list, tuple)) or len(value) != 2 or not value[0] or not value[1]:
+            return None
+        lo, hi = _coerce_date(value[0]), _coerce_date(value[1])
+        if lo is None or hi is None:
+            return None
+        lo_day = datetime(lo.year, lo.month, lo.day)
+        hi_next = datetime(hi.year, hi.month, hi.day) + timedelta(days=1)  # inclusive end day
+        return _both(
+            {"$gte": lo_day, "$lt": hi_next},
+            {"$gte": lo_day.strftime("%Y-%m-%d"), "$lt": hi_next.strftime("%Y-%m-%d")},
+        )
+
+    d = _coerce_date(value)
+    if d is None:
+        return None
+    day = datetime(d.year, d.month, d.day)
+    next_day = day + timedelta(days=1)
+    if op == "equals":
+        return _both(
+            {"$gte": day, "$lt": next_day},
+            {"$gte": day.strftime("%Y-%m-%d"), "$lt": next_day.strftime("%Y-%m-%d")},
+        )
+    if op == "greater_than":  # strictly after the selected calendar day
+        return _both({"$gte": next_day}, {"$gte": next_day.strftime("%Y-%m-%d")})
+    if op == "less_than":     # strictly before the selected calendar day
+        return _both({"$lt": day}, {"$lt": day.strftime("%Y-%m-%d")})
+    return None
+
+
 def _strlookup_clause(field: str, op: str, value: Any) -> Optional[dict]:
     """Id stored as a string and/or inside an array (industry_data.destination_ids).
 
@@ -369,6 +426,7 @@ _CLAUSE_BUILDERS = {
     "number": _number_clause,
     "date": _date_clause,
     "datestr": _datestr_clause,
+    "datemixed": _datemixed_clause,
     "strlookup": _strlookup_clause,
 }
 

@@ -1,8 +1,9 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, ArrowLeft, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowRight, ArrowLeft, ArrowUp, ArrowDown, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,11 @@ export function DualListbox({
 }) {
   const [leftSel, setLeftSel] = React.useState<string[]>([]);
   const [rightSel, setRightSel] = React.useState<string[]>([]);
+  const [leftQuery, setLeftQuery] = React.useState("");
+  const [rightQuery, setRightQuery] = React.useState("");
+
+  const match = (items: DualItem[], q: string) =>
+    q.trim() ? items.filter((i) => i.label.toLowerCase().includes(q.trim().toLowerCase())) : items;
 
   const moveRight = () => {
     if (!leftSel.length) return;
@@ -100,7 +106,8 @@ export function DualListbox({
     <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3">
       <div className="space-y-1">
         <div className="text-xs font-medium text-muted-foreground">{availableLabel}</div>
-        <List items={available} sel={leftSel} setSel={setLeftSel} />
+        <SearchBox value={leftQuery} onChange={setLeftQuery} />
+        <List items={match(available, leftQuery)} sel={leftSel} setSel={setLeftSel} />
       </div>
 
       <div className="flex flex-col gap-2">
@@ -120,8 +127,25 @@ export function DualListbox({
 
       <div className="space-y-1">
         <div className="text-xs font-medium text-muted-foreground">{visibleLabel}</div>
-        <List items={value} sel={rightSel} setSel={setRightSel} />
+        <SearchBox value={rightQuery} onChange={setRightQuery} />
+        <List items={match(value, rightQuery)} sel={rightSel} setSel={setRightSel} />
       </div>
+    </div>
+  );
+}
+
+/** Stable (module-scope) search box — kept out of DualListbox's body so it is
+ *  not remounted on every keystroke (which would drop input focus). */
+function SearchBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative">
+      <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search…"
+        className="h-8 pl-7 text-sm"
+      />
     </div>
   );
 }

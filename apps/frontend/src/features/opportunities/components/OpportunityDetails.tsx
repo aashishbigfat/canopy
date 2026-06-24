@@ -687,18 +687,17 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Assigned To</label>
-                                    <select
+                                    <SearchableSelect
                                         value={taskAssignedTo}
-                                        onChange={(e) => setTaskAssignedTo(e.target.value)}
-                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-card"
-                                    >
-                                        {users.map((user: any) => (
-                                            <option key={user.id || user._id} value={user.id || user._id}>
-                                                {user.name}
-                                            </option>
-                                        ))}
-                                        {!users.length && <option value={record.owner_id}>{record.owner_name}</option>}
-                                    </select>
+                                        onValueChange={setTaskAssignedTo}
+                                        placeholder="Select user"
+                                        searchPlaceholder="Search users..."
+                                        options={
+                                            users.length
+                                                ? users.map((user: any) => ({ label: user.name, value: user.id || user._id }))
+                                                : [{ label: record.owner_name || "Owner", value: record.owner_id }]
+                                        }
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Select Due Date</label>

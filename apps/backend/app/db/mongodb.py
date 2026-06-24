@@ -176,7 +176,13 @@ async def init_db():
             maxIdleTimeMS=60000,
             connectTimeoutMS=10000,
             socketTimeoutMS=45000,
-            serverSelectionTimeoutMS=5000
+            serverSelectionTimeoutMS=5000,
+            # Survive transient Atlas/network blips: auto-retry a read or write
+            # once on a recoverable network error instead of surfacing it to the
+            # caller. (The periodic NetworkTimeout seen in logs is the driver's
+            # own connection monitor recovering from a brief reachability loss.)
+            retryReads=True,
+            retryWrites=True,
         )
     
     try:
@@ -399,7 +405,13 @@ async def get_database():
             maxIdleTimeMS=60000,
             connectTimeoutMS=10000,
             socketTimeoutMS=45000,
-            serverSelectionTimeoutMS=5000
+            serverSelectionTimeoutMS=5000,
+            # Survive transient Atlas/network blips: auto-retry a read or write
+            # once on a recoverable network error instead of surfacing it to the
+            # caller. (The periodic NetworkTimeout seen in logs is the driver's
+            # own connection monitor recovering from a brief reachability loss.)
+            retryReads=True,
+            retryWrites=True,
         )
     return mongodb_client[settings.MONGODB_DB_NAME]
 
