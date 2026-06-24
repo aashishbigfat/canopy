@@ -330,6 +330,9 @@ async def main(apply: bool):
             "sorting": idx, "is_active": True, "is_default": False,
             "picklist_type": "destination", "industry": "travel",
             "country": cname,
+            # Beanie single-collection discriminator — REQUIRED or
+            # DestinationPicklist.find() (GET /picklists/destination) matches nothing.
+            "_class_id": "BasePicklist.DestinationPicklist",
             "created_at": now, "updated_at": now,
         })
     if ddocs:
