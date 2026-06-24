@@ -22,3 +22,8 @@ const nextConfig: NextConfig = {
 };
 
 export default nextConfig;
+
+// Enables Cloudflare bindings (env, assets, etc.) during local `next dev`.
+// Required by the @opennextjs/cloudflare adapter.
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();
