@@ -1,0 +1,264 @@
+"""
+Pydantic schemas for Lead API — Industry-agnostic
+
+Travel-specific fields (travel_date, no_of_pax, destinations, etc.) are no
+longer on these schemas.  They live inside `industry_data` and are validated
+per-industry by schemas/industry_data/__init__.py.
+"""
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator, model_validator
+from typing import Optional, Dict, List, Any, Union, Annotated
+from datetime import datetime, date
+from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, strict_phone_validator
+
+class LeadOwnerChange(BaseModel):
+    """Schema for changing lead owner"""
+    new_owner_id: str = Field(..., description="ID of the new owner user")
+import re
+
+def safe_phone_validator(v: Any) -> Optional[str]:
+    if not v:
+        return None
+    if not re.match(PHONE_REGEX, str(v)):
+        return None
+    return str(v)
+
+class LeadBase(BaseModel):
+    """Base schema for Lead — universal across all industries"""
+    salutation: Optional[str] = None
+    first_name: str = Field(..., max_length=100)
+    middle_name: Optional[str] = None
+    last_name: str = Field(..., min_length=1, max_length=100)
+    
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    
+    company: Optional[str] = Field(None, max_length=255)
+    title: Optional[str] = Field(None, max_length=100)
+    no_employees: Optional[int] = Field(None, ge=1)
+    website: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+    
+    lead_status_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    
+    # Universal CRM fields
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    ip_address: Optional[str] = None
+    segment: Optional[str] = "B2C"
+    creation_type: Optional[str] = "manual"
+    
+    # Industry-specific data (validated per-industry via validate_industry_data)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+    # BD multi-owner triple — clients usually omit these (auto-resolved server-side),
+    # but explicit overrides at create time are allowed for imports.
+    territory_id: Optional[str] = None
+    bd_owner_id: Optional[str] = None
+    reporting_manager_id: Optional[str] = None
+    requires_field_meeting: Optional[bool] = False
+
+
+class LeadCreate(LeadBase):
+    """Schema for creating a lead"""
+    custom_fields: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+class LeadUpdate(BaseModel):
+    """Schema for updating a lead"""
+    salutation: Optional[str] = None
+    first_name: Optional[str] = Field(None, max_length=100)
+    middle_name: Optional[str] = None
+    last_name: Optional[str] = Field(None, min_length=1, max_length=100)
+    email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
+    phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    company: Optional[str] = Field(None, max_length=255)
+    title: Optional[str] = Field(None, max_length=100)
+    no_employees: Optional[int] = Field(None, ge=1)
+    website: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+    lead_status_id: Optional[str] = None
+    industry_id: Optional[str] = None
+    source_id: Optional[str] = None
+    source_medium_id: Optional[str] = None
+    
+    # Universal CRM fields
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    ip_address: Optional[str] = None
+    segment: Optional[str] = None  # B2C / B2B / CORPORATE — persisted on update
+
+    # Industry-specific data
+    industry_data: Optional[Dict[str, Any]] = None
+    custom_fields: Optional[Dict[str, Any]] = None
+
+    # BD fields (optional; usually re-resolved server-side when address changes)
+    bd_owner_id: Optional[str] = None
+    reporting_manager_id: Optional[str] = None
+    requires_field_meeting: Optional[bool] = None
+
+    @model_validator(mode="after")
+    def validate_required_inline_fields(self) -> "LeadUpdate":
+        if "last_name" in self.model_fields_set and not self.last_name:
+            raise ValueError("Last name is required.")
+        if "city" in self.model_fields_set and not self.city:
+            raise ValueError("City is required.")
+        if "state" in self.model_fields_set and not self.state:
+            raise ValueError("State is required.")
+        if "country" in self.model_fields_set and not self.country:
+            raise ValueError("Country is required.")
+        return self
+
+
+class LeadBDReassign(BaseModel):
+    """Payload for manually overriding a lead's BD triple."""
+    bd_owner_id: Optional[str] = None
+    reporting_manager_id: Optional[str] = None
+    reason: Optional[str] = None
+
+
+class LeadResponse(BaseModel):
+    """Schema for lead response - no ge constraints so old/legacy data doesn't fail serialization"""
+    id: Annotated[str, BeforeValidator(str)]
+    tenant_id: Annotated[str, BeforeValidator(str)]
+    owner_id: Annotated[str, BeforeValidator(str)]
+    created_by: Annotated[str, BeforeValidator(str)]
+    created_by_name: Optional[str] = None
+    last_modified_by_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    last_modified_by_name: Optional[str] = None
+    owner_name: Optional[str] = None
+
+    salutation: Optional[str] = None
+    first_name: str
+    middle_name: Optional[str] = None
+    last_name: str
+
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+
+    company: Optional[str] = None
+    title: Optional[str] = None
+    no_employees: Optional[int] = None
+    website: Optional[str] = None
+
+    street: Optional[str] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip: Optional[str] = None
+    country: Optional[str] = None
+
+    lead_status_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    industry_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    source_medium_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+
+    # Universal CRM fields
+    source_medium: Optional[str] = None
+    campaign_name: Optional[str] = None
+    ip_address: Optional[str] = None
+    segment: Optional[str] = "B2C"
+    creation_type: Optional[str] = "manual"
+
+    full_name: str
+    is_converted: bool = False
+    opportunity_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    view_count: int = 0
+
+    # BD multi-owner triple (auto-resolved from territory + role hierarchy)
+    territory_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    region_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    bd_owner_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    bd_owner_name: Optional[str] = None
+    reporting_manager_id: Annotated[Optional[str], BeforeValidator(lambda v: str(v) if v else None)] = None
+    reporting_manager_name: Optional[str] = None
+    territory_name: Optional[str] = None
+    territory_match_source: Optional[str] = None
+    territory_assigned_at: Optional[datetime] = None
+    requires_field_meeting: Optional[bool] = False
+    
+    # Industry-specific data (all industries including travel)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+    # Custom field values (Phase 1 §C) — populated by service join from lead_custom_fields
+    custom_fields: Optional[Dict[str, Any]] = None
+    
+    from pydantic import field_serializer
+    @field_serializer('industry_data', mode='plain')
+    def serialize_industry_data(self, value):
+        if not value:
+            return value
+        import bson
+        from datetime import datetime as _dt, date as _date
+        def convert_non_serializable(val):
+            if isinstance(val, dict):
+                return {k: convert_non_serializable(v) for k, v in val.items()}
+            elif isinstance(val, list):
+                return [convert_non_serializable(item) for item in val]
+            elif isinstance(val, bson.ObjectId):
+                return str(val)
+            elif isinstance(val, _dt):
+                return val.isoformat()
+            elif isinstance(val, _date):
+                return val.isoformat()
+            return val
+        return convert_non_serializable(value)
+
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class LeadConvert(BaseModel):
+    """Schema for converting lead to account/contact/opportunity"""
+    account_id: Optional[str] = None
+    account_name: Optional[str] = None
+    account_type: Optional[str] = "Account"  # "Account" or "Person Account"
+    person_salutation: Optional[str] = None
+    person_first_name: Optional[str] = None
+    person_last_name: Optional[str] = None
+    contact_id: Optional[str] = None
+    contact_create: bool = True
+    # Contact name fields — form lets user override the lead's name for the new contact
+    contact_salutation: Optional[str] = None
+    contact_first_name: Optional[str] = None
+    contact_last_name: Optional[str] = None
+    create_opportunity: bool = True
+    opportunity_name: Optional[str] = None
+    opportunity_amount: Optional[float] = None
+    opportunity_close_date: Optional[Union[datetime, date]] = None
+    sales_stage_id: Optional[str] = None
+    description: Optional[str] = None
+    opportunity_owner_id: Optional[str] = None
+    
+    # Industry-specific data for the new opportunity (travel_date, pax, etc.)
+    industry_data: Optional[Dict[str, Any]] = Field(default_factory=dict)
+
+
+
+class LeadListResponse(BaseModel):
+    """Schema for list of leads with metadata"""
+    leads: List[LeadResponse]
+    pagination: Dict[str, Any]
+    lead_statuses: List[Dict[str, Any]] = Field(default_factory=list)
+    sources: List[Dict[str, Any]] = Field(default_factory=list)
+    source_mediums: List[Dict[str, Any]] = Field(default_factory=list)
+    users: List[Dict[str, Any]] = Field(default_factory=list)
+    industries: List[Dict[str, Any]] = Field(default_factory=list)
+    experiences: List[Dict[str, Any]] = Field(default_factory=list)
+    sales_stages: List[Dict[str, Any]] = Field(default_factory=list)

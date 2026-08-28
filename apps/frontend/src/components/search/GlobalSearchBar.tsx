@@ -1,0 +1,101 @@
+"use client";
+
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Search, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { SEARCH_MODULES, getSearchModulesForIndustry, SearchModuleValue } from "@/lib/api/services/search.service";
+import { useIndustryLabels } from "@/lib/industry-labels";
+
+export function GlobalSearchBar() {
+    const router = useRouter();
+    const [module, setModule] = useState<SearchModuleValue>("accounts");
+    const [query, setQuery] = useState("");
+    const [dropdownOpen, setDropdownOpen] = useState(false);
+    const dropdownRef = useRef<HTMLDivElement>(null);
+
+    const labels = useIndustryLabels();
+    const modules = getSearchModulesForIndustry(labels);
+
+    const currentLabel = modules.find((m) => m.value === module)?.label ?? "Files";
+
+    const handleSearch = () => {
+        const trimmed = query.trim();
+        if (!trimmed) return;
+        router.push(`/search?module=${module}&q=${encodeURIComponent(trimmed)}`);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter") {
+            handleSearch();
+        }
+    };
+
+    // Close dropdown on outside click
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+                setDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
+    return (
+        <div className="flex w-full max-w-md items-center h-9 rounded-full overflow-visible border border-border bg-muted/40 backdrop-blur-sm transition-all focus-within:bg-muted focus-within:ring-1 focus-within:ring-ring/40">
+            {/* Category Dropdown */}
+            <div className="relative" ref={dropdownRef}>
+                <button
+                    type="button"
+                    onClick={() => setDropdownOpen((o) => !o)}
+                    className="flex items-center gap-1.5 h-9 pl-4 pr-3 text-sm font-medium text-white whitespace-nowrap bg-[#1a6bb0] hover:bg-[#1a5fa0] transition-colors border-r border-white/10 rounded-l-full"
+                >
+                    {currentLabel}
+                    <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", dropdownOpen && "rotate-180")} />
+                </button>
+
+                {dropdownOpen && (
+                    <div className="absolute left-0 top-full mt-2 w-48 rounded-md border border-border bg-popover shadow-xl z-[200] overflow-hidden py-1">
+                        {modules.map((m) => (
+                            <button
+                                key={m.value}
+                                type="button"
+                                onClick={() => {
+                                    setModule(m.value as SearchModuleValue);
+                                    setDropdownOpen(false);
+                                }}
+                                className={cn(
+                                    "w-full text-left px-4 py-2 text-sm text-popover-foreground hover:bg-accent transition-colors",
+                                    m.value === module && "bg-blue-500/20 text-[#1a6bb0] font-medium"
+                                )}
+                            >
+                                {m.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            {/* Search Input */}
+            <input
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Universal search..."
+                className="h-9 w-[180px] lg:w-[260px] bg-transparent px-3 text-sm text-foreground placeholder:text-muted-foreground outline-none"
+            />
+
+            {/* Search Icon Button */}
+            <button
+                type="button"
+                onClick={handleSearch}
+                className="flex items-center justify-center h-9 w-10 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0 rounded-r-full"
+                aria-label="Search"
+            >
+                <Search className="h-4 w-4" />
+            </button>
+        </div>
+    );
+}

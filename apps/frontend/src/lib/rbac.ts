@@ -1,0 +1,110 @@
+import type { NavItem } from "@/components/layout/nav-items";
+
+/**
+ * Maps URL prefixes to a single permission the user must have (from backend roles).
+ * Longest prefix wins. Aligns with apps/backend/app/services/role_service.py ALL_PERMISSIONS.
+ */
+const ROUTE_RULES: { prefix: string; permission: string }[] = [
+    { prefix: "/admin/role-management", permission: "view_role" },
+    { prefix: "/admin/users", permission: "view_user" },
+    { prefix: "/admin/departments", permission: "manage_system" },
+    { prefix: "/admin/hierarchies", permission: "manage_system" },
+    { prefix: "/admin", permission: "view_user" },
+    { prefix: "/person-accounts", permission: "view_contact" },
+    { prefix: "/accessflow/opportunities", permission: "view_opportunity" },
+    { prefix: "/accounts", permission: "view_account" },
+    { prefix: "/contacts", permission: "view_contact" },
+    { prefix: "/leads", permission: "view_lead" },
+    { prefix: "/suppliers", permission: "view_supplier" },
+    { prefix: "/opportunities", permission: "view_opportunity" },
+    { prefix: "/tasks", permission: "view_task" },
+    { prefix: "/files", permission: "view_file" },
+    { prefix: "/itineraries", permission: "view_itinerary" },
+    { prefix: "/reports", permission: "view_reports" },
+    { prefix: "/events", permission: "view_event" },
+    { prefix: "/products", permission: "view_product" },
+    { prefix: "/quotes", permission: "view_quote" },
+    { prefix: "/notifications", permission: "manage_notifications" },
+    { prefix: "/search", permission: "view_dashboard" },
+    { prefix: "/departure", permission: "view_dashboard" },
+    { prefix: "/dashboard", permission: "view_dashboard" },
+
+    // BD Panel (universal across industries)
+    { prefix: "/bd/approvals", permission: "approve_bd_visit" },
+    { prefix: "/bd/expenses", permission: "view_expense" },
+    { prefix: "/bd/tracking", permission: "view_live_tracking" },
+    { prefix: "/bd/visits", permission: "view_bd_visit" },
+    { prefix: "/bd", permission: "view_bd_panel" },
+    { prefix: "/settings/automation", permission: "manage_automation_rules" },
+    { prefix: "/settings/territory", permission: "manage_territory" },
+
+    // Healthcare vertical
+    { prefix: "/patients", permission: "view_patient" },
+    { prefix: "/providers", permission: "view_provider" },
+    { prefix: "/appointments", permission: "view_appointment" },
+    { prefix: "/care-plans", permission: "view_care_plan" },
+    { prefix: "/referrals", permission: "view_referral" },
+
+    // Education vertical
+    { prefix: "/programs", permission: "view_program" },
+    { prefix: "/admissions", permission: "view_admission" },
+    { prefix: "/enrollments", permission: "view_enrollment" },
+
+    // Manufacturing vertical
+    { prefix: "/boms", permission: "view_bom" },
+    { prefix: "/production-orders", permission: "view_production_order" },
+    { prefix: "/work-orders", permission: "view_work_order" },
+    { prefix: "/inventory", permission: "view_inventory" },
+    { prefix: "/quality-inspections", permission: "view_quality_inspection" },
+    { prefix: "/product-catalog", permission: "view_product_catalog" },
+];
+
+const sortedRules = [...ROUTE_RULES].sort((a, b) => b.prefix.length - a.prefix.length);
+
+export function getRoutePermission(pathname: string): string | null {
+    for (const rule of sortedRules) {
+        if (pathname === rule.prefix || pathname.startsWith(rule.prefix + "/")) {
+            return rule.permission;
+        }
+    }
+    return null;
+}
+
+export function hasPermission(userPermissions: string[] | undefined, required: string): boolean {
+    if (!userPermissions?.length) return false;
+    return userPermissions.includes(required);
+}
+
+export function canAccessPath(pathname: string, userPermissions: string[] | undefined): boolean {
+    const required = getRoutePermission(pathname);
+    if (required === null) return true;
+    return hasPermission(userPermissions, required);
+}
+
+/** Sidebar: only items the user has permission to see. */
+export function filterNavItemsForPermissions(
+    items: NavItem[],
+    userPermissions: string[] | undefined
+): NavItem[] {
+    const perms = userPermissions ?? [];
+    const out: NavItem[] = [];
+    for (const item of items) {
+        const req = item.requiredPermission;
+
+        // ENFORCE PARENT PERMISSION FIRST
+        // If a parent item requires a permission, the user MUST have it to see the item or its submenus.
+        if (req && !perms.includes(req)) {
+            continue;
+        }
+
+        if (item.submenu?.length) {
+            const sub = item.submenu.filter((s) => perms.includes(s.requiredPermission));
+            if (sub.length === 0) continue;
+            out.push({ ...item, submenu: sub });
+            continue;
+        }
+
+        out.push(item);
+    }
+    return out;
+}

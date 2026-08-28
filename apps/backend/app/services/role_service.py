@@ -1,0 +1,419 @@
+"""
+Role service layer - Business logic for role management
+"""
+from typing import List, Optional
+from bson import ObjectId
+from app.models.role import Role
+from app.models.user import User
+from app.schemas.role import RoleCreate, RoleUpdate, PermissionAdd, PermissionRemove
+from app.mixins.activity_mixin import ActivityMixin
+from app.services.scope_cache import invalidate_scope_cache
+
+
+# ---------------------------------------------------------------------------
+# Industry-partitioned permission registry
+# ---------------------------------------------------------------------------
+
+# Core permissions — available to ALL industries
+CORE_PERMISSIONS = [
+    # Account permissions
+    "view_account", "create_account", "edit_account", "delete_account",
+
+    # Person Account permissions
+    "view_person_account", "create_person_account", "edit_person_account", "delete_person_account",
+
+    # Contact permissions
+    "view_contact", "create_contact", "edit_contact", "delete_contact",
+
+    # Lead permissions
+    "view_lead", "create_lead", "edit_lead", "delete_lead",
+
+    # Opportunity permissions
+    "view_opportunity", "create_opportunity", "edit_opportunity", "delete_opportunity",
+    "lock_opportunity", "unlock_opportunity",
+
+    # Task permissions
+    "view_task", "create_task", "edit_task", "delete_task",
+
+    # Event permissions
+    "view_event", "create_event", "edit_event", "delete_event",
+
+    # Note permissions
+    "view_note", "create_note", "edit_note", "delete_note",
+
+    # Email permissions
+    "view_email", "create_email", "edit_email", "delete_email",
+    "send_email", "view_email_template", "create_email_template", "edit_email_template", "delete_email_template",
+
+    # File permissions
+    "view_file", "upload_file", "delete_file", "download_file",
+    "share_file", "public_link_file",
+
+    # Supplier / Provider / Vendor permissions (label differs per industry)
+    "view_supplier", "create_supplier", "edit_supplier", "delete_supplier",
+
+    # Hierarchy (role tree) permissions — replaces old department permissions
+    "view_hierarchy", "create_hierarchy", "edit_hierarchy", "delete_hierarchy",
+
+    # Product permissions
+    "view_product", "create_product", "edit_product", "delete_product",
+
+    # Quote permissions
+    "view_quote", "create_quote", "edit_quote", "delete_quote",
+
+    # Invoice permissions
+    "view_invoice", "create_invoice", "edit_invoice", "delete_invoice",
+
+    # User permissions
+    "view_user", "create_user", "edit_user", "delete_user",
+
+    # Role / Profile permissions (RBAC permission profiles)
+    "view_role", "create_role", "edit_role", "delete_role",
+
+    # Report permissions
+    "view_reports", "view_report", "create_report", "edit_report", "delete_report",
+
+    # Dashboard permissions
+    "view_dashboard",
+
+    # Sales Stages management
+    "manage_sales_stages",
+
+    # Sales Target management
+    "manage_sales_targets",
+
+    # Incentive management
+    "manage_incentives",
+
+    # Leaderboard
+    "view_leaderboard",
+
+    # Settings permissions
+    "manage_settings", "manage_system", "manage_tenants",
+
+    # Billing permissions
+    "manage_billing",
+
+    # Notification permissions
+    "manage_notifications",
+
+    # Webhook permissions
+    "manage_webhooks", "view_webhook", "create_webhook", "edit_webhook", "delete_webhook",
+
+    # Backward compat — keep old department permission strings so existing
+    # stored role docs don't break.  They map to hierarchy ops now.
+    "view_department", "create_department", "edit_department", "delete_department",
+
+    # BD Panel (universal across industries) — territory-based field ops
+    "view_bd_panel", "manage_bd_panel",
+    "view_bd_visit", "create_bd_visit", "edit_bd_visit", "delete_bd_visit",
+    "approve_bd_visit", "check_in_bd_visit",
+    "view_expense", "create_expense", "edit_expense", "delete_expense",
+    "approve_expense", "reimburse_expense",
+    "view_live_tracking", "manage_live_tracking",
+    "manage_territory",
+    "manage_automation_rules",
+]
+
+# Travel-only permissions — destinations, itineraries, packages
+TRAVEL_PERMISSIONS = [
+    "view_destination", "create_destination", "edit_destination", "delete_destination",
+    "view_itinerary", "create_itinerary", "edit_itinerary", "delete_itinerary",
+    "view_package", "create_package", "edit_package", "delete_package",
+    "manage_package_pricing", "feature_package",
+]
+
+# Healthcare-only permissions
+HEALTHCARE_PERMISSIONS = [
+    "view_patient", "create_patient", "edit_patient", "delete_patient",
+    "view_provider", "create_provider", "edit_provider", "delete_provider",
+    "view_appointment", "create_appointment", "edit_appointment", "delete_appointment",
+    "view_care_plan", "create_care_plan", "edit_care_plan", "delete_care_plan",
+    "view_insurance_verification", "create_insurance_verification",
+    "edit_insurance_verification", "delete_insurance_verification",
+    "view_referral", "create_referral", "edit_referral", "delete_referral",
+]
+
+# Education-only permissions
+EDUCATION_PERMISSIONS = [
+    "view_program", "create_program", "edit_program", "delete_program",
+    "view_admission", "create_admission", "edit_admission", "delete_admission",
+    "view_enrollment", "create_enrollment", "edit_enrollment", "delete_enrollment",
+]
+
+# Manufacturing-only permissions
+MANUFACTURING_PERMISSIONS = [
+    "view_product_catalog", "create_product_catalog", "edit_product_catalog", "delete_product_catalog",
+    "view_bom", "create_bom", "edit_bom", "delete_bom",
+    "view_production_order", "create_production_order", "edit_production_order", "delete_production_order",
+    "view_inventory", "create_inventory", "edit_inventory", "delete_inventory",
+    "view_quality_inspection", "create_quality_inspection", "edit_quality_inspection", "delete_quality_inspection",
+    "view_warehouse", "create_warehouse", "edit_warehouse", "delete_warehouse",
+    "view_work_order", "create_work_order", "edit_work_order", "delete_work_order",
+]
+
+# Per-industry extra permissions (extend as modules grow)
+INDUSTRY_PERMISSIONS: dict = {
+    "travel": TRAVEL_PERMISSIONS,
+    "healthcare": HEALTHCARE_PERMISSIONS,
+    "education": EDUCATION_PERMISSIONS,
+    "manufacturing": MANUFACTURING_PERMISSIONS,
+}
+
+# Flat list — backward compatibility (validation uses this for any-tenant flows).
+# Includes every per-industry permission so legacy code paths don't reject them.
+ALL_PERMISSIONS = (
+    CORE_PERMISSIONS
+    + TRAVEL_PERMISSIONS
+    + HEALTHCARE_PERMISSIONS
+    + EDUCATION_PERMISSIONS
+    + MANUFACTURING_PERMISSIONS
+)
+
+
+class RoleService(ActivityMixin):
+    """Service for Role business logic"""
+    
+    def __init__(self):
+        super().__init__()
+    
+    async def create_role(
+        self,
+        role_data: RoleCreate,
+        tenant_id: ObjectId,
+        created_by: ObjectId
+    ) -> Role:
+        """Create a new role"""
+        
+        # Check if role name already exists
+        existing = await Role.find_one(
+            {"name": role_data.name, "tenant_id": tenant_id, "deleted_at": None}
+        )
+
+        if existing:
+            raise ValueError(f"Role with name '{role_data.name}' already exists")
+        
+        # Validate permissions against the tenant's industry
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(tenant_id)
+        valid_perms = self.get_permissions_for_industry(industry)
+        invalid_perms = [p for p in role_data.permissions if p not in valid_perms]
+        if invalid_perms:
+            raise ValueError(f"Invalid permissions: {', '.join(invalid_perms)}")
+        
+        # Create role
+        role = Role(
+            **role_data.model_dump(exclude_unset=True),
+            tenant_id=tenant_id,
+            created_by=created_by
+        )
+        
+        await role.insert()
+        
+        # Log role creation
+        await self.log_entity_created(
+            entity=role,
+            entity_type="role",
+            additional_data={
+                "name": role.name,
+                "display_name": role.display_name,
+                "permissions": role.permissions,
+                "description": role.description
+            }
+        )
+        
+        return role
+    
+    async def get_role(
+        self,
+        role_id: str,
+        tenant_id: ObjectId
+    ) -> Optional[Role]:
+        """Get role by ID, scoped to tenant."""
+        try:
+            oid = ObjectId(role_id)
+        except Exception:
+            return None
+        return await Role.find_one(
+            {"_id": oid, "tenant_id": tenant_id, "deleted_at": None}
+        )
+    
+    async def update_role(
+        self,
+        role_id: str,
+        role_data: RoleUpdate,
+        tenant_id: ObjectId,
+        updated_by: ObjectId
+    ) -> Optional[Role]:
+        """Update a role"""
+        role = await self.get_role(role_id, tenant_id)
+        
+        if not role:
+            return None
+        
+        # Track changes
+        old_values = {}
+        updated_fields = {}
+        
+        # Check name uniqueness if being updated
+        if role_data.name and role_data.name != role.name:
+            existing = await Role.find_one(
+                {"name": role_data.name, "tenant_id": tenant_id, "deleted_at": None}
+            )
+            if existing:
+                raise ValueError(f"Role with name '{role_data.name}' already exists")
+        
+        # Validate permissions if being updated
+        if role_data.permissions is not None:
+            from app.services.industry_service import get_tenant_industry
+            industry = await get_tenant_industry(tenant_id)
+            valid_perms = self.get_permissions_for_industry(industry)
+            invalid_perms = [p for p in role_data.permissions if p not in valid_perms]
+            if invalid_perms:
+                raise ValueError(f"Invalid permissions: {', '.join(invalid_perms)}")
+        
+        # Update fields
+        update_data = role_data.model_dump(exclude_unset=True)
+        for field, value in update_data.items():
+            old_values[field] = getattr(role, field, None)
+            setattr(role, field, value)
+            updated_fields[field] = value
+        
+        role.last_modified_by_id = updated_by
+        await role.save()
+
+        # PERF: toggling is_admin on a role flips visibility for its holders.
+        await invalidate_scope_cache(tenant_id)
+
+        # Log update
+        await self.log_entity_updated(
+            entity=role,
+            entity_type="role",
+            old_values=old_values,
+            updated_fields=updated_fields
+        )
+
+        return role
+    
+    async def delete_role(
+        self,
+        role_id: str,
+        tenant_id: ObjectId
+    ) -> bool:
+        """Soft delete a role"""
+        role = await self.get_role(role_id, tenant_id)
+        
+        if not role:
+            return False
+        
+        # Check if any users have this role
+        users_with_role = await User.find(
+            {"role_ids": ObjectId(role_id), "tenant_id": tenant_id, "deleted_at": None}
+        ).count()
+        
+        if users_with_role > 0:
+            raise ValueError(f"Cannot delete role: {users_with_role} users are assigned to this role")
+        
+        await role.soft_delete()
+        
+        # Log deletion
+        await self.log_entity_deleted(
+            entity=role,
+            entity_type="role",
+            additional_data={
+                "name": role.name,
+                "display_name": role.display_name,
+                "permissions": role.permissions
+            }
+        )
+        
+        return True
+    
+    async def get_roles_by_tenant(
+        self,
+        tenant_id: ObjectId,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[Role]:
+        """Get roles for a tenant"""
+        
+        roles = await Role.find(
+            {"tenant_id": tenant_id, "deleted_at": None}
+        ).skip(skip).limit(limit).sort("+name").to_list()
+        
+        return roles
+    
+    async def add_permissions(
+        self,
+        role_id: str,
+        permission_data: PermissionAdd,
+        tenant_id: ObjectId
+    ) -> Optional[Role]:
+        """Add permissions to a role"""
+        role = await self.get_role(role_id, tenant_id)
+        
+        if not role:
+            return None
+        
+        # Validate permissions against the tenant's industry
+        from app.services.industry_service import get_tenant_industry
+        industry = await get_tenant_industry(tenant_id)
+        valid_perms = self.get_permissions_for_industry(industry)
+        invalid_perms = [p for p in permission_data.permissions if p not in valid_perms]
+        if invalid_perms:
+            raise ValueError(f"Invalid permissions: {', '.join(invalid_perms)}")
+        
+        # Add new permissions (avoid duplicates)
+        current_perms = set(role.permissions)
+        new_perms = set(permission_data.permissions)
+        role.permissions = list(current_perms | new_perms)
+        
+        await role.save()
+        return role
+    
+    async def remove_permissions(
+        self,
+        role_id: str,
+        permission_data: PermissionRemove,
+        tenant_id: ObjectId
+    ) -> Optional[Role]:
+        """Remove permissions from a role"""
+        role = await self.get_role(role_id, tenant_id)
+        
+        if not role:
+            return None
+        
+        # Remove permissions
+        current_perms = set(role.permissions)
+        remove_perms = set(permission_data.permissions)
+        role.permissions = list(current_perms - remove_perms)
+        
+        await role.save()
+        return role
+    
+    async def get_users_by_role(
+        self,
+        role_id: str,
+        tenant_id: ObjectId
+    ) -> List[User]:
+        """Get all users with a specific role"""
+        
+        users = await User.find(
+            {"role_ids": ObjectId(role_id), "tenant_id": tenant_id, "deleted_at": None}
+        ).to_list()
+        
+        return users
+    
+    @staticmethod
+    def get_all_permissions() -> List[str]:
+        """Get list of all available permissions"""
+        return ALL_PERMISSIONS.copy()
+    
+    @staticmethod
+    def get_permissions_for_industry(industry: str) -> List[str]:
+        """Get permissions relevant to a specific industry.
+        
+        Returns CORE_PERMISSIONS + industry-specific extras.
+        """
+        extras = INDUSTRY_PERMISSIONS.get(industry, [])
+        return CORE_PERMISSIONS + extras

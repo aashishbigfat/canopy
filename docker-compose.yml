@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - MONGODB_URL=${MONGODB_URL}
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=${ENVIRONMENT:-production}
+      - SECRET_KEY=${SECRET_KEY}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,https://tutterfly-frontend.vercel.app,https://tutterfly-backend.bigfat.ai}
+    depends_on:
+      - redis
+    networks:
+      - tutterfly-network
+
+  worker:
+    build:
+      context: ./apps/backend
+      dockerfile: Dockerfile
+    command: celery -A app.tasks.account_tasks.celery_app worker --loglevel=info
+    environment:
+      - MONGODB_URL=${MONGODB_URL}
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=${SECRET_KEY}
+    depends_on:
+      - redis
+    networks:
+      - tutterfly-network
+
+  mongodb:
+    image: mongo:6.0
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo-data:/data/db
+    networks:
+      - tutterfly-network
+
+  redis:
+    image: redis:7.0-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - tutterfly-network
+
+networks:
+  tutterfly-network:
+    driver: bridge
+
+volumes:
+  mongo-data:

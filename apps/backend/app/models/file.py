@@ -1,0 +1,80 @@
+"""
+File model for managing uploaded files with S3 integration
+"""
+from beanie import Indexed
+from pydantic import Field
+from typing import Optional
+from beanie import PydanticObjectId
+from datetime import datetime
+from app.models.base import BaseDocument
+
+class File(BaseDocument):
+    """File model for uploaded files"""
+    
+    # File Information
+    filename: str
+    original_filename: str
+    file_path: str  # S3 path or local path
+    file_size: int  # in bytes
+    mime_type: str
+    
+    # Storage
+    storage_type: str = "s3"  # s3, local
+    s3_bucket: Optional[str] = None
+    s3_key: Optional[str] = None
+    
+    # Polymorphic relationship (fileable)
+    fileable_type: Optional[str] = None  # "Account", "Contact", "Lead", "Opportunity", etc.
+    fileable_id: Optional[PydanticObjectId] = None
+    
+    # Category
+    category: Optional[str] = None  # document, image, attachment, etc.
+    
+    # Ownership
+    owner_id: Indexed(PydanticObjectId)
+    
+    # Tenant & Audit
+    tenant_id: Indexed(PydanticObjectId)
+    created_by: PydanticObjectId
+    
+    # Access
+    is_public: bool = False
+    download_count: int = 0
+    
+    class Settings:
+        name = "files"
+        # Indexes managed out of band by scripts/create_indexes.py (deploy step).
+        # indexes = [
+        # "tenant_id",
+        # "owner_id",
+        # [("tenant_id", 1), ("owner_id", 1)],
+            # [("fileable_type", 1), ("fileable_id", 1)],
+        # ]
+    
+    async def get_fileable(self):
+        # """Get the related entity (polymorphic)"""
+        # Polymorphic fileable lookup — tenant-scoped via self.tenant_id
+        if not self.fileable_type or not self.fileable_id:
+            return None
+
+        common = {"_id": self.fileable_id, "tenant_id": self.tenant_id, "deleted_at": None}
+
+        if self.fileable_type == "Account":
+            from app.models.account import Account
+            return await Account.find_one(common)
+        elif self.fileable_type == "Contact":
+            from app.models.contact import Contact
+            return await Contact.find_one(common)
+        elif self.fileable_type == "Lead":
+            from app.models.lead import Lead
+            return await Lead.find_one(common)
+        elif self.fileable_type == "Opportunity":
+            from app.models.opportunity import Opportunity
+            return await Opportunity.find_one(common)
+
+        return None
+    
+    async def increment_download_count(self):
+        # """Increment download count"""
+        self.download_count += 1
+        await self.save()
