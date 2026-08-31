@@ -136,9 +136,9 @@ jobs:
 
             cd /opt/apps/tutterfly
 
-            docker compose pull tutterfly-backend
+            docker compose pull backend
 
-            docker compose up -d tutterfly-backend
+            docker compose up -d backend
 
             docker image prune -a -f
 
