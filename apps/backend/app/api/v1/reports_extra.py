@@ -13,15 +13,358 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional, List, Dict, Any
 from beanie import PydanticObjectId
-from fastapi import APIRouter, Depends, HTTPException, Body
+from fastapi import APIRouter, Depends, HTTPException, Body, Query
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
 from app.models.user import User
 from app.models.report import Report
 from app.models.report_folders import ReportFolder, ReportFolderShare
+from app.services.report_service import report_service
 
 router = APIRouter()
+
+
+REPORT_TYPE_TO_ENTITY = {
+    "accounts": "accounts",
+    "contacts": "contacts",
+    "personal_accounts": "accounts",
+    "leads": "leads",
+    "opportunities": "opportunities",
+    "supplier": "suppliers",
+    "suppliers": "suppliers",
+}
+
+LEGACY_REPORT_COLUMNS = [
+    {"id": 1, "name": "name", "alias_name": "Name", "editable_flag": 0},
+    {"id": 2, "name": "description", "alias_name": "Description", "editable_flag": 0},
+    {"id": 3, "name": "folder_id", "alias_name": "Folder", "editable_flag": 0},
+    {"id": 4, "name": "created_by", "alias_name": "Created By", "editable_flag": 0},
+    {"id": 5, "name": "owner_id", "alias_name": "Owner", "editable_flag": 0},
+    {"id": 6, "name": "created_at", "alias_name": "Created On", "editable_flag": 0},
+    {"id": 7, "name": "updated_at", "alias_name": "Last Modified Date", "editable_flag": 0},
+    {"id": 8, "name": "last_modified_by_id", "alias_name": "Last Modified By", "editable_flag": 0},
+]
+
+REPORT_BUILDER_COLUMNS = {
+    "accounts": [
+        ("name", "Account Name"),
+        ("email", "Email"),
+        ("phone", "Phone"),
+        ("website", "Website"),
+        ("segment", "Segment"),
+        ("billing_street", "Billing Street"),
+        ("billing_city", "Billing City"),
+        ("billing_state", "Billing State"),
+        ("billing_zip", "Billing Zip"),
+        ("billing_country", "Billing Country"),
+        ("industry_id", "Industry"),
+        ("acc_type_id", "Account Type"),
+        ("acc_parent_id", "Parent Account"),
+        ("category_id", "Category"),
+        ("owner_id", "Owner"),
+        ("created_by", "Created By"),
+        ("last_modified_by_id", "Last Modified By"),
+        ("created_at", "Created Date"),
+        ("updated_at", "Last Modified Date"),
+    ],
+    "contacts": [
+        ("salutation", "Salutation"),
+        ("first_name", "First Name"),
+        ("last_name", "Last Name"),
+        ("email", "Email"),
+        ("phone", "Phone"),
+        ("mobile", "Mobile"),
+        ("title", "Title"),
+        ("account_id", "Account Name"),
+        ("mailing_street", "Mailing Street"),
+        ("mailing_city", "Mailing City"),
+        ("mailing_state", "Mailing State"),
+        ("mailing_zip", "Mailing Zip"),
+        ("mailing_country", "Mailing Country"),
+        ("owner_id", "Owner"),
+        ("created_by", "Created By"),
+        ("last_modified_by_id", "Last Modified By"),
+        ("created_at", "Created Date"),
+        ("updated_at", "Last Modified Date"),
+    ],
+    "personal_accounts": [
+        ("salutation", "Salutation"),
+        ("first_name", "First Name"),
+        ("last_name", "Last Name"),
+        ("email", "Email"),
+        ("phone", "Phone"),
+        ("mobile", "Mobile"),
+        ("segment", "Segment"),
+        ("billing_street", "Billing Street"),
+        ("billing_city", "Billing City"),
+        ("billing_state", "Billing State"),
+        ("billing_zip", "Billing Zip"),
+        ("billing_country", "Billing Country"),
+        ("category_id", "Category"),
+        ("owner_id", "Owner"),
+        ("created_by", "Created By"),
+        ("last_modified_by_id", "Last Modified By"),
+        ("created_at", "Created Date"),
+        ("updated_at", "Last Modified Date"),
+    ],
+    "leads": [
+        ("salutation", "Salutation"),
+        ("first_name", "First Name"),
+        ("last_name", "Last Name"),
+        ("email", "Email"),
+        ("phone", "Phone"),
+        ("mobile", "Mobile"),
+        ("company", "Company"),
+        ("title", "Title"),
+        ("no_employees", "No. of Employees"),
+        ("website", "Website"),
+        ("lead_status_id", "Lead Status"),
+        ("source_id", "Source"),
+        ("industry_id", "Industry"),
+        ("street", "Street"),
+        ("city", "City"),
+        ("state", "State"),
+        ("zip", "Zip"),
+        ("country", "Country"),
+        ("creation_type", "Creation Type"),
+        ("owner_id", "Owner"),
+        ("created_by", "Created By"),
+        ("last_modified_by_id", "Last Modified By"),
+        ("created_at", "Created Date"),
+        ("updated_at", "Last Modified Date"),
+    ],
+    "opportunities": [
+        ("name", "Opportunity Name"),
+        ("amount", "Amount"),
+        ("probability", "Probability"),
+        ("sales_stage_id", "Sales Stage"),
+        ("opportunity_type_id", "Opportunity Type"),
+        ("source_id", "Source"),
+        ("account_id", "Account Name"),
+        ("contact_id", "Contact Name"),
+        ("segment", "Segment"),
+        ("creation_type", "Creation Type"),
+        ("close_lost_reason", "Close Lost Reason"),
+        ("close_date", "Close Date"),
+        ("industry_data.travel_date", "Travel Date"),
+        ("industry_data.destination_ids", "Destination(s)"),
+        ("industry_data.no_of_pax", "No of Pax"),
+        ("owner_id", "Owner"),
+        ("created_by", "Created By"),
+        ("last_modified_by_id", "Last Modified By"),
+        ("created_at", "Create Date"),
+        ("updated_at", "Last Modified Date"),
+    ],
+    "supplier": [
+        ("name", "Supplier Name"),
+        ("supplier_type", "Supplier Type"),
+        ("phone", "Phone"),
+        ("mobile", "Mobile"),
+        ("email", "Email"),
+        ("contact_person_name", "Contact Person Name"),
+        ("services", "Services"),
+        ("destinations", "Destination(s)"),
+        ("street", "Street"),
+        ("city", "City"),
+        ("state", "State"),
+        ("zip", "Zip"),
+        ("country", "Country"),
+        ("owner_id", "Owner"),
+        ("created_by", "Created By"),
+        ("created_at", "Created Date"),
+        ("updated_at", "Last Modified Date"),
+    ],
+}
+
+REPORT_DEFAULT_COLUMNS = {
+    "accounts": ["name", "phone", "billing_street", "acc_type_id", "owner_id"],
+    "contacts": ["first_name", "last_name", "email", "phone", "owner_id"],
+    "personal_accounts": ["first_name", "last_name", "email", "phone", "owner_id"],
+    "leads": ["first_name", "last_name", "email", "phone", "company", "owner_id"],
+    "opportunities": ["name", "amount", "sales_stage_id", "close_date", "owner_id"],
+    "supplier": ["name", "phone", "email", "city", "owner_id"],
+}
+
+REPORT_FILTER_OPERATORS = [
+    {"id": "equals", "name": "Equals"},
+    {"id": "not_equals", "name": "Not equal"},
+    {"id": "contains", "name": "Contains"},
+    {"id": "starts_with", "name": "Starts with"},
+    {"id": "is_empty", "name": "Is empty"},
+    {"id": "is_not_empty", "name": "Is not empty"},
+    {"id": "greater_than", "name": "Greater than"},
+    {"id": "less_than", "name": "Less than"},
+    {"id": "between", "name": "Between"},
+]
+
+
+def _default_report_filters(report_type: str) -> Dict[str, Any]:
+    if report_type == "personal_accounts":
+        return {"is_person_account": True}
+    if report_type == "accounts":
+        return {"is_person_account": False}
+    return {}
+
+
+def _default_report_filter_labels(report_type: str) -> List[Dict[str, str]]:
+    if report_type == "personal_accounts":
+        return [{"field": "is_person_account", "label": "Account Type", "operator": "equals", "value": "Personal Account"}]
+    if report_type == "accounts":
+        return [{"field": "is_person_account", "label": "Account Type", "operator": "equals", "value": "Account"}]
+    return []
+
+
+class LegacyFolderIn(BaseModel):
+    name: str
+    parent_id: Optional[PydanticObjectId] = None
+
+
+class LegacyCloneIn(BaseModel):
+    id: PydanticObjectId
+    name: str
+    description: Optional[str] = None
+    folder_id: Optional[Dict[str, Any]] = None
+
+
+class BuilderPreviewIn(BaseModel):
+    entity_type: str
+    columns: List[str] = []
+    filters: Dict[str, Any] = {}
+    order_by: Optional[str] = None
+    order_direction: str = "desc"
+    limit: int = 5
+
+
+class BuilderSaveIn(BuilderPreviewIn):
+    name: str
+    description: Optional[str] = None
+    report_type: str = "custom"
+    folder_id: Optional[PydanticObjectId] = None
+    folder_name: Optional[str] = None
+    is_public: bool = False
+
+
+def _entity_for_report_type(report_type: str) -> str:
+    entity_type = REPORT_TYPE_TO_ENTITY.get(report_type)
+    if not entity_type:
+        raise HTTPException(404, "Report not found")
+    return entity_type
+
+
+def _report_matches_type(report: Report, report_type: str) -> bool:
+    if report_type == "personal_accounts":
+        return report.entity_type == "accounts" and report.filters.get("is_person_account") is True
+    if report_type == "accounts":
+        return report.entity_type == "accounts" and report.filters.get("is_person_account") is not True
+    return report.entity_type == _entity_for_report_type(report_type)
+
+
+def _serialize_date(value: Optional[datetime]) -> Optional[str]:
+    return value.strftime("%Y-%m-%d") if value else None
+
+
+def _id(value: Any) -> Optional[str]:
+    return str(value) if value is not None else None
+
+
+async def _legacy_users(tenant_id: PydanticObjectId) -> List[Dict[str, Any]]:
+    users = await User.find({"tenant_id": tenant_id, "is_active": True}).sort("name").to_list()
+    return [{"id": str(user.id), "name": user.name, "email": str(user.email)} for user in users]
+
+
+async def _folder_details(folder_id: Any, tenant_id: PydanticObjectId) -> Optional[Dict[str, str]]:
+    if not folder_id:
+        return None
+    try:
+        folder_obj_id = PydanticObjectId(str(folder_id))
+    except Exception:
+        return {"id": str(folder_id), "name": str(folder_id)}
+    folder = await ReportFolder.get(folder_obj_id)
+    if not folder or folder.tenant_id != tenant_id:
+        return {"id": str(folder_id), "name": str(folder_id)}
+    return {"id": str(folder.id), "name": folder.name}
+
+
+async def _legacy_report_row(report: Report, tenant_id: PydanticObjectId, folder_flag: int = 0) -> Dict[str, Any]:
+    folder_id = (report.chart_config or {}).get("folder_id")
+    folder_name = (report.chart_config or {}).get("folder_name")
+    folder = await _folder_details(folder_id, tenant_id)
+    if not folder and folder_name:
+        folder = {"id": str(folder_id or folder_name), "name": str(folder_name)}
+    last_modified_by_id = report.last_modified_by_id or report.owner_id or report.created_by
+    return {
+        "id": str(report.id),
+        "name": report.name,
+        "alias_name": report.name,
+        "description": report.description,
+        "folder_id": folder,
+        "created_by": report.created_by,
+        "owner_id": report.owner_id,
+        "last_modified_by_id": last_modified_by_id,
+        "created_at": _serialize_date(report.created_at),
+        "updated_at": _serialize_date(report.updated_at),
+        "folder": folder_flag,
+    }
+
+
+def _legacy_folder_row(folder: ReportFolder, folder_flag: int = 1) -> Dict[str, Any]:
+    return {
+        "id": str(folder.id),
+        "name": folder.name,
+        "parent_id": _id(folder.parent_id),
+        "created_by": _id(folder.created_by),
+        "last_modified_by_id": _id(folder.last_modified_by_id or folder.created_by),
+        "created_at": _serialize_date(folder.created_at),
+        "updated_at": _serialize_date(folder.updated_at),
+        "folder": folder_flag,
+    }
+
+
+async def _legacy_report_payload(
+    reports: List[Report],
+    tenant_id: PydanticObjectId,
+    folders: Optional[List[ReportFolder]] = None,
+) -> Dict[str, Any]:
+    report_rows = [await _legacy_report_row(report, tenant_id) for report in reports]
+    folder_rows = [_legacy_folder_row(folder) for folder in folders or []]
+    users = await _legacy_users(tenant_id)
+    return {
+        "error": False,
+        "reports": report_rows,
+        "folders": folder_rows,
+        "all_folders": folder_rows,
+        "total_reports": len(report_rows),
+        "total_folders": len(folder_rows),
+        "total": len(folder_rows),
+        "parent_id": None,
+        "users": users,
+        "share_users": users,
+        "report_columns": LEGACY_REPORT_COLUMNS,
+        "display_columns": LEGACY_REPORT_COLUMNS,
+    }
+
+
+async def _ensure_default_report_folder(
+    tenant_id: PydanticObjectId,
+    user_id: PydanticObjectId,
+    name: str,
+    is_public: bool,
+) -> ReportFolder:
+    folder = await ReportFolder.find_one({"tenant_id": tenant_id, "name": name, "parent_id": None})
+    if folder:
+        return folder
+    folder = ReportFolder(
+        tenant_id=tenant_id,
+        name=name,
+        parent_id=None,
+        is_public=is_public,
+        is_default=True,
+        created_by=user_id,
+        last_modified_by_id=user_id,
+    )
+    await folder.insert()
+    return folder
 
 
 # ============== STANDARD REPORTS (per-type stubs) ==============
@@ -210,6 +553,350 @@ class FolderUpdate(BaseModel):
     is_public: Optional[bool] = None
 
 
+@router.get("/custom")
+async def list_custom_reports_legacy(
+    type: str = Query("accounts"),
+    scope: str = Query("recent"),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Old TFC custom report listing shape.
+
+    Mirrors:
+      - /rest_reports
+      - /rest_reports_created_by_me
+      - /rest_public_reports
+      - /rest_private_reports
+      - /rest_folders
+      - /rest_folders_created_by_me
+      - /rest_shared_with_me_folders
+    """
+    try:
+        entity_type = _entity_for_report_type(type)
+        tenant_id = current_user.tenant_id
+        user_id = str(current_user.id)
+
+        if scope in {"all_folders", "folders"}:
+            folders = await ReportFolder.find(
+                {
+                    "tenant_id": tenant_id,
+                    "parent_id": None,
+                    "name": {"$nin": ["private_folder", "public_folder"]},
+                }
+            ).sort("-updated_at").to_list()
+            return await _legacy_report_payload([], tenant_id, folders)
+
+        if scope in {"folders_created_by_me", "created_by_me_folders"}:
+            folders = await ReportFolder.find(
+                {
+                    "tenant_id": tenant_id,
+                    "parent_id": None,
+                    "created_by": current_user.id,
+                    "name": {"$nin": ["private_folder", "public_folder"]},
+                }
+            ).sort("-updated_at").to_list()
+            return await _legacy_report_payload([], tenant_id, folders)
+
+        if scope in {"shared_with_me", "shared_folders"}:
+            folders = await ReportFolder.find(
+                {"tenant_id": tenant_id, "shared_with_user_ids": current_user.id}
+            ).sort("-updated_at").to_list()
+            return await _legacy_report_payload([], tenant_id, folders)
+
+        query: Dict[str, Any] = {
+            "tenant_id": tenant_id,
+            "report_type": "custom",
+            "entity_type": entity_type,
+        }
+
+        if scope == "created_by_me":
+            query["created_by"] = user_id
+        elif scope == "public":
+            public_folder = await _ensure_default_report_folder(tenant_id, current_user.id, "public_folder", True)
+            query["$or"] = [{"chart_config.folder_id": str(public_folder.id)}, {"chart_config.folder_name": "public_folder"}]
+        elif scope == "private":
+            private_folder = await _ensure_default_report_folder(tenant_id, current_user.id, "private_folder", False)
+            query["$or"] = [{"chart_config.folder_id": str(private_folder.id)}, {"chart_config.folder_name": "private_folder"}]
+        else:
+            query["$or"] = [
+                {"created_by": user_id},
+                {"owner_id": user_id},
+                {"is_public": True},
+                {"shared_with": user_id},
+            ]
+
+        reports = await Report.find(query).sort("-updated_at").to_list()
+        reports = [report for report in reports if _report_matches_type(report, type)]
+        return await _legacy_report_payload(reports, tenant_id)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(500, f"Custom reports failed: {type(exc).__name__}: {exc}") from exc
+
+
+@router.post("/custom/folders")
+async def create_custom_report_folder_legacy(
+    payload: LegacyFolderIn,
+    current_user: User = Depends(get_current_user),
+):
+    folder = ReportFolder(
+        tenant_id=current_user.tenant_id,
+        name=payload.name,
+        parent_id=payload.parent_id,
+        created_by=current_user.id,
+        last_modified_by_id=current_user.id,
+    )
+    await folder.insert()
+    return {
+        "error": False,
+        "message": f"Folder {folder.name} created successfully.",
+        "folder_id": str(folder.id),
+        "folder": _legacy_folder_row(folder),
+    }
+
+
+@router.get("/custom/folders")
+async def list_custom_report_folders_legacy(
+    current_user: User = Depends(get_current_user),
+):
+    public_folder = await _ensure_default_report_folder(current_user.tenant_id, current_user.id, "public_folder", True)
+    private_folder = await _ensure_default_report_folder(current_user.tenant_id, current_user.id, "private_folder", False)
+    folders = await ReportFolder.find(
+        {
+            "tenant_id": current_user.tenant_id,
+            "parent_id": None,
+        }
+    ).sort("name").to_list()
+    normal_folders = [folder for folder in folders if folder.name not in {"public_folder", "private_folder"}]
+    folder_rows = [
+        _legacy_folder_row(folder)
+        for folder in [*normal_folders, public_folder, private_folder]
+    ]
+    return {
+        "error": False,
+        "all_folders": folder_rows,
+        "total": len(normal_folders),
+        "parent_id": None,
+        "users": await _legacy_users(current_user.tenant_id),
+    }
+
+
+@router.post("/custom/save")
+async def save_custom_report_builder_legacy(
+    payload: BuilderSaveIn,
+    current_user: User = Depends(get_current_user),
+):
+    entity_type = _entity_for_report_type(payload.entity_type)
+    folder: Optional[ReportFolder] = None
+
+    if payload.folder_id:
+        folder = await ReportFolder.get(payload.folder_id)
+        if not folder or folder.tenant_id != current_user.tenant_id:
+            raise HTTPException(404, "Folder not found")
+    elif payload.folder_name:
+        folder = await ReportFolder.find_one(
+            {
+                "tenant_id": current_user.tenant_id,
+                "name": payload.folder_name,
+                "parent_id": None,
+            }
+        )
+        if not folder:
+            folder = ReportFolder(
+                tenant_id=current_user.tenant_id,
+                name=payload.folder_name,
+                parent_id=None,
+                is_public=payload.is_public,
+                created_by=current_user.id,
+                last_modified_by_id=current_user.id,
+            )
+            await folder.insert()
+
+    chart_config: Dict[str, Any] = {}
+    if folder:
+        chart_config["folder_id"] = str(folder.id)
+        chart_config["folder_name"] = folder.name
+
+    report = Report(
+        name=payload.name,
+        description=payload.description,
+        report_type="custom",
+        entity_type=entity_type,
+        columns=payload.columns,
+        filters=payload.filters,
+        order_by=payload.order_by,
+        order_direction=payload.order_direction,
+        limit=None,
+        chart_config=chart_config,
+        is_public=payload.is_public or bool(folder and folder.name == "public_folder"),
+        tenant_id=current_user.tenant_id,
+        created_by=str(current_user.id),
+        owner_id=str(current_user.id),
+        last_modified_by_id=str(current_user.id),
+    )
+    await report.insert()
+
+    if folder and report.id not in folder.report_ids:
+        folder.report_ids.append(report.id)
+        folder.updated_at = datetime.utcnow()
+        folder.last_modified_by_id = current_user.id
+        await folder.save()
+
+    return {
+        "error": False,
+        "message": f"Report {report.name} saved successfully.",
+        "report": await _legacy_report_row(report, current_user.tenant_id),
+        "id": str(report.id),
+    }
+
+
+@router.get("/custom/folders/{folder_id}")
+async def show_custom_report_folder_legacy(
+    folder_id: PydanticObjectId,
+    type: str = Query("accounts"),
+    current_user: User = Depends(get_current_user),
+):
+    folder = await ReportFolder.get(folder_id)
+    if not folder or folder.tenant_id != current_user.tenant_id:
+        raise HTTPException(404, "Folder not found")
+
+    sub_folders = await ReportFolder.find(
+        {"tenant_id": current_user.tenant_id, "parent_id": folder.id}
+    ).sort("name").to_list()
+
+    reports: List[Report] = []
+    if folder.report_ids:
+        reports = await Report.find(
+            {"tenant_id": current_user.tenant_id, "_id": {"$in": folder.report_ids}}
+        ).sort("-updated_at").to_list()
+
+    folder_id_text = str(folder.id)
+    chart_reports = await Report.find(
+        {
+            "tenant_id": current_user.tenant_id,
+            "report_type": "custom",
+            "$or": [
+                {"chart_config.folder_id": folder_id_text},
+                {"chart_config.folder_name": folder.name},
+            ],
+        }
+    ).sort("-updated_at").to_list()
+
+    report_by_id = {str(report.id): report for report in reports}
+    report_by_id.update({str(report.id): report for report in chart_reports})
+    report_rows = [
+        await _legacy_report_row(report, current_user.tenant_id)
+        for report in report_by_id.values()
+        if _report_matches_type(report, type)
+    ]
+    folder_rows = [_legacy_folder_row(sub_folder) for sub_folder in sub_folders]
+
+    return {
+        "error": False,
+        "folder": _legacy_folder_row(folder, folder_flag=1),
+        "sub_folders": folder_rows,
+        "total_sub_folders": len(folder_rows),
+        "reports": report_rows,
+        "total_reports": len(report_rows),
+        "users": await _legacy_users(current_user.tenant_id),
+    }
+
+
+@router.post("/custom/clone")
+async def clone_custom_report_legacy(
+    payload: LegacyCloneIn,
+    current_user: User = Depends(get_current_user),
+):
+    src = await Report.get(payload.id)
+    if not src or src.tenant_id != current_user.tenant_id:
+        raise HTTPException(404, "Report not found")
+
+    folder_id = None
+    folder_name = None
+    if payload.folder_id:
+        folder_id = payload.folder_id.get("id")
+        folder_name = payload.folder_id.get("name")
+
+    data = src.model_dump(exclude={"id", "_id", "created_at", "updated_at", "last_run_at"})
+    data["name"] = payload.name
+    data["description"] = payload.description
+    data["created_by"] = str(current_user.id)
+    data["owner_id"] = str(current_user.id)
+    data["last_modified_by_id"] = str(current_user.id)
+    data["is_default"] = False
+    data["is_favorite"] = False
+    data["tenant_id"] = current_user.tenant_id
+    chart_config = dict(data.get("chart_config") or {})
+    if folder_id:
+        chart_config["folder_id"] = str(folder_id)
+    if folder_name:
+        chart_config["folder_name"] = str(folder_name)
+    data["chart_config"] = chart_config
+
+    report = Report(**data)
+    await report.insert()
+
+    if folder_id:
+        try:
+            folder = await ReportFolder.get(PydanticObjectId(str(folder_id)))
+            if folder and folder.tenant_id == current_user.tenant_id and report.id not in folder.report_ids:
+                folder.report_ids.append(report.id)
+                folder.updated_at = datetime.utcnow()
+                await folder.save()
+        except Exception:
+            pass
+
+    return {
+        "error": False,
+        "message": f"Report {report.name} cloned successfully.",
+        "report": await _legacy_report_row(report, current_user.tenant_id),
+    }
+
+
+@router.get("/custom/metadata")
+async def get_custom_report_builder_metadata(
+    type: str = Query("accounts"),
+    current_user: User = Depends(get_current_user),
+):
+    entity_type = _entity_for_report_type(type)
+    columns = REPORT_BUILDER_COLUMNS.get(type) or REPORT_BUILDER_COLUMNS.get(entity_type, [])
+    default_columns = REPORT_DEFAULT_COLUMNS.get(type) or [column[0] for column in columns[:5]]
+    preview_report = Report(
+        name="Preview",
+        report_type="custom",
+        entity_type=entity_type,
+        columns=default_columns,
+        filters=_default_report_filters(type),
+        order_direction="desc",
+        limit=5,
+        tenant_id=current_user.tenant_id,
+        created_by=str(current_user.id),
+        owner_id=str(current_user.id),
+    )
+    rows, total = await report_service._execute_report_query(preview_report)
+    display_columns = [
+        {"id": index + 1, "name": name, "alias_name": label, "is_additional": 0}
+        for index, (name, label) in enumerate(columns)
+        if name in default_columns
+    ]
+    return {
+        "error": False,
+        "reportable_type": {"id": type, "name": type},
+        "all_columns": [
+            {"id": index + 1, "name": name, "alias_name": label, "is_additional": 0}
+            for index, (name, label) in enumerate(columns)
+        ],
+        "display_columns": display_columns,
+        "additional_columns": [],
+        "group_bys": display_columns,
+        "operators": REPORT_FILTER_OPERATORS,
+        "default_filters": _default_report_filter_labels(type),
+        "users": await _legacy_users(current_user.tenant_id),
+        "report_results": rows,
+        "total": total,
+    }
+
+
 @router.get("/folders")
 async def list_folders(current_user: User = Depends(get_current_user)):
     rows = await ReportFolder.find(
@@ -348,16 +1035,37 @@ class PreviewIn(BaseModel):
 
 @router.post("/preview")
 async def preview_report(
-    payload: PreviewIn,
+    payload: BuilderPreviewIn,
     current_user: User = Depends(get_current_user),
 ):
-    """Mirror old `/rest_report_previews`. Stub returns shape; aggregation TBD."""
+    """Mirror old `/rest_report_previews` for the custom builder."""
+    entity_type = _entity_for_report_type(payload.entity_type)
+    base_filters = _default_report_filters(payload.entity_type)
+    base_filters.update(payload.filters or {})
+    report = Report(
+        name="Preview",
+        report_type="custom",
+        entity_type=entity_type,
+        columns=payload.columns or REPORT_DEFAULT_COLUMNS.get(payload.entity_type, []),
+        filters=base_filters,
+        order_by=payload.order_by,
+        order_direction=payload.order_direction,
+        limit=payload.limit or 5,
+        tenant_id=current_user.tenant_id,
+        created_by=str(current_user.id),
+        owner_id=str(current_user.id),
+    )
+    rows, total = await report_service._execute_report_query(report)
+    column_defs = dict(REPORT_BUILDER_COLUMNS.get(payload.entity_type) or REPORT_BUILDER_COLUMNS.get(entity_type, []))
     return {
-        "entity_type": payload.entity_type,
-        "columns": payload.columns,
-        "filters": payload.filters,
-        "rows": [],
-        "limit": payload.limit,
+        "error": False,
+        "reportable_type": {"id": payload.entity_type, "name": payload.entity_type},
+        "display_columns": [
+            {"name": column, "alias_name": column_defs.get(column, column.replace("_", " ").title())}
+            for column in report.columns
+        ],
+        "report_results": rows,
+        "total": total,
     }
 
 
