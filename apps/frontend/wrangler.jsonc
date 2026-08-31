@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "main": ".open-next/worker.js",
+  "name": "tutterfly",
+  "compatibility_date": "2026-06-24",
+  "compatibility_flags": [
+    "nodejs_compat",
+    "global_fetch_strictly_public"
+  ],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  // Public, non-secret runtime vars. These are read by the Worker at runtime
+  // (process.env.*). They are committed here because `wrangler deploy` treats
+  // this file as the source of truth and would otherwise wipe any plaintext
+  // vars set in the dashboard. NEXTAUTH_SECRET is NOT here — it is an encrypted
+  // secret set via `wrangler secret put NEXTAUTH_SECRET` (secrets survive deploys).
+  "vars": {
+    "NEXTAUTH_URL": "https://tutterfly.team-8cd.workers.dev",
+    "NEXT_PUBLIC_API_URL": "https://tutterfly-backend.bigfat.ai/api/v1"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

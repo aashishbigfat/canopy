@@ -32,29 +32,8 @@ export interface SampleDownload {
   rows_example: number;
 }
 
-export interface ReportFolderContents {
-  folder: ReportFolder;
-  sub_folders: ReportFolder[];
-  reports: any[];
-}
-
-export interface StandardReportDefinition {
-  key: string;
-  name: string;
-  href?: string;
-  date_range_type?: string;
-  flag?: number;
-}
-
-export interface StandardReportGroup {
-  type: string;
-  reports: StandardReportDefinition[];
-}
-
 export const reportsExtraService = {
   // STANDARD REPORTS
-  standardList: async (): Promise<{ groups: StandardReportGroup[] }> =>
-    (await apiClient.get(`${BASE}/standard/list`)).data,
   salesStage: async (filters: any) =>
     (await apiClient.post(`${BASE}/standard/sales-stage`, filters)).data,
   userPerformance: async (filters: any) =>
@@ -69,19 +48,12 @@ export const reportsExtraService = {
     (await apiClient.post(`${BASE}/standard/active-users`, filters)).data,
   accountContact: async (filters: any) =>
     (await apiClient.post(`${BASE}/standard/account-contact`, filters)).data,
-  accounts: async (filters: any) =>
-    (await apiClient.post(`${BASE}/standard/accounts`, filters)).data,
-  personalAccounts: async (filters: any) =>
-    (await apiClient.post(`${BASE}/standard/personal-accounts`, filters)).data,
   leads: async (filters: any) => (await apiClient.post(`${BASE}/standard/leads`, filters)).data,
   team: async (filters: any) => (await apiClient.post(`${BASE}/standard/team`, filters)).data,
   leadConversion: async (filters: any) =>
     (await apiClient.post(`${BASE}/standard/lead-conversion`, filters)).data,
   agentDeparture: async (filters: any) =>
     (await apiClient.post(`${BASE}/standard/agent-departure`, filters)).data,
-  suppliers: async (filters: any) =>
-    (await apiClient.post(`${BASE}/standard/suppliers`, filters)).data,
-  tasks: async (filters: any) => (await apiClient.post(`${BASE}/standard/tasks`, filters)).data,
 
   // FOLDERS
   listFolders: async (): Promise<ReportFolder[]> =>
@@ -94,8 +66,6 @@ export const reportsExtraService = {
     (await apiClient.get(`${BASE}/folders/shared-with-me`)).data,
   getFolder: async (id: string): Promise<ReportFolder> =>
     (await apiClient.get(`${BASE}/folders/${id}`)).data,
-  getFolderContents: async (id: string): Promise<ReportFolderContents> =>
-    (await apiClient.get(`${BASE}/folders/${id}/contents`)).data,
   updateFolder: async (id: string, payload: Partial<FolderIn>) =>
     (await apiClient.put(`${BASE}/folders/${id}`, payload)).data,
   deleteFolder: async (id: string) => apiClient.delete(`${BASE}/folders/${id}`),
@@ -104,8 +74,8 @@ export const reportsExtraService = {
 
   // PREVIEW + CLONE
   preview: async (payload: any) => (await apiClient.post(`${BASE}/preview`, payload)).data,
-  clone: async (id: string, payload?: { name?: string; description?: string | null; folder_id?: string | null }) =>
-    (await apiClient.post(`${BASE}/${id}/clone`, payload ?? {})).data,
+  clone: async (id: string, name?: string) =>
+    (await apiClient.post(`${BASE}/${id}/clone`, name)).data,
   exportFormat: async (payload: any) =>
     (await apiClient.post(`${BASE}/export/format`, payload)).data,
 

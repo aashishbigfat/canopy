@@ -7,7 +7,9 @@ import { compressPermissions, decompressPermissions } from "@/lib/permissions-co
 
 // Fallback access-token lifetime if the JWT exp can't be decoded. Kept well
 // under the 30-day refresh-token / session lifetime so refresh still fires.
-const ACCESS_TOKEN_FALLBACK_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+// Mirrors the backend ACCESS_TOKEN_EXPIRE_MINUTES (1h) — the real expiry is
+// read from the token's exp claim; this is only a decode-failure safety net.
+const ACCESS_TOKEN_FALLBACK_MS = 60 * 60 * 1000; // 1 hour
 
 /** Decode a JWT's `exp` claim (seconds) into epoch ms, without verifying it. */
 function decodeJwtExpiryMs(jwt?: string): number | null {

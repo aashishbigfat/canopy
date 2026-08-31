@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { quotesService } from "@/lib/api/services/quotes.service";
-import { generateQuotePdf, QuoteData } from "@/lib/pdf/generateQuotePdf";
+import type { QuoteData } from "@/lib/pdf/generateQuotePdf";
 
 export default function QuotesPage() {
     const queryClient = useQueryClient();
@@ -89,6 +89,7 @@ export default function QuotesPage() {
                 }))
             };
 
+            const { generateQuotePdf } = await import("@/lib/pdf/generateQuotePdf");
             generateQuotePdf(pdfData);
             toast.success("PDF generated successfully");
         } catch (error) {

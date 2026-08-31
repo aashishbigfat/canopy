@@ -24,13 +24,30 @@ logger = logging.getLogger(__name__)
 
 def _get_client_ip(request) -> str:
     """
-    Resolve the real client IP.
-    If behind a reverse proxy, X-Forwarded-For contains the original IP as
-    the first entry: "client, proxy1, proxy2".
+    Resolve the real client IP for rate-limiting.
+
+    SECURITY: X-Forwarded-For is a client-supplied header. Trusting its
+    LEFTMOST entry lets an attacker spoof a fresh random IP on every request
+    and bypass every per-IP limit (global 300/min, login 5/min, etc.),
+    defeating DDoS protection entirely.
+
+    With a known number of trusted proxies (Nginx / ALB / CDN) in front, the
+    trustworthy value is the Nth-from-the-RIGHT entry — the address the
+    trusted proxy actually observed and appended (an attacker cannot forge
+    entries to the right of what the proxy adds). We take that instead.
+
+    Set TRUSTED_PROXY_HOPS to match the deployment topology. With hops=0 we
+    ignore X-Forwarded-For completely and use the socket peer address.
     """
-    forwarded_for = request.headers.get("X-Forwarded-For")
-    if forwarded_for:
-        return forwarded_for.split(",")[0].strip()
+    hops = max(getattr(settings, "TRUSTED_PROXY_HOPS", 1), 0)
+    if hops > 0:
+        forwarded_for = request.headers.get("X-Forwarded-For")
+        if forwarded_for:
+            parts = [p.strip() for p in forwarded_for.split(",") if p.strip()]
+            if parts:
+                # Take the entry the trusted proxy appended (Nth from the right).
+                idx = min(hops, len(parts))
+                return parts[-idx]
     return get_remote_address(request)
 
 

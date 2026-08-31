@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Loader2 } from "lucide-react";
 import { usePicklist } from "@/hooks/use-picklist";
 import { usersExtraService } from "@/lib/api/services/users-extra.service";
@@ -209,15 +210,16 @@ export function VisitFormDialog({ open, onOpenChange, visit, defaults, onSaved }
             </div>
             <div className="grid gap-1.5">
               <Label>BD Owner</Label>
-              <Select value={ownerId || "__default__"} onValueChange={(v) => setOwnerId(v === "__default__" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Auto from lead" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="__default__">Auto (parent&apos;s BD owner)</SelectItem>
-                  {users.map((u) => (
-                    <SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                value={ownerId || "__default__"}
+                onValueChange={(v) => setOwnerId(v === "__default__" ? "" : v)}
+                placeholder="Auto from lead"
+                searchPlaceholder="Search users..."
+                options={[
+                  { label: "Auto (parent's BD owner)", value: "__default__" },
+                  ...users.map((u) => ({ label: u.name, value: u.id })),
+                ]}
+              />
             </div>
           </div>
           <div className="grid gap-1.5">

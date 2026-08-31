@@ -4,6 +4,7 @@ import { useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useDepartureDestinations } from "../api/useDepartures";
 import type { DepartureFilters } from "../types";
 
@@ -62,20 +63,18 @@ export function DepartureFilter({ filters, onApply, onClose }: Props) {
                     {/* Destinations */}
                     <div className="space-y-1.5">
                         <label className="text-sm font-medium text-foreground">Destinations</label>
-                        <Select
+                        <SearchableSelect
+                            options={[
+                                { label: "All destinations", value: "_all" },
+                                ...destinations.map((d) => ({ label: d, value: d })),
+                            ]}
                             value={local.destination ?? "_all"}
-                            onValueChange={(v) => setLocal((p) => ({ ...p, destination: v === "_all" ? undefined : v }))}
-                        >
-                            <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Select destination..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="_all">All destinations</SelectItem>
-                                {destinations.map((d) => (
-                                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                            onValueChange={(v) =>
+                                setLocal((p) => ({ ...p, destination: !v || v === "_all" ? undefined : v }))
+                            }
+                            placeholder="Select destination..."
+                            searchPlaceholder="Search destinations..."
+                        />
                     </div>
 
                     {/* Date range */}

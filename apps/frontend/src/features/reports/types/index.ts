@@ -1,11 +1,10 @@
 import { ApiResponse } from "@/lib/api/types";
 
 export interface Report {
-    id?: string;
     _id: string;
     name: string;
     description?: string;
-    report_type: 'custom' | 'standard' | 'sales' | 'leads' | 'opportunities' | 'activities';
+    report_type: 'custom' | 'sales' | 'leads' | 'opportunities' | 'activities';
     entity_type: string; // 'accounts', 'contacts', etc.
 
     // Configuration
@@ -23,15 +22,7 @@ export interface Report {
     // Metadata
     is_public: boolean;
     is_favorite: boolean;
-    is_default?: boolean;
-    owner_id?: string;
-    tenant_id?: string;
-    shared_with?: string[];
     created_by?: string;
-    last_modified_by_id?: string;
-    updated_by?: string;
-    last_modified_by?: string;
-    last_run_at?: string;
     created_at: string;
     updated_at: string;
 }

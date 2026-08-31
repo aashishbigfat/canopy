@@ -1,5 +1,4 @@
 import type { NextConfig } from "next";
-import { createRequire } from "node:module";
 import path from "node:path";
 
 // Pin Turbopack to the npm workspaces root (D:\tutterfly), NOT to apps/frontend.
@@ -38,16 +37,7 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-// Enables Cloudflare bindings only when explicitly requested. Plain local
-// `next dev` should not fail if the optional Cloudflare adapter is not installed.
-if (process.env.OPENNEXT_CLOUDFLARE_DEV === "1") {
-  try {
-    const require = createRequire(import.meta.url);
-    const { initOpenNextCloudflareForDev } = require("@opennextjs/cloudflare");
-    initOpenNextCloudflareForDev();
-  } catch {
-    console.warn(
-      "OPENNEXT_CLOUDFLARE_DEV=1 but @opennextjs/cloudflare is not installed."
-    );
-  }
-}
+// Enables Cloudflare bindings (env, assets, etc.) during local `next dev`.
+// Required by the @opennextjs/cloudflare adapter.
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
+initOpenNextCloudflareForDev();

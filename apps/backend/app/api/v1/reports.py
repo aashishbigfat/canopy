@@ -129,7 +129,7 @@ async def list_reports(
     is_public: Optional[bool] = Query(None),
     search: Optional[str] = Query(None),
     page: int = Query(1, ge=1),
-    per_page: int = Query(20, ge=1, le=200),
+    per_page: int = Query(20, ge=1, le=100),
     current_user: User = Depends(check_permission("view_report"))
 ):
     """List reports with filtering and pagination."""
@@ -168,14 +168,6 @@ async def get_favorite_reports(
         ReportResponse(id=str(r.id), **r.model_dump(exclude={"id"}))
         for r in reports
     ]
-
-
-@router.get("/bd-list")
-async def get_bd_report_list(
-    current_user: User = Depends(check_permission("view_report"))
-):
-    """Get BD report owners from actual BD data."""
-    return {"list": await report_service.list_bd_report_users(current_user)}
 
 
 @router.get("/{report_id}", response_model=ReportResponse)

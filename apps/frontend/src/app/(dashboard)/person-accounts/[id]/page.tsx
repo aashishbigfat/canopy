@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AccountDetailView } from "@/features/accounts/components/AccountDetailView";
 import { getApiBaseUrlNoSlash } from "@/lib/env";
 
@@ -32,13 +32,11 @@ export default async function PersonAccountDetailPage(props: {
     const session = await getServerSession(authOptions);
 
     if (!session?.accessToken) {
-        notFound();
+        redirect("/login");
     }
 
     const params = await props.params;
     const account = await getAccountDetail(params.id, session.accessToken);
-
-    const { redirect } = await import("next/navigation");
 
     // Ensure we are viewing the right type of account
     if (!account.is_person_account) {

@@ -48,7 +48,7 @@ import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Calendar } from "@/components/ui/calendar";
 
 import { cn } from "@/lib/utils";
-import { useUpdateOpportunity } from "../api/useOpportunities";
+import { useUpdateOpportunity, useExperiences } from "../api/useOpportunities";
 import { usePicklist } from "@/hooks/use-picklist";
 import { Opportunity } from "../types";
 import { normalizeSalesStages, getProbabilityForStageId, StageWithProbability, getCloseLostReasons } from "@/features/opportunities/utils/stageConfig";
@@ -115,6 +115,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
     const [isLoading, setIsLoading] = useState(false);
     const updateOpportunity = useUpdateOpportunity();
     const { items: sources } = usePicklist("source");
+    const { data: experiences } = useExperiences();
     const normalizedStages = normalizeSalesStages(stages);
 
     const [availableDestinations, setAvailableDestinations] = useState<Destination[]>([]);
@@ -533,7 +534,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                             <FormControl>
                                                 <SearchableSelect
                                                     options={accountOptions.map(a => ({ label: a.name, value: a.id }))}
-                                                    value={field.value}
+                                                    value={field.value || ""}
                                                     onValueChange={(val) => {
                                                         field.onChange(val);
                                                         setSelectedAccountId(val);
@@ -559,7 +560,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                                 <FormControl>
                                                     <SearchableSelect
                                                         options={accountContacts.map(c => ({ label: c.full_name || `${c.first_name} ${c.last_name}`, value: c.id }))}
-                                                        value={field.value}
+                                                        value={field.value || ""}
                                                         onValueChange={field.onChange}
                                                         placeholder={loadingContacts ? "Loading contacts..." : (selectedAccountId ? "Select contact" : "Select an account first")}
                                                         disabled={!selectedAccountId || loadingContacts}
@@ -578,7 +579,7 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                     render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Sales Stage *</FormLabel>
-                                            <Select onValueChange={field.onChange} value={field.value}>
+                                            <Select onValueChange={field.onChange} value={field.value || ""}>
                                                 <FormControl>
                                                     <SelectTrigger>
                                                         <SelectValue placeholder="Select a stage" />
@@ -630,8 +631,8 @@ export function OpportunityEditForm({ opportunity, stages, onSuccess, onCancel, 
                                                     </FormControl>
                                                     <SelectContent>
                                                         <SelectItem value="none">None</SelectItem>
-                                                        {sources.map(s => (
-                                                            <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                                                        {experiences?.map((e: any) => (
+                                                            <SelectItem key={e.id} value={e.id}>{e.name}</SelectItem>
                                                         ))}
                                                     </SelectContent>
                                                 </Select>

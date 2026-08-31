@@ -78,6 +78,13 @@ import { ImportDataDialog, normalizeImportResult } from "@/components/shared/Imp
 import { useDebounce } from "@/hooks/use-debounce";
 import { validateInlineField, normalizePhoneValue, isPhoneField, type InlineField } from "@/lib/validation/inline-field-validation";
 import { PhoneInput } from "@/components/ui/phone-input";
+import type { EntityType } from "@/lib/api/services/field-registry.service";
+import { standardFieldsService, customFieldsService } from "@/lib/api/services/field-registry.service";
+import { useEntityViews } from "@/features/views/useEntityViews";
+import { ListViewSelector, ListViewSettings } from "@/features/views/ListViewMenu";
+import { ListViewFilterButton } from "@/features/views/ListViewFilterButton";
+import { buildEntityColumns, type ViewLookups } from "@/features/views/accountColumnFactory";
+import { buildLookupOptions } from "@/features/views/accountFields";
 
 // ─── Inline-editable text cell (phone) ────────────────────────────────────────
 
@@ -317,89 +324,30 @@ export function AccountTable({
         }
     }, [cursor, loadingMore, isPersonAccount, pagination.per_page, searchParams]);
 
-    // ── Saved list-view selector ("Recently Viewed" dropdown) ─────────────────
-    const activeView = views.find((v) => v.id === activeViewId) || null;
-    const applyView = React.useCallback((id: string | null) => {
-        const params = new URLSearchParams(searchParams.toString());
-        if (id) {
-            params.set("view_id", id);
-        } else {
-            params.delete("view_id");
-        }
-        params.delete("search");
-        params.delete("owner_id");
-        params.delete("acc_type_id");
-        params.delete("billing_city");
-        params.delete("page");
-        params.delete("cursor");
-        startTransition(() => router.push(`${pathname}?${params.toString()}`));
-    }, [pathname, router, searchParams]);
+    // ── Saved list-view (polymorphic EntityView) ─────────────────────────────
+    // entity_type discriminates B2B vs B2C so each gets its own views, filters
+    // and field set. View management (New/Rename/Share/Edit Filters/Select
+    // Fields/Delete) lives in ListViewSelector + ListViewSettings.
+    const entity: EntityType = isPersonAccount ? "personal_account" : "account";
+    const { activeView } = useEntityViews(entity);
 
-    // ── Save a named view (pick filters right here in the dialog) ─────────────
-    const [saveViewOpen, setSaveViewOpen] = React.useState(false);
-    const [viewName, setViewName] = React.useState("");
-    const [savingView, setSavingView] = React.useState(false);
-    // Filter criteria for the view being saved (seeded from any active filters).
-    const [vfOwner, setVfOwner] = React.useState("");
-    const [vfType, setVfType] = React.useState("");
-    const [vfCity, setVfCity] = React.useState("");
-    const [vfSearch, setVfSearch] = React.useState("");
-    const [vfPublic, setVfPublic] = React.useState(false);
-
-    const openSaveView = () => {
-        // Pre-fill with whatever is currently applied to the list.
-        setVfOwner(searchParams.get("owner_id") ?? "");
-        setVfType(searchParams.get("acc_type_id") ?? "");
-        setVfCity(searchParams.get("billing_city") ?? "");
-        setVfSearch(searchParams.get("search") ?? "");
-        setVfPublic(false);
-        setViewName("");
-        setSaveViewOpen(true);
-    };
-
-    const viewFilterCount =
-        (vfOwner ? 1 : 0) + (vfType ? 1 : 0) + (vfCity.trim() ? 1 : 0) + (vfSearch.trim() ? 1 : 0);
-
-    const saveCurrentView = async () => {
-        const name = viewName.trim();
-        if (!name) {
-            toast.error("Please enter a view name");
-            return;
-        }
-        const filters: Record<string, string> = {};
-        if (vfOwner) filters.owner_id = vfOwner;
-        if (vfType) filters.acc_type_id = vfType;
-        if (vfCity.trim()) filters.billing_city = vfCity.trim();
-        if (vfSearch.trim()) filters.search = vfSearch.trim();
-
-        setSavingView(true);
-        try {
-            const created = await accountService.createView(name, filters, false, vfPublic);
-            toast.success("View saved");
-            setSaveViewOpen(false);
-            setViewName("");
-            // Switch to the new view so the user immediately sees it applied.
-            const params = new URLSearchParams();
-            params.set("view_id", created.id);
-            startTransition(() => router.push(`${pathname}?${params.toString()}`));
-        } catch (e: any) {
-            toast.error(e?.response?.data?.detail || "Failed to save view");
-        } finally {
-            setSavingView(false);
-        }
-    };
-
-    const deleteActiveView = async () => {
-        if (!activeView) return;
-        if (!confirm(`Delete the view "${activeView.name}"?`)) return;
-        try {
-            await accountService.deleteView(activeView.id);
-            toast.success("View deleted");
-            applyView(null);
-        } catch (e: any) {
-            toast.error(e?.response?.data?.detail || "Failed to delete view");
-        }
-    };
+    // Field labels for dynamic display columns (standard + additional/custom).
+    const { data: stdFields = [] } = useQuery({
+        queryKey: ["standard-fields", entity],
+        queryFn: () => standardFieldsService.list(entity, true),
+        staleTime: 5 * 60 * 1000,
+    });
+    const { data: addFields = [] } = useQuery({
+        queryKey: ["custom-fields", entity],
+        queryFn: () => customFieldsService.list(entity, true),
+        staleTime: 5 * 60 * 1000,
+    });
+    const fieldLabels = React.useMemo(() => {
+        const m = new Map<string, string>();
+        stdFields.forEach((f) => m.set(f.field_key, f.label || f.field_key));
+        addFields.forEach((f) => m.set("additional:" + f.id, f.label || f.name));
+        return m;
+    }, [stdFields, addFields]);
 
     const refresh = React.useCallback(() => {
         startTransition(() => router.refresh());
@@ -417,15 +365,8 @@ export function AccountTable({
         if (debouncedSearch) params.set("search", debouncedSearch);
         else params.delete("search");
         params.delete("page");
-        params.delete("cursor");
         startTransition(() => router.push(`${pathname}?${params.toString()}`));
     }, [debouncedSearch, pathname, router, searchParams]);
-
-    React.useEffect(() => {
-        const nextSearch = searchParams.get("search") ?? "";
-        lastPushed.current = nextSearch;
-        setSearchInput(nextSearch);
-    }, [searchParams]);
 
     // ── Quick-view detail drawer ──────────────────────────────────────────────
     const [detailId, setDetailId] = React.useState<string | null>(null);
@@ -483,12 +424,37 @@ export function AccountTable({
     const owners: { id: string; name: string }[] = filterFormData?.users || [];
     const accountTypes: { id: string; name: string }[] = filterFormData?.account_types || [];
 
+    // id→name maps so dynamic lookup columns (owner, type, industry, parent, …)
+    // render names instead of ids.
+    const viewLookups = React.useMemo<ViewLookups>(() => {
+        const toMap = (arr?: { id: string; name: string }[]) =>
+            new Map((arr || []).map((o) => [o.id, o.name]));
+        return {
+            users: toMap(filterFormData?.users),
+            industries: toMap(filterFormData?.industries),
+            account_types: toMap(filterFormData?.account_types),
+            categories: toMap(filterFormData?.categories),
+            parents: toMap(filterFormData?.parent_accounts),
+        };
+    }, [filterFormData]);
+
+    // field_key → value options for the filter dropdowns.
+    const lookupOptions = React.useMemo(
+        () =>
+            buildLookupOptions(entity, {
+                users: filterFormData?.users,
+                account_types: filterFormData?.account_types,
+                industries: filterFormData?.industries,
+                categories: filterFormData?.categories,
+            }),
+        [entity, filterFormData],
+    );
+
     const applyFilter = React.useCallback((key: string, value: string) => {
         const params = new URLSearchParams(searchParams.toString());
         if (value) params.set(key, value);
         else params.delete(key);
         params.delete("page");
-        params.delete("cursor");
         startTransition(() => router.push(`${pathname}?${params.toString()}`));
     }, [pathname, router, searchParams]);
 
@@ -500,7 +466,6 @@ export function AccountTable({
         params.delete("acc_type_id");
         params.delete("billing_city");
         params.delete("page");
-        params.delete("cursor");
         startTransition(() => router.push(`${pathname}?${params.toString()}`));
     };
 
@@ -513,12 +478,6 @@ export function AccountTable({
         lastCity.current = debouncedCity;
         applyFilter("billing_city", debouncedCity.trim());
     }, [debouncedCity, applyFilter]);
-
-    React.useEffect(() => {
-        const nextCity = searchParams.get("billing_city") ?? "";
-        lastCity.current = nextCity;
-        setCityInput(nextCity);
-    }, [searchParams]);
 
     // ── Bulk import + full server-side export ─────────────────────────────────
     const [importOpen, setImportOpen] = React.useState(false);
@@ -545,6 +504,18 @@ export function AccountTable({
                     />
                 ),
             });
+        }
+        // When the active view selects explicit display columns, render those
+        // (in order) instead of the default set.
+        if (activeView?.display_columns?.length) {
+            base.push(
+                ...(buildEntityColumns(activeView.display_columns, fieldLabels, {
+                    entity,
+                    openDetail,
+                    lookups: viewLookups,
+                }) as ColumnDef<Account>[]),
+            );
+            return base;
         }
         base.push(
             {
@@ -618,7 +589,7 @@ export function AccountTable({
             }
         );
         return base;
-    }, [mergeMode, selected, refresh, openDetail]);
+    }, [mergeMode, selected, refresh, openDetail, activeView, fieldLabels, entity, isPersonAccount, viewLookups]);
 
     const table = useReactTable({
         data: rows,
@@ -639,46 +610,7 @@ export function AccountTable({
                             Accounts
                         </div>
                         <div className="flex items-center gap-1.5">
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <button
-                                        type="button"
-                                        className="flex items-center gap-1 text-sm font-semibold text-foreground hover:text-primary sm:text-lg"
-                                        title="Switch list view"
-                                    >
-                                        {activeView ? activeView.name : "Recently Viewed"}
-                                        <ChevronDown className="h-4 w-4" />
-                                    </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="start" className="max-h-80 w-60 overflow-y-auto">
-                                    <DropdownMenuItem
-                                        onClick={() => applyView(null)}
-                                        className={!activeView ? "font-semibold text-primary" : ""}
-                                    >
-                                        Recently Viewed
-                                    </DropdownMenuItem>
-                                    {views.length > 0 && <DropdownMenuSeparator />}
-                                    {views.map((v) => (
-                                        <DropdownMenuItem
-                                            key={v.id}
-                                            onClick={() => applyView(v.id)}
-                                            className={v.id === activeViewId ? "font-semibold text-primary" : ""}
-                                        >
-                                            {v.name}
-                                        </DropdownMenuItem>
-                                    ))}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
-                            {activeView && (
-                                <button
-                                    type="button"
-                                    onClick={() => applyView(null)}
-                                    title="Clear view"
-                                    className="text-muted-foreground hover:text-foreground"
-                                >
-                                    <X className="h-3.5 w-3.5" />
-                                </button>
-                            )}
+                            <ListViewSelector entity={entity} />
                         </div>
                     </div>
                 </div>
@@ -755,119 +687,27 @@ export function AccountTable({
                         <RefreshCw className={`w-4 h-4 ${isPending ? "animate-spin" : ""}`} />
                     </Button>
 
-                    {/* Filter */}
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button
-                                variant={hasActiveFilter ? "default" : "outline"}
-                                size="icon"
-                                className="flex-shrink-0"
-                                title="Filter"
-                            >
-                                <Filter className="w-4 h-4" />
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent align="end" className="w-72 space-y-3">
-                            <p className="text-sm font-semibold">Filter accounts</p>
+                    {/* Filter — view-aware (opens Edit List Filters for the active view) */}
+                    <ListViewFilterButton entity={entity} lookupOptions={lookupOptions} />
 
-                            <div className="space-y-1.5">
-                                <label className="text-xs text-muted-foreground">Owner</label>
-                                <Select value={ownerFilter || "all"} onValueChange={(v) => applyOwnerFilter(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm">
-                                        <SelectValue placeholder="All owners" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All owners</SelectItem>
-                                        {owners.map((o) => (
-                                            <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-xs text-muted-foreground">Account type</label>
-                                <Select value={typeFilter || "all"} onValueChange={(v) => applyFilter("acc_type_id", v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm">
-                                        <SelectValue placeholder="All types" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">All types</SelectItem>
-                                        {accountTypes.map((t) => (
-                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <label className="text-xs text-muted-foreground">Billing city</label>
-                                <div className="relative">
-                                    <Input
-                                        value={cityInput}
-                                        onChange={(e) => setCityInput(e.target.value)}
-                                        placeholder="e.g. Agra"
-                                        className="h-9 text-sm"
-                                    />
-                                    {cityInput && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setCityInput("")}
-                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                                        >
-                                            <X className="h-3.5 w-3.5" />
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-
-                            {hasActiveFilter && (
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="w-full"
-                                    onClick={() => {
-                                        setCityInput("");
-                                        clearAllFilters();
-                                    }}
-                                >
-                                    Clear all filters
-                                </Button>
-                            )}
-                        </PopoverContent>
-                    </Popover>
-
-                    {/* Settings */}
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                            <Button variant="outline" className="flex-shrink-0">
-                                Settings <ChevronDown className="w-4 h-4 ml-1" />
-                            </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={refresh}>
-                                <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => exportAll("csv")}>
-                                <Download className="mr-2 h-4 w-4" /> Export all (CSV)
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => setImportOpen(true)}>
-                                <Upload className="mr-2 h-4 w-4" /> Import Accounts (CSV)
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={openSaveView}>
-                                <Save className="mr-2 h-4 w-4" /> Save view…
-                            </DropdownMenuItem>
-                            {activeView && (
-                                <DropdownMenuItem
-                                    onClick={deleteActiveView}
-                                    className="text-red-600 focus:text-red-600"
-                                >
-                                    <Trash2 className="mr-2 h-4 w-4" /> Delete view “{activeView.name}”
+                    {/* Settings (context-aware list-view manager + data actions) */}
+                    <ListViewSettings
+                        entity={entity}
+                        lookupOptions={lookupOptions}
+                        extra={
+                            <>
+                                <DropdownMenuItem onClick={refresh}>
+                                    <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                                 </DropdownMenuItem>
-                            )}
-                        </DropdownMenuContent>
-                    </DropdownMenu>
+                                <DropdownMenuItem onClick={() => exportAll("csv")}>
+                                    <Download className="mr-2 h-4 w-4" /> Export all (CSV)
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setImportOpen(true)}>
+                                    <Upload className="mr-2 h-4 w-4" /> Import Accounts (CSV)
+                                </DropdownMenuItem>
+                            </>
+                        }
+                    />
                 </div>
             </div>
 
@@ -979,103 +819,6 @@ export function AccountTable({
                         </Button>
                         <Button onClick={doMerge} disabled={merging || !primaryId}>
                             {merging ? "Merging..." : "Merge"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* Save a named view — choose its filters right here */}
-            <Dialog open={saveViewOpen} onOpenChange={setSaveViewOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Save view</DialogTitle>
-                        <DialogDescription>
-                            Name the view and choose which accounts it should show. It will
-                            appear in the “Recently Viewed” dropdown for quick access.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">View name</label>
-                            <Input
-                                autoFocus
-                                value={viewName}
-                                onChange={(e) => setViewName(e.target.value)}
-                                placeholder="e.g. Delhi Agents"
-                            />
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Owner</label>
-                                <Select value={vfOwner || "all"} onValueChange={(v) => setVfOwner(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm">
-                                        <SelectValue placeholder="Any owner" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any owner</SelectItem>
-                                        {owners.map((o) => (
-                                            <SelectItem key={o.id} value={o.id}>{o.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Account type</label>
-                                <Select value={vfType || "all"} onValueChange={(v) => setVfType(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm">
-                                        <SelectValue placeholder="Any type" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any type</SelectItem>
-                                        {accountTypes.map((t) => (
-                                            <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Billing city</label>
-                                <Input
-                                    value={vfCity}
-                                    onChange={(e) => setVfCity(e.target.value)}
-                                    placeholder="e.g. Agra"
-                                    className="h-9 text-sm"
-                                />
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Search text</label>
-                                <Input
-                                    value={vfSearch}
-                                    onChange={(e) => setVfSearch(e.target.value)}
-                                    placeholder="name / email / phone"
-                                    className="h-9 text-sm"
-                                />
-                            </div>
-                        </div>
-
-                        <div className="space-y-2 rounded-md border border-border/60 p-3">
-                            <p className="text-xs font-medium text-muted-foreground">Who sees this view?</p>
-                            <div className="flex items-center gap-2">
-                                <Switch checked={vfPublic} onCheckedChange={(v: boolean) => setVfPublic(v)} />
-                                <span className="text-sm">
-                                    {vfPublic ? "All users in your team" : "Only me"}
-                                </span>
-                            </div>
-                        </div>
-
-                        {viewFilterCount === 0 && (
-                            <p className="text-xs text-amber-600">
-                                No filters set — this view will show all accounts.
-                            </p>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setSaveViewOpen(false)} disabled={savingView}>
-                            Cancel
-                        </Button>
-                        <Button onClick={saveCurrentView} disabled={savingView || !viewName.trim()}>
-                            {savingView ? "Saving..." : "Save view"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
