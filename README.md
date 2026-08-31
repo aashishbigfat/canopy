@@ -13,11 +13,31 @@ Backend: FastAPI + Beanie/MongoDB (`apps/backend`). Frontend: Next.js App Router
 
 ## Running locally
 
+Quick start (one command, both services):
+
 ```bash
 npm run install:all   # frontend deps + backend pip install
 npm run dev           # frontend :3000 + backend :8000
 ```
 
-API docs: http://localhost:8000/api/docs
+Or run each service manually in its own terminal:
+
+**Backend** — from `apps/backend`:
+
+```powershell
+PS C:\Users\ABHINEET\Desktop\Tutterfly\apps\backend> pip install -r requirements.txt
+PS C:\Users\ABHINEET\Desktop\Tutterfly\apps\backend> python -m uvicorn app.main:app --reload --port 8000
+```
+
+`requirements.txt` includes `uvicorn`, so no separate install is needed for it.
+
+**Frontend** — from the repo root:
+
+```powershell
+PS C:\Users\ABHINEET\Desktop\Tutterfly> npm install
+PS C:\Users\ABHINEET\Desktop\Tutterfly> npm run dev
+```
+
+App: http://localhost:3000 · API docs: http://localhost:8000/api/docs
 
 Check `apps/backend/.env` before running — confirm which database you are pointed at.
