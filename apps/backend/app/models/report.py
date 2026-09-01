@@ -37,7 +37,6 @@ class Report(Document):
     # Ownership
     created_by: Optional[str] = None
     owner_id: Optional[str] = None
-    last_modified_by_id: Optional[str] = None
     
     # Tenant
     tenant_id: Indexed(PydanticObjectId)

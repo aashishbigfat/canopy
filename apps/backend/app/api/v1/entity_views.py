@@ -57,6 +57,9 @@ class ViewIn(BaseModel):
     name: str
     description: Optional[str] = None
     filters: Dict[str, Any] = Field(default_factory=dict)
+    filter_rules: List[Dict[str, Any]] = Field(default_factory=list)
+    display_columns: List[str] = Field(default_factory=list)
+    scope: Optional[str] = None
     sort_by: Optional[str] = None
     sort_dir: Optional[str] = "desc"
     is_public: bool = False
@@ -67,6 +70,9 @@ class ViewUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     filters: Optional[Dict[str, Any]] = None
+    filter_rules: Optional[List[Dict[str, Any]]] = None
+    display_columns: Optional[List[str]] = None
+    scope: Optional[str] = None
     sort_by: Optional[str] = None
     sort_dir: Optional[str] = None
     is_public: Optional[bool] = None

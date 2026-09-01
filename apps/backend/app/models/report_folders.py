@@ -19,7 +19,6 @@ class ReportFolder(Document):
     is_default: bool = False
 
     created_by: Indexed(PydanticObjectId)
-    last_modified_by_id: Optional[PydanticObjectId] = None
     shared_with_user_ids: List[PydanticObjectId] = Field(default_factory=list)
     report_ids: List[PydanticObjectId] = Field(default_factory=list)
 

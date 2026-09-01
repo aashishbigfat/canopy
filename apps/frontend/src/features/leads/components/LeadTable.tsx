@@ -68,6 +68,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { entityViewsService } from "@/lib/api/services/entity-views.service";
+import { customFieldsService, type EntityType } from "@/lib/api/services/field-registry.service";
+import { ListViewSelector, ListViewSettings, type ViewPreset } from "@/features/views/ListViewMenu";
+import { ListViewFilterButton } from "@/features/views/ListViewFilterButton";
+import { buildEntityColumns, type ViewLookups } from "@/features/views/accountColumnFactory";
+import { buildLookupOptions, standardFieldByKey } from "@/features/views/accountFields";
 import { toast } from "sonner";
 import { useDebounce } from "@/hooks/use-debounce";
 import { validateInlineField, normalizePhoneValue, isPhoneField } from "@/lib/validation/inline-field-validation";
@@ -492,6 +497,8 @@ interface LeadTableProps {
     users: User[];
     experiences: { id: string; name: string }[];
     sales_stages: { id: string; name: string }[];
+    source_mediums?: { id: string; name: string }[];
+    industries?: { id: string; name: string }[];
     isLoading?: boolean;
     onSelectOne?: (id: string, checked: boolean) => void;
     onSelectAll?: (checked: boolean) => void;
@@ -510,6 +517,8 @@ export function LeadTable({
     users,
     experiences,
     sales_stages,
+    source_mediums = [],
+    industries = [],
     isLoading = false,
     onSelectOne,
     onSelectAll,
@@ -553,39 +562,80 @@ export function LeadTable({
     const [isConvertOpen, setIsConvertOpen] = React.useState(false);
     const [isImportOpen, setIsImportOpen] = React.useState(false);
 
-    const columns = React.useMemo(() => {
-        const baseColumns = getColumns(lead_statuses, sources, users, experiences, industry, destinationMap);
+    // ── List-view manager (saved views + filters + Select Fields) ─────────────
+    const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
+    const entity: EntityType = "lead";
+    const { data: savedViews = [] } = useQuery({
+        queryKey: ["entity-views", "lead"],
+        queryFn: () => entityViewsService.listViews("lead"),
+        staleTime: 60_000,
+    });
+    const viewId = searchParams.get("view_id") ?? "";
+    const activeView = savedViews.find((v) => v.id === viewId) || null;
+    const { data: leadCustomFields = [] } = useQuery({
+        queryKey: ["custom-fields", entity],
+        queryFn: () => customFieldsService.list(entity, true),
+        staleTime: 5 * 60 * 1000,
+    });
+    const fieldLabels = React.useMemo(() => {
+        const m = new Map<string, string>();
+        standardFieldByKey(entity).forEach((f, k) => m.set(k, f.label));
+        leadCustomFields.forEach((f) => m.set("additional:" + f.id, f.label || f.name));
+        return m;
+    }, [leadCustomFields]);
+    const toMapLV = (arr: { id: string; name: string }[]) => new Map(arr.map((o) => [o.id, o.name]));
+    const viewLookups = React.useMemo<ViewLookups>(() => ({
+        users: toMapLV(users.map((u) => ({ id: u.id, name: u.name }))),
+        lead_statuses: toMapLV(lead_statuses),
+        sources: toMapLV(sources),
+        source_mediums: toMapLV(source_mediums),
+        industries: toMapLV(industries),
+        destinations: destinationMap,
+    }), [users, lead_statuses, sources, source_mediums, industries, destinationMap]);
+    const lookupOptions = React.useMemo(() => buildLookupOptions(entity, {
+        users: users.map((u) => ({ id: u.id, name: u.name })),
+        lead_statuses, sources, source_mediums, industries,
+        destinations: Array.from(destinationMap, ([id, name]) => ({ id, name })),
+    }), [users, lead_statuses, sources, source_mediums, industries, destinationMap]);
 
-        if (baseColumns[0].id === "select") {
-            baseColumns[0] = {
-                id: "select",
-                header: ({ table }) => (
-                    <Checkbox
-                        checked={
-                            selectedIds.length > 0 && selectedIds.length === data.length
-                        }
-                        onCheckedChange={(value) => {
-                            if (onSelectAll) onSelectAll(!!value);
-                        }}
-                        aria-label="Select all"
-                    />
-                ),
-                cell: ({ row }) => (
-                    <Checkbox
-                        checked={selectedIds.includes(row.original.id)}
-                        onCheckedChange={(value) => {
-                            if (onSelectOne) onSelectOne(row.original.id, !!value);
-                        }}
-                        aria-label="Select row"
-                    />
-                ),
-                enableSorting: false,
-                enableHiding: false,
-            };
+    const columns = React.useMemo<ColumnDef<Lead>[]>(() => {
+        const selectCol: ColumnDef<Lead> = {
+            id: "select",
+            header: () => (
+                <Checkbox
+                    checked={selectedIds.length > 0 && selectedIds.length === data.length}
+                    onCheckedChange={(value) => { if (onSelectAll) onSelectAll(!!value); }}
+                    aria-label="Select all"
+                />
+            ),
+            cell: ({ row }) => (
+                <Checkbox
+                    checked={selectedIds.includes(row.original.id)}
+                    onCheckedChange={(value) => { if (onSelectOne) onSelectOne(row.original.id, !!value); }}
+                    aria-label="Select row"
+                />
+            ),
+            enableSorting: false,
+            enableHiding: false,
+        };
+
+        // Active view with explicit display columns → render those.
+        if (activeView?.display_columns?.length) {
+            return [
+                selectCol,
+                ...(buildEntityColumns(activeView.display_columns, fieldLabels, {
+                    entity,
+                    openDetail: undefined,
+                    lookups: viewLookups,
+                }) as ColumnDef<Lead>[]),
+            ];
         }
 
+        const baseColumns = getColumns(lead_statuses, sources, users, experiences, industry, destinationMap);
+        if (baseColumns[0].id === "select") baseColumns[0] = selectCol;
         return baseColumns;
-    }, [lead_statuses, sources, users, experiences, industry, destinationMap, selectedIds, onSelectOne, onSelectAll, data.length]);
+    }, [lead_statuses, sources, users, experiences, industry, destinationMap, selectedIds, onSelectOne, onSelectAll, data.length, activeView, fieldLabels, viewLookups]);
 
     const table = useReactTable({
         data,
@@ -617,18 +667,16 @@ export function LeadTable({
         }
     });
 
-    const searchParams = useSearchParams();
     const pathname = usePathname();
     const router = useRouter();
 
     const total = pagination.total ?? table.getRowModel().rows.length;
-    const currentView = searchParams.get("view") || "all";
+    const currentView = searchParams.get("view") || "today";
 
-    const leadViews = [
-        { label: "All Leads", value: "all" },
+    const leadViews: ViewPreset[] = [
         { label: "Today Leads", value: "today" },
         { label: "Recently Viewed", value: "recent" },
-        { label: "Todays Lead", value: "todays_lead" },
+        { label: "All Leads", value: "all" },
         { label: "Yesterday Leads", value: "yesterday" },
         { label: "Last Week Leads", value: "last_week" },
         { label: "WhatsApp Enquiry Leads", value: "whatsapp" },
@@ -636,17 +684,7 @@ export function LeadTable({
     ];
 
     const currentViewLabel =
-        leadViews.find((v) => v.value === currentView)?.label || "All Leads";
-
-    // ── Saved views (lead-scoped EntityViews) ─────────────────────────────────
-    const queryClient = useQueryClient();
-    const { data: savedViews = [] } = useQuery({
-        queryKey: ["entity-views", "lead"],
-        queryFn: () => entityViewsService.listViews("lead"),
-        staleTime: 60_000,
-    });
-    const viewId = searchParams.get("view_id") ?? "";
-    const activeView = savedViews.find((v) => v.id === viewId) || null;
+        leadViews.find((v) => v.value === currentView)?.label || "Today Leads";
 
     const setParams = React.useCallback((mut: (p: URLSearchParams) => void) => {
         const params = new URLSearchParams(searchParams.toString());
@@ -752,47 +790,7 @@ export function LeadTable({
                                 Leads ({total})
                             </div>
                             <div className="flex items-center gap-2">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            className="gap-1"
-                                        >
-                                            {activeView ? activeView.name : currentViewLabel}
-                                            <ChevronDown className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="start">
-                                        <DropdownMenuLabel className="text-xs text-muted-foreground">Presets</DropdownMenuLabel>
-                                        {leadViews.map((view) => (
-                                            <DropdownMenuItem
-                                                key={view.value}
-                                                onClick={() => applyPreset(view.value)}
-                                                className={!activeView && currentView === view.value ? "font-semibold text-primary" : ""}
-                                            >
-                                                {view.label}
-                                            </DropdownMenuItem>
-                                        ))}
-                                        {savedViews.length > 0 && (
-                                            <>
-                                                <DropdownMenuSeparator />
-                                                <DropdownMenuLabel className="text-xs text-muted-foreground">Saved views</DropdownMenuLabel>
-                                                {savedViews.map((v) => (
-                                                    <DropdownMenuItem
-                                                        key={v.id}
-                                                        onClick={() => applySavedView(v.id)}
-                                                        className={v.id === viewId ? "font-semibold text-primary" : ""}
-                                                    >
-                                                        {v.name}
-                                                        {v.is_public && <span className="ml-1 text-[10px] text-muted-foreground">(team)</span>}
-                                                    </DropdownMenuItem>
-                                                ))}
-                                            </>
-                                        )}
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                <ListViewSelector entity={entity} presets={leadViews} presetLabel="Today Leads" className="flex items-center gap-1 rounded-md border px-3 py-1.5 text-sm font-medium hover:bg-accent" />
                             </div>
                         </div>
                         <div className="flex flex-wrap items-center gap-2">
@@ -821,76 +819,27 @@ export function LeadTable({
                                 <RefreshCw className={`h-4 w-4 ${isPending ? "animate-spin" : ""}`} />
                             </Button>
 
-                            {/* Filter */}
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={hasActiveFilter ? "default" : "outline"}
-                                        size="icon"
-                                        aria-label="Filter leads"
-                                        title="Filter"
-                                    >
-                                        <Filter className="h-4 w-4" />
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent align="end" className="w-72 space-y-3">
-                                    <p className="text-sm font-semibold">Filter leads</p>
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs text-muted-foreground">Owner</label>
-                                        <Select value={ownerFilter || "all"} onValueChange={(v) => applyFilter("owner_id", v === "all" ? "" : v)}>
-                                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All owners" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All owners</SelectItem>
-                                                {users.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-xs text-muted-foreground">Status</label>
-                                        <Select value={statusFilter || "all"} onValueChange={(v) => applyFilter("lead_status_id", v === "all" ? "" : v)}>
-                                            <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="All statuses" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">All statuses</SelectItem>
-                                                {lead_statuses.map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    {hasActiveFilter && (
-                                        <Button variant="ghost" size="sm" className="w-full" onClick={clearFilters}>
-                                            Clear all filters
-                                        </Button>
-                                    )}
-                                </PopoverContent>
-                            </Popover>
+                            {/* Filter — view-aware */}
+                            <ListViewFilterButton entity={entity} lookupOptions={lookupOptions} />
 
-                            {/* Settings */}
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button variant="outline" className="gap-1">
-                                        <Settings className="h-4 w-4" /> Settings <ChevronDown className="h-4 w-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={refresh}>
-                                        <RefreshCw className="mr-2 h-4 w-4" /> Refresh
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => exportAll("csv")}>
-                                        <Download className="mr-2 h-4 w-4" /> Export all (CSV)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
-                                        <Upload className="mr-2 h-4 w-4" /> Import Leads (CSV)
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem onClick={openSaveView}>
-                                        <Save className="mr-2 h-4 w-4" /> Save view…
-                                    </DropdownMenuItem>
-                                    {activeView && (
-                                        <DropdownMenuItem onClick={deleteActiveView} className="text-red-600 focus:text-red-600">
-                                            <Trash2 className="mr-2 h-4 w-4" /> Delete view “{activeView.name}”
+                            {/* Settings (context-aware list-view manager + data actions) */}
+                            <ListViewSettings
+                                entity={entity}
+                                lookupOptions={lookupOptions}
+                                extra={
+                                    <>
+                                        <DropdownMenuItem onClick={refresh}>
+                                            <RefreshCw className="mr-2 h-4 w-4" /> Refresh
                                         </DropdownMenuItem>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                        <DropdownMenuItem onClick={() => exportAll("csv")}>
+                                            <Download className="mr-2 h-4 w-4" /> Export all (CSV)
+                                        </DropdownMenuItem>
+                                        <DropdownMenuItem onClick={() => setIsImportOpen(true)}>
+                                            <Upload className="mr-2 h-4 w-4" /> Import Leads (CSV)
+                                        </DropdownMenuItem>
+                                    </>
+                                }
+                            />
                         </div>
                     </div>
                     <div className="px-4 py-3">
@@ -986,65 +935,6 @@ export function LeadTable({
                 onOpenChange={setIsImportOpen}
             />
 
-            {/* Save a named view */}
-            <Dialog open={saveOpen} onOpenChange={setSaveOpen}>
-                <DialogContent>
-                    <DialogHeader>
-                        <DialogTitle>Save view</DialogTitle>
-                        <DialogDescription>
-                            Name the view and choose which leads it should show.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4">
-                        <div className="space-y-1.5">
-                            <label className="text-xs font-medium text-muted-foreground">View name</label>
-                            <Input autoFocus value={vName} onChange={(e) => setVName(e.target.value)} placeholder="e.g. Hot leads" />
-                        </div>
-                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Owner</label>
-                                <Select value={vOwner || "all"} onValueChange={(v) => setVOwner(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Any owner" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any owner</SelectItem>
-                                        {users.map((u) => (<SelectItem key={u.id} value={u.id}>{u.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                                <label className="text-xs font-medium text-muted-foreground">Status</label>
-                                <Select value={vStatus || "all"} onValueChange={(v) => setVStatus(v === "all" ? "" : v)}>
-                                    <SelectTrigger className="h-9 text-sm"><SelectValue placeholder="Any status" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Any status</SelectItem>
-                                        {lead_statuses.map((s) => (<SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-1.5 sm:col-span-2">
-                                <label className="text-xs font-medium text-muted-foreground">Search text</label>
-                                <Input value={vSearch} onChange={(e) => setVSearch(e.target.value)} placeholder="name / email / phone" className="h-9 text-sm" />
-                            </div>
-                        </div>
-                        <div className="space-y-2 rounded-md border border-border/60 p-3">
-                            <p className="text-xs font-medium text-muted-foreground">Who sees this view?</p>
-                            <div className="flex items-center gap-2">
-                                <Switch checked={vPublic} onCheckedChange={(v: boolean) => setVPublic(v)} />
-                                <span className="text-sm">{vPublic ? "All users in your team" : "Only me"}</span>
-                            </div>
-                        </div>
-                        {viewFilterCount === 0 && (
-                            <p className="text-xs text-amber-600">No filters set — this view will show all leads.</p>
-                        )}
-                    </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setSaveOpen(false)} disabled={savingView}>Cancel</Button>
-                        <Button onClick={saveView} disabled={savingView || !vName.trim()}>
-                            {savingView ? "Saving..." : "Save view"}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </LoadingState>
     );
 }

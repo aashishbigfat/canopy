@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AccountDetailView } from "@/features/accounts/components/AccountDetailView";
 import { getApiBaseUrlNoSlash } from "@/lib/env";
 
@@ -32,7 +32,7 @@ export default async function AccountDetailPage(props: {
     const session = await getServerSession(authOptions);
 
     if (!session?.accessToken) {
-        notFound();
+        redirect("/login");
     }
 
     const params = await props.params;
@@ -40,7 +40,6 @@ export default async function AccountDetailPage(props: {
 
     // Redirect person accounts to the correct route
     if (account.is_person_account) {
-        const { redirect } = await import("next/navigation");
         redirect(`/person-accounts/${params.id}`);
     }
 

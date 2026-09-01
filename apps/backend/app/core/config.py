@@ -40,10 +40,21 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     # Access token; the frontend refreshes it silently against the 30-day
     # refresh token (see auth_service._create_refresh_token) until that expires.
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
+    # Kept short (1h) so a leaked/stolen access token has a small validity
+    # window. NextAuth's jwt callback reads the token's own exp and refreshes
+    # transparently, so active users are unaffected.
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 60  # 1 hour
     
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
+
+    # Rate limiting — number of trusted reverse proxies (Nginx / ALB / CDN)
+    # in front of the app. Used to pick the real client IP out of the
+    # client-supplied X-Forwarded-For chain WITHOUT trusting spoofable
+    # leftmost entries. Set to the actual hop count for your deployment:
+    #   1 = single Nginx/ALB in front (default)
+    #   0 = uvicorn exposed directly (ignore X-Forwarded-For, use socket peer)
+    TRUSTED_PROXY_HOPS: int = 1
     
     # Email
     SMTP_HOST: str = "smtp.gmail.com"
@@ -72,7 +83,7 @@ class Settings(BaseSettings):
     }
     
     # CORS
-    CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost:3003,http://localhost:3004,http://localhost:3005,http://15.206.79.199:3000,https://tutterfly-frontend.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:8000,http://localhost:3000,http://15.206.79.199:3000,https://tutterfly-frontend.vercel.app"
 
     # Frontend URL — used by password-reset / verification emails. MUST be set
     # to the production URL in prod, otherwise reset links go to localhost.

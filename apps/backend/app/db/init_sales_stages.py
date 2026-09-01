@@ -84,7 +84,10 @@ async def create_sales_stages():
             "is_active": True,
             "is_default": False,
             "is_won": False,
-            "is_lost": True,
+            # Refunded is a distinct terminal state, NOT a lost deal. Keeping
+            # is_lost=False so it does not trigger the mandatory Close-Lost
+            # reason dialog (only "Closed Lost" should).
+            "is_lost": False,
         },
     ]
     

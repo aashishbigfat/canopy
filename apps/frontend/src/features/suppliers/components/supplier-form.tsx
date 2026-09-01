@@ -189,7 +189,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                 if (locationCache.countries.has(cacheKey)) {
                     initialCountries = locationCache.countries.get(cacheKey);
                 } else {
-                    const r = await locationService.getCountries(true);
+                    const r = await locationService.getCountries();
                     locationCache.countries.set(cacheKey, r.countries);
                     initialCountries = r.countries;
                 }
@@ -316,7 +316,7 @@ export function SupplierForm({ initialData, onSuccess, onCancel, isDrawer = fals
                 const setLoading = section === "address" ? setLoadingAddrCountries : setLoadingSvcCountries;
                 const setCountries = section === "address" ? setAddrCountries : setSvcCountries;
                 if (!query) {
-                    const res = await locationService.getCountries(true, signal);
+                    const res = await locationService.getCountries(undefined, signal);
                     setCountries(res.countries);
                     return;
                 }

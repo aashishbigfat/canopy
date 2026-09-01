@@ -20,7 +20,7 @@ from app.models.note import Note
 from app.models.email import Email
 from app.models.file import File
 from app.models.supplier import Supplier
-from app.models.itinerary import Itinerary
+from app.models.itinerary import Itinerary, ItineraryDay
 from app.models.package import Package, PackagePricing
 from app.models.role import Role
 from app.models.department import Department
@@ -48,7 +48,7 @@ from app.models.billing import SubscriptionPlan, TenantSubscription, BillingInvo
 from app.models.webhook import WebhookEndpoint, WebhookEvent, WebhookDelivery
 from app.models.consolidated_picklists import (
     BasePicklist, SalesStage, OpportunityType, Experience, OpportunityTag,
-    LeadStatus, Source,
+    LeadStatus, Source, SourceMedium,
     AccountType, Industry, AccountSource, AccountCategory, SupplierServicePicklist,
     Salutation, TaskStatus, TaskPriority,
     Inclusion, ItineraryInclusion, SupplierType, DestinationPicklist,
@@ -109,6 +109,14 @@ from app.models.search_extras import (
 # Phase 9 — File folders / shares / versions / public links
 from app.models.file_extras import (
     FileFolder, FileVersion, FilePublicLink,
+)
+# Phase 5 — Itinerary engine extension
+from app.models.itinerary_extras import (
+    ItineraryCategory, ItinerarySubCategory,
+    ItineraryScheduleItem, ItineraryHotel, ItineraryFlight,
+    ItineraryInclusion, UserItineraryInclusion,
+    ItineraryHeaderFooter, ProformaInvoice, TourItinerary,
+    ItineraryPDFJob,
 )
 # Phase 17 — Email tokens
 from app.models.email_token import EmailToken
@@ -203,6 +211,7 @@ async def init_db():
             # Travel CRM
             Supplier,
             Itinerary,
+            ItineraryDay,
             Package,
             PackagePricing,
             Destination,
@@ -248,7 +257,6 @@ async def init_db():
             EntityTag,
             OpportunityTeamMember,
             AccountPinView,
-            ReportFolder,
             ReportFolderShare,
             FileShare,
             RoleHierarchy,
@@ -322,6 +330,7 @@ async def init_db():
             OpportunityTag,
             LeadStatus,
             Source,
+            SourceMedium,
             Industry,
             AccountType,
             AccountSource,
@@ -405,3 +414,4 @@ async def get_database():
             retryWrites=True,
         )
     return mongodb_client[settings.MONGODB_DB_NAME]
+

@@ -129,7 +129,7 @@ function BillingLocationFields({ form, children }: { form: any, children?: React
                 if (locationCache.countries.has(cacheKey)) {
                     loadedCountries = locationCache.countries.get(cacheKey);
                 } else {
-                    const r = await locationService.getCountries(true);
+                    const r = await locationService.getCountries();
                     locationCache.countries.set(cacheKey, r.countries);
                     loadedCountries = r.countries;
                 }
@@ -211,7 +211,7 @@ function BillingLocationFields({ form, children }: { form: any, children?: React
                     setCountries(locationCache.countries.get(cacheKey));
                     return;
                 }
-                const res = await locationService.getCountries(true, signal);
+                const res = await locationService.getCountries(undefined, signal);
                 locationCache.countries.set(cacheKey, res.countries);
                 setCountries(res.countries);
                 return;

@@ -182,6 +182,8 @@ export function OpportunityDetails({
     const [taskAssignedTo, setTaskAssignedTo] = useState(record.owner_id || "");
     const [taskDueDate, setTaskDueDate] = useState("");
     const [taskAddReminder, setTaskAddReminder] = useState(false);
+    // Activity sub-tab (Task / Log a Call / Email / Whatsapp). Mirrors EntityActivitySidebar.
+    const [activitySubTab, setActivitySubTab] = useState<"task" | "call" | "email" | "whatsapp">("task");
 
     const handleCreateTask = () => {
         if (!taskSubject.trim()) {
@@ -656,14 +658,22 @@ export function OpportunityDetails({
                         </TabsList>
 
                         {/* ── ACTIVITY TAB ── */}
-                        <TabsContent value="activity" className="p-6 focus-visible:outline-none focus-visible:ring-0">
-                            <div className="flex gap-4 border-b pb-4 mb-4">
-                                <Button className="bg-blue-600 hover:bg-blue-700 h-8 text-xs font-semibold rounded-sm">Task</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-foreground"><PhoneCall className="h-3 w-3 mr-2" /> Log a Call</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-foreground"><Mail className="h-3 w-3 mr-2" /> Email</Button>
-                                <Button variant="ghost" className="h-8 text-xs font-semibold text-slate-400 hover:text-foreground"><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
+                        <TabsContent value="activity" className="p-4 sm:p-6 focus-visible:outline-none focus-visible:ring-0">
+                            <div className="flex flex-wrap gap-2 sm:gap-4 border-b pb-4 mb-4">
+                                <Button
+                                    onClick={() => setActivitySubTab("task")}
+                                    variant={activitySubTab === "task" ? "default" : "ghost"}
+                                    className={activitySubTab === "task"
+                                        ? "bg-blue-600 hover:bg-blue-700 h-8 text-xs font-semibold rounded-sm"
+                                        : "h-8 text-xs font-semibold text-slate-400 hover:text-foreground"}
+                                >Task</Button>
+                                <Button variant="ghost" onClick={() => setActivitySubTab("call")} className={`h-8 text-xs font-semibold hover:text-foreground ${activitySubTab === "call" ? "text-blue-600" : "text-slate-400"}`}><PhoneCall className="h-3 w-3 mr-2" /> Log a Call</Button>
+                                <Button variant="ghost" onClick={() => setActivitySubTab("email")} className={`h-8 text-xs font-semibold hover:text-foreground ${activitySubTab === "email" ? "text-blue-600" : "text-slate-400"}`}><Mail className="h-3 w-3 mr-2" /> Email</Button>
+                                <Button variant="ghost" onClick={() => setActivitySubTab("whatsapp")} className={`h-8 text-xs font-semibold hover:text-foreground ${activitySubTab === "whatsapp" ? "text-blue-600" : "text-slate-400"}`}><MessageSquare className="h-3 w-3 mr-2" /> Whatsapp</Button>
                             </div>
 
+                            {activitySubTab === "task" && (
+                            <>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-4 mb-6">
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Subject</label>
@@ -677,18 +687,17 @@ export function OpportunityDetails({
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Assigned To</label>
-                                    <select
+                                    <SearchableSelect
                                         value={taskAssignedTo}
-                                        onChange={(e) => setTaskAssignedTo(e.target.value)}
-                                        className="w-full border rounded text-sm px-3 py-1.5 focus:outline-none focus:border-blue-500 bg-card"
-                                    >
-                                        {users.map((user: any) => (
-                                            <option key={user.id || user._id} value={user.id || user._id}>
-                                                {user.name}
-                                            </option>
-                                        ))}
-                                        {!users.length && <option value={record.owner_id}>{record.owner_name}</option>}
-                                    </select>
+                                        onValueChange={setTaskAssignedTo}
+                                        placeholder="Select user"
+                                        searchPlaceholder="Search users..."
+                                        options={
+                                            users.length
+                                                ? users.map((user: any) => ({ label: user.name, value: user.id || user._id }))
+                                                : [{ label: record.owner_name || "Owner", value: record.owner_id }]
+                                        }
+                                    />
                                 </div>
                                 <div className="space-y-1.5">
                                     <label className="text-xs text-slate-400 font-medium">Select Due Date</label>
@@ -780,6 +789,27 @@ export function OpportunityDetails({
                                     <div className="flex-1 border-b border-dashed border-border"></div>
                                 </div>
                             </div>
+                            </>
+                            )}
+
+                            {activitySubTab === "call" && (
+                                <div className="py-8 text-center text-muted-foreground">
+                                    <PhoneCall className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                                    <p className="text-sm">Call logging functionality coming soon</p>
+                                </div>
+                            )}
+                            {activitySubTab === "email" && (
+                                <div className="py-8 text-center text-muted-foreground">
+                                    <Mail className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                                    <p className="text-sm">Email integration coming soon</p>
+                                </div>
+                            )}
+                            {activitySubTab === "whatsapp" && (
+                                <div className="py-8 text-center text-muted-foreground">
+                                    <MessageSquare className="h-12 w-12 mx-auto mb-2 opacity-20" />
+                                    <p className="text-sm">WhatsApp integration coming soon</p>
+                                </div>
+                            )}
                         </TabsContent>
 
                         {/* ── DEPARTURES TAB ── */}

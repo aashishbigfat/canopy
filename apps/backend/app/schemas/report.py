@@ -56,7 +56,6 @@ class ReportResponse(ReportBase):
     is_default: bool = False
     created_by: Optional[str] = None
     owner_id: Optional[str] = None
-    last_modified_by_id: Optional[str] = None
     tenant_id: str
     created_at: datetime
     updated_at: datetime
@@ -171,12 +170,6 @@ class ReportRunResponse(BaseModel):
     total_rows: int = 0
     chart_data: Optional[Dict[str, Any]] = None
     file_url: Optional[str] = None
-    display_columns: List[Dict[str, str]] = Field(default_factory=list)
-    add_display_columns: List[Dict[str, str]] = Field(default_factory=list)
-    report_results: Optional[List[Dict[str, Any]]] = None
-    total: int = 0
-    report_details: Optional[Dict[str, Any]] = None
-    reportable_type: Optional[Dict[str, Any]] = None
 
 
 # ==================== Dashboard Widget Schemas ====================

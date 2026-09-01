@@ -2,6 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useSession } from "next-auth/react";
 import {
     dashboardService,
@@ -10,11 +11,21 @@ import {
     type DashboardData,
 } from "@/features/dashboard/services/dashboardService";
 import { LeaderBoardKPIs } from "@/features/dashboard/components/LeaderBoardKPIs";
-import { SalesChart } from "@/features/dashboard/components/SalesChart";
 import { UserActivities } from "@/features/dashboard/components/UserActivities";
-import { PipelineChart, type PipelineStage } from "@/features/dashboard/components/PipelineChart";
+import type { PipelineStage } from "@/features/dashboard/components/PipelineChart";
 import { QuickLinksWidget } from "@/features/dashboard/QuickLinksWidget";
 import { useIndustry } from "@/lib/industry-labels";
+
+// Recharts is client-only and heavy; load it dynamically so it stays out of
+// the server bundle (keeps the Cloudflare Worker under the size limit).
+const SalesChart = dynamic(
+    () => import("@/features/dashboard/components/SalesChart").then((m) => m.SalesChart),
+    { ssr: false },
+);
+const PipelineChart = dynamic(
+    () => import("@/features/dashboard/components/PipelineChart").then((m) => m.PipelineChart),
+    { ssr: false },
+);
 
 export default function DashboardClientPage() {
     const industry = useIndustry();

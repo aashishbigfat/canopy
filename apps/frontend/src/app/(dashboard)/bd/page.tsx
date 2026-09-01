@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, MapPin, ListChecks, Calendar, Receipt } from "lucide-react";
-import {
-  Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip,
-} from "recharts";
 import {
   useMyTodayVisits,
   useMyPendingApprovals,
@@ -14,6 +12,13 @@ import {
 } from "@/features/bd/visits/api/useBDVisits";
 import { useExpenseSummary } from "@/features/bd/expenses/api/useExpenses";
 import { useMounted } from "@/hooks/use-mounted";
+
+// Recharts is client-only and heavy; load it dynamically so it stays out of
+// the server bundle (keeps the Cloudflare Worker under the size limit).
+const VisitsWeekChart = dynamic(
+  () => import("@/features/bd/visits/components/VisitsWeekChart").then((m) => m.VisitsWeekChart),
+  { ssr: false },
+);
 
 export default function BDLandingPage() {
   const today = useMyTodayVisits();
@@ -68,14 +73,7 @@ export default function BDLandingPage() {
             ) : !mounted ? (
               <div className="h-[220px]" />
             ) : (
-              <ResponsiveContainer width="100%" height={220}>
-                <BarChart data={kpis.data.week_chart}>
-                  <XAxis dataKey="date" tickFormatter={(v) => new Date(v).toLocaleDateString(undefined, { weekday: "short" })} />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="#10b981" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              <VisitsWeekChart data={kpis.data.week_chart} />
             )}
           </CardContent>
         </Card>
