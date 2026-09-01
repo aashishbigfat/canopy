@@ -1,4 +1,4 @@
-name: Deploy (EC2 + Vercel)
+name: Deploy Backend (EC2)
 
 on:
   push:
@@ -6,21 +6,10 @@ on:
       - main
     paths:
       - "apps/backend/**"
-      - "apps/frontend/**"
       - ".github/workflows/deploy.yml"
 
   workflow_dispatch:
     inputs:
-      deploy_target:
-        description: "Deployment target"
-        required: true
-        default: "all"
-        type: choice
-        options:
-          - all
-          - backend-only
-          - frontend-only
-
       environment:
         description: "Deployment environment"
         required: true
@@ -142,55 +131,3 @@ jobs:
 
             docker image prune -a -f
 
-  deploy-frontend:
-    name: Deploy Frontend to Vercel
-    runs-on: ubuntu-latest
-
-    concurrency:
-      group: vercel-production
-      cancel-in-progress: true
-
-    if: |
-      github.event_name == 'push' ||
-      (
-        github.event_name == 'workflow_dispatch' &&
-        (
-          github.event.inputs.deploy_target == 'all' ||
-          github.event.inputs.deploy_target == 'frontend-only'
-        )
-      )
-
-    env:
-      VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-      VERCEL_HOOK_ADMIN: ${{ secrets.VERCEL_HOOK_ADMIN }}
-
-    steps:
-      - name: Trigger Vercel Deploy Hook
-        run: |
-          set -e
-
-          HOOK=""
-
-          if [ -n "$VERCEL_DEPLOY_HOOK" ]; then
-            HOOK="$VERCEL_DEPLOY_HOOK"
-          elif [ -n "$VERCEL_HOOK_ADMIN" ]; then
-            HOOK="$VERCEL_HOOK_ADMIN"
-          fi
-
-          if [ -z "$HOOK" ]; then
-            echo "ERROR: No Vercel deploy hook configured."
-            exit 1
-          fi
-
-          echo "Triggering Vercel deployment..."
-
-          curl -L -X POST "$HOOK" \
-            -H "User-Agent: GitHub-Actions" \
-            -H "Content-Type: application/json" \
-            --retry 3 \
-            --retry-delay 5 \
-            --retry-all-errors \
-            --fail
-
-          echo "Vercel deployment triggered successfully."
-          
