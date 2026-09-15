@@ -103,6 +103,15 @@ class Settings(BaseSettings):
     # callback requests with this key; we verify on receipt. Empty in dev.
     PDF_CALLBACK_SECRET: str = ""
 
+    # Website enquiry capture (POST /api/v1/website-leads/capture). dookwebsite
+    # sends the same lead JSON it posts to the old CRM; these pin the tenant and
+    # users that own those leads. Empty API key = endpoint disabled (503).
+    WEBSITE_CAPTURE_API_KEY: str = ""
+    WEBSITE_CAPTURE_TENANT_ID: str = ""
+    WEBSITE_CAPTURE_OWNER_USER_ID: str = ""
+    # Optional; defaults to the owner. Old CRM used separate owner/creator users.
+    WEBSITE_CAPTURE_CREATED_BY_USER_ID: str = ""
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Parse CORS origins from comma-separated string"""
