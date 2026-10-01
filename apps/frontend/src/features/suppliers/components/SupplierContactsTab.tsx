@@ -45,11 +45,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { suppliersService } from "@/lib/api/services/suppliers.service";
+import { PHONE_ERROR, PHONE_REGEX } from "@/lib/validation/inline-field-validation";
 import type { Supplier, SupplierContact, SupplierContactCreateData } from "../types";
 
 // ── Zod Schema (matches system-wide pattern from ContactForm, SupplierForm) ──
-
-const leadPhoneRegex = /^\+?\d{1,4}\s\d{10}$/;
 
 const supplierContactFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -57,12 +56,12 @@ const supplierContactFormSchema = z.object({
     department: z.string().optional().or(z.literal("")),
     email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
     phone: z.string().optional().or(z.literal(""))
-        .refine(val => !val || leadPhoneRegex.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     mobile: z.string().optional().or(z.literal(""))
-        .refine(val => !val || leadPhoneRegex.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     is_primary: z.boolean().optional(),
     notes: z.string().optional().or(z.literal("")),

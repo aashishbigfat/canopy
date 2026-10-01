@@ -127,6 +127,9 @@ export function AccountDetailDrawer({ accountId, open, onOpenChange }: AccountDe
                             <Field label="Website" value={account.website} link />
                             <Field label="Email" value={account.email} link />
                             <Field label="Phone" value={account.phone} />
+                            {!!account.other_phones?.length && (
+                                <Field label="Other Phones" value={account.other_phones.join(", ")} />
+                            )}
                             {isB2C && (
                                 <>
                                     <Field label="Mobile" value={account.mobile} />

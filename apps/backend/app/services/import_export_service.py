@@ -9,7 +9,7 @@ importer accepts.
 
 Conventions (enforced on every import):
   - Files: .csv / .xlsx / .xls, max MAX_IMPORT_ROWS data rows.
-  - Phones: "+<code> <10 digits>" (see app.core.validators.PHONE_REGEX).
+  - Phones: "+<code> <number>", 10 digits for India (see app.core.validators.PHONE_REGEX).
   - Dates: YYYY-MM-DD, DD-MM-YYYY or DD/MM/YYYY.
   - Picklist columns (Lead Status, Source, Account Type, ...) must match an
     existing picklist value for the tenant (platform defaults + overrides).
@@ -258,7 +258,7 @@ def _validate_phone(value: Any, label: str) -> Optional[str]:
     try:
         return strict_phone_validator(str(value))
     except ValueError:
-        raise ValueError(f"Invalid {label} '{value}'. Use format: +<country code> <10 digits>, e.g. +91 9876543210")
+        raise ValueError(f"Invalid {label} '{value}'. Use format: +<country code> <number>, e.g. +91 9876543210 (10 digits for India)")
 
 
 def _split_list(value: Any) -> List[str]:

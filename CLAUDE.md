@@ -40,5 +40,5 @@ A tenant has an `industry` (e.g. `travel`, `healthcare`). Fields, picklists, and
 
 - Backend layout: routes `app/api/v1`, services `app/services`, models `app/models`, schemas `app/schemas`.
 - Frontend layout: feature folders `src/features/<feature>`; data access via services (`src/lib/api/...` or feature `services/`) + React Query.
-- Phone numbers use `PhoneInput`; format is `+<code> <10 digits>` (see `PHONE_REGEX` in `app/core/validators.py`). `mobile` is a person-account-only field (B2C); B2B/company accounts have phone only.
+- Phone numbers use `PhoneInput`; format is `+<code> <number>` — exactly 10 digits for India (`+91`), 4 to 14 digits for other countries (see `PHONE_REGEX` in `app/core/validators.py`, mirrored in `src/lib/validation/inline-field-validation.ts`). `mobile` is a person-account-only field (B2C); B2B/company accounts have phone only. Accounts of both kinds can hold extra numbers in `other_phones`.
 - Verify before claiming done: backend `python -m py_compile <files>` and `python -c "from app.main import app"`; frontend `npx tsc --noEmit` (ignore pre-existing errors in generated `.next/` and unrelated files).

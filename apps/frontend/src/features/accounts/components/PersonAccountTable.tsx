@@ -668,7 +668,7 @@ export function PersonAccountTable({
                 onImported={refresh}
                 checklist={[
                     "Columns must match the downloaded sample — First Name and Last Name are required.",
-                    "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                    "Phone/Mobile format: +<country code> <number> (e.g. +91 9876543210); 10 digits for India.",
                 ]}
             />
         </div>

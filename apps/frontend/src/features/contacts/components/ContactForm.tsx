@@ -31,6 +31,7 @@ import {
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { PHONE_ERROR, PHONE_REGEX } from "@/lib/validation/inline-field-validation";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
@@ -41,11 +42,11 @@ const contactFormSchema = z.object({
         message: "Last name must be at least 2 characters.",
     }).max(100),
     email: z.string().min(1, { message: "Email is required." }).email({ message: "Invalid email address." }),
-    phone: z.string().optional().or(z.literal("")).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-        message: "Please select a country code and enter exactly a 10-digit number.",
+    phone: z.string().optional().or(z.literal("")).refine(val => !val || PHONE_REGEX.test(val), {
+        message: PHONE_ERROR,
     }),
-    mobile: z.string().min(1, { message: "Mobile is required." }).refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-        message: "Please select a country code and enter exactly a 10-digit number.",
+    mobile: z.string().min(1, { message: "Mobile is required." }).refine(val => !val || PHONE_REGEX.test(val), {
+        message: PHONE_ERROR,
     }),
     title: z.string().optional(),
     account_id: z.string().min(1, { message: "Account is required." }),

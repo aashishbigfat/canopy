@@ -6,6 +6,7 @@ export interface Account {
     email?: string;
     phone?: string;
     mobile?: string;
+    other_phones?: string[];  // extra numbers besides phone / mobile
     website?: string;
     description?: string;
     is_person_account: boolean;
@@ -60,6 +61,7 @@ export interface AccountCreateData {
     email?: string;
     phone?: string;
     mobile?: string;
+    other_phones?: string[];
     website?: string;
     description?: string;
     salutation?: string;

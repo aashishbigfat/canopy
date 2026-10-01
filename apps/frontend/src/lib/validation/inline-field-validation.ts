@@ -1,12 +1,20 @@
-/** Mirrors backend PHONE_REGEX / form validation for inline table edits. */
-export const PHONE_REGEX = /^\+?\d{1,4}\s\d{10}$/;
+/**
+ * Mirrors backend PHONE_REGEX (app/core/validators.py) for forms and inline table edits:
+ * "+<code> <number>", exactly 10 digits for India (+91), 4 to 14 digits for other countries.
+ */
+export const PHONE_REGEX = /^\+?(?:91\s\d{10}|(?:\d|(?:[0-8]\d|9[02-9])\d{0,2})\s\d{4,14})$/;
 export const PHONE_ERROR =
-    "Please select a country code and enter exactly a 10-digit number.";
+    "Please select a country code and enter the number: exactly 10 digits for India, 4 to 14 digits for other countries.";
+
+/** Longest number the phone rule allows after a country code. */
+export function maxPhoneDigits(countryCode: string): number {
+    return countryCode === "+91" ? 10 : 14;
+}
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const COUNTRY_CODE_REGEX = /^\+\d{1,4}$/;
 
-/** Parse +<code> <10-digit-local> — returns null when invalid. */
+/** Parse +<code> <number> — returns null when invalid. */
 export function parsePhoneValue(value: string): { code: string; digits: string } | null {
     const trimmed = value.trim();
     const spaceIdx = trimmed.indexOf(" ");
@@ -15,7 +23,7 @@ export function parsePhoneValue(value: string): { code: string; digits: string }
     }
     const code = trimmed.slice(0, spaceIdx);
     const digits = trimmed.slice(spaceIdx + 1).replace(/\D/g, "");
-    if (!COUNTRY_CODE_REGEX.test(code) || digits.length !== 10) {
+    if (!COUNTRY_CODE_REGEX.test(code) || !PHONE_REGEX.test(`${code} ${digits}`)) {
         return null;
     }
     return { code, digits };

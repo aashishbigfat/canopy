@@ -55,6 +55,7 @@ import { Lead, LeadCreateData, LeadStatus, Source, Industry } from "../types";
 import { Badge } from "@/components/ui/badge";
 import { X } from "lucide-react";
 import { ErrorHandler, showSuccessToast, cleanErrorMessage } from "@/lib/error-handler";
+import { PHONE_ERROR, PHONE_REGEX } from "@/lib/validation/inline-field-validation";
 import { logger } from "@/lib/logger";
 import { LoadingButton } from "@/components/ui/loading";
 import { IndustryLeadFields } from "@/components/industry/IndustryLeadFields";
@@ -347,14 +348,14 @@ const leadFormSchema = z.object({
     phone: z.string()
         .optional()
         .or(z.literal(""))
-        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     mobile: z.string()
         .optional()
         .or(z.literal(""))
-        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     no_employees: z.string().optional(),
     website: z.string().url({ message: "Please enter a valid URL (e.g. https://example.com)" }).optional().or(z.literal("")),
@@ -395,14 +396,14 @@ const genericBaseFields = {
     phone: z.string()
         .optional()
         .or(z.literal(""))
-        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     mobile: z.string()
         .optional()
         .or(z.literal(""))
-        .refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     no_employees: z.string().optional(),
     website: z.string().url({ message: "Please enter a valid URL (e.g. https://example.com)" }).optional().or(z.literal("")),
