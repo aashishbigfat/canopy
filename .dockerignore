@@ -1,0 +1,27 @@
+# Build context for apps/frontend/Dockerfile is the repo root.
+# apps/backend builds from its own context and uses apps/backend/.dockerignore.
+
+.git
+.github
+.claude
+.vscode
+.idea
+
+**/node_modules
+**/.next
+**/.open-next
+**/.wrangler
+**/.vercel
+**/coverage
+**/*.tsbuildinfo
+**/__pycache__
+npm-debug.log*
+
+# Secrets — never bake env files into images
+**/.env
+**/.env.*
+**/.dev.vars
+
+apps/backend
+docs
+explainers
