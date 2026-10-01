@@ -1,0 +1,85 @@
+# Build the backend and frontend images, push them to Artifact Registry, and
+# deploy both to Cloud Run.
+#
+#   gcloud builds submit --config cloudbuild.yaml \
+#     --substitutions=_NEXT_PUBLIC_API_URL=https://<backend-host>/api/v1
+#
+# One-time setup (registry, secrets, IAM, URLs) is in docs/DEPLOY_GCP.md.
+# Env vars / secrets added to the services later with `gcloud run services update`
+# are preserved across deploys.
+
+substitutions:
+  _REGION: asia-south1
+  _AR_REPO: tutterfly
+  _BACKEND_SERVICE: tutterfly-backend
+  _FRONTEND_SERVICE: tutterfly-frontend
+  # Required. Inlined into the frontend bundle at build time.
+  _NEXT_PUBLIC_API_URL: ""
+
+options:
+  machineType: E2_HIGHCPU_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 1800s
+
+steps:
+  - id: build-backend
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      - build
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/backend:$BUILD_ID
+      - apps/backend
+
+  - id: build-frontend
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["-"]
+    args:
+      - build
+      - -f
+      - apps/frontend/Dockerfile
+      - --build-arg
+      - NEXT_PUBLIC_API_URL=${_NEXT_PUBLIC_API_URL}
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/frontend:$BUILD_ID
+      - .
+
+  - id: push-backend
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["build-backend"]
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/backend:$BUILD_ID"]
+
+  - id: push-frontend
+    name: gcr.io/cloud-builders/docker
+    waitFor: ["build-frontend"]
+    args: ["push", "${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/frontend:$BUILD_ID"]
+
+  - id: deploy-backend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["push-backend"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_BACKEND_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/backend:$BUILD_ID
+      - --region=${_REGION}
+      - --cpu=1
+      - --memory=1Gi
+      - --update-env-vars=ENVIRONMENT=production,WEB_CONCURRENCY=2
+      - --update-secrets=SECRET_KEY=tutterfly-secret-key:latest,MONGODB_URL=tutterfly-mongodb-url:latest
+
+  - id: deploy-frontend
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk:slim
+    waitFor: ["push-frontend"]
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_FRONTEND_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/frontend:$BUILD_ID
+      - --region=${_REGION}
+      - --cpu=1
+      - --memory=512Mi
+      - --update-secrets=NEXTAUTH_SECRET=tutterfly-nextauth-secret:latest

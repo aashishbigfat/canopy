@@ -2,9 +2,12 @@
 __pycache__/
 *.py[cod]
 *$py.class
+.pytest_cache/
+.mypy_cache/
 
-# Environments
+# Environments / secrets — supply config via env vars or Secret Manager
 .env
+.env.*
 .venv
 env/
 venv/
@@ -17,8 +20,14 @@ venv.bak/
 .gitignore
 .vscode/
 .idea/
+Dockerfile
+.dockerignore
 
 # Backend specific
 app.log
+*.log
 *.db
 tests/
+scratch/
+uploads/
+run.ps1

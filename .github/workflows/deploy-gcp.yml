@@ -1,0 +1,136 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "apps/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/deploy-gcp.yml"
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Which service to deploy"
+        type: choice
+        default: all
+        options: [all, backend, frontend]
+
+# id-token: lets the runner mint the OIDC token that Workload Identity Federation
+# exchanges for short-lived GCP credentials. No service-account key is stored.
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: cloud-run-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGION: ${{ vars.GCP_REGION || 'asia-south1' }}
+  AR_REPO: ${{ vars.GCP_AR_REPO || 'tutterfly' }}
+  BACKEND_SERVICE: ${{ vars.BACKEND_SERVICE || 'tutterfly-backend' }}
+  FRONTEND_SERVICE: ${{ vars.FRONTEND_SERVICE || 'tutterfly-frontend' }}
+
+jobs:
+  backend:
+    name: Backend to Cloud Run
+    if: ${{ github.event_name != 'workflow_dispatch' || contains(fromJSON('["all","backend"]'), github.event.inputs.target) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/backend
+          push: true
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/backend:${{ github.sha }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/backend:latest
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+
+      - name: Deploy backend
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          gcloud run deploy "$BACKEND_SERVICE" \
+            --image "$REGION-docker.pkg.dev/$PROJECT_ID/$AR_REPO/backend:$IMAGE_TAG" \
+            --region "$REGION" \
+            --cpu 1 \
+            --memory 1Gi \
+            --update-env-vars ENVIRONMENT=production,WEB_CONCURRENCY=2 \
+            --update-secrets SECRET_KEY=tutterfly-secret-key:latest,MONGODB_URL=tutterfly-mongodb-url:latest
+
+  frontend:
+    name: Frontend to Cloud Run
+    if: ${{ github.event_name != 'workflow_dispatch' || contains(fromJSON('["all","frontend"]'), github.event.inputs.target) }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # NEXT_PUBLIC_API_URL is compiled into the bundle, so it must be known here.
+      - name: Check API URL is configured
+        env:
+          API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+        run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Repository variable NEXT_PUBLIC_API_URL is not set (e.g. https://api.example.com/api/v1)"
+            exit 1
+          fi
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker "$REGION-docker.pkg.dev" --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/frontend/Dockerfile
+          push: true
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ vars.NEXT_PUBLIC_API_URL }}
+          tags: |
+            ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/frontend:${{ github.sha }}
+            ${{ env.REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ env.AR_REPO }}/frontend:latest
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+      - name: Deploy frontend
+        env:
+          PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          gcloud run deploy "$FRONTEND_SERVICE" \
+            --image "$REGION-docker.pkg.dev/$PROJECT_ID/$AR_REPO/frontend:$IMAGE_TAG" \
+            --region "$REGION" \
+            --cpu 1 \
+            --memory 512Mi \
+            --update-secrets NEXTAUTH_SECRET=tutterfly-nextauth-secret:latest

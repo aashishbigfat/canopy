@@ -12,9 +12,17 @@ import path from "node:path";
 //
 // `next dev` runs from apps/frontend, so process.cwd() == apps/frontend, and
 // `..\..` from there is the monorepo root D:\tutterfly.
+const workspaceRoot = path.resolve(process.cwd(), "..", "..");
+
+// The Docker image (apps/frontend/Dockerfile, Cloud Run) sets NEXT_STANDALONE=true
+// to emit a self-contained server at .next/standalone/apps/frontend/server.js.
+const isStandaloneBuild = process.env.NEXT_STANDALONE === "true";
+
 const nextConfig: NextConfig = {
+  output: isStandaloneBuild ? "standalone" : undefined,
+  outputFileTracingRoot: isStandaloneBuild ? workspaceRoot : undefined,
   turbopack: {
-    root: path.resolve(process.cwd(), "..", ".."),
+    root: workspaceRoot,
   },
   typescript: {
     ignoreBuildErrors: true,
@@ -38,6 +46,9 @@ const nextConfig: NextConfig = {
 export default nextConfig;
 
 // Enables Cloudflare bindings (env, assets, etc.) during local `next dev`.
-// Required by the @opennextjs/cloudflare adapter.
+// Required by the @opennextjs/cloudflare adapter. Skipped for the Docker build,
+// which doesn't target Cloudflare.
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
-initOpenNextCloudflareForDev();
+if (!isStandaloneBuild) {
+  initOpenNextCloudflareForDev();
+}
