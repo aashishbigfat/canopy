@@ -59,6 +59,7 @@ export function AccountFormDrawer({
 
     const handleSuccess = () => {
         queryClient.invalidateQueries({ queryKey: [isPersonAccount ? "person-accounts" : "accounts"] });
+        queryClient.invalidateQueries({ queryKey: ["custom-field-values", "account"] });
         // Since opportunities might also show accounts, invalidate that too if needed
         queryClient.invalidateQueries({ queryKey: ["opportunities"] });
         router.refresh();

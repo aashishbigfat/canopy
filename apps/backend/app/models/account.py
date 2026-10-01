@@ -22,6 +22,7 @@ class Account(BaseDocument):
     salutation: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
     
     # Billing Address
     billing_street: Optional[str] = None
@@ -76,6 +77,11 @@ class Account(BaseDocument):
     reporting_manager_id: Optional[PydanticObjectId] = None
     territory_match_source: Optional[str] = None
     territory_assigned_at: Optional[datetime] = None
+
+    # Human-readable display ID carried over from the legacy CRM (record_id).
+    # Company and person accounts were numbered separately there, so a number is
+    # unique only within one kind (is_person_account).
+    account_number: Optional[int] = None
     
     @field_validator(
         "acc_type_id", "acc_parent_id", "industry_id", "category_id",
@@ -103,6 +109,7 @@ class Account(BaseDocument):
             [("tenant_id", 1), ("owner_id", 1)],
             [("tenant_id", 1), ("is_person_account", 1), ("deleted_at", 1)],
             [("tenant_id", 1), ("name", 1)],
+            [("tenant_id", 1), ("is_person_account", 1), ("account_number", 1)],
         ]
 
     

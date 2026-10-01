@@ -61,6 +61,7 @@ class AccountBase(BaseModel):
     salutation: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
     
     # Billing Address
     billing_street: Optional[str] = None
@@ -114,6 +115,7 @@ class AccountUpdate(BaseModel):
     salutation: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    date_of_birth: Optional[datetime] = None
     
     # Billing Address
     billing_street: Optional[str] = None
@@ -171,6 +173,9 @@ class AccountResponse(AccountBase):
     last_modified_by_name: Optional[str] = None
     account_type_name: Optional[str] = None
     category_name: Optional[str] = None
+
+    # Legacy display ID. Set by data import, never by the create/update API.
+    account_number: Optional[int] = None
 
     view_count: int = 0
     is_favorite: bool = False
