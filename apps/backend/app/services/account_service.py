@@ -12,8 +12,6 @@ from app.mixins.activity_mixin import ActivityMixin
 from app.services.notification_service import NotificationService
 from app.services.webhook_service import webhook_service
 from app.services import field_registry_service
-from app.schemas.field_registry import CustomFieldValuePayload
-import json
 
 
 _logger = logging.getLogger(__name__)
@@ -30,7 +28,7 @@ class AccountService(ActivityMixin):
         account_data: AccountCreate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        custom_fields: Optional[List[Dict[str, Any]]] = None,
+        custom_fields: Optional[Any] = None,  # list of {id, value} or {additional_field_id: value}
         attachments: Optional[List[Dict[str, Any]]] = None
     ) -> Account:
         """Create a new account with custom fields and attachments"""
@@ -75,17 +73,12 @@ class AccountService(ActivityMixin):
             action_url=f"/accounts/{account.id}"
         )
         
-        # Save custom fields via unified registry (Phase 1 §A)
+        # Save custom fields via unified registry (Phase 1 §A). The registry
+        # service accepts both a list of {id, value} and the API's
+        # {additional_field_id: value} dict.
         if custom_fields:
-            payloads = [
-                CustomFieldValuePayload(
-                    additional_field_id=ObjectId(f["id"]),
-                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
-                )
-                for f in custom_fields if f.get("id") is not None
-            ]
             await field_registry_service.write_custom_field_values(
-                "account", account.id, payloads, tenant_id,
+                "account", account.id, custom_fields, tenant_id,
             )
         
         # Save attachments
@@ -427,7 +420,7 @@ class AccountService(ActivityMixin):
         account_data: AccountUpdate,
         user_id: ObjectId,
         tenant_id: ObjectId,
-        custom_fields: Optional[List[Dict[str, Any]]] = None,
+        custom_fields: Optional[Any] = None,  # list of {id, value} or {additional_field_id: value}
     ) -> Optional[Account]:
         """Update an account"""
         account = await self.get_account(account_id, tenant_id)
@@ -469,15 +462,8 @@ class AccountService(ActivityMixin):
 
         # Custom fields write (Phase 1 §A)
         if custom_fields:
-            payloads = [
-                CustomFieldValuePayload(
-                    additional_field_id=ObjectId(f["id"]),
-                    field_value=json.dumps(f["value"]) if not isinstance(f.get("value"), str) else f["value"],
-                )
-                for f in custom_fields if f.get("id") is not None
-            ]
             n = await field_registry_service.write_custom_field_values(
-                "account", account.id, payloads, tenant_id,
+                "account", account.id, custom_fields, tenant_id,
             )
             if n:
                 updated_fields["custom_fields_updated"] = n

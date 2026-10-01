@@ -33,6 +33,7 @@ import { EntityActivitySidebar, OpportunitySummary } from "@/components/shared/E
 import { RelatedOpportunitiesCards } from "@/components/shared/RelatedOpportunitiesCards";
 import { CollapsibleDetailSection } from "@/components/shared/CollapsibleDetailSection";
 import { AccountFormDrawer } from "./AccountFormDrawer";
+import { useAccountCustomFieldValues } from "./AccountCustomFields";
 import { FileUploader } from "@/features/files/components/file-uploader";
 import { FileList } from "@/features/files/components/file-list";
 import { OpportunitiesViewAllDialog } from "@/features/opportunities/components/OpportunitiesViewAllDialog";
@@ -44,7 +45,7 @@ import { accountService } from "../services/accountService";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { getSegmentBadgeClass, getSegmentLabel, SEGMENTS } from "@/lib/segments";
 
 interface AccountDetailViewProps {
@@ -75,6 +76,8 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
     const [isContactsViewAllOpen, setIsContactsViewAllOpen] = useState(false);
     const [isNewOppDrawerOpen, setIsNewOppDrawerOpen] = useState(false);
     const [isNewContactDrawerOpen, setIsNewContactDrawerOpen] = useState(false);
+    // Custom fields are defined for company accounts only.
+    const customFieldValues = useAccountCustomFieldValues(account.id, !isB2C);
 
     const handleDelete = async () => {
         setIsDeleting(true);
@@ -280,6 +283,12 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>
                                                 <p className="text-sm font-medium text-foreground">{account.name}</p>
                                             </div>
+                                            {account.account_number != null && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Number</p>
+                                                    <p className="text-sm font-medium text-foreground">{String(account.account_number).padStart(10, "0")}</p>
+                                                </div>
+                                            )}
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Website</p>
                                                 <p className="text-sm font-medium text-blue-400 underline">{account.website || "-"}</p>
@@ -294,10 +303,16 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                             </div>
 
                                             {isB2C && (
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
-                                                    <p className="text-sm font-medium text-foreground">{account.mobile || "-"}</p>
-                                                </div>
+                                                <>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Mobile</p>
+                                                        <p className="text-sm font-medium text-foreground">{account.mobile || "-"}</p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date of Birth</p>
+                                                        <p className="text-sm font-medium text-foreground">{formatDate(account.date_of_birth)}</p>
+                                                    </div>
+                                                </>
                                             )}
 
                                             {!isB2C && (
@@ -320,6 +335,13 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                     </div>
                                                 </>
                                             )}
+
+                                            {customFieldValues.map((f) => (
+                                                <div key={f.id} className="space-y-1 md:col-span-2">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{f.label}</p>
+                                                    <p className="text-sm font-medium text-foreground whitespace-pre-wrap break-words">{f.value || "-"}</p>
+                                                </div>
+                                            ))}
 
                                             <div className="space-y-1 md:col-span-2">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Description</p>

@@ -26,6 +26,11 @@ import { PhoneInput } from "@/components/ui/phone-input";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { Separator } from "@/components/ui/separator";
 import { accountService } from "@/features/accounts/services/accountService";
+import {
+    AccountCustomFieldInputs,
+    useAccountCustomFieldDefs,
+} from "@/features/accounts/components/AccountCustomFields";
+import { customFieldsService } from "@/lib/api/services/field-registry.service";
 import { useUploadFile } from "@/features/files/api/use-files";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { toast } from "sonner";
@@ -43,6 +48,7 @@ const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
     salutation: z.string().optional(),
     first_name: z.string().optional(),
     last_name: isPersonAccount ? z.string().min(1, "Last Name is required") : z.string().optional(),
+    date_of_birth: z.string().optional(),
     email: z.string().email("Invalid email address."),
     phone: z.string().min(1, "Phone is required").refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
         message: "Please select a country code and enter exactly a 10-digit number."
@@ -424,6 +430,11 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
     const uploadFile = useUploadFile();
     const { items: salutations } = usePicklist("salutation");
 
+    // Custom fields exist for company accounts only; values are keyed by field id.
+    const customFieldDefs = useAccountCustomFieldDefs(!isPersonAccount);
+    const [customValues, setCustomValues] = useState<Record<string, string>>({});
+    const [customErrors, setCustomErrors] = useState<Record<string, string>>({});
+
     const form = useForm<AccountFormValues>({
         resolver: zodResolver(getAccountFormSchema(isPersonAccount)),
         defaultValues: {
@@ -431,6 +442,8 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             salutation: initialData?.salutation || "",
             first_name: initialData?.first_name || "",
             last_name: initialData?.last_name || "",
+            // API returns an ISO datetime; the date input wants YYYY-MM-DD
+            date_of_birth: initialData?.date_of_birth ? String(initialData.date_of_birth).slice(0, 10) : "",
             email: initialData?.email || "",
             phone: initialData?.phone || "",
             mobile: initialData?.mobile || "",
@@ -465,6 +478,24 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
         fetchMetaData();
     }, []);
 
+    useEffect(() => {
+        if (!id || isPersonAccount) return;
+        let cancelled = false;
+        const fetchCustomValues = async () => {
+            try {
+                const saved = await customFieldsService.readValues("account", id);
+                if (cancelled) return;
+                setCustomValues(
+                    Object.fromEntries(Object.entries(saved).map(([fieldId, v]) => [fieldId, v.value ?? ""]))
+                );
+            } catch (err) {
+                console.error("Error fetching custom field values", err);
+            }
+        };
+        fetchCustomValues();
+        return () => { cancelled = true; };
+    }, [id, isPersonAccount]);
+
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
             const details = error.details.detail;
@@ -481,6 +512,12 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
     };
 
     async function onSubmit(data: AccountFormValues) {
+        const missingCustom = customFieldDefs.filter((f) => f.is_mandatory && !(customValues[f.id] || "").trim());
+        setCustomErrors(
+            Object.fromEntries(missingCustom.map((f) => [f.id, `${f.label || f.name} is required`]))
+        );
+        if (missingCustom.length > 0) return;
+
         setIsLoading(true);
         const startTime = Date.now();
         let isSuccess = false;
@@ -504,6 +541,13 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                 is_person_account: isPersonAccount,
                 // Mobile is a person-account-only field; never persist it for B2B/company accounts.
                 mobile: isPersonAccount ? cleanedData.mobile : null,
+                // Same for date of birth.
+                date_of_birth: isPersonAccount ? cleanedData.date_of_birth : null,
+                ...(customFieldDefs.length > 0 && {
+                    custom_fields: Object.fromEntries(
+                        customFieldDefs.map((f) => [f.id, customValues[f.id] ?? ""])
+                    ),
+                }),
             };
 
             await ErrorHandler.withErrorHandling(async () => {
@@ -622,6 +666,16 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                             </p>
                         </div>
 
+                        {/* Account Number — read-only; carried over from the legacy CRM */}
+                        {initialData?.account_number != null && (
+                            <div className="flex flex-col space-y-2">
+                                <FormLabel>Account Number</FormLabel>
+                                <p className="min-h-[40px] rounded-md border bg-muted/40 px-3 py-2 text-sm text-muted-foreground flex items-center">
+                                    {String(initialData.account_number).padStart(10, "0")}
+                                </p>
+                            </div>
+                        )}
+
                         {isPersonAccount && (
                             <>
                                 <FormField
@@ -719,6 +773,22 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                             />
                         )}
 
+                        {isPersonAccount && (
+                            <FormField
+                                control={form.control}
+                                name="date_of_birth"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Date of Birth</FormLabel>
+                                        <FormControl>
+                                            <Input type="date" max={new Date().toISOString().slice(0, 10)} {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
                         {!isPersonAccount && (
                             <FormField
                                 control={form.control}
@@ -792,6 +862,17 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                 </FormItem>
                             )}
                         />
+
+                        {!isPersonAccount && (
+                            <AccountCustomFieldInputs
+                                fields={customFieldDefs}
+                                values={customValues}
+                                errors={customErrors}
+                                onChange={(fieldId, value) =>
+                                    setCustomValues((prev) => ({ ...prev, [fieldId]: value }))
+                                }
+                            />
+                        )}
 
                         <FormItem className="md:col-span-2">
                             <Label>Attachment</Label>

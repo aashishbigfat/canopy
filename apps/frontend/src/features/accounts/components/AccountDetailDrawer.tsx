@@ -22,7 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { accountService } from "../services/accountService";
 import { Account } from "../types";
-import { formatDateTime } from "@/lib/format";
+import { useAccountCustomFieldValues } from "./AccountCustomFields";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { getSegmentLabel, SEGMENTS } from "@/lib/segments";
 
 interface AccountDetailDrawerProps {
@@ -72,6 +73,8 @@ export function AccountDetailDrawer({ accountId, open, onOpenChange }: AccountDe
     const isB2C = account?.is_person_account;
     const basePath = isB2C ? "person-accounts" : "accounts";
     const badgeLabel = getSegmentLabel(account?.segment || (isB2C ? SEGMENTS.B2C : SEGMENTS.B2B));
+    // Custom fields are defined for company accounts only.
+    const customFieldValues = useAccountCustomFieldValues(accountId, open && !!account && !isB2C);
 
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
@@ -118,15 +121,26 @@ export function AccountDetailDrawer({ accountId, open, onOpenChange }: AccountDe
                     <div className="space-y-8 p-4">
                         <Section title="Account Information" icon={<Building2 className="h-4 w-4" />}>
                             <Field label="Account Name" value={account.name} />
+                            {account.account_number != null && (
+                                <Field label="Account Number" value={String(account.account_number).padStart(10, "0")} />
+                            )}
                             <Field label="Website" value={account.website} link />
                             <Field label="Email" value={account.email} link />
                             <Field label="Phone" value={account.phone} />
-                            {isB2C && <Field label="Mobile" value={account.mobile} />}
+                            {isB2C && (
+                                <>
+                                    <Field label="Mobile" value={account.mobile} />
+                                    <Field label="Date of Birth" value={formatDate(account.date_of_birth)} />
+                                </>
+                            )}
                             {!isB2C && (
                                 <>
                                     <Field label="Industry" value={account.industry_name} />
                                     <Field label="Account Type" value={account.account_type_name} />
                                     <Field label="Parent Account" value={account.parent_account_name} link />
+                                    {customFieldValues.map((f) => (
+                                        <Field key={f.id} label={f.label} value={f.value} />
+                                    ))}
                                 </>
                             )}
                             <Field label="Description" value={account.description} />

@@ -13,6 +13,9 @@ export interface Account {
     salutation?: string;
     first_name?: string;
     last_name?: string;
+    date_of_birth?: string | null;  // person accounts only
+    // Display ID carried over from the legacy CRM; read-only.
+    account_number?: number | null;
 
     // Addresses
     billing_street?: string;
@@ -83,6 +86,9 @@ export interface AccountCreateData {
     account_source_id?: string;
     is_person_account?: boolean;
     owner_id?: string;
+    date_of_birth?: string | null;
+    // additional_field_id -> value (company accounts)
+    custom_fields?: Record<string, string>;
 }
 
 export interface AccountFilters {
