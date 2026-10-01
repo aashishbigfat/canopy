@@ -57,6 +57,8 @@ export interface UserCard {
 }
 
 export interface UserProfile extends UserCard {
+  mobile?: string | null;
+  phone_extension?: string | null;
   department_id?: string | null;
   department_name?: string | null;
   timezone?: string | null;

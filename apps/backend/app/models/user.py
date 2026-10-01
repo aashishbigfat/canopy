@@ -23,6 +23,8 @@ class User(BaseDocument):
     
     # Profile
     phone: Optional[str] = None
+    mobile: Optional[str] = None
+    phone_extension: Optional[str] = None  # desk extension, e.g. "214"
     title: Optional[str] = None
     avatar_url: Optional[str] = None
     directory: Optional[str] = None

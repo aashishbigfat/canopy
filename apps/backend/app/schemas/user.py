@@ -21,10 +21,12 @@ class UserBase(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr
     phone: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone_extension: Optional[str] = None
     department_id: Optional[str] = None
     role_hierarchy_id: Optional[str] = None
     role_hierarchy_name: Optional[str] = None
-    
+
     # Profile
     title: Optional[str] = None
     avatar_url: Optional[str] = None
@@ -57,7 +59,8 @@ class UserCreate(UserBase):
     password: str = Field(..., min_length=8)
     role_ids: List[str] = Field(..., min_length=1)
     role_hierarchy_id: str = Field(..., min_length=1)
-    
+    phone_extension: Optional[str] = Field(None, max_length=10)
+
     @validator('password')
     def validate_complexity(cls, v):
         return validate_password_complexity(v)
@@ -75,6 +78,8 @@ class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
     password: Optional[str] = None
     phone: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    mobile: Annotated[Optional[str], BeforeValidator(parse_phone_number)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    phone_extension: Optional[str] = Field(None, max_length=10)
     department_id: Optional[str] = None
     role_hierarchy_id: Optional[str] = None
     role_ids: Optional[List[str]] = None
