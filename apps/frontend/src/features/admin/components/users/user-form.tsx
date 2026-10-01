@@ -33,6 +33,8 @@ import {
 import { useCreateUser, useUpdateUser } from "@/features/admin/api/use-users";
 import { useGetRoles } from "@/features/admin/api/use-roles";
 import { useGetHierarchies } from "@/features/admin/api/use-hierarchies";
+import { useGetDepartments } from "@/features/admin/api/use-departments";
+import { getDepartmentId } from "@/features/admin/types/departments";
 import { getRoleId } from "@/features/admin/types/roles";
 import { User } from "@/features/admin/types";
 import { toast } from "sonner";
@@ -63,6 +65,7 @@ const userFormSchema = z.object({
     title: z.string().max(100).optional(),
     role_hierarchy_id: z.string().min(1, "Role (Hierarchy) is required."),
     profile_id: z.string().min(1, "Profile is required."),
+    department_id: z.string().optional(),
     is_active: z.boolean().default(true),
     is_available_for_assignment: z.boolean().default(true),
     assigned_countries: z.array(z.string()).default([]),
@@ -83,6 +86,8 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
     const { data: roles = [], isLoading: isLoadingRoles } = useGetRoles();
     const { data: hierarchiesData, isLoading: isLoadingHierarchies } = useGetHierarchies();
     const hierarchies = hierarchiesData?.hierarchies || hierarchiesData?.data || [];
+    const { data: departmentsData } = useGetDepartments();
+    const departments = departmentsData?.departments || [];
     const [showPassword, setShowPassword] = useState(false);
     const isEditing = !!initialData;
     const [countries, setCountries] = useState<{ id: string; name: string }[]>([]);
@@ -122,11 +127,12 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
             email: initialData?.email || "",
             password: "",
             phone: initialData?.phone || "",
-            mobile: "",
-            phone_extension: "",
+            mobile: initialData?.mobile || "",
+            phone_extension: initialData?.phone_extension || "",
             title: initialData?.title || "",
             role_hierarchy_id: initialData?.role_hierarchy_id || "",
             profile_id: initialData?.role_ids?.[0] || "",
+            department_id: initialData?.department_id || "",
             is_active: initialData?.is_active ?? true,
             is_available_for_assignment: initialData?.is_available_for_assignment ?? true,
             assigned_countries: initialData?.assigned_countries || [],
@@ -144,11 +150,12 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
                 email: initialData?.email || "",
                 password: "",
                 phone: initialData?.phone || "",
-                mobile: "",
-                phone_extension: "",
+                mobile: initialData?.mobile || "",
+                phone_extension: initialData?.phone_extension || "",
                 title: initialData?.title || "",
                 role_hierarchy_id: initialData?.role_hierarchy_id || "",
                 profile_id: initialData?.role_ids?.[0] || "",
+                department_id: initialData?.department_id || "",
                 is_active: initialData?.is_active ?? true,
                 is_available_for_assignment: initialData?.is_available_for_assignment ?? true,
                 assigned_countries: initialData?.assigned_countries || [],
@@ -168,6 +175,10 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
                 role_ids: [data.profile_id],
                 role_hierarchy_id: data.role_hierarchy_id || undefined,
                 phone: data.phone || undefined,
+                // null (not undefined) so an emptied field is cleared on the server
+                mobile: data.mobile || null,
+                phone_extension: data.phone_extension || null,
+                department_id: data.department_id || null,
                 title: data.title || undefined,
                 is_active: data.is_active,
                 is_available_for_assignment: data.is_available_for_assignment,
@@ -443,6 +454,38 @@ export function UserFormSheet({ open, onOpenChange, initialData }: UserFormSheet
                                                             );
                                                         })
                                                 )}
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+
+                            {/* Department */}
+                            <FormField
+                                control={form.control}
+                                name="department_id"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Department</FormLabel>
+                                        <Select
+                                            onValueChange={(v) => field.onChange(v === "__none" ? "" : v)}
+                                            value={field.value || "__none"}
+                                        >
+                                            <FormControl>
+                                                <SelectTrigger className="w-full">
+                                                    <SelectValue placeholder="Select a department" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent position="popper" sideOffset={4} className="max-h-[300px]">
+                                                <SelectItem value="__none">No department</SelectItem>
+                                                {departments
+                                                    .filter((d) => getDepartmentId(d))
+                                                    .map((d) => (
+                                                        <SelectItem key={getDepartmentId(d)} value={getDepartmentId(d)}>
+                                                            {d.name}
+                                                        </SelectItem>
+                                                    ))}
                                             </SelectContent>
                                         </Select>
                                         <FormMessage />

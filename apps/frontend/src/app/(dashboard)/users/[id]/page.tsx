@@ -111,6 +111,8 @@ export default function UserProfilePage() {
                         <div className="grid grid-cols-1 gap-x-10 px-6 py-2 sm:grid-cols-2">
                             <InfoRow icon={<Mail className="h-4 w-4" />} label="Email" value={data.email} copy />
                             <InfoRow icon={<PhoneIcon className="h-4 w-4" />} label="Phone" value={data.phone} copy />
+                            <InfoRow icon={<PhoneIcon className="h-4 w-4" />} label="Mobile" value={data.mobile} copy />
+                            <InfoRow icon={<PhoneIcon className="h-4 w-4" />} label="Phone Extension" value={data.phone_extension} />
                             <InfoRow icon={<ShieldCheck className="h-4 w-4" />} label="Role" value={data.role_hierarchy_name} />
                             <InfoRow icon={<Building2 className="h-4 w-4" />} label="Department" value={data.department_name} />
                             <InfoRow icon={<Clock className="h-4 w-4" />} label="Timezone" value={data.timezone} />

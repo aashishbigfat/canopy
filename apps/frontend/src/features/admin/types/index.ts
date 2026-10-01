@@ -8,6 +8,8 @@ export interface User {
 
     // Profile
     phone?: string;
+    mobile?: string;
+    phone_extension?: string;
     title?: string;
     avatar_url?: string;
     department_id?: string;
@@ -46,7 +48,9 @@ export interface UserInput {
     password?: string; // Optional for updates
     role_ids: string[];
     phone?: string;
-    department_id?: string;
+    mobile?: string | null;
+    phone_extension?: string | null;
+    department_id?: string | null;
     role_hierarchy_id?: string;
     is_active?: boolean;
     max_leads_per_day?: number;

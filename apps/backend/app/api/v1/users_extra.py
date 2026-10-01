@@ -187,6 +187,8 @@ async def get_user_public_profile(
         "name": u.name,
         "email": u.email,
         "phone": getattr(u, "phone", None),
+        "mobile": getattr(u, "mobile", None),
+        "phone_extension": getattr(u, "phone_extension", None),
         "title": getattr(u, "title", None) or getattr(u, "designation", None),
         "avatar_url": getattr(u, "avatar_url", None),
         "role_hierarchy_name": getattr(u, "role_hierarchy_name", None),

@@ -59,7 +59,9 @@ async def get_users(
     role_id: Optional[str] = None,
     is_active: Optional[bool] = None,
     skip: int = 0,
-    limit: int = 100,
+    # The user list and the owner/assignee pickers call this without paging, so the
+    # default must cover a whole tenant (a few hundred users), not just the first 100.
+    limit: int = 1000,
     current_user: User = Depends(check_permission("view_user"))
 ):
     """Get all users with filters"""
