@@ -131,7 +131,7 @@ def split_destinations(destination: Optional[str]) -> List[str]:
 
 
 def crm_phone(raw: Optional[str], country: Optional[str]) -> Optional[str]:
-    """Shape a phone the way this CRM's lead form requires ("+<code> <10 digits>").
+    """Shape a phone the way this CRM's lead form requires ("+<code> <number>").
 
     Only unambiguous cases are converted: a value already in that shape, or an
     Indian visitor's 10-digit (or 91-prefixed 12-digit) number. Anything else

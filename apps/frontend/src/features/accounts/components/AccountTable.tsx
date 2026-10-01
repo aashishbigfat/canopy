@@ -841,7 +841,7 @@ export function AccountTable({
                 checklist={[
                     "Columns must match the downloaded sample — Name is required.",
                     "Account Type and Industry must exist as active picklists in Tutterfly.",
-                    "Phone format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                    "Phone format: +<country code> <number> (e.g. +91 9876543210); 10 digits for India.",
                 ]}
             />
         </div>

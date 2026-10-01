@@ -275,7 +275,7 @@ async def capture_website_lead(
         creation_type="auto",
         industry_data=industry_data,
     )
-    # LeadCreate drops numbers it cannot read as "+<code> <10 digits>". Keep the
+    # LeadCreate drops numbers it cannot read as "+<code> <number>". Keep the
     # value (formatted when unambiguous, otherwise as typed) instead of losing it.
     lead_data.phone = mapped["phone"]
     lead_data.mobile = mapped["mobile"]

@@ -1,13 +1,13 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import * as z from "zod";
 import { useRouter } from "next/navigation";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { usePicklist } from "@/hooks/use-picklist";
 import { useSession } from "next-auth/react";
-import { Paperclip, X } from "lucide-react";
+import { Paperclip, Plus, X } from "lucide-react";
 import { locationService, Country, State, City } from "@/lib/api/services/locations.service";
 
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,7 @@ import {
 import { customFieldsService } from "@/lib/api/services/field-registry.service";
 import { useUploadFile } from "@/features/files/api/use-files";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { PHONE_ERROR, PHONE_REGEX } from "@/lib/validation/inline-field-validation";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -43,6 +44,9 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 
+// Mirrors backend MAX_OTHER_PHONES (app/core/validators.py).
+const MAX_OTHER_PHONES = 5;
+
 const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
     name: isPersonAccount ? z.string().optional().or(z.literal("")) : z.string().min(2, "Name must be at least 2 characters.").max(255),
     salutation: z.string().optional(),
@@ -50,12 +54,18 @@ const getAccountFormSchema = (isPersonAccount: boolean) => z.object({
     last_name: isPersonAccount ? z.string().min(1, "Last Name is required") : z.string().optional(),
     date_of_birth: z.string().optional(),
     email: z.string().email("Invalid email address."),
-    phone: z.string().min(1, "Phone is required").refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-        message: "Please select a country code and enter exactly a 10-digit number."
+    phone: z.string().min(1, "Phone is required").refine(val => !val || PHONE_REGEX.test(val), {
+        message: PHONE_ERROR
     }),
-    mobile: z.string().optional().refine(val => !val || /^\+?\d{1,4}\s\d{10}$/.test(val), {
-        message: "Please select a country code and enter exactly a 10-digit number."
+    mobile: z.string().optional().refine(val => !val || PHONE_REGEX.test(val), {
+        message: PHONE_ERROR
     }),
+    // Extra numbers besides phone / mobile. Rows left blank are dropped on save.
+    other_phones: z.array(z.object({
+        value: z.string().refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR
+        }),
+    })).max(MAX_OTHER_PHONES),
     website: z
         .string()
         .trim()
@@ -447,6 +457,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             email: initialData?.email || "",
             phone: initialData?.phone || "",
             mobile: initialData?.mobile || "",
+            other_phones: (initialData?.other_phones || []).map((value: string) => ({ value })),
             website: initialData?.website || "",
             description: initialData?.description || "",
             industry_id: initialData?.industry_id || initialData?.industry || "",
@@ -465,6 +476,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
             owner_id: initialData?.owner_id || "",
         },
     });
+    const otherPhones = useFieldArray({ control: form.control, name: "other_phones" });
 
     useEffect(() => {
         const fetchMetaData = async () => {
@@ -541,6 +553,7 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                 is_person_account: isPersonAccount,
                 // Mobile is a person-account-only field; never persist it for B2B/company accounts.
                 mobile: isPersonAccount ? cleanedData.mobile : null,
+                other_phones: data.other_phones.map((p) => p.value).filter(Boolean),
                 // Same for date of birth.
                 date_of_birth: isPersonAccount ? cleanedData.date_of_birth : null,
                 ...(customFieldDefs.length > 0 && {
@@ -615,7 +628,8 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                 {/* Additional Information */}
                 <div>
                     <h3 className="text-lg font-medium mb-4">Additional Information</h3>
-                    <div className="grid gap-6 md:grid-cols-2">
+                    {/* items-start: a field next to a taller one keeps its label on its input */}
+                    <div className="grid gap-6 md:grid-cols-2 items-start">
                         {!isPersonAccount ? (
                             <FormField
                                 control={form.control}
@@ -772,6 +786,55 @@ export function AccountForm({ isPersonAccount = false, initialData, id, onSucces
                                 )}
                             />
                         )}
+
+                        {/* Other Phones — extra numbers besides phone / mobile */}
+                        <div className="flex flex-col space-y-2">
+                            <FormLabel>Other Phones</FormLabel>
+                            {otherPhones.fields.map((row, index) => (
+                                <FormField
+                                    key={row.id}
+                                    control={form.control}
+                                    name={`other_phones.${index}.value`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <div className="flex items-center gap-2">
+                                                <FormControl>
+                                                    <PhoneInput {...field} placeholder="Phone number" />
+                                                </FormControl>
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="h-9 w-9 shrink-0"
+                                                    aria-label="Remove phone"
+                                                    onClick={() => otherPhones.remove(index)}
+                                                >
+                                                    <X className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            ))}
+                            {otherPhones.fields.length < MAX_OTHER_PHONES && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-fit"
+                                    onClick={() => otherPhones.append({ value: "" })}
+                                >
+                                    <Plus className="mr-1 h-4 w-4" />
+                                    Add another phone
+                                </Button>
+                            )}
+                            {form.formState.errors.other_phones?.message && (
+                                <p className="text-sm font-medium text-destructive">
+                                    {form.formState.errors.other_phones.message}
+                                </p>
+                            )}
+                        </div>
 
                         {isPersonAccount && (
                             <FormField

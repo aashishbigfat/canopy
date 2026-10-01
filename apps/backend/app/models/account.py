@@ -13,6 +13,8 @@ class Account(BaseDocument):
     email: Optional[Indexed(EmailStr)] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
+    # Extra numbers besides phone / mobile, in the same "+<code> <number>" format.
+    other_phones: List[str] = Field(default_factory=list)
     website: Optional[str] = None
     description: Optional[str] = None
     is_person_account: bool = False

@@ -567,7 +567,7 @@ export function ContactTable({
                 checklist={[
                     "Columns must match the downloaded sample — First Name and Last Name are required.",
                     "Account Name must match an existing account — import your accounts first.",
-                    "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                    "Phone/Mobile format: +<country code> <number> (e.g. +91 9876543210); 10 digits for India.",
                 ]}
             />
         </div>

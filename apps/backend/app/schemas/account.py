@@ -4,7 +4,10 @@ Pydantic schemas for Account API requests and responses
 from pydantic import BaseModel, EmailStr, Field, HttpUrl, validator, BeforeValidator, model_validator
 from typing import Optional, Dict, List, Any, Annotated
 from datetime import datetime
-from app.core.validators import PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE, strict_phone_validator
+from app.core.validators import (
+    PHONE_REGEX, PHONE_REGEX_MESSAGE, ZIP_REGEX, ZIP_REGEX_MESSAGE,
+    strict_phone_validator, strict_phone_list_validator,
+)
 import re
 
 NUMERIC_ZIP_REGEX = r"^\d{3,10}$"
@@ -52,6 +55,8 @@ class AccountBase(BaseModel):
     email: EmailStr = Field(...)
     phone: Annotated[str, BeforeValidator(strict_phone_validator)] = Field(..., pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    # Extra numbers besides phone / mobile (company and person accounts).
+    other_phones: Annotated[List[str], BeforeValidator(strict_phone_list_validator)] = Field(default_factory=list)
     website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
     is_person_account: bool = False
@@ -108,9 +113,11 @@ class AccountUpdate(BaseModel):
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
     phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
+    # Omitted = leave unchanged; a list (even empty) replaces the stored numbers.
+    other_phones: Annotated[Optional[List[str]], BeforeValidator(strict_phone_list_validator)] = None
     website: Annotated[Optional[str], BeforeValidator(normalize_website)] = None
     description: Optional[str] = None
-    
+
     # Person Account specific fields
     salutation: Optional[str] = None
     first_name: Optional[str] = None
@@ -160,6 +167,7 @@ class AccountResponse(AccountBase):
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
+    other_phones: List[str] = Field(default_factory=list)
     billing_state: Optional[str] = None
     billing_country: Optional[str] = None
 

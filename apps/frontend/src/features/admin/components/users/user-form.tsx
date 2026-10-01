@@ -39,14 +39,13 @@ import { toast } from "sonner";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { locationService } from "@/lib/api/services/locations.service";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { PHONE_REGEX } from "@/lib/validation/inline-field-validation";
 
 
 
 // ---------------------------------------------------------------------------
 // Validation — mirrors backend validators.py
 // ---------------------------------------------------------------------------
-const PHONE_REGEX = /^\+?\d{1,4}\s\d{10}$/;
-
 const userFormSchema = z.object({
     first_name: z.string().min(2, "First name must be at least 2 characters.").max(50),
     last_name: z.string().min(1, "Last name is required.").max(50),

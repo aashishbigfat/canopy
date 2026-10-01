@@ -46,13 +46,11 @@ import { destinationsService, Destination } from "@/lib/api/services/destination
 import axios from "axios";
 import { Supplier } from "@/features/suppliers/types";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
+import { PHONE_ERROR, PHONE_REGEX } from "@/lib/validation/inline-field-validation";
 import { cn } from "@/lib/utils";
 import { Check, ChevronsUpDown, X, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useIndustry } from "@/lib/industry-labels";
-
-// More robust validation rules
-const leadPhoneRegex = /^\+?\d{1,4}\s\d{10}$/;
 
 const supplierFormSchema = z.object({
     name: z.string().min(2, "Name must be at least 2 characters."),
@@ -60,12 +58,12 @@ const supplierFormSchema = z.object({
     owner_id: z.string().optional(),
     contact_person_name: z.string().optional(),
     phone: z.string().min(1, "Phone is required.")
-        .refine(val => leadPhoneRegex.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     mobile: z.string().optional().or(z.literal(""))
-        .refine(val => !val || leadPhoneRegex.test(val), {
-            message: "Please select a country code and enter exactly a 10-digit number.",
+        .refine(val => !val || PHONE_REGEX.test(val), {
+            message: PHONE_ERROR,
         }),
     email: z.string().email({ message: "Invalid email address." }).optional().or(z.literal("")),
     services: z.array(z.string()).optional(),

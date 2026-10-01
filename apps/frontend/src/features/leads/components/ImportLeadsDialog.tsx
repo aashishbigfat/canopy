@@ -24,7 +24,7 @@ export function ImportLeadsDialog({ open, onOpenChange }: ImportLeadsDialogProps
             checklist={[
                 "Columns must match the downloaded sample — First Name and Last Name are required.",
                 "Lead Status, Source, Source Medium and Industry must exist as active picklists in Tutterfly.",
-                "Phone/Mobile format: +<country code> <10 digits> (e.g. +91 9876543210).",
+                "Phone/Mobile format: +<country code> <number> (e.g. +91 9876543210); 10 digits for India.",
                 "Travel Date accepts YYYY-MM-DD, DD-MM-YYYY or DD/MM/YYYY.",
             ]}
         />

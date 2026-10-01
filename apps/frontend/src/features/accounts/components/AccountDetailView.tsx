@@ -301,6 +301,12 @@ export function AccountDetailView({ account }: AccountDetailViewProps) {
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Phone</p>
                                                 <p className="text-sm font-medium text-foreground">{account.phone || "-"}</p>
                                             </div>
+                                            {!!account.other_phones?.length && (
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Other Phones</p>
+                                                    <p className="text-sm font-medium text-foreground">{account.other_phones.join(", ")}</p>
+                                                </div>
+                                            )}
 
                                             {isB2C && (
                                                 <>
