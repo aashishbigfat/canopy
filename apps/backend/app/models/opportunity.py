@@ -119,6 +119,7 @@ class Opportunity(BaseDocument):
             [("tenant_id", 1), ("sales_stage_id", 1)],
             [("tenant_id", 1), ("close_date", 1)],
             [("tenant_id", 1), ("account_id", 1)],
+            [("tenant_id", 1), ("contact_id", 1)],
             [("tenant_id", 1), ("opportunity_number", 1)],
         ]
 

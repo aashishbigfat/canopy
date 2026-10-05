@@ -28,11 +28,11 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select";
-import { SearchableSelect } from "@/components/ui/searchable-select";
+import { AsyncAccountSelect } from "@/features/views/AsyncAccountSelect";
 import { contactsService } from "@/lib/api/services/contacts.service";
 import { ErrorHandler, ErrorType } from "@/lib/error-handler";
 import { PHONE_ERROR, PHONE_REGEX } from "@/lib/validation/inline-field-validation";
-import { useEffect, useRef } from "react";
+import { useRef } from "react";
 import { cn } from "@/lib/utils";
 
 const contactFormSchema = z.object({
@@ -49,6 +49,7 @@ const contactFormSchema = z.object({
         message: PHONE_ERROR,
     }),
     title: z.string().optional(),
+    date_of_birth: z.string().optional(),
     account_id: z.string().min(1, { message: "Account is required." }),
     owner_id: z.string().optional(),
     // Mailing address
@@ -71,6 +72,7 @@ const defaultValues: Partial<ContactFormValues> = {
     phone: "",
     mobile: "",
     title: "",
+    date_of_birth: "",
     account_id: "",
     owner_id: "",
     mailing_street: "",
@@ -81,7 +83,7 @@ const defaultValues: Partial<ContactFormValues> = {
 };
 
 interface ContactFormProps {
-    initialData?: ContactFormValues & { owner_name?: string; owner?: { name?: string } };
+    initialData?: ContactFormValues & { owner_name?: string; owner?: { name?: string }; account_name?: string };
     id?: string;
     /** Name of the current account (for the info banner) */
     initialAccountName?: string;
@@ -94,7 +96,8 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
     const router = useRouter();
     const { data: session } = useSession();
     const [isLoading, setIsLoading] = useState(false);
-    const [accounts, setAccounts] = useState<{ id: string, name: string, website?: string }[]>([]);
+    // Name shown on the account picker; accounts are searched on the server as the user types
+    const [accountName, setAccountName] = useState(initialAccountName || initialData?.account_name || "");
     const { items: salutations } = usePicklist("salutation");
 
     // Track original account_id to detect changes
@@ -108,27 +111,20 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
 
     const form = useForm<ContactFormValues>({
         resolver: zodResolver(contactFormSchema),
-        defaultValues: { ...defaultValues, ...sanitizedInitial },
+        defaultValues: {
+            ...defaultValues,
+            ...sanitizedInitial,
+            // API returns an ISO datetime; the date input wants YYYY-MM-DD
+            date_of_birth: initialData?.date_of_birth ? String(initialData.date_of_birth).slice(0, 10) : "",
+        },
     });
 
     // Watch account_id to show info banner
     const watchedAccountId = form.watch("account_id");
     const accountChanged = !!id && watchedAccountId !== originalAccountId.current;
 
-    // Resolve display name of the new account for the banner
-    const newAccountName = accounts.find(a => a.id === watchedAccountId)?.name;
-
-    useEffect(() => {
-        const fetchMetaData = async () => {
-            try {
-                const data = await contactsService.getFormData();
-                setAccounts(data.accounts || []);
-            } catch (err) {
-                console.error("Error fetching contact form metadata", err);
-            }
-        };
-        fetchMetaData();
-    }, []);
+    // Display name of the new account for the banner
+    const newAccountName = accountChanged ? accountName : undefined;
 
     const handleBackendErrors = (error: any) => {
         if (error.type === ErrorType.VALIDATION && error.details?.detail) {
@@ -145,15 +141,17 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
         return false;
     };
 
-    async function onSubmit(data: ContactFormValues) {
+    async function onSubmit(values: ContactFormValues) {
         setIsLoading(true);
         const startTime = Date.now();
         let isSuccess = false;
+        // An empty date must go as null, not "" (the API expects a date or nothing).
+        const data = { ...values, date_of_birth: values.date_of_birth || null };
         try {
             await ErrorHandler.withErrorHandling(async () => {
                 try {
                     if (id) {
-                        await contactsService.updateContact(id, data);
+                        await contactsService.updateContact(id, data as any);
                         toast.success("Contact updated successfully");
                     } else {
                         await contactsService.createContact(data as any);
@@ -266,10 +264,14 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                                 <FormItem>
                                     <FormLabel>Account Name *</FormLabel>
                                     <FormControl>
-                                        <SearchableSelect
-                                            options={accounts.map(acc => ({ label: acc.name, value: acc.id }))}
+                                        <AsyncAccountSelect
                                             value={field.value || ""}
-                                            onValueChange={field.onChange}
+                                            label={accountName}
+                                            onSelect={(accountId, name) => {
+                                                field.onChange(accountId);
+                                                setAccountName(name);
+                                            }}
+                                            isPersonAccount={null}
                                             placeholder="Search Account"
                                         />
                                     </FormControl>
@@ -303,7 +305,19 @@ export function ContactForm({ initialData, id, initialAccountName, onSuccess, on
                                 </FormItem>
                             )}
                         />
-                        <div aria-hidden className="hidden md:block" />
+                        <FormField
+                            control={form.control}
+                            name="date_of_birth"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Date of Birth</FormLabel>
+                                    <FormControl>
+                                        <Input type="date" max={new Date().toISOString().slice(0, 10)} {...field} value={field.value ?? ""} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
                         <FormField
                             control={form.control}
                             name="phone"

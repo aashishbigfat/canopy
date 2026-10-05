@@ -7,6 +7,7 @@ export interface Contact {
     middle_name?: string;
     last_name: string;
     full_name: string; // Calculated field from backend
+    date_of_birth?: string | null;
 
     email?: string;
     phone?: string;
@@ -56,6 +57,7 @@ export interface ContactCreateData {
     phone?: string;
     mobile?: string;
     title?: string;
+    date_of_birth?: string | null;
     account_id?: string;
     // ... other optional fields
 }

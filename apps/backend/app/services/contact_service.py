@@ -302,6 +302,7 @@ class ContactService(ActivityMixin):
             "first_name": contact.first_name,
             "middle_name": contact.middle_name,
             "last_name": contact.last_name,
+            "date_of_birth": contact.date_of_birth,
             "full_name": contact.full_name,
             "email": contact.email,
             "phone": contact.phone,
