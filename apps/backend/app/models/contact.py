@@ -16,7 +16,8 @@ class Contact(BaseDocument):
     first_name: str
     middle_name: Optional[str] = None
     last_name: str
-    
+    date_of_birth: Optional[datetime] = None
+
     # Contact Information
     email: Optional[Indexed(EmailStr)] = None
     phone: Optional[str] = None

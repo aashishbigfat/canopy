@@ -31,7 +31,8 @@ export function AsyncAccountSelect({
   value?: string;
   label?: string;
   onSelect: (id: string, name: string) => void;
-  isPersonAccount?: boolean;
+  /** null searches company and person accounts alike */
+  isPersonAccount?: boolean | null;
   placeholder?: string;
 }) {
   const [open, setOpen] = React.useState(false);

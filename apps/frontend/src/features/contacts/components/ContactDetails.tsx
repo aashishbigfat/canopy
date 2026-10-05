@@ -39,7 +39,7 @@ import { contactsService } from "@/lib/api/services/contacts.service";
 import { ContactFormDrawer } from "./ContactFormDrawer";
 import { OpportunityFormDrawer } from "@/features/opportunities/components/OpportunityFormDrawer";
 import { toast } from "sonner";
-import { formatDateTime } from "@/lib/format";
+import { formatDate, formatDateTime } from "@/lib/format";
 import { FileUploader } from "@/features/files/components/file-uploader";
 import { FileList } from "@/features/files/components/file-list";
 
@@ -215,6 +215,10 @@ export function ContactDetails({ contact }: ContactDetailsProps) {
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Title</p>
                                                 <p className="text-sm font-medium text-foreground">{contact.title || "-"}</p>
+                                            </div>
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Date of Birth</p>
+                                                <p className="text-sm font-medium text-foreground">{formatDate(contact.date_of_birth)}</p>
                                             </div>
                                             <div className="space-y-1">
                                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Account Name</p>

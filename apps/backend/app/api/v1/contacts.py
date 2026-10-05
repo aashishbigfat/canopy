@@ -32,6 +32,7 @@ def contact_to_response(contact: Contact) -> ContactResponse:
         first_name=contact.first_name,
         middle_name=contact.middle_name,
         last_name=contact.last_name,
+        date_of_birth=contact.date_of_birth,
         email=contact.email,
         phone=contact.phone,
         mobile=contact.mobile,
@@ -70,21 +71,17 @@ def contact_to_response(contact: Contact) -> ContactResponse:
 
 @router.get("/form-data")
 async def get_contact_form_data(current_user: User = Depends(get_current_user)):
-    """Get metadata for contact creation/editing forms"""
-    from app.models.account import Account
-    
-    accounts = await Account.find({
-        "tenant_id": current_user.tenant_id,
-        "deleted_at": None
-    }).sort("+name").to_list()
-    
+    """Get metadata for contact creation/editing forms.
+
+    Accounts are not listed here: a tenant can hold hundreds of thousands, so the
+    form searches them as the user types (GET /accounts/search-account).
+    """
     users = await User.find({
         "tenant_id": current_user.tenant_id,
         "is_active": True
     }).sort("+name").to_list()
-    
+
     return {
-        "accounts": [{"id": str(a.id), "name": a.name} for a in accounts],
         "users": [{"id": str(u.id), "name": u.name} for u in users]
     }
 

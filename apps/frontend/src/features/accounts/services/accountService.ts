@@ -41,10 +41,10 @@ export const accountService = {
     // load thousands of rows into a dropdown.
     autocompleteAccounts: async (
         s: string,
-        isPersonAccount = false,
+        isPersonAccount: boolean | null = false,
     ): Promise<{ id: string; name: string }[]> => {
         const { data } = await apiClient.get(`${BASE_URL}/search-account`, {
-            params: { s, is_person_account: isPersonAccount },
+            params: isPersonAccount === null ? { s } : { s, is_person_account: isPersonAccount },
         });
         return (data?.accounts || []).map((a: any) => ({ id: a.id, name: a.name }));
     },

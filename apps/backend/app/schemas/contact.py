@@ -32,7 +32,8 @@ class ContactBase(BaseModel):
     first_name: str = Field(..., min_length=2, max_length=100)
     middle_name: Optional[str] = None
     last_name: str = Field(..., min_length=2, max_length=100)
-    
+    date_of_birth: Optional[datetime] = None
+
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
     phone: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     mobile: Annotated[Optional[str], BeforeValidator(safe_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
@@ -77,7 +78,8 @@ class ContactUpdate(BaseModel):
     first_name: Optional[str] = Field(None, max_length=100)
     middle_name: Optional[str] = None
     last_name: Optional[str] = Field(None, min_length=2, max_length=100)
-    
+    date_of_birth: Optional[datetime] = None
+
     email: Annotated[Optional[EmailStr], BeforeValidator(lambda v: v if v else None)] = None
     phone: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)
     mobile: Annotated[Optional[str], BeforeValidator(strict_phone_validator)] = Field(None, pattern=PHONE_REGEX, description=PHONE_REGEX_MESSAGE)

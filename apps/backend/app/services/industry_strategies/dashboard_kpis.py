@@ -18,6 +18,10 @@ from typing import Any, Dict, Protocol
 
 _logger = logging.getLogger(__name__)
 
+# Trips longer than this many nights are not counted as checkouts; it keeps the
+# scan to the travel dates of the last year (index on tenant + travel_date).
+_MAX_NIGHTS = 366
+
 
 class IndustryDashboardKPIs(Protocol):
     """Compute industry-specific KPI fields to merge into the dashboard response."""
@@ -73,32 +77,34 @@ class TravelDashboardKPIs:
         }
         tomorrow_departures = await Opportunity.find(tomorrow_dep_query).count()
 
-        # Today's checkouts — must compute in-app because checkout date is
-        # (travel_date + no_of_nights) and Mongo can't do that arithmetic on
-        # a string field without an aggregation pipeline.
+        # Today's checkouts — checkout date is (travel_date + no_of_nights).
+        # PERF: the database does the date arithmetic in an aggregation, so the
+        # app never loads every opportunity of the tenant into memory. Only the
+        # day part of travel_date counts (stored as an ISO string, or a date).
         today_checkout = 0
         try:
-            checkout_candidates = await Opportunity.find(
-                {**base_query, "industry_data.travel_date": {"$exists": True}}
-            ).to_list()
-            for opp in checkout_candidates:
-                industry_data = opp.industry_data or {}
-                td = industry_data.get("travel_date")
-                nights = industry_data.get("no_of_nights", 0) or 0
-                if not td or not nights:
-                    continue
-                try:
-                    if isinstance(td, str):
-                        td_dt = datetime.fromisoformat(td.replace("Z", "+00:00")).replace(tzinfo=None)
-                    elif isinstance(td, datetime):
-                        td_dt = td
-                    else:
-                        continue
-                    checkout_dt = td_dt + timedelta(days=int(nights))
-                    if today_start <= checkout_dt < today_end:
-                        today_checkout += 1
-                except (ValueError, TypeError):
-                    continue
+            window_start = today_start - timedelta(days=_MAX_NIGHTS)
+            travel_day = {"$dateFromString": {
+                "dateString": {"$cond": [
+                    {"$eq": [{"$type": "$industry_data.travel_date"}, "date"]},
+                    {"$dateToString": {"date": "$industry_data.travel_date", "format": "%Y-%m-%d"}},
+                    {"$substrCP": [{"$toString": "$industry_data.travel_date"}, 0, 10]},
+                ]},
+                "format": "%Y-%m-%d", "onError": None, "onNull": None,
+            }}
+            nights = {"$convert": {"input": "$industry_data.no_of_nights", "to": "long", "onError": 0, "onNull": 0}}
+            rows = await Opportunity.aggregate([
+                {"$match": {"$or": [
+                    {**base_query, "industry_data.travel_date": {"$gte": window_start.isoformat(), "$lt": today_end.isoformat()}},
+                    {**base_query, "industry_data.travel_date": {"$gte": window_start, "$lt": today_end}},
+                ]}},
+                {"$project": {"_id": 0, "day": travel_day, "nights": nights}},
+                {"$match": {"nights": {"$gte": 1, "$lte": _MAX_NIGHTS}}},
+                {"$project": {"checkout": {"$add": ["$day", {"$multiply": ["$nights", 86400000]}]}}},
+                {"$match": {"checkout": {"$gte": today_start, "$lt": today_end}}},
+                {"$count": "n"},
+            ]).to_list()
+            today_checkout = rows[0]["n"] if rows else 0
         except Exception:  # noqa: BLE001
             _logger.warning("travel today_checkout computation failed", exc_info=True)
 
