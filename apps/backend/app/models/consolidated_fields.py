@@ -40,8 +40,9 @@ class BaseField(Document):
     is_hidden: bool = False
     is_custom: bool = True
     
-    # For select/multiselect fields
-    options: Optional[List[Dict[str, Any]]] = None
+    # For select/multiselect fields: the option texts, as the field-registry
+    # schemas (List[str]) and the forms send, store and render them
+    options: Optional[List[str]] = None
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
